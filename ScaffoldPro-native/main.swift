@@ -1623,6 +1623,8 @@ final class JSONStore<T: Codable> {
         // or power cut mid-save can never leave a half-written database
         // file behind (section 48).
         try? data.write(to: fileURL, options: .atomic)
+        // Lets the automatic iCloud backup know there's something new.
+        NotificationCenter.default.post(name: CloudBackupManager.dataSaved, object: nil)
     }
 
     func insert(_ item: T) {
@@ -5841,6 +5843,12 @@ final class BackupManager {
         guard fm.fileExists(atPath: dbSource.path) else {
             throw BackupError(message: "This backup is incomplete — its Database folder is missing.")
         }
+        // A backup in iCloud Drive may have files that are only in iCloud
+        // (shown as ".name.icloud" here); restoring then would miss them.
+        if let walker = fm.enumerator(at: backupFolder, includingPropertiesForKeys: nil),
+           walker.contains(where: { (($0 as? URL)?.lastPathComponent ?? "").hasSuffix(".icloud") }) {
+            throw BackupError(message: "Some files in this backup are still only in iCloud. In Finder, Control-click the backup folder, choose “Download Now”, wait until it has finished, then restore again.")
+        }
         let resolved = backupFolder.resolvingSymlinksInPath().path
         for live in [storage.projectsRoot, storage.administrationRoot] {
             if resolved.hasPrefix(live.resolvingSymlinksInPath().path + "/") {
@@ -5892,6 +5900,276 @@ final class BackupManager {
 }
 
 // =====================================================================
+// MARK: - Automatic iCloud backup
+//
+// Keeps an up-to-date copy of everything in a shared iCloud Drive folder —
+// by default iCloud Drive/Proficiency/William's Work — so the work is off
+// this Mac and shared with Proficiency:
+//
+//   William's Work/ScaffoldPro Backup/
+//   ├── Database/          the *.json stores, always current
+//   ├── Projects/          project folders (drawings, PDFs, Word copies)
+//   ├── Administration/    worker and company documents
+//   ├── Configuration/     manifest.json + README — the same layout as a
+//   │                      backup, so "Restore from Folder…" can restore it
+//   └── Database History/  the database as it was each day (last 30 days)
+//
+// Only files that changed are copied. It runs about a minute after
+// anything is saved, every 15 minutes, and when the app opens. Nothing is
+// ever deleted from the iCloud copy, so a mistake in the app can't wipe it.
+// Its settings are kept per Mac (UserDefaults), not in the database.
+// =====================================================================
+
+struct CloudBackupStatus: Codable {
+    var enabled: Bool
+    /// The "William's Work" folder (the copy goes in "ScaffoldPro Backup" inside it).
+    var folder: String
+    /// e.g. "iCloud Drive › Proficiency › William's Work"
+    var folderDisplay: String
+    var usingDefault: Bool
+    var lastBackupAt: String?
+    var lastFilesCopied: Int?
+    var lastError: String?
+    var running: Bool
+}
+
+final class CloudBackupManager {
+    /// Posted by every database save.
+    static let dataSaved = Notification.Name("ScaffoldPro.dataSaved")
+    static let backupFolderName = "ScaffoldPro Backup"
+    static let historyDays = 30
+
+    private let db: AppDatabase
+    private let storage: FileStorage
+    private let queue = DispatchQueue(label: "ScaffoldPro.cloudBackup", qos: .utility)
+    private let defaults = UserDefaults.standard
+    private var timer: Timer?
+    private var pending: DispatchWorkItem?
+    /// Set while a restore swaps the data in (main thread).
+    var paused = false
+    /// A backup is being copied (main thread).
+    private(set) var running = false
+
+    private enum Key {
+        static let enabled = "cloudBackup.enabled"
+        static let folder = "cloudBackup.folder"
+        static let lastBackup = "cloudBackup.lastBackupAt"
+        static let lastCopied = "cloudBackup.lastFilesCopied"
+        static let lastError = "cloudBackup.lastError"
+    }
+
+    init(db: AppDatabase, storage: FileStorage) {
+        self.db = db
+        self.storage = storage
+    }
+
+    /// ~/Library/Mobile Documents/com~apple~CloudDocs — "iCloud Drive" in Finder.
+    static var iCloudDrive: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
+    }
+
+    static var defaultFolder: URL {
+        iCloudDrive.appendingPathComponent("Proficiency", isDirectory: true).appendingPathComponent("William's Work", isDirectory: true)
+    }
+
+    var enabled: Bool {
+        get { defaults.object(forKey: Key.enabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.enabled) }
+    }
+
+    var usingDefault: Bool { defaults.string(forKey: Key.folder) == nil }
+
+    var folder: URL {
+        defaults.string(forKey: Key.folder).map { URL(fileURLWithPath: $0, isDirectory: true) } ?? CloudBackupManager.defaultFolder
+    }
+
+    func setFolder(_ url: URL?) {
+        if let url = url { defaults.set(url.path, forKey: Key.folder) } else { defaults.removeObject(forKey: Key.folder) }
+    }
+
+    func status() -> CloudBackupStatus {
+        let drive = CloudBackupManager.iCloudDrive.path
+        let path = folder.path
+        let display = path.hasPrefix(drive + "/")
+            ? (["iCloud Drive"] + path.dropFirst(drive.count + 1).split(separator: "/").map(String.init)).joined(separator: " › ")
+            : path
+        let last = defaults.object(forKey: Key.lastBackup) as? Double
+        return CloudBackupStatus(
+            enabled: enabled, folder: path, folderDisplay: display, usingDefault: usingDefault,
+            lastBackupAt: last.map { ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: $0)) },
+            lastFilesCopied: defaults.object(forKey: Key.lastCopied) as? Int,
+            lastError: defaults.string(forKey: Key.lastError), running: running)
+    }
+
+    /// Starts the automatic schedule (main thread).
+    func start() {
+        NotificationCenter.default.addObserver(forName: CloudBackupManager.dataSaved, object: nil, queue: .main) { [weak self] _ in
+            self?.schedule(after: 60)
+        }
+        timer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.backUpNow() }
+        schedule(after: 20)
+    }
+
+    /// Backs up after a quiet spell, so a burst of saves makes one backup.
+    func schedule(after seconds: TimeInterval) {
+        pending?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.backUpNow() }
+        pending = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
+    /// Copies what changed (main thread; the copying runs in the background).
+    func backUpNow(completion: ((CloudBackupStatus) -> Void)? = nil) {
+        guard enabled, !paused, !running else { completion?(status()); return }
+        running = true
+        let target = folder
+        let startedAt = Date()
+        let since = (defaults.object(forKey: Key.lastBackup) as? Double).map { Date(timeIntervalSince1970: $0) }
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            let result: Result<Int, BackupError>
+            do {
+                result = .success(try self.copyChanges(into: target, since: since))
+            } catch let e as BackupError {
+                result = .failure(e)
+            } catch {
+                result = .failure(BackupError(message: error.localizedDescription))
+            }
+            DispatchQueue.main.async {
+                self.running = false
+                switch result {
+                case .success(let copied):
+                    self.defaults.set(startedAt.timeIntervalSince1970, forKey: Key.lastBackup)
+                    self.defaults.set(copied, forKey: Key.lastCopied)
+                    self.defaults.removeObject(forKey: Key.lastError)
+                case .failure(let e):
+                    self.defaults.set(e.message, forKey: Key.lastError)
+                }
+                completion?(self.status())
+            }
+        }
+    }
+
+    // MARK: copying (background queue)
+
+    private func copyChanges(into target: URL, since: Date?) throws -> Int {
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: target.path) {
+            let parent = target.deletingLastPathComponent()
+            guard fm.fileExists(atPath: parent.path) else {
+                throw BackupError(message: "The “\(parent.lastPathComponent)” folder wasn't found in iCloud Drive. Check that iCloud Drive is on and the shared “\(parent.lastPathComponent)” folder has been accepted (it shows in Finder under iCloud Drive), or choose the folder here.")
+            }
+            try fm.createDirectory(at: target, withIntermediateDirectories: true)
+        }
+        let root = target.appendingPathComponent(CloudBackupManager.backupFolderName, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+
+        var totals = (copied: 0, files: 0, bytes: Int64(0), failed: [String]())
+        func mirror(_ source: URL, _ name: String) {
+            guard fm.fileExists(atPath: source.path) else { return }
+            let r = mirrorFolder(source, to: root.appendingPathComponent(name, isDirectory: true), since: since)
+            totals.copied += r.copied
+            totals.files += r.files
+            totals.bytes += r.bytes
+            totals.failed += r.failed
+        }
+        mirror(db.dataDir, "Database")
+        mirror(storage.projectsRoot, "Projects")
+        mirror(storage.administrationRoot, "Administration")
+
+        // The manifest makes the copy restorable with "Restore from Folder…".
+        let projectCount = ((try? fm.contentsOfDirectory(atPath: storage.projectsRoot.path)) ?? []).filter { !$0.hasPrefix(".") }.count
+        let manifest = BackupManifest(app: "ScaffoldPro", formatVersion: 1, createdAt: nowISO(), kind: "iCloud",
+                                      sourceAppRoot: storage.appRoot.path, projectCount: projectCount,
+                                      fileCount: totals.files, totalBytes: totals.bytes)
+        let config = root.appendingPathComponent("Configuration", isDirectory: true)
+        try fm.createDirectory(at: config, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(manifest).write(to: config.appendingPathComponent("manifest.json"), options: .atomic)
+        let readme = """
+        ScaffoldPro — automatic iCloud backup, kept up to date by the app.
+
+          Database/          clients, projects, price lists, BOQs, quotations,
+                             invoices, delivery notes, workers, settings
+          Projects/          every project folder, with drawings, PDFs and Word copies
+          Administration/    worker and company documents
+          Database History/  the database as it was each day (last \(CloudBackupManager.historyDays) days)
+
+        To restore it: ScaffoldPro → Settings → Backup & Restore →
+        "Restore from Folder…" and choose this "\(CloudBackupManager.backupFolderName)" folder.
+        Files deleted in the app are kept here; nothing is removed from this copy.
+        """
+        try Data(readme.utf8).write(to: config.appendingPathComponent("README.txt"), options: .atomic)
+
+        // A dated copy of the database once a day; the oldest are removed.
+        let history = root.appendingPathComponent("Database History", isDirectory: true)
+        try fm.createDirectory(at: history, withIntermediateDirectories: true)
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        let today = history.appendingPathComponent(f.string(from: Date()), isDirectory: true)
+        if !fm.fileExists(atPath: today.path) { try? fm.copyItem(at: db.dataDir, to: today) }
+        let days = ((try? fm.contentsOfDirectory(atPath: history.path)) ?? []).filter { !$0.hasPrefix(".") }.sorted()
+        for old in days.dropLast(CloudBackupManager.historyDays) {
+            try? fm.removeItem(at: history.appendingPathComponent(old, isDirectory: true))
+        }
+
+        if !totals.failed.isEmpty {
+            throw BackupError(message: "\(totals.failed.count) file\(totals.failed.count == 1 ? "" : "s") couldn't be copied to iCloud, e.g. \(totals.failed[0]). The rest are backed up; it will try again.")
+        }
+        return totals.copied
+    }
+
+    /// Copies every file in `source` that's new or changed since `since`
+    /// (or differs in size) into `destination`, keeping the folder layout.
+    /// Nothing in `destination` is deleted. Files iCloud has moved off this
+    /// Mac to save space (".name.icloud") count as there.
+    private func mirrorFolder(_ source: URL, to destination: URL, since: Date?) -> (copied: Int, files: Int, bytes: Int64, failed: [String]) {
+        let fm = FileManager.default
+        var result = (copied: 0, files: 0, bytes: Int64(0), failed: [String]())
+        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
+        guard let walker = fm.enumerator(at: source, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { return result }
+        let base = source.standardizedFileURL.pathComponents.count
+        for case let url as URL in walker {
+            guard let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true else { continue }
+            let relative = url.standardizedFileURL.pathComponents.dropFirst(base)
+            guard !relative.isEmpty else { continue }
+            result.files += 1
+            result.bytes += Int64(values.fileSize ?? 0)
+            let out = relative.reduce(destination) { $0.appendingPathComponent($1) }
+            let changed = since.map { (values.contentModificationDate ?? .distantFuture) > $0 } ?? true
+            let needsCopy: Bool
+            if fm.fileExists(atPath: out.path) {
+                let size = (try? out.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+                needsCopy = changed || size != values.fileSize
+            } else if fm.fileExists(atPath: out.deletingLastPathComponent().appendingPathComponent(".\(out.lastPathComponent).icloud").path) {
+                needsCopy = changed
+            } else {
+                needsCopy = true
+            }
+            guard needsCopy else { continue }
+            do {
+                try fm.createDirectory(at: out.deletingLastPathComponent(), withIntermediateDirectories: true)
+                let temp = out.deletingLastPathComponent().appendingPathComponent(".\(out.lastPathComponent).scaffoldpro-copy")
+                try? fm.removeItem(at: temp)
+                try fm.copyItem(at: url, to: temp)
+                if fm.fileExists(atPath: out.path) {
+                    _ = try fm.replaceItemAt(out, withItemAt: temp)
+                } else {
+                    try fm.moveItem(at: temp, to: out)
+                }
+                result.copied += 1
+            } catch {
+                result.failed.append("\(relative.joined(separator: "/")) (\(error.localizedDescription))")
+            }
+        }
+        return result
+    }
+}
+
+// =====================================================================
 // MARK: - Native bridge (replaces main.js's ipcMain handlers)
 // =====================================================================
 
@@ -5901,6 +6179,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     let db: AppDatabase
     let storage: FileStorage
     let backups: BackupManager
+    let cloudBackup: CloudBackupManager
     /// Only one backup or restore may run at a time.
     private var backupInProgress = false
     /// A parsed-but-not-yet-applied price import, keyed by the preview's
@@ -5911,6 +6190,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         self.db = db
         self.storage = storage
         self.backups = BackupManager(db: db, storage: storage)
+        self.cloudBackup = CloudBackupManager(db: db, storage: storage)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -6491,6 +6771,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 backupsFolder: storage.backupsRoot.path,
                 databaseFolder: db.dataDir.path
             ))
+        case "cloudBackup:status":
+            respond(id: id, encodable: cloudBackup.status())
+        case "cloudBackup:setEnabled":
+            cloudBackup.enabled = (payload["enabled"] as? Bool) ?? true
+            if cloudBackup.enabled { cloudBackup.schedule(after: 1) }
+            respond(id: id, encodable: cloudBackup.status())
+        case "cloudBackup:backUpNow":
+            cloudBackup.backUpNow { [weak self] status in self?.respond(id: id, encodable: status) }
+        case "cloudBackup:useDefaultFolder":
+            cloudBackup.setFolder(nil)
+            cloudBackup.schedule(after: 1)
+            respond(id: id, encodable: cloudBackup.status())
+        case "cloudBackup:chooseFolder":
+            handleChooseCloudFolder(id: id)
+        case "cloudBackup:reveal":
+            let copy = cloudBackup.folder.appendingPathComponent(CloudBackupManager.backupFolderName, isDirectory: true)
+            let fm = FileManager.default
+            let target = [copy, cloudBackup.folder, CloudBackupManager.iCloudDrive].first { fm.fileExists(atPath: $0.path) }
+            if let target = target { storage.revealInFinder(target) }
+            respond(id: id, encodable: SimpleResult(ok: target != nil, error: target == nil ? "iCloud Drive wasn't found on this Mac." : nil))
         case "backup:create":
             handleCreateBackup(id: id)
         case "backup:restore":
@@ -7700,6 +8000,30 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Copying a few gigabytes of drawings must not freeze the window
     /// (section 55), so the work runs on a background queue and only the
     /// reply to the page hops back to the main thread.
+    /// Picks the folder for the automatic iCloud backup (starting in
+    /// iCloud Drive), then backs up into it straight away.
+    private func handleChooseCloudFolder(id: String) {
+        guard let window = window else { respondNull(id: id); return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = FileManager.default.fileExists(atPath: CloudBackupManager.defaultFolder.path)
+            ? CloudBackupManager.defaultFolder : CloudBackupManager.iCloudDrive
+        panel.prompt = "Use This Folder"
+        panel.message = "Choose the folder to keep the automatic backup in, e.g. iCloud Drive › Proficiency › William's Work."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, let url = panel.url else {
+                self.respond(id: id, encodable: self.cloudBackup.status())
+                return
+            }
+            self.cloudBackup.setFolder(url)
+            self.cloudBackup.backUpNow { status in self.respond(id: id, encodable: status) }
+        }
+    }
+
     private func handleCreateBackup(id: String) {
         guard !backupInProgress else {
             respond(id: id, encodable: BackupResult(ok: false, error: "A backup or restore is already running.", backup: nil, safetyBackup: nil))
@@ -7730,6 +8054,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         backupInProgress = true
+        cloudBackup.paused = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             let result: BackupResult
@@ -7747,6 +8072,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             DispatchQueue.main.async {
                 self.backupInProgress = false
+                self.cloudBackup.paused = false
+                self.cloudBackup.schedule(after: 5)
                 self.respond(id: id, encodable: result)
             }
         }
@@ -7915,6 +8242,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         registerBundledFonts()
         setupDataLayer()
         setupWindow()
+        // Keep the shared iCloud copy up to date from now on.
+        bridge.cloudBackup.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -199,6 +199,15 @@
     files: {
       saveWord: (input) => callNative('files:saveWord', input),
     },
+    // Automatic backup into the shared iCloud folder (Proficiency › William's Work).
+    cloudBackup: {
+      status: () => callNative('cloudBackup:status'),
+      setEnabled: (enabled) => callNative('cloudBackup:setEnabled', { enabled: !!enabled }),
+      backUpNow: () => callNative('cloudBackup:backUpNow'),
+      chooseFolder: () => callNative('cloudBackup:chooseFolder'),
+      useDefaultFolder: () => callNative('cloudBackup:useDefaultFolder'),
+      reveal: () => callNative('cloudBackup:reveal'),
+    },
     backup: {
       list: () => callNative('backup:list'),
       locations: () => callNative('backup:locations'),

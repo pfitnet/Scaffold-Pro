@@ -23,6 +23,11 @@
     .saved-note { font-size:12px; color: var(--text-secondary); }
     .backup-actions { display:flex; gap:8px; align-items:center; margin: 14px 0 12px; }
     .backup-status { font-size:12px; color: var(--text-secondary); }
+    .cloud-backup { margin-top: 24px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
+    .cloud-backup h3 { margin: 0 0 6px; }
+    .cloud-row { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; font-size: 13px; }
+    .cloud-label { width: 56px; color: var(--text-secondary); font-size: 12px; }
+    #cloud-status.error { color: var(--danger, #c0392b); }
     .location-grid { display:grid; grid-template-columns: 130px 1fr; gap: 6px 12px; max-width: 780px; font-size: 13px; }
     .location-label { color: var(--text-secondary); }
     .location-path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
@@ -121,6 +126,20 @@
     </div>
 
     <div id="backup-list"></div>
+
+    <div class="cloud-backup" id="cloud-backup">
+      <h3>Automatic iCloud Backup</h3>
+      <p class="small-note">Keeps an up-to-date copy of everything — the database, every project folder and all worker and company documents — in the shared iCloud Drive folder <b>Proficiency › William's Work</b>, in a folder called “ScaffoldPro Backup”. It updates itself about a minute after anything is saved, every 15 minutes, and when ScaffoldPro opens; only files that changed are copied. A copy of the database is also kept for each of the last 30 days. Nothing is ever deleted from the iCloud copy. To restore from it, use <b>Restore from Folder…</b> above and choose its “ScaffoldPro Backup” folder.</p>
+      <label class="inline-check"><input type="checkbox" id="cloud-enabled" /> Back up to iCloud automatically</label>
+      <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="cloud-folder">—</span></div>
+      <div class="cloud-row"><span class="cloud-label">Status</span><span id="cloud-status">—</span></div>
+      <div class="backup-actions">
+        <button id="cloud-now-btn">Back Up Now</button>
+        <button id="cloud-choose-btn">Choose Folder…</button>
+        <button id="cloud-default-btn">Use Proficiency › William's Work</button>
+        <button id="cloud-reveal-btn">Show in Finder</button>
+      </div>
+    </div>
 
     <h2 style="margin-top:36px;">Data Location</h2>
     <div class="location-grid">
