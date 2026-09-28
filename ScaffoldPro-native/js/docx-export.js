@@ -203,12 +203,14 @@
 
     const blockLines = Math.max(1 + d.clientLines.length, d.refRows.reduce((a, r) => a + (r.wraps ? 2 : 1), 0), 1);
     let prevLine = pitch;
-    let titleGap = 40.5;
+    // Extra space above and below the title, as on the PDF (titlePadding).
+    const TITLE_PADDING = 6.0;
+    let titleGap = 40.5 + TITLE_PADDING;
     if (d.deliveryMethod) {
       out.push(para(run(d.deliveryMethod, { bold: true, size: 13, underline: true }),
         { line: 19.5, before: gapBefore(19.5, prevLine, 19.5), align: 'right', tabs: [] }));
       prevLine = 19.5;
-      titleGap = 21.0;
+      titleGap = 21.0 + TITLE_PADDING;
     }
     const center = L.pageWidth / 2 - L.textLeft;
     const titleRuns = run('\t') + run(d.title, { bold: true, size: 15, underline: true }) +
@@ -216,7 +218,7 @@
     out.push(para(titleRuns, { line: 18, before: gapBefore(titleGap, prevLine, 18),
       tabs: [{ val: 'center', pos: center }, { val: 'right', pos: L.textRight - L.textLeft }] }));
     prevLine = 18;
-    let gap = 18.0;
+    let gap = 18.0 + TITLE_PADDING;
     const bodyLine = 16.5;
     const add = (runs) => {
       out.push(para(runs, { line: bodyLine, before: gapBefore(gap, prevLine, bodyLine) }));

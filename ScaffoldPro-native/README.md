@@ -775,3 +775,10 @@ under "Letterhead layout".
   names the ones that failed.
 - Replacing or re-linking a file, choosing a price-list file and restoring a
   backup still take one item, as they only make sense for one.
+
+## Batch 29 — more space around the document title
+- On every document (quotation, BOQ, invoice, delivery note) there is 6pt more
+  space above and below the title ("QUOTATION", "BILL OF QUANTITIES", …), in
+  the PDF and the Word copy alike (`PDFGenerator.titlePadding`,
+  `TITLE_PADDING` in `js/docx-export.js`). 6pt keeps a full Qt26193-sized
+  quotation on one page; 8pt pushed its last row onto page 2.

@@ -4796,6 +4796,11 @@ final class PDFGenerator {
 
     // MARK: opening (client, references, title, "Re:")
 
+    /// Extra space above and below the title ("QUOTATION", "BILL OF
+    /// QUANTITIES", …), on top of the original's spacing.
+    static let titlePadding: CGFloat = 6.0
+    private var titlePadding: CGFloat { PDFGenerator.titlePadding }
+
     private func drawOpening(_ doc: LetterDocument) {
         let blockLeft = 47.75 + dx
         let firstBaseline: CGFloat = 104.25
@@ -4833,9 +4838,9 @@ final class PDFGenerator {
         if let method = doc.deliveryMethod, !method.isEmpty {
             baseline += 19.5
             text(method, x: 550.5 + dx, baseline: baseline, font: body(13, bold: true), align: .right, underline: true)
-            baseline += 21.0
+            baseline += 21.0 + titlePadding
         } else {
-            baseline += 40.5
+            baseline += 40.5 + titlePadding
         }
 
         text(doc.title, x: pageWidth / 2, baseline: baseline, font: body(15, bold: true), align: .center, underline: true)
@@ -4843,7 +4848,7 @@ final class PDFGenerator {
             text(doc.status.uppercased(), x: textRight, baseline: baseline, font: body(11, bold: true), color: LetterheadColor.grey, align: .right)
         }
         var last = baseline
-        var next = baseline + 18.0
+        var next = baseline + 18.0 + titlePadding
         if let salutation = doc.salutation, !salutation.isEmpty {
             text(salutation, x: textLeft, baseline: next, font: body(11))
             last = next
