@@ -764,3 +764,14 @@ under "Letterhead layout".
 - Checked without a Mac using `tools/pdf-preview/word.py`. It builds the sample
   documents as .docx and renders them with LibreOffice for side-by-side
   comparison with the PDF preview.
+
+## Batch 28 — choose several files at once when uploading
+- **Upload Drawings…** (project Drawings tab, and the Drawings panel in BOQ and
+  quotation editors), **Upload Documents…** (project Documents), and the worker
+  and admin document **Upload…** buttons all let you choose several files in
+  one go (⌘-click or Shift-click in the file window). Each file is copied in
+  with the same category, link and expiry date chosen on the page.
+- If some files can't be copied, the others are still added, and a message
+  names the ones that failed.
+- Replacing or re-linking a file, choosing a price-list file and restoring a
+  backup still take one item, as they only make sense for one.

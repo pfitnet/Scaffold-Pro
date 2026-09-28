@@ -50,7 +50,7 @@
       try {
         await window.api.projects.uploadDrawing(options.projectNumber, { linkedKind: options.kind, linkedId: options.id });
       } catch (e) {
-        alert(`The drawing couldn't be added.\n\n${e.message}`);
+        alert(`Not every drawing could be added.\n\n${e.message}`);
       }
       await refresh();
     });

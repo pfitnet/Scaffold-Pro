@@ -7349,6 +7349,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         respond(id: id, encodable: detail)
     }
 
+    /// Adds each file chosen in an upload panel. Replies with everything
+    /// added; if some couldn't be copied, the rest are still added and the
+    /// reply is an error naming the ones that failed.
+    private func addEachFile<T: Encodable>(id: String, urls: [URL], add: (URL) throws -> T) {
+        var added: [T] = []
+        var failed: [String] = []
+        for url in urls {
+            do {
+                added.append(try add(url))
+            } catch {
+                failed.append("\(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        if failed.isEmpty {
+            respond(id: id, encodable: added)
+        } else {
+            respondError(id: id, message: "\(added.count) of \(urls.count) file\(urls.count == 1 ? "" : "s") added. These couldn't be copied:\n\(failed.joined(separator: "\n"))")
+        }
+    }
+
     private func handleUploadDrawing(id: String, projectNumber: String, linkedKind: String?, linkedId: String?) {
         guard let window = window else {
             respondNull(id: id)
@@ -7359,28 +7379,25 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = drawingContentTypes
-        panel.message = "Choose a drawing: PDF, DWG, DXF or an image. The original stays where it is; a copy goes in the project's Drawings folder."
+        panel.message = "Choose one or more drawings: PDF, DWG, DXF or images. The originals stay where they are; copies go in the project's Drawings folder."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
-            let originalName = sourceURL.lastPathComponent
-            let meaningfulName = "\(projectNumber)_Drawing_\(originalName)"
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> UploadDrawingResult in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFileIntoProject(
                     source: sourceURL, projectNumber: projectNumber,
-                    subfolder: "Drawings", meaningfulFilename: meaningfulName
+                    subfolder: "Drawings", meaningfulFilename: "\(projectNumber)_Drawing_\(originalName)"
                 )
                 self.db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination, linkedKind: linkedKind, linkedId: linkedId)
-                self.respond(id: id, encodable: UploadDrawingResult(originalName: originalName, destination: destination.path))
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return UploadDrawingResult(originalName: originalName, destination: destination.path)
             }
         }
     }
@@ -7395,29 +7412,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.message = "Choose one or more documents."
         // Deliberately no allowedContentTypes restriction here — section
         // 34's general documents (contracts, correspondence, etc.) can
         // be any file type, unlike drawings.
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
-            let originalName = sourceURL.lastPathComponent
-            let meaningfulName = "\(projectNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> ProjectDocument in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFileIntoProject(
-                    source: sourceURL, projectNumber: projectNumber,
-                    subfolder: "Documents", meaningfulFilename: meaningfulName
+                    source: sourceURL, projectNumber: projectNumber, subfolder: "Documents",
+                    meaningfulFilename: "\(projectNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
                 )
-                let document = self.db.recordDocument(projectId: project.id, originalName: originalName, category: category, storedURL: destination)
-                self.respond(id: id, encodable: document)
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return self.db.recordDocument(projectId: project.id, originalName: originalName, category: category, storedURL: destination)
             }
         }
     }
@@ -7468,12 +7482,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.message = "Choose one or more documents for \(worker.name)."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
@@ -7483,18 +7498,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             case "Certification", "Training Certificate": subfolder = "Certificates"
             default: subfolder = "Other"
             }
-            let originalName = sourceURL.lastPathComponent
-            let meaningfulName = "\(worker.workerNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> WorkerDocument in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFile(
                     source: sourceURL,
                     into: self.storage.workerFolder(worker.workerNumber).appendingPathComponent(subfolder, isDirectory: true),
-                    meaningfulFilename: meaningfulName
+                    meaningfulFilename: "\(worker.workerNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
                 )
-                let doc = self.db.recordWorkerDocument(workerId: worker.id, originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
-                self.respond(id: id, encodable: doc)
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return self.db.recordWorkerDocument(workerId: worker.id, originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
             }
         }
     }
@@ -7507,12 +7518,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.message = "Choose one or more documents."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
@@ -7524,17 +7536,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             case "Company Documents": folderName = "Company"
             default: folderName = "Other"
             }
-            let originalName = sourceURL.lastPathComponent
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> AdminDocument in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFile(
                     source: sourceURL,
                     into: self.storage.administrationCategoryFolder(folderName),
                     meaningfulFilename: originalName
                 )
-                let doc = self.db.recordAdminDocument(originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
-                self.respond(id: id, encodable: doc)
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return self.db.recordAdminDocument(originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
             }
         }
     }
