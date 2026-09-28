@@ -22,6 +22,7 @@ async function loadSettings() {
   for (const f of QUOTE_TEXT_FIELDS) document.getElementById(`${f}-input`).value = settings[f] || '';
   document.getElementById('standardDeliveryCharge-input').value = settings.standardDeliveryCharge ?? '';
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
+  document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
   document.getElementById('eurRate-input').value = (settings.exchangeRates && settings.exchangeRates.EUR) || 8.93;
   for (const k of START_KEYS) {
     document.getElementById(`start-${k}`).value = (settings.numberStarts && settings.numberStarts[k]) || '';
@@ -55,6 +56,7 @@ async function saveSettings() {
   for (const f of QUOTE_TEXT_FIELDS) payload[f] = document.getElementById(`${f}-input`).value;
   const delivery = document.getElementById('standardDeliveryCharge-input').value;
   payload.standardDeliveryCharge = delivery === '' ? null : Number(delivery);
+  payload.termsNewPage = document.getElementById('termsNewPage-input').value;
   payload.defaultMinimumHireMonths = Math.max(1, Math.round(Number(document.getElementById('defaultMinimumHireMonths-input').value) || 2));
   const eur = Number(document.getElementById('eurRate-input').value);
   if (eur > 0) payload.exchangeRates = { EUR: eur };

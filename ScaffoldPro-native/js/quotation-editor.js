@@ -103,13 +103,9 @@ function render() {
   if (document.activeElement !== paymentTermsInput) paymentTermsInput.value = d.paymentTerms || '';
   paymentTermsInput.disabled = isLocked;
 
-  const discountTypeSelect = document.getElementById('discount-type-select');
-  discountTypeSelect.value = d.discountType;
-  discountTypeSelect.disabled = isLocked;
-
-  const discountValueInput = document.getElementById('discount-value-input');
-  if (document.activeElement !== discountValueInput) discountValueInput.value = d.discountValue;
-  discountValueInput.disabled = isLocked;
+  const adjustmentInput = document.getElementById('adjustment-input');
+  if (document.activeElement !== adjustmentInput) adjustmentInput.value = formatAdjustment(d);
+  adjustmentInput.disabled = isLocked;
 
   const taxRateInput = document.getElementById('tax-rate-input');
   if (document.activeElement !== taxRateInput) taxRateInput.value = d.taxRatePercent;
@@ -143,7 +139,9 @@ function renderLineItems() {
   let materialNo = 0;
   let deliveryNo = 0;
   for (const [index, item] of items.entries()) {
-    const lineTotal = window.lineNetTotal(item);
+    const lineTotal = currentDetail.lineTotals[item.id] ?? window.lineNetTotal(item);
+    const effectivePrice = currentDetail.effectiveUnitPrices[item.id] ?? item.appliedUnitPrice;
+    const markedUp = Math.abs(effectivePrice - item.appliedUnitPrice) > 0.004;
     const isDelivery = item.section === 'Delivery';
     // Section 20: a hand-typed price shows the material-list price under it.
     const listPrice = item.priceListUnitPrice;
@@ -157,7 +155,7 @@ function renderLineItems() {
       <td>${isDelivery ? '<span class="line-tag">Delivery</span>' : ''}${item.itemDescription}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-      <td class="num"><input type="number" class="price-input${overridden ? ' override' : ''}" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+      <td class="num"><input type="number" class="price-input${overridden ? ' override' : ''}" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
       <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item">${discountLabel || 'Discount'}</button>`}</td>
       <td class="num">${money(lineTotal)}</td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
@@ -170,7 +168,7 @@ function renderLineItems() {
     if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
     const discountBtn = tr.querySelector('.discount-btn');
     if (discountBtn) discountBtn.addEventListener('click', () => {
-      window.openLineDiscount(item, currencyLabel, async (type, value) => {
+      window.openLineDiscount(Object.assign({}, item, { appliedUnitPrice: effectivePrice }), currencyLabel, async (type, value) => {
         const r = await window.api.quotations.updateLineDiscount(item.id, type, value);
         if (r.ok) await loadDetail();
         return r;
@@ -197,9 +195,14 @@ function renderTotals() {
     rows.push(['Materials', money(d.materialsSubtotal)]);
   }
   if (d.deliveryTotal > 0) rows.push(['Delivery Charges', money(d.deliveryTotal)]);
-  if (d.discountAmount > 0) rows.push(['Discount', `-${money(d.discountAmount)}`]);
+  if (d.discountAmount > 0) {
+    rows.push([d.discountType === 'Percent' ? `Less ${d.discountValue}% Discount` : 'Less Discount', `-${money(d.discountAmount)}`]);
+  }
   if (d.taxAmount > 0) rows.push(['Tax / VAT', money(d.taxAmount)]);
-  box.innerHTML = rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('') +
+  const markupNote = d.markupPercent > 0
+    ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded to the nearest 0.1. Delivery charges aren't marked up.</p>`
+    : '';
+  box.innerHTML = markupNote + rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('') +
     `<div class="row grand"><span>Total Amount</span><span>${currencyLabel} ${money(d.total)}</span></div>`;
 }
 
@@ -262,14 +265,54 @@ async function removeLine(lineId) {
   await loadDetail();
 }
 
+// The Markup / Discount box: "+30%" marks every item up 30%, "-15%" is a
+// 15% discount, "-1000" is a 1,000 discount, blank means neither.
+function formatAdjustment(d) {
+  if (d.markupPercent > 0) return `+${d.markupPercent}%`;
+  if (d.discountType === 'Percent' && d.discountValue > 0) return `-${d.discountValue}%`;
+  if (d.discountType === 'Fixed' && d.discountValue > 0) return `-${d.discountValue}`;
+  return '';
+}
+
+function parseAdjustment(text) {
+  const none = { markupPercent: null, discountType: 'None', discountValue: 0 };
+  const cleaned = String(text || '').replace(/[\s,]/g, '').replace(/[−–]/g, '-');
+  if (cleaned === '') return none;
+  const m = cleaned.match(/^([+-]?)(\d+(?:\.\d+)?|\.\d+)(%?)$/);
+  if (!m) return { error: 'Type a markup or discount such as +30%, -15% or -1000.' };
+  const [, sign, digits, percent] = m;
+  const value = Number(digits);
+  if (value === 0) return none;
+  if (percent) {
+    if (sign === '-') {
+      if (value > 100) return { error: 'A discount can’t be more than 100%.' };
+      return { markupPercent: null, discountType: 'Percent', discountValue: value };
+    }
+    if (value > 1000) return { error: 'A markup can’t be more than 1000%.' };
+    return { markupPercent: value, discountType: 'None', discountValue: 0 };
+  }
+  if (sign !== '-') {
+    return { error: `An amount can only be taken off. Type -${digits} for a ${currencyLabel} ${money(value)} discount, or add % for a markup (e.g. +30%).` };
+  }
+  return { markupPercent: null, discountType: 'Fixed', discountValue: value };
+}
+
 async function saveHeader() {
+  const adjustmentInput = document.getElementById('adjustment-input');
+  const adjustment = parseAdjustment(adjustmentInput.value);
+  if (adjustment.error) {
+    alert(adjustment.error);
+    adjustmentInput.value = formatAdjustment(currentDetail);
+    return;
+  }
   const header = {
     quotationDate: document.getElementById('doc-date-input').value || null,
     validUntil: document.getElementById('valid-until-input').value || null,
     paymentTerms: document.getElementById('payment-terms-input').value || null,
     notes: document.getElementById('notes-box').value || null,
-    discountType: document.getElementById('discount-type-select').value,
-    discountValue: parseFloat(document.getElementById('discount-value-input').value) || 0,
+    discountType: adjustment.discountType,
+    discountValue: adjustment.discountValue,
+    markupPercent: adjustment.markupPercent,
     taxRatePercent: parseFloat(document.getElementById('tax-rate-input').value) || 0,
     pricingMode: document.getElementById('pricing-mode-select').value,
   };
@@ -420,7 +463,7 @@ async function init() {
     if (!result.ok) { alert(result.error); }
   });
 
-  for (const fieldId of ['doc-date-input', 'valid-until-input', 'payment-terms-input', 'discount-type-select', 'discount-value-input', 'tax-rate-input', 'notes-box']) {
+  for (const fieldId of ['doc-date-input', 'valid-until-input', 'payment-terms-input', 'adjustment-input', 'tax-rate-input', 'notes-box']) {
     document.getElementById(fieldId).addEventListener('change', saveHeader);
   }
 
