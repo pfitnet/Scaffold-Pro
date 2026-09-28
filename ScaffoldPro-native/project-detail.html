@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <title>Project — ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .inline-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); margin: 4px 0; }
+    .inline-check input[type="number"] { width: 56px; }
+    .choice-group { display: flex; flex-direction: column; gap: 2px; }
+  </style>
 </head>
 <body data-page="project-detail">
   <nav id="sidebar"></nav>
@@ -98,7 +103,10 @@
       <section class="tab-panel" data-panel="files">
         <div class="section-toolbar" id="drawings">
           <h2>Drawings</h2>
-          <button class="primary" id="upload-drawing-btn">Upload Drawing</button>
+          <div class="controls">
+            <select id="drawing-link-select" title="The BOQ or quotation this drawing is for"></select>
+            <button class="primary" id="upload-drawing-btn" title="PDF, DWG, DXF or an image">Upload Drawing</button>
+          </div>
         </div>
         <div id="drawing-list"></div>
 
@@ -137,6 +145,29 @@
       <div class="actions">
         <button id="e-cancel-btn">Cancel</button>
         <button class="primary" id="e-save-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New invoice: always based on one of the project's quotations -->
+  <div class="modal-backdrop hidden" id="invoice-modal">
+    <div class="modal">
+      <h2>New Invoice</h2>
+      <div class="field"><label for="inv-quotation">Based on quotation</label><select id="inv-quotation"></select></div>
+      <div class="field hidden" id="inv-rental">
+        <label>Rent to charge</label>
+        <div class="choice-group">
+          <label class="inline-check"><input type="radio" name="inv-charge" value="one" checked /> One month's rent</label>
+          <label class="inline-check"><input type="radio" name="inv-charge" value="full" /> Full hire period of
+            <input type="number" id="inv-months" min="1" step="1" /> months</label>
+        </div>
+      </div>
+      <label class="inline-check hidden" id="inv-delivery-row"><input type="checkbox" id="inv-delivery" checked /> Include delivery charges</label>
+      <p class="small-note" id="inv-summary"></p>
+      <div class="error-text hidden" id="inv-error"></div>
+      <div class="actions">
+        <button id="inv-cancel">Cancel</button>
+        <button class="primary" id="inv-create">Create Invoice</button>
       </div>
     </div>
   </div>

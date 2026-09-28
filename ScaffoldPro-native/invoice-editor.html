@@ -14,11 +14,14 @@
     .totals-box .row.balance { font-weight: 600; color: var(--danger); }
     .header-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
     .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
+    .header-fields .field.full { grid-column: 1 / -1; }
     .header-fields label { font-size: 11px; color: var(--text-secondary); }
     .picker-results { max-height: 320px; overflow-y: auto; }
     .payment-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
     .payment-row input { width: 100px; }
-      .discount-btn { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
+      .source-note { font-size: 12px; color: var(--text-secondary); }
+    .source-note a { color: var(--accent); }
+    .discount-btn { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
     .discount-btn.active { color: var(--accent); border-color: var(--accent); }
     .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
   </style>
@@ -51,6 +54,9 @@
       </div>
 
       <div class="header-fields">
+        <div class="field full source-note" id="source-note"></div>
+        <div class="field rental-field"><label>Months charged</label><input type="number" id="rental-months-input" min="1" step="1" /></div>
+        <div class="field rental-field"><label>Rental period (optional)</label><input type="text" id="rental-period-input" placeholder="e.g. 1 Oct – 31 Oct 2026" /></div>
         <div class="field"><label>Invoice Date</label><input type="date" id="doc-date-input" /></div>
         <div class="field"><label>Due Date</label><input type="date" id="due-date-input" /></div>
         <div class="field"><label>Payment Terms</label><input type="text" id="payment-terms-input" placeholder="e.g. 30 days net" /></div>

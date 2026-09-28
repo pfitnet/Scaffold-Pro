@@ -47,8 +47,12 @@ function localDay(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+// The invoice follows its quotation's Sale/Rental pricing.
 function defaultPrice(item) {
-  const value = item.unitRentalPrice !== null && item.unitRentalPrice !== undefined ? item.unitRentalPrice : item.unitSalePrice;
+  const sale = currentDetail && currentDetail.pricingMode === 'Sale';
+  const primary = sale ? item.unitSalePrice : item.unitRentalPrice;
+  const fallback = sale ? item.unitRentalPrice : item.unitSalePrice;
+  const value = primary !== null && primary !== undefined ? primary : fallback;
   return value === null || value === undefined ? 0 : value;
 }
 
@@ -76,6 +80,18 @@ function render() {
   document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
 
   const isLocked = d.status !== 'Draft';
+
+  const rental = d.pricingMode === 'Rental';
+  document.getElementById('source-note').innerHTML = d.sourceQuotationNumber
+    ? `Based on quotation <a href="quotation-editor.html?id=${d.sourceQuotationId}">${d.sourceQuotationNumber}</a>${d.pricingMode ? ` · ${d.pricingMode}` : ''}`
+    : '';
+  for (const el of document.querySelectorAll('.rental-field')) el.classList.toggle('hidden', !rental);
+  const monthsInput = document.getElementById('rental-months-input');
+  if (document.activeElement !== monthsInput) monthsInput.value = d.rentalMonths;
+  monthsInput.disabled = isLocked;
+  const periodInput = document.getElementById('rental-period-input');
+  if (document.activeElement !== periodInput) periodInput.value = d.rentalPeriod || '';
+  periodInput.disabled = isLocked;
 
   const docDateInput = document.getElementById('doc-date-input');
   if (document.activeElement !== docDateInput) docDateInput.value = localDay(d.invoiceDate);
@@ -168,7 +184,13 @@ function renderLineItems() {
 function renderTotals() {
   const d = currentDetail;
   const box = document.getElementById('totals-box');
-  box.innerHTML = `
+  let rentalRows = '';
+  if (d.pricingMode === 'Rental') {
+    rentalRows = `<div class="row"><span>Monthly Rental Charge</span><span>${money(d.materialsSubtotal)}</span></div>` +
+      (d.rentalMonths > 1 ? `<div class="row"><span>Rental for ${d.rentalMonths} Months</span><span>${money(d.materialsCharge)}</span></div>` : '') +
+      (d.deliveryTotal > 0 ? `<div class="row"><span>Delivery Charges</span><span>${money(d.deliveryTotal)}</span></div>` : '');
+  }
+  box.innerHTML = rentalRows + `
     <div class="row"><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
     <div class="row"><span>Discount</span><span>-${money(d.discountAmount)}</span></div>
     <div class="row"><span>Tax / VAT</span><span>${money(d.taxAmount)}</span></div>
@@ -328,6 +350,18 @@ async function init() {
   }
 
   document.getElementById('record-payment-btn').addEventListener('click', recordPayment);
+
+  // Rental: months charged and the period shown on the invoice.
+  document.getElementById('rental-months-input').addEventListener('change', async (e) => {
+    const r = await window.api.invoices.updateRental(invoiceId, { rentalMonths: Math.max(1, Math.round(Number(e.target.value) || 1)) });
+    if (!r.ok) alert(r.error);
+    await loadDetail();
+  });
+  document.getElementById('rental-period-input').addEventListener('change', async (e) => {
+    const r = await window.api.invoices.updateRental(invoiceId, { rentalPeriod: e.target.value });
+    if (!r.ok) alert(r.error);
+    await loadDetail();
+  });
 
   document.getElementById('source-select').addEventListener('change', async () => {
     await populateCategories();

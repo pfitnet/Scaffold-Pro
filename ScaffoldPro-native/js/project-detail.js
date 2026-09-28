@@ -180,7 +180,7 @@ function renderFileList(containerId, items, api, opts) {
     return;
   }
 
-  const headerCells = ['Name', ...(opts.showCategory ? ['Category'] : []), 'Type', 'Size', 'Uploaded', 'Description', ''];
+  const headerCells = ['Name', ...(opts.showCategory ? ['Category'] : []), ...(opts.linkChoices ? ['For'] : []), 'Type', 'Size', 'Uploaded', 'Description', ''];
   const table = document.createElement('table');
   table.innerHTML = `<thead><tr>${headerCells.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody></tbody>`;
   const tbody = table.querySelector('tbody');
@@ -194,9 +194,14 @@ function renderFileList(containerId, items, api, opts) {
     const shownName = item.storedFilename || item.originalName;
     const uploadedAs = item.originalName && item.originalName !== shownName
       ? `<div class="sub muted">Uploaded as ${esc(item.originalName)}</div>` : '';
+    // Drawings: the BOQ or quotation this drawing belongs to.
+    const current = item.linkedKind && item.linkedId ? `${item.linkedKind}|${item.linkedId}` : '';
+    const linkCell = opts.linkChoices
+      ? `<td><select class="link-select">${opts.linkChoices.map((c) => `<option value="${c.value}" ${c.value === current ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select></td>`
+      : '';
     tr.innerHTML = `
       <td>${esc(shownName)}${missingBadge}${uploadedAs}</td>
-      ${categoryCell}
+      ${categoryCell}${linkCell}
       <td>${esc(item.fileType)}</td>
       <td>${formatFileSize(item.fileSizeBytes)}</td>
       <td>${(item.uploadedAt || '').slice(0, 10)}</td>
@@ -205,6 +210,13 @@ function renderFileList(containerId, items, api, opts) {
 
     tr.querySelector('.desc-input').addEventListener('change', async (e) => {
       await api.updateDescription(item.id, e.target.value || null);
+    });
+    const linkSelect = tr.querySelector('.link-select');
+    if (linkSelect) linkSelect.addEventListener('change', async () => {
+      const [kind, id] = linkSelect.value ? linkSelect.value.split('|') : [null, null];
+      const r = await api.setLink(item.id, kind, id);
+      if (!r.ok) alert(r.error);
+      await opts.refresh();
     });
 
     const actionsCell = tr.querySelector('.file-actions');
@@ -262,14 +274,27 @@ function renderFileList(containerId, items, api, opts) {
   container.appendChild(table);
 }
 
+/// "Not linked", then the project's BOQs and quotations.
+function drawingLinkChoices() {
+  return [{ value: '', label: 'Not linked' }]
+    .concat(currentBOQs.map((b) => ({ value: `BOQ|${b.id}`, label: `BOQ ${b.boqNumber}` })))
+    .concat(currentQuotations.filter((q) => q.status !== 'Cancelled').map((q) => ({ value: `Quotation|${q.id}`, label: `Quotation ${q.quotationNumber}` })));
+}
+
 async function refreshDrawingList() {
+  const choices = drawingLinkChoices();
+  const uploadFor = document.getElementById('drawing-link-select');
+  const keep = uploadFor.value;
+  uploadFor.innerHTML = choices.map((c) => `<option value="${c.value}">${c.value ? `For ${esc(c.label)}` : 'Not linked to a BOQ / quotation'}</option>`).join('');
+  if (choices.some((c) => c.value === keep)) uploadFor.value = keep;
   const drawings = await window.api.drawings.listForProject(currentProject.id);
   fileCounts.drawings = drawings.length;
   setCount('files', fileCounts.drawings + fileCounts.documents);
   renderFileList('drawing-list', drawings, window.api.drawings, {
     emptyTitle: 'No drawings yet',
-    emptyBody: 'Use "Upload Drawing" above to add one.',
+    emptyBody: 'Use "Upload Drawing" above to add one: PDF, DWG, DXF or an image.',
     showCategory: false,
+    linkChoices: choices,
     refresh: refreshDrawingList,
   });
 }
@@ -307,15 +332,84 @@ async function createNewQuotation() {
   location.href = `quotation-editor.html?id=${quotation.id}`;
 }
 
+// Every invoice is based on one of the project's quotations. For a rental
+// quotation, choose one month's rent or the full hire period.
+let invoiceSource = null;
+
 async function createNewInvoice() {
-  let sourceQuotationId = null;
-  if (currentQuotations.length > 0) {
-    const mostRecent = currentQuotations[0];
-    const useQuotation = confirm(`Create this invoice from Quotation ${mostRecent.quotationNumber}? Cancel to start blank instead.`);
-    if (useQuotation) sourceQuotationId = mostRecent.id;
+  const usable = currentQuotations.filter((q) => q.status !== 'Cancelled');
+  if (usable.length === 0) {
+    alert('Create a quotation first.\n\nEvery invoice is based on one of the project\u2019s quotations.');
+    showTab('quotations');
+    return;
   }
-  const invoice = await window.api.invoices.create(currentProject.id, currentProject.projectNumber, sourceQuotationId);
-  location.href = `invoice-editor.html?id=${invoice.id}`;
+  const select = document.getElementById('inv-quotation');
+  select.innerHTML = usable.map((q) =>
+    `<option value="${q.id}">${esc(q.quotationNumber)} · ${esc(q.status)} · ${money(q.total)}</option>`).join('');
+  document.getElementById('inv-error').classList.add('hidden');
+  document.getElementById('invoice-modal').classList.remove('hidden');
+  await loadInvoiceSource();
+  select.focus();
+}
+
+async function loadInvoiceSource() {
+  invoiceSource = await window.api.quotations.get(document.getElementById('inv-quotation').value);
+  const q = invoiceSource;
+  const rental = q && q.pricingMode === 'Rental';
+  document.getElementById('inv-rental').classList.toggle('hidden', !rental);
+  if (rental) {
+    document.getElementById('inv-months').value = q.minimumHireMonths;
+    document.querySelector(`input[name="inv-charge"][value="${q.minimumHireEnabled ? 'full' : 'one'}"]`).checked = true;
+  }
+  const hasDelivery = !!q && q.lineItems.some((i) => i.section === 'Delivery');
+  document.getElementById('inv-delivery-row').classList.toggle('hidden', !hasDelivery);
+  updateInvoiceSummary();
+}
+
+function invoiceMonthsChosen() {
+  if (!invoiceSource || invoiceSource.pricingMode !== 'Rental') return null;
+  const full = document.querySelector('input[name="inv-charge"]:checked').value === 'full';
+  return full ? Math.max(1, Math.round(Number(document.getElementById('inv-months').value) || 1)) : 1;
+}
+
+function updateInvoiceSummary() {
+  const q = invoiceSource;
+  if (!q) return;
+  const months = invoiceMonthsChosen();
+  const delivery = !document.getElementById('inv-delivery-row').classList.contains('hidden') && document.getElementById('inv-delivery').checked;
+  const parts = [`${q.lineItems.filter((i) => i.section !== 'Delivery').length} item(s) from ${q.quotationNumber}`];
+  if (months) parts.push(`${months} month${months === 1 ? '' : 's'} of rent (monthly charge ${money(q.materialsSubtotal)})`);
+  if (delivery) parts.push(`delivery charges ${money(q.deliveryTotal)}`);
+  document.getElementById('inv-summary').textContent = parts.join(' · ');
+}
+
+function setupInvoiceSheet() {
+  const close = () => document.getElementById('invoice-modal').classList.add('hidden');
+  document.getElementById('inv-quotation').addEventListener('change', loadInvoiceSource);
+  for (const el of document.querySelectorAll('input[name="inv-charge"], #inv-months, #inv-delivery')) {
+    el.addEventListener('input', updateInvoiceSummary);
+    el.addEventListener('change', updateInvoiceSummary);
+  }
+  document.getElementById('inv-months').addEventListener('focus', () => {
+    document.querySelector('input[name="inv-charge"][value="full"]').checked = true;
+    updateInvoiceSummary();
+  });
+  document.getElementById('inv-cancel').addEventListener('click', close);
+  document.getElementById('invoice-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  document.getElementById('inv-create').addEventListener('click', async () => {
+    const quotationId = document.getElementById('inv-quotation').value;
+    const months = invoiceMonthsChosen();
+    const includeDelivery = document.getElementById('inv-delivery-row').classList.contains('hidden') || document.getElementById('inv-delivery').checked;
+    try {
+      const invoice = await window.api.invoices.create(currentProject.id, currentProject.projectNumber, quotationId,
+        { rentalMonths: months, includeDelivery: includeDelivery });
+      location.href = `invoice-editor.html?id=${invoice.id}`;
+    } catch (e) {
+      const err = document.getElementById('inv-error');
+      err.textContent = e.message;
+      err.classList.remove('hidden');
+    }
+  });
 }
 
 async function createNewDeliveryNote() {
@@ -488,6 +582,7 @@ async function init() {
   document.getElementById('project-body').classList.remove('hidden');
   setupTabs();
   setupEditSheet();
+  setupInvoiceSheet();
   for (const b of document.querySelectorAll('.quick-actions [data-action]')) {
     b.addEventListener('click', () => runQuickAction(b.dataset.action));
   }
@@ -507,7 +602,9 @@ async function init() {
 
   document.getElementById('upload-drawing-btn').addEventListener('click', async () => {
     try {
-      const result = await window.api.projects.uploadDrawing(project.projectNumber);
+      const link = document.getElementById('drawing-link-select').value;
+      const [linkedKind, linkedId] = link ? link.split('|') : [null, null];
+      const result = await window.api.projects.uploadDrawing(project.projectNumber, { linkedKind: linkedKind, linkedId: linkedId });
       if (result) await refreshDrawingList();
     } catch (e) {
       alert(`The drawing couldn't be added.\n\n${e.message}`);

@@ -539,3 +539,7 @@ table.history td { vertical-align: top; }
 #sidebar a.sidebar-brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; font-size: 14px; font-weight: 650; letter-spacing: -0.01em; color: var(--text); }
 #sidebar a.sidebar-brand:hover { background: none; }
 .brand-mark { width: 22px; height: 22px; flex-shrink: 0; }
+
+/* Drawings panel in the BOQ and quotation editors */
+.linked-drawings-panel { margin-top: 24px; }
+.linked-drawings-panel .section-toolbar h2 { font-size: 14px; }

@@ -41,7 +41,7 @@ and compared with the 67 sections of the master development prompt.
 | 11 | Quotation editor always showed **"HK$"**, whatever currency was set in Settings (section 50) | Uses the Settings currency. The invoice totals now show it too |
 | 12 | Quotation, invoice and delivery dates couldn't be changed. They were fixed to the moment of creation (sections 21–23) | Editable date field on each, while Draft |
 | 13 | The invoice PDF printed the due date as `2026-10-28` next to a formatted invoice date | Both formatted the same way |
-| 14 | Invoice, delivery note and BOQ PDFs **cut long descriptions off** at one line. Long notes could run past the bottom margin. Pages weren't numbered (section 27) | Rows grow to fit wrapped text. The notes and payment block is measured before placing it. Every page has "Invoice H26012 · Page 2" at the bottom |
+| 14 | Drawing upload | ◐ | Native picker, copies the file (never moves it). PDF, DWG, DXF, PNG, JPEG or TIFF. Each drawing can be linked to one of the project's BOQs or quotations and is listed inside that document. Rename, replace, archive, description. **One file per upload**, no multi-select |
 | 15 | Exported PDFs weren't linked to their document in the database (section 32). Re-exporting made `… (2).pdf`, `… (3).pdf` copies | Each document stores its PDF's path, and Restore updates it for another Mac. Re-exporting replaces that document's PDF |
 | 16 | New delivery notes started with no delivery address | Filled in from the site's address. The PDF only prints a separate "Deliver to:" line when it differs from the site |
 | 17 | Upload errors for drawings and documents were silently swallowed. File names were inserted as raw HTML | An error message is shown. Names are escaped |
@@ -68,7 +68,7 @@ and compared with the 67 sections of the master development prompt.
 | 19 | BOQ table | ◐ | Reorder, duplicate, delete, per-line notes. Per the owner's later request it shows **weights, not prices**, so BOQ discount, tax and money totals are gone. Lines are **not grouped into sections with subtotals** |
 | 20 | Price override shown vs list price | ◐ | Quotation lines remember their material-list price: a hand-typed price shows "List 25.00" under it and is kept when switching Sale ↔ Rental. BOQ lines track it too but show weights. Invoice lines don't track it yet |
 | 21 | Quotations | ✅ | From a BOQ, blank, or custom lines. Letter fields, discount (whole quotation or per item), tax, delivery charges, optional minimum hire. Switching Sale ↔ Rental re-prices existing items. Items listed in item-code order. Date is editable |
-| 22 | Invoices | ◐ | Every status, payments, cancel-not-delete. An invoice created **from a rental quotation copies the monthly rates but not the minimum-hire months**, so its total doesn't match the quotation total (question below). Invoices have no Sale/Rental mode, so the item picker always uses the rental price |
+| 22 | Invoices | ✅ | Always based on one of the project's quotations (items, prices, line discounts, terms, Sale/Rental). A rental invoice charges one month's rent or the full hire period; the months and rental period can be changed while Draft. Every status, payments, cancel-not-delete |
 | 23 | Delivery notes | ✅ | No prices, delivered-by / received-by, signatures, PDF |
 | 24 | Numbering | ✅ | Separate sequences, configurable formats, company defaults Qt26XXX / H26XXX, "continue from" numbers, never duplicates |
 | 25 | Lifecycle | ✅ | Fixed in this pass (see #3, #4). A BOQ has no "Cancelled" status |
@@ -132,30 +132,26 @@ layout of the company's quotation:
 2. **Invoice, BOQ and delivery-note details from real samples**
    (section 26). They already use the Qt26193 letterhead and style, but
    their reference block, columns and signature wording are my best guess.
-3. **Rental invoices** (question 1 below).
-4. **Section 20 price-override marker** on invoice lines (quotations have
+3. **Section 20 price-override marker** on invoice lines (quotations have
    it).
-5. **Replace** for worker and company documents (section 42), and
+4. **Replace** for worker and company documents (section 42), and
    **multi-file upload** for drawings (section 14).
-6. **Recent documents** on the project Overview (section 17), plus
+5. **Recent documents** on the project Overview (section 17), plus
    **Open PDF / Show PDF in Finder** on each document now that the path is
    stored.
-7. **New client / new site** buttons inside the New Project form
+6. **New client / new site** buttons inside the New Project form
    (section 58's workflow).
-8. BOQ **section grouping with subtotals** (section 19), and reorder or
+7. BOQ **section grouping with subtotals** (section 19), and reorder or
    duplicate for quotation, invoice and delivery-note lines.
-9. Price-list item **notes**. Table **column resizing**. Validation
+8. Price-list item **notes**. Table **column resizing**. Validation
    messages **next to the field**.
-10. Bigger decisions: move storage to **SQLite** (section 46), and/or move
+9. Bigger decisions: move storage to **SQLite** (section 46), and/or move
     the UI to **SwiftUI** (sections 3–4, 47). Both are large rewrites, and
     the current JSON + WebView build works for a single-user app of this
     size.
 
 ## Questions for the owner
 
-1. **Invoicing a rental quotation.** Should the invoice charge the minimum
-   hire period (e.g. 2 months × monthly rate + delivery, matching the
-   quotation total), or one month at a time (what happens now)?
-2. Please re-attach the **sample invoice, BOQ and delivery note** (and the
+1. Please re-attach the **sample invoice, BOQ and delivery note** (and the
    Excel workbook, if the import should be re-checked). They weren't in
    the uploaded zip.

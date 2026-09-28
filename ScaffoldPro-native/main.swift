@@ -215,6 +215,11 @@ struct ProjectDrawing: Codable {
     var description: String?
     var isArchived: Bool
     var uploadedAt: String
+    /// The BOQ or quotation this drawing belongs to: "BOQ" or "Quotation",
+    /// and that document's id. nil = not linked (e.g. uploaded with the
+    /// project, before any BOQ existed).
+    var linkedKind: String? = nil
+    var linkedId: String? = nil
 }
 
 struct ProjectDrawingSummary: Codable {
@@ -228,7 +233,18 @@ struct ProjectDrawingSummary: Codable {
     /// Section 38: if this comes back false, the UI shows "File
     /// unavailable" plus Locate/Remove-Reference instead of Open/Reveal.
     var fileExists: Bool
+    var linkedKind: String?
+    var linkedId: String?
+    /// e.g. "26017-BOQ-001" or "Qt26193".
+    var linkedNumber: String?
 }
+
+/// Drawing files: PDF and images, plus AutoCAD DWG / DXF.
+let drawingContentTypes: [UTType] = {
+    var types: [UTType] = [.pdf, .png, .jpeg, .tiff]
+    types += ["dwg", "dxf"].compactMap { UTType(filenameExtension: $0) }
+    return types
+}()
 
 /// Same idea as ProjectDrawing but for general project paperwork
 /// (section 34): contracts, specs, correspondence, certificates, etc.
@@ -803,6 +819,14 @@ struct Invoice: Codable {
     var updatedAt: String
     /// The last PDF exported for this document (sections 31-32).
     var pdfPath: String?
+    /// "Rental" or "Sale", from the quotation it's based on. nil = made
+    /// before invoices followed their quotation's pricing (plain lines).
+    var pricingMode: String? = nil
+    /// Rental: how many months of rent this invoice charges (one month,
+    /// or the quotation's full hire period).
+    var rentalMonths: Int? = nil
+    /// Rental: the period charged, e.g. "1 Oct – 31 Oct 2026" (optional).
+    var rentalPeriod: String? = nil
 }
 
 struct InvoiceLineItem: Codable {
@@ -858,6 +882,17 @@ struct InvoiceDetail: Codable {
     var taxAmount: Double
     var total: Double
     var balanceDue: Double
+    var sourceQuotationId: String?
+    var sourceQuotationNumber: String?
+    var pricingMode: String?
+    /// 1 unless a rental invoice charges several months.
+    var rentalMonths: Int
+    var rentalPeriod: String?
+    /// Materials only, per month for rental.
+    var materialsSubtotal: Double
+    /// materialsSubtotal × rentalMonths.
+    var materialsCharge: Double
+    var deliveryTotal: Double
 }
 
 struct InvoiceActionResult: Codable {
@@ -1551,7 +1586,7 @@ final class AppDatabase {
         }
         for inv in invoicesStore.readAll() {
             guard let p = include(inv.projectId) else { continue }
-            let t = invoiceTotals(lineItems: invoiceLines[inv.id] ?? [], discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid)
+            let t = invoiceTotals(inv, lineItems: invoiceLines[inv.id] ?? [])
             let overdue = isInvoiceOverdue(inv, balanceDue: t.balanceDue, today: today)
             rows.append(DocRow(id: inv.id, kind: "Invoice", number: inv.invoiceNumber, status: overdue ? "Overdue" : inv.status,
                                projectNumber: p.projectNumber, projectName: p.name, clientName: clients[p.clientId],
@@ -2769,16 +2804,26 @@ final class AppDatabase {
         byItemCode(invoiceLineItemsStore.readAll().filter { $0.invoiceId == invoiceId }, code: { $0.itemCode }, order: { $0.sortOrder })
     }
 
-    private func invoiceTotals(lineItems: [InvoiceLineItem], discountType: String, discountValue: Double, taxRatePercent: Double, amountPaid: Double) -> (subtotal: Double, discountAmount: Double, taxAmount: Double, total: Double, balanceDue: Double) {
-        // Each line net of its own discount, then the invoice-wide
-        // discount and tax.
-        let subtotal = lineItems.reduce(Decimal(0)) {
-            $0 + netLineAmount(quantity: $1.quantity, unitPrice: $1.appliedUnitPrice, discountType: $1.discountType, discountValue: $1.discountValue)
+    /// Months of rent a rental invoice charges; 1 for anything else.
+    func invoiceMonths(_ inv: Invoice) -> Int {
+        inv.pricingMode == "Rental" ? max(1, inv.rentalMonths ?? 1) : 1
+    }
+
+    /// Each line net of its own discount. For rental, the materials are a
+    /// monthly charge × the months charged; delivery lines are charged
+    /// once. Then the invoice-wide discount and tax.
+    private func invoiceTotals(_ inv: Invoice, lineItems: [InvoiceLineItem]) -> (subtotal: Double, discountAmount: Double, taxAmount: Double, total: Double, balanceDue: Double, materials: Double, materialsCharge: Double, delivery: Double) {
+        func net(_ line: InvoiceLineItem) -> Decimal {
+            netLineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice, discountType: line.discountType, discountValue: line.discountValue)
         }
-        let t = moneyTotals(subtotal: subtotal, discountType: discountType, discountValue: discountValue, taxRatePercent: taxRatePercent,
+        let materials = lineItems.filter { $0.section != "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
+        let delivery = lineItems.filter { $0.section == "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
+        let charge = materials * Decimal(invoiceMonths(inv))
+        let t = moneyTotals(subtotal: charge + delivery, discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent,
                             pricesIncludeTax: getCompanySettings().pricesIncludeTax ?? false)
-        let balance = decimalOf(t.total) - roundToCents(decimalOf(amountPaid))
-        return (t.subtotal, t.discountAmount, t.taxAmount, t.total, doubleOf(balance > 0 ? balance : 0))
+        let balance = decimalOf(t.total) - roundToCents(decimalOf(inv.amountPaid))
+        return (t.subtotal, t.discountAmount, t.taxAmount, t.total, doubleOf(balance > 0 ? balance : 0),
+                doubleOf(materials), doubleOf(charge), doubleOf(delivery))
     }
 
     func listInvoiceSummaries(projectId: String) -> [InvoiceSummary] {
@@ -2788,7 +2833,7 @@ final class AppDatabase {
             .sorted { $0.invoiceNumber > $1.invoiceNumber }
             .map { inv in
                 let items = invoiceLineItems(for: inv.id)
-                let totals = invoiceTotals(lineItems: items, discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid)
+                let totals = invoiceTotals(inv, lineItems: items)
                 let status = isInvoiceOverdue(inv, balanceDue: totals.balanceDue, today: today) ? "Overdue" : inv.status
                 return InvoiceSummary(id: inv.id, invoiceNumber: inv.invoiceNumber, status: status, itemCount: items.count, total: totals.total, amountPaid: inv.amountPaid, dueDate: inv.dueDate, createdAt: inv.createdAt)
             }
@@ -2800,55 +2845,67 @@ final class AppDatabase {
         nextDocumentNumber(template: numberFormat("INV"), projectNumber: projectNumber, existing: invoicesStore.readAll().map { $0.invoiceNumber }, startAt: getCompanySettings().numberStarts?["INV"] ?? 1)
     }
 
-    /// Creates an invoice, optionally seeding its line items and
-    /// discount/tax terms from an existing Quotation (section 22:
-    /// "create an invoice based on project/quotation/BOQ as
-    /// appropriate"). Copies, not references.
-    func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String?) -> Invoice {
+    /// Every invoice is based on one of the project's quotations: its
+    /// items, prices, line discounts, discount/tax terms and Sale/Rental
+    /// pricing are copied (copies, not references). For a rental
+    /// quotation the invoice charges `rentalMonths` of rent — one month,
+    /// or the quotation's full hire period; delivery charges are included
+    /// when `includeDelivery` is set.
+    func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String, rentalMonths: Int?, includeDelivery: Bool) -> Result<Invoice, WorkerError> {
+        guard let quotation = getQuotation(id: sourceQuotationId), quotation.projectId == projectId else {
+            return .failure(WorkerError(message: "Choose one of this project's quotations to base the invoice on."))
+        }
+        guard quotation.status != "Cancelled" else {
+            return .failure(WorkerError(message: "That quotation is cancelled. Choose another quotation."))
+        }
         let settings = getCompanySettings()
-        var discountType = "None"
-        var discountValue = 0.0
-        var taxRatePercent = settings.defaultTaxRatePercent
-        var paymentTerms: String? = settings.defaultPaymentTerms
-        let dueDays = settings.defaultInvoiceDueDays ?? 30
         let dueFormatter = DateFormatter()
         dueFormatter.locale = Locale(identifier: "en_US_POSIX")
         dueFormatter.dateFormat = "yyyy-MM-dd"
-        let dueDate = Calendar.current.date(byAdding: .day, value: dueDays, to: Date()).map { dueFormatter.string(from: $0) }
+        let dueDate = Calendar.current.date(byAdding: .day, value: settings.defaultInvoiceDueDays ?? 30, to: Date()).map { dueFormatter.string(from: $0) }
+        let isRental = quotation.pricingMode == "Rental"
 
-        if let quotationId = sourceQuotationId, let sourceQuotation = getQuotation(id: quotationId) {
-            discountType = sourceQuotation.discountType
-            discountValue = sourceQuotation.discountValue
-            taxRatePercent = sourceQuotation.taxRatePercent
-            paymentTerms = sourceQuotation.paymentTerms
-        }
-
-        let invoice = Invoice(
-            id: makeId("invoice"), projectId: projectId, sourceQuotationId: sourceQuotationId,
+        var invoice = Invoice(
+            id: makeId("invoice"), projectId: projectId, sourceQuotationId: quotation.id,
             invoiceNumber: nextInvoiceNumber(projectNumber: projectNumber, projectId: projectId),
-            status: "Draft", invoiceDate: nowISO(), dueDate: dueDate, paymentTerms: paymentTerms,
-            discountType: discountType, discountValue: discountValue, taxRatePercent: taxRatePercent,
+            status: "Draft", invoiceDate: nowISO(), dueDate: dueDate, paymentTerms: quotation.paymentTerms ?? settings.defaultPaymentTerms,
+            discountType: quotation.discountType, discountValue: quotation.discountValue, taxRatePercent: quotation.taxRatePercent,
             amountPaid: 0, notes: settings.defaultNotes, createdAt: nowISO(), updatedAt: nowISO()
         )
+        invoice.pricingMode = quotation.pricingMode
+        invoice.rentalMonths = isRental ? max(1, rentalMonths ?? 1) : nil
         invoicesStore.insert(invoice)
-        logActivity(projectId: projectId, sourceQuotationId == nil ? "Invoice created" : "Invoice created from quotation", reference: invoice.invoiceNumber)
+        let charge = isRental ? " — \(invoice.rentalMonths ?? 1) month\((invoice.rentalMonths ?? 1) == 1 ? "" : "s") rental" : ""
+        logActivity(projectId: projectId, "Invoice created from \(quotation.quotationNumber)\(charge)", reference: invoice.invoiceNumber)
 
-        if let quotationId = sourceQuotationId {
-            let sourceItems = quotationLineItemsStore.readAll()
-                .filter { $0.quotationId == quotationId }
-                .sorted { $0.sortOrder < $1.sortOrder }
-            let copied: [InvoiceLineItem] = sourceItems.enumerated().map { index, item in
-                InvoiceLineItem(
-                    id: makeId("iitem"), invoiceId: invoice.id, sourceKey: item.sourceKey,
-                    priceListItemId: item.priceListItemId, itemCode: item.itemCode,
-                    itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
-                    appliedUnitPrice: item.appliedUnitPrice, section: item.section, sortOrder: index,
-                    discountType: item.discountType, discountValue: item.discountValue
-                )
-            }
-            invoiceLineItemsStore.insertMany(copied)
+        let sourceItems = quotationLineItems(for: quotation.id).filter { includeDelivery || $0.section != "Delivery" }
+        let copied: [InvoiceLineItem] = sourceItems.enumerated().map { index, item in
+            InvoiceLineItem(
+                id: makeId("iitem"), invoiceId: invoice.id, sourceKey: item.sourceKey,
+                priceListItemId: item.priceListItemId, itemCode: item.itemCode,
+                itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
+                appliedUnitPrice: item.appliedUnitPrice, section: item.section, sortOrder: index,
+                discountType: item.discountType, discountValue: item.discountValue
+            )
         }
-        return invoice
+        invoiceLineItemsStore.insertMany(copied)
+        return .success(invoice)
+    }
+
+    /// Rental invoices: months charged and the period text (Draft only).
+    func updateInvoiceRental(id: String, months: Int?, period: String?, updatePeriod: Bool) -> String? {
+        var invs = invoicesStore.readAll()
+        guard let i = invs.firstIndex(where: { $0.id == id }) else { return "Invoice not found." }
+        guard invs[i].status == "Draft" else { return "This invoice is issued and can no longer be edited." }
+        guard invs[i].pricingMode == "Rental" else { return nil }
+        if let months = months {
+            guard months >= 1 else { return "Charge at least one month." }
+            invs[i].rentalMonths = months
+        }
+        if updatePeriod { invs[i].rentalPeriod = nonBlank(period) }
+        invs[i].updatedAt = nowISO()
+        invoicesStore.writeAll(invs)
+        return nil
     }
 
     func getInvoice(id: String) -> Invoice? {
@@ -2859,7 +2916,7 @@ final class AppDatabase {
         guard let inv = invoicesStore.readAll().first(where: { $0.id == id }) else { return nil }
         guard let project = projectsStore.readAll().first(where: { $0.id == inv.projectId }) else { return nil }
         let items = invoiceLineItems(for: inv.id)
-        let totals = invoiceTotals(lineItems: items, discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid)
+        let totals = invoiceTotals(inv, lineItems: items)
         let client = clientsStore.readAll().first { $0.id == project.clientId }
         let site = sitesStore.readAll().first { $0.id == project.siteId }
         return InvoiceDetail(
@@ -2870,7 +2927,11 @@ final class AppDatabase {
             projectNumber: project.projectNumber, projectName: project.name,
             clientName: client?.companyName, siteName: site?.name,
             lineItems: items, subtotal: totals.subtotal, discountAmount: totals.discountAmount,
-            taxAmount: totals.taxAmount, total: totals.total, balanceDue: totals.balanceDue
+            taxAmount: totals.taxAmount, total: totals.total, balanceDue: totals.balanceDue,
+            sourceQuotationId: inv.sourceQuotationId,
+            sourceQuotationNumber: inv.sourceQuotationId.flatMap { getQuotation(id: $0)?.quotationNumber },
+            pricingMode: inv.pricingMode, rentalMonths: invoiceMonths(inv), rentalPeriod: inv.rentalPeriod,
+            materialsSubtotal: totals.materials, materialsCharge: totals.materialsCharge, deliveryTotal: totals.delivery
         )
     }
 
@@ -2989,13 +3050,13 @@ final class AppDatabase {
         guard invs[index].status != "Draft" else { return "Issue this invoice before recording a payment." }
 
         let items = invoiceLineItems(for: id)
-        let before = invoiceTotals(lineItems: items, discountType: invs[index].discountType, discountValue: invs[index].discountValue, taxRatePercent: invs[index].taxRatePercent, amountPaid: invs[index].amountPaid)
+        let before = invoiceTotals(invs[index], lineItems: items)
         guard roundToCents(decimalOf(amount)) <= decimalOf(before.balanceDue) else {
             return "That's more than the balance due (\(formatMoney(before.balanceDue)))."
         }
         invs[index].amountPaid = doubleOf(roundToCents(decimalOf(invs[index].amountPaid) + decimalOf(amount)))
 
-        let totals = invoiceTotals(lineItems: items, discountType: invs[index].discountType, discountValue: invs[index].discountValue, taxRatePercent: invs[index].taxRatePercent, amountPaid: invs[index].amountPaid)
+        let totals = invoiceTotals(invs[index], lineItems: items)
         invs[index].status = totals.balanceDue <= 0 ? "Paid" : "PartiallyPaid"
         invs[index].updatedAt = nowISO()
         invoicesStore.writeAll(invs)
@@ -3338,27 +3399,65 @@ final class AppDatabase {
     // ---- Drawings (Phase 11 — section 14) ----
 
     func listDrawings(projectId: String) -> [ProjectDrawingSummary] {
-        drawingsStore.readAll()
-            .filter { $0.projectId == projectId && !$0.isArchived }
+        drawingSummaries(drawingsStore.readAll().filter { $0.projectId == projectId && !$0.isArchived })
+    }
+
+    /// The drawings linked to one BOQ or quotation.
+    func listDrawings(linkedKind: String, linkedId: String) -> [ProjectDrawingSummary] {
+        drawingSummaries(drawingsStore.readAll().filter { !$0.isArchived && $0.linkedKind == linkedKind && $0.linkedId == linkedId })
+    }
+
+    private func drawingSummaries(_ drawings: [ProjectDrawing]) -> [ProjectDrawingSummary] {
+        let boqNumbers = Dictionary(boqsStore.readAll().map { ($0.id, $0.boqNumber) }, uniquingKeysWith: { a, _ in a })
+        let quotationNumbers = Dictionary(quotationsStore.readAll().map { ($0.id, $0.quotationNumber) }, uniquingKeysWith: { a, _ in a })
+        return drawings
             .sorted { $0.uploadedAt > $1.uploadedAt }
             .map { d in
-                ProjectDrawingSummary(
+                let number = d.linkedId.flatMap { d.linkedKind == "BOQ" ? boqNumbers[$0] : d.linkedKind == "Quotation" ? quotationNumbers[$0] : nil }
+                return ProjectDrawingSummary(
                     id: d.id, originalName: d.originalName, storedFilename: d.storedFilename,
                     fileType: d.fileType, fileSizeBytes: d.fileSizeBytes, description: d.description,
-                    uploadedAt: d.uploadedAt, fileExists: FileManager.default.fileExists(atPath: d.filePath)
+                    uploadedAt: d.uploadedAt, fileExists: FileManager.default.fileExists(atPath: d.filePath),
+                    linkedKind: number == nil ? nil : d.linkedKind, linkedId: number == nil ? nil : d.linkedId, linkedNumber: number
                 )
             }
     }
 
+    /// Links a drawing to one of its project's BOQs or quotations, or
+    /// unlinks it (kind nil).
+    func setDrawingLink(id: String, kind: String?, linkedId: String?) -> String? {
+        var items = drawingsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return "Drawing not found." }
+        if let error = checkDrawingLink(projectId: items[i].projectId, kind: kind, linkedId: linkedId) { return error }
+        let linked = (kind == "BOQ" || kind == "Quotation") && nonBlank(linkedId) != nil
+        items[i].linkedKind = linked ? kind : nil
+        items[i].linkedId = linked ? linkedId : nil
+        drawingsStore.writeAll(items)
+        return nil
+    }
+
+    /// nil when the link is empty or points at this project's own BOQ or
+    /// quotation.
+    func checkDrawingLink(projectId: String, kind: String?, linkedId: String?) -> String? {
+        guard let kind = nonBlank(kind), let linkedId = nonBlank(linkedId) else { return nil }
+        switch kind {
+        case "BOQ": return getBOQ(id: linkedId)?.projectId == projectId ? nil : "That BOQ isn't part of this project."
+        case "Quotation": return getQuotation(id: linkedId)?.projectId == projectId ? nil : "That quotation isn't part of this project."
+        default: return "A drawing can be linked to a BOQ or a quotation."
+        }
+    }
+
     @discardableResult
-    func recordDrawing(projectId: String, originalName: String, storedURL: URL) -> ProjectDrawing {
+    func recordDrawing(projectId: String, originalName: String, storedURL: URL, linkedKind: String? = nil, linkedId: String? = nil) -> ProjectDrawing {
         let attrs = try? FileManager.default.attributesOfItem(atPath: storedURL.path)
         let size = (attrs?[.size] as? Int) ?? 0
+        let linked = checkDrawingLink(projectId: projectId, kind: linkedKind, linkedId: linkedId) == nil && nonBlank(linkedKind) != nil && nonBlank(linkedId) != nil
         let drawing = ProjectDrawing(
             id: makeId("drawing"), projectId: projectId, originalName: originalName,
             storedFilename: storedURL.lastPathComponent, filePath: storedURL.path,
             fileType: storedURL.pathExtension.uppercased(), fileSizeBytes: size,
-            description: nil, isArchived: false, uploadedAt: nowISO()
+            description: nil, isArchived: false, uploadedAt: nowISO(),
+            linkedKind: linked ? linkedKind : nil, linkedId: linked ? linkedId : nil
         )
         drawingsStore.insert(drawing)
         logActivity(projectId: projectId, "Drawing uploaded", reference: originalName)
@@ -5191,7 +5290,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respondNull(id: id)
         case "projects:uploadDrawing":
             let number = (payload["projectNumber"] as? String) ?? ""
-            handleUploadDrawing(id: id, projectNumber: number)
+            handleUploadDrawing(id: id, projectNumber: number, linkedKind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+        case "drawings:setLink":
+            let error = db.setDrawingLink(id: (payload["id"] as? String) ?? "", kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+            respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
+        case "drawings:listForDocument":
+            respond(id: id, encodable: db.listDrawings(linkedKind: (payload["linkedKind"] as? String) ?? "", linkedId: (payload["linkedId"] as? String) ?? ""))
 
         case "boq:listForProject":
             let projectId = (payload["projectId"] as? String) ?? ""
@@ -5341,6 +5445,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "invoices:updateLineDiscount":
             let error = db.updateInvoiceLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
                                                      value: payload["discountValue"] as? Double)
+            respond(id: id, encodable: InvoiceActionResult(ok: error == nil, error: error))
+        case "invoices:updateRental":
+            let error = db.updateInvoiceRental(id: (payload["id"] as? String) ?? "", months: payload["rentalMonths"] as? Int,
+                                               period: payload["rentalPeriod"] as? String, updatePeriod: payload.keys.contains("rentalPeriod"))
             respond(id: id, encodable: InvoiceActionResult(ok: error == nil, error: error))
         case "invoices:updateHeader":
             handleUpdateInvoiceHeader(id: id, payload: payload)
@@ -5846,13 +5954,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     private func handleCreateInvoice(id: String, payload: [String: Any]) {
         let projectId = (payload["projectId"] as? String) ?? ""
         let projectNumber = (payload["projectNumber"] as? String) ?? ""
-        let sourceQuotationId = payload["quotationId"] as? String
         guard !projectId.isEmpty, !projectNumber.isEmpty else {
             respondError(id: id, message: "Missing project.")
             return
         }
-        let invoice = db.createInvoice(projectId: projectId, projectNumber: projectNumber, sourceQuotationId: sourceQuotationId)
-        respond(id: id, encodable: invoice)
+        switch db.createInvoice(projectId: projectId, projectNumber: projectNumber,
+                                sourceQuotationId: (payload["quotationId"] as? String) ?? "",
+                                rentalMonths: payload["rentalMonths"] as? Int,
+                                includeDelivery: (payload["includeDelivery"] as? Bool) ?? true) {
+        case .success(let invoice): respond(id: id, encodable: invoice)
+        case .failure(let e): respondError(id: id, message: e.message)
+        }
     }
 
     private func handleAddInvoiceLineItem(id: String, payload: [String: Any]) {
@@ -6240,12 +6352,25 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         let company = db.getCompanySettings()
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
+        let isRental = detail.pricingMode == "Rental"
+        let quotation = detail.sourceQuotationId.flatMap { db.getQuotation(id: $0) }
 
         let priced = pricedRows(detail.lineItems.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
                                                          price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
-                                currency: currencySymbol(company), rateSuffix: { unit in unit.isEmpty || unit == "pc" ? "" : " /\(unit)" })
+                                currency: currencySymbol(company),
+                                rateSuffix: { unit in isRental ? " /Month" : (unit.isEmpty || unit == "pc" ? "" : " /\(unit)") })
         var rows = priced.materials
+        if isRental && !priced.materials.isEmpty {
+            // As on the quotation: the monthly charge, then the months charged.
+            let period = nonBlank(detail.rentalPeriod).map { " (\($0))" } ?? ""
+            if detail.rentalMonths > 1 {
+                rows.append(.summary(label: "Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
+                rows.append(.summary(label: "Rental for \(detail.rentalMonths) Months\(period):", value: formatMoney(detail.materialsCharge), emphasized: false))
+            } else {
+                rows.append(.summary(label: "Monthly Rental Charge\(period):", value: formatMoney(detail.materialsCharge), emphasized: false))
+            }
+        }
         if !priced.delivery.isEmpty {
             rows.append(.section("Delivery Charges"))
             rows += priced.delivery
@@ -6273,14 +6398,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         var sections = remarks(detail.notes)
         if !payment.isEmpty { sections.append(LetterSection(heading: "Payment Information", paragraphs: payment)) }
 
-        var refRows: [(label: String, value: String)] = [("Invoice No.", detail.invoiceNumber), ("Project No.", detail.projectNumber),
-                                                         ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.invoiceDate))]
+        var refRows: [(label: String, value: String)] = [("Invoice No.", detail.invoiceNumber)]
+        if let number = detail.sourceQuotationNumber { refRows.append(("Quotation No.", number)) }
+        if let yourRef = nonBlank(quotation?.clientRef) { refRows.append(("Your Ref. No.", yourRef)) }
+        refRows += [("Site Ref.", nonBlank(quotation?.siteRef) ?? siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.invoiceDate))]
         if let due = nonBlank(detail.dueDate) { refRows.append(("Due Date", letterDate(due))) }
 
         let letter = LetterDocument(
             number: detail.invoiceNumber, status: detail.status, title: "INVOICE",
             clientName: client.name, clientLines: client.lines, refRows: refRows,
-            deliveryMethod: nil, salutation: nil, subject: "Re: \(detail.projectNumber) \(detail.projectName)", intro: nil,
+            deliveryMethod: nil, salutation: nil,
+            subject: "Re: \(nonBlank(quotation?.subject) ?? "\(detail.projectNumber) \(detail.projectName)")", intro: nil,
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
             sections: sections, signatures: [companySignature(company)], closingLine: nil
         )
@@ -6396,7 +6524,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         respond(id: id, encodable: detail)
     }
 
-    private func handleUploadDrawing(id: String, projectNumber: String) {
+    private func handleUploadDrawing(id: String, projectNumber: String, linkedKind: String?, linkedId: String?) {
         guard let window = window else {
             respondNull(id: id)
             return
@@ -6408,7 +6536,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.pdf, .png, .jpeg, .tiff]
+        panel.allowedContentTypes = drawingContentTypes
+        panel.message = "Choose a drawing: PDF, DWG, DXF or an image. The original stays where it is; a copy goes in the project's Drawings folder."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
@@ -6423,7 +6552,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                     source: sourceURL, projectNumber: projectNumber,
                     subfolder: "Drawings", meaningfulFilename: meaningfulName
                 )
-                self.db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination)
+                self.db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination, linkedKind: linkedKind, linkedId: linkedId)
                 self.respond(id: id, encodable: UploadDrawingResult(originalName: originalName, destination: destination.path))
             } catch {
                 self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
@@ -6825,7 +6954,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        if isDrawing { panel.allowedContentTypes = [.pdf, .png, .jpeg, .tiff] }
+        if isDrawing { panel.allowedContentTypes = drawingContentTypes }
         panel.message = "Choose the new version. The previous copy will be kept in the project's Other/Superseded folder."
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
