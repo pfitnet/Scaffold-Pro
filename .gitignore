@@ -1,0 +1,4 @@
+tools/pdf-preview/out/
+__pycache__/
+.DS_Store
+ScaffoldPro-native/build/
