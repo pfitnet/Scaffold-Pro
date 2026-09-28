@@ -723,3 +723,21 @@ under "Letterhead layout".
 - **Invoice PDF:** "Payment Terms :" with the same formatting under Payment
   Information.
 - The standard key terms print exactly as before.
+
+## Batch 26 — every quotation has its own editable Key Terms
+- The quotation editor's **Payment Terms** box is now **Key Terms**: all of the
+  quotation's key terms (Payment, Delivery, Modification…), fully editable with
+  the paragraph formatting from batch 25. **Start from Standard Terms** copies
+  the Settings key terms in, ready to edit.
+- **Blank = standard terms.** A quotation without key terms of its own prints
+  the standard key terms from Settings (Settings → Standard Quotation →
+  "Standard key terms"). The preview under the box shows them.
+- **Indented lines go under the item above:** an indented bullet, number or
+  label lines up with the text of the item above it (e.g. bullets under
+  "(i) Payment :"). The toolbar has **Indent →** and **← Outdent**.
+- Quotations whose payment terms were typed in (different from the Settings
+  default) are given key terms of their own once, when the app starts: the
+  standard key terms, with those payment terms as the Payment term. They print
+  as before.
+- Invoices keep their own **Payment Terms**. Settings' "Default Payment Terms"
+  now says it's for invoices.

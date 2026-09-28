@@ -497,6 +497,7 @@ extension Quotation {
         minimumHireMonths = try c.decodeIfPresent(Int.self, forKey: .minimumHireMonths)
         minimumHireEnabled = try c.decodeIfPresent(Bool.self, forKey: .minimumHireEnabled)
         markupPercent = try c.decodeIfPresent(Double.self, forKey: .markupPercent)
+        keyTerms = try c.decodeIfPresent(String.self, forKey: .keyTerms)
         pdfPath = try c.decodeIfPresent(String.self, forKey: .pdfPath)
     }
 }
@@ -726,6 +727,9 @@ struct Quotation: Codable {
     var markupPercent: Double?
     /// The last PDF exported for this document (sections 31-32).
     var pdfPath: String?
+    /// This quotation's own key terms (payment, delivery, modification…),
+    /// with paragraph formatting. nil/blank = the key terms from Settings.
+    var keyTerms: String?
 }
 
 struct QuotationLineItem: Codable {
@@ -838,6 +842,10 @@ struct QuotationDetail: Codable {
     var blocks: [QuotationBlock]
     /// The priced sections' rows, added to the total.
     var otherChargesTotal: Double
+    /// This quotation's own key terms; nil = the standard ones below.
+    var keyTerms: String?
+    /// The key terms from Settings, printed when `keyTerms` is blank.
+    var standardKeyTerms: String
 }
 
 struct QuotationActionResult: Codable {
@@ -1198,7 +1206,8 @@ enum LetterParagraph {
 //   "1. text", "(a) text", "b) text", "(iv) text"   numbered, hanging indent
 //   "marker<Tab>text"                       any marker, hanging indent
 // Lines after one of these (up to a blank line) continue its text, lined up
-// under it. Anything else is an ordinary paragraph; a blank line starts a
+// under it; an indented bullet, number or label goes under it, lined up with
+// its text. Anything else is an ordinary paragraph; a blank line starts a
 // new one. js/paragraph-format.js follows the same rules for the preview.
 
 /// Where the text of a labelled line starts: 89.25pt in, so the colon is
@@ -1247,14 +1256,24 @@ func hangingItem(_ raw: String) -> (marker: String, text: String, style: Hanging
 
 /// Formatted text as letter paragraphs, `left` points in from the margin
 /// (0 for the Terms and Conditions; more when nested under a label).
+/// Where a hanging item's text starts, from its marker's position.
+func hangingTextOffset(_ style: HangingStyle) -> CGFloat {
+    switch style {
+    case .label: return labelTextIndent
+    case .bullet: return 12
+    case .marker: return 24
+    }
+}
+
 func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph] {
     var result: [LetterParagraph] = []
-    var current: (marker: String, lines: [String], style: HangingStyle)? = nil
+    var current: (marker: String, lines: [String], style: HangingStyle, left: CGFloat)? = nil
     var plain: [String] = []
+    /// The text column of the last item at `left`: indented items go there.
+    var parentText: CGFloat? = nil
     func flush() {
         if let c = current {
-            let indent: CGFloat? = c.style == .label ? left + labelTextIndent : c.style == .bullet ? left + 12 : nil
-            result.append(.hanging(marker: c.marker, lines: c.lines, left: left, indent: indent, colon: c.style == .label))
+            result.append(.hanging(marker: c.marker, lines: c.lines, left: c.left, indent: c.left + hangingTextOffset(c.style), colon: c.style == .label))
             current = nil
         }
         if !plain.isEmpty {
@@ -1268,15 +1287,55 @@ func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph]
         if trimmed.isEmpty { flush(); continue }
         if let item = hangingItem(raw) {
             flush()
-            current = (item.marker, item.text.isEmpty ? [] : [item.text], item.style)
+            let indented = raw.first == " " || raw.first == "\t"
+            let itemLeft = indented ? (parentText ?? left) : left
+            if !indented || parentText == nil { parentText = left + hangingTextOffset(item.style) }
+            current = (item.marker, item.text.isEmpty ? [] : [item.text], item.style, itemLeft)
         } else if current != nil {
             current?.lines.append(trimmed)
         } else {
             plain.append(trimmed)
+            parentText = nil
         }
     }
     flush()
     return result
+}
+
+/// Key terms text with `paymentTerms` as the text of its "Payment" term
+/// (replacing that term and the lines under it), or added as one: the
+/// payment terms' opening lines beside the label, the rest indented under it.
+func keyTermsText(_ standard: String, withPaymentTerms paymentTerms: String) -> String {
+    let lines = standard.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+    let isPaymentLabel: (String) -> Bool = { line in
+        guard let item = hangingItem(line), item.style == .label else { return false }
+        return item.marker.lowercased().contains("payment")
+    }
+    let start = lines.firstIndex(where: isPaymentLabel)
+    let label = start.flatMap { hangingItem(lines[$0])?.marker } ?? "Payment"
+    var block: [String] = []
+    var opening = true
+    for raw in paymentTerms.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+        let line = raw.trimmingCharacters(in: .whitespaces)
+        guard !line.isEmpty else { continue }
+        if opening && hangingItem(line) == nil {
+            block.append(block.isEmpty ? "\(label) : \(line)" : line)
+        } else {
+            if block.isEmpty { block.append("\(label) :") }
+            opening = false
+            block.append("    \(line)")
+        }
+    }
+    guard let first = start else { return (lines + block).joined(separator: "\n") }
+    var end = first + 1
+    while end < lines.count {
+        let line = lines[end]
+        if line.trimmingCharacters(in: .whitespaces).isEmpty { break }
+        let indented = line.first == " " || line.first == "\t"
+        if hangingItem(line) != nil && !indented { break }
+        end += 1
+    }
+    return (Array(lines[..<first]) + block + Array(lines[end...])).joined(separator: "\n")
 }
 
 /// A quotation's or invoice's own payment terms under a "Payment" label:
@@ -2297,6 +2356,26 @@ final class AppDatabase {
         UserDefaults.standard.set(true, forKey: key)
     }
 
+    /// Once: quotations whose own payment terms were typed in (not just the
+    /// Settings default) get key terms of their own — the standard key
+    /// terms with those payment terms as the Payment term — so they print
+    /// as before now that each quotation has key terms instead.
+    func movePaymentTermsIntoKeyTermsIfNeeded() {
+        let key = "ScaffoldPro.paymentTermsMovedToKeyTerms"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let settings = getCompanySettings()
+        let standard = settings.quotationTerms ?? defaultQuotationTerms
+        var qs = quotationsStore.readAll()
+        var changed = false
+        for i in qs.indices where nonBlank(qs[i].keyTerms) == nil {
+            guard let pt = nonBlank(qs[i].paymentTerms), pt != nonBlank(settings.defaultPaymentTerms) else { continue }
+            qs[i].keyTerms = keyTermsText(standard, withPaymentTerms: pt)
+            changed = true
+        }
+        if changed { quotationsStore.writeAll(qs) }
+        UserDefaults.standard.set(true, forKey: key)
+    }
+
     /// Section 8's "Edit item" — item code is intentionally left alone
     /// here (it's the identifier everything else keys off), everything
     /// else is editable.
@@ -2817,7 +2896,8 @@ final class AppDatabase {
             markupPercent: q.markupPercent,
             effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
             lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a }),
-            blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal
+            blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal,
+            keyTerms: q.keyTerms, standardKeyTerms: getCompanySettings().quotationTerms ?? defaultQuotationTerms
         )
     }
 
@@ -2944,6 +3024,7 @@ final class AppDatabase {
         if payload.keys.contains("clientRef") { qs[i].clientRef = text(payload, "clientRef") }
         if payload.keys.contains("siteRef") { qs[i].siteRef = text(payload, "siteRef") }
         if payload.keys.contains("deliveryMethod") { qs[i].deliveryMethod = text(payload, "deliveryMethod") }
+        if payload.keys.contains("keyTerms") { qs[i].keyTerms = text(payload, "keyTerms") }
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
         if let enabled = payload["minimumHireEnabled"] as? Bool { qs[i].minimumHireEnabled = enabled }
         qs[i].updatedAt = nowISO()
@@ -4917,7 +4998,7 @@ final class PDFGenerator {
         let markerX = textLeft + left
         let markerWidth = marker.isEmpty ? 0 : lineWidth(makeLine(marker, font, .black))
         var textX = textLeft + (indent ?? (left + max(18, markerWidth + 6)))
-        if colon { textX = max(textX, markerX + markerWidth + 7.5) }
+        if !marker.isEmpty { textX = max(textX, markerX + markerWidth + (colon ? 7.5 : 5)) }
         textX = min(textX, textRight - 120)
         var baseline = firstBaseline
         if !marker.isEmpty { text(marker, x: markerX, baseline: baseline, font: font) }
@@ -6813,21 +6894,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if let url = nonBlank(company.termsURL) {
             terms.append(.text("The terms and conditions set out in \(url) are hereby expressively incorporated into this quotation with other relevant key terms set forth below.", link: url))
         }
-        // The key terms, with this quotation's own payment terms (if any) in
-        // place of the text of the one labelled "Payment".
-        var keyTerms = formattedParagraphs(company.quotationTerms ?? defaultQuotationTerms)
-        if let pt = nonBlank(detail.paymentTerms) {
-            let isPayment: (LetterParagraph) -> Bool = {
-                if case .hanging(let marker, _, let left, _, _) = $0 { return left == 0 && marker.lowercased().contains("payment") }
-                return false
-            }
-            if let i = keyTerms.firstIndex(where: isPayment), case .hanging(let label, _, _, _, _) = keyTerms[i] {
-                keyTerms.replaceSubrange(i...i, with: paymentTermParagraphs(pt, label: label))
-            } else {
-                keyTerms += paymentTermParagraphs(pt, label: "Payment")
-            }
-        }
-        terms += keyTerms
+        // This quotation's own key terms, or the standard ones from Settings.
+        terms += formattedParagraphs(nonBlank(detail.keyTerms) ?? detail.standardKeyTerms)
         terms.append(.text(company.quotationAcceptance ?? defaultQuotationAcceptance, link: nil))
 
         let letter = LetterDocument(
@@ -7635,6 +7703,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         seedPriceListsIfNeeded()
         db.fixScafomCurrencyIfNeeded()
         db.applyDeliveryChargeUpdateIfNeeded()
+        db.movePaymentTermsIntoKeyTermsIfNeeded()
     }
 
     private func seedPriceListsIfNeeded() {
