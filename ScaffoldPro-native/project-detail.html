@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Project — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="project-detail">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div id="not-found" class="empty-state hidden">
+      <h2>Project not found</h2>
+      <p>It may have been removed, or the link is out of date.</p>
+      <button onclick="location.href='projects.html'">Back to Projects</button>
+    </div>
+
+    <div id="project-body" class="hidden">
+      <div class="page-header">
+        <div id="project-header"></div>
+        <div class="header-actions">
+          <select id="status-select" title="Project status"></select>
+          <button id="edit-project-btn">Edit Details</button>
+          <button id="reveal-folder-btn">Show in Finder</button>
+        </div>
+      </div>
+
+      <nav class="tabs" id="tabs">
+        <button data-tab="overview">Overview</button>
+        <button data-tab="boq">BOQ <span class="tab-count" id="count-boq"></span></button>
+        <button data-tab="quotations">Quotations <span class="tab-count" id="count-quotations"></span></button>
+        <button data-tab="invoices">Invoices <span class="tab-count" id="count-invoices"></span></button>
+        <button data-tab="delivery">Delivery Notes <span class="tab-count" id="count-delivery"></span></button>
+        <button data-tab="files">Drawings &amp; Documents <span class="tab-count" id="count-files"></span></button>
+        <button data-tab="history">History</button>
+      </nav>
+
+      <!-- Overview (section 17) -->
+      <section class="tab-panel" data-panel="overview">
+        <div class="overview-grid">
+          <div class="panel">
+            <h3 class="panel-title">Project Details</h3>
+            <dl class="details" id="overview-details"></dl>
+          </div>
+          <div class="panel">
+            <h3 class="panel-title">Quick Actions</h3>
+            <div class="quick-actions">
+              <button data-action="new-boq">New BOQ</button>
+              <button data-action="new-quotation">New Quotation</button>
+              <button data-action="new-invoice">New Invoice</button>
+              <button data-action="new-delivery-note">New Delivery Note</button>
+              <button data-action="upload-drawing">Upload Drawing</button>
+              <button data-action="upload-document">Upload Document</button>
+            </div>
+            <h3 class="panel-title" style="margin-top:18px;">Recent Activity</h3>
+            <div id="overview-activity"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <h3 class="panel-title">Description</h3>
+          <p class="prose" id="overview-description"></p>
+          <h3 class="panel-title" style="margin-top:14px;">Internal Notes</h3>
+          <p class="prose" id="overview-notes"></p>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-panel="boq">
+        <div class="section-toolbar">
+          <h2>Bills of Quantities</h2>
+          <button class="primary" id="new-boq-btn">+ New BOQ</button>
+        </div>
+        <div id="boq-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="quotations">
+        <div class="section-toolbar">
+          <h2>Quotations</h2>
+          <button class="primary" id="new-quotation-btn">+ New Quotation</button>
+        </div>
+        <div id="quotation-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="invoices">
+        <div class="section-toolbar">
+          <h2>Invoices</h2>
+          <button class="primary" id="new-invoice-btn">+ New Invoice</button>
+        </div>
+        <div id="invoice-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="delivery">
+        <div class="section-toolbar">
+          <h2>Delivery Notes</h2>
+          <button class="primary" id="new-delivery-note-btn">+ New Delivery Note</button>
+        </div>
+        <div id="delivery-note-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="files">
+        <div class="section-toolbar" id="drawings">
+          <h2>Drawings</h2>
+          <button class="primary" id="upload-drawing-btn">Upload Drawing</button>
+        </div>
+        <div id="drawing-list"></div>
+
+        <div class="section-toolbar" id="documents" style="margin-top: 28px;">
+          <h2>Documents</h2>
+          <div class="controls">
+            <select id="document-category-select"></select>
+            <button class="primary" id="upload-document-btn">Upload Document</button>
+          </div>
+        </div>
+        <div id="document-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="history">
+        <div class="section-toolbar"><h2>History</h2></div>
+        <div id="history-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal-backdrop hidden" id="edit-modal">
+    <div class="modal wide">
+      <h2>Edit Project Details</h2>
+      <div class="form-grid">
+        <div class="field span-2"><label>Project Name</label><input type="text" id="e-name" /></div>
+        <div class="field"><label>Client</label><select id="e-clientId"></select></div>
+        <div class="field"><label>Site</label><select id="e-siteId"></select></div>
+        <div class="field"><label>Start Date</label><input type="date" id="e-startDate" /></div>
+        <div class="field"><label>Expected Completion</label><input type="date" id="e-expectedCompletionDate" /></div>
+        <div class="field span-2"><label>Project Manager</label><input type="text" id="e-projectManager" /></div>
+        <div class="field span-2"><label>Description</label><textarea id="e-projectDescription" rows="3"></textarea></div>
+        <div class="field span-2"><label>Internal Notes</label><textarea id="e-internalNotes" rows="3"></textarea></div>
+      </div>
+      <div class="small-note">The project number never changes.</div>
+      <div class="error-text hidden" id="e-error"></div>
+      <div class="actions">
+        <button id="e-cancel-btn">Cancel</button>
+        <button class="primary" id="e-save-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/project-detail.js"></script>
+</body>
+</html>

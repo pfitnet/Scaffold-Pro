@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Settings — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 780px; }
+    .settings-grid .field { display: flex; flex-direction: column; gap: 4px; }
+    .settings-grid .field.full { grid-column: 1 / -1; }
+    .settings-grid label { font-size: 12px; color: var(--text-secondary); }
+    .settings-grid textarea { min-height: 70px; }
+    .save-row { margin-top: 20px; display:flex; align-items:center; gap:10px; position: sticky; bottom: 0; padding: 10px 0; background: var(--bg); }
+    .number-example { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .inline-check { display:flex; align-items:center; gap:6px; color: var(--text) !important; font-size: 13px !important; }
+    .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .segmented button { border: none; border-radius: 0; background: var(--panel); padding: 6px 14px; }
+    .segmented button + button { border-left: 1px solid var(--border); }
+    .segmented button.active { background: var(--accent); color: #fff; }
+    .next-no { display:flex; align-items:center; gap:6px; font-size:12px; color: var(--text-secondary); margin-top: 4px; }
+    .next-no input { width: 80px; }
+    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+    .saved-note { font-size:12px; color: var(--text-secondary); }
+    .backup-actions { display:flex; gap:8px; align-items:center; margin: 14px 0 12px; }
+    .backup-status { font-size:12px; color: var(--text-secondary); }
+    .location-grid { display:grid; grid-template-columns: 130px 1fr; gap: 6px 12px; max-width: 780px; font-size: 13px; }
+    .location-label { color: var(--text-secondary); }
+    .location-path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
+    .kind-safety { color: var(--text-secondary); font-style: italic; }
+  </style>
+</head>
+<body data-page="settings">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Settings</h1>
+    <div class="subtitle">Company details below feed the header of every BOQ, Quotation, Invoice, and Delivery Note PDF.</div>
+
+    <h2 style="margin-top:24px;">Company Information</h2>
+    <div class="settings-grid">
+      <div class="field"><label>Company Name</label><input type="text" id="companyName-input" /></div>
+      <div class="field"><label>Website</label><input type="text" id="website-input" /></div>
+      <div class="field"><label>Address Line 1</label><input type="text" id="addressLine1-input" /></div>
+      <div class="field"><label>Address Line 2</label><input type="text" id="addressLine2-input" /></div>
+      <div class="field"><label>Phone</label><input type="text" id="phone-input" /></div>
+      <div class="field"><label>Email</label><input type="text" id="email-input" /></div>
+      <div class="field"><label>Registration No.</label><input type="text" id="registrationNumber-input" /></div>
+      <div class="field"><label>VAT / Tax No.</label><input type="text" id="vatNumber-input" /></div>
+      <div class="field full"><label>Bank Details (shown on invoices, one line each)</label><textarea id="bankDetails-input"></textarea></div>
+      <div class="field"><label>Currency</label><input type="text" id="currency-input" /></div>
+      <div class="field"><label>Default Tax / VAT Rate (%)</label><input type="number" id="defaultTaxRatePercent-input" min="0" step="0.01" /></div>
+      <div class="field"><label>Default Payment Terms</label><input type="text" id="defaultPaymentTerms-input" /></div>
+      <div class="field full"><label>Default Notes (filled in on new quotations and invoices)</label><textarea id="defaultNotes-input"></textarea></div>
+    </div>
+
+    <h2 style="margin-top:32px;">Letterhead</h2>
+    <p class="small-note">Every quotation, invoice, delivery note and BOQ is printed on the company letterhead — the Proficiency (HK) Limited heading and the address footer — exactly as on the standard quotation Qt26193. The signatory, terms and other wording below are used in the documents.</p>
+
+    <h2 style="margin-top:32px;">Documents</h2>
+    <div class="settings-grid">
+      <div class="field"><label>Paper Size</label>
+        <select id="paperSize-input"><option value="A4">A4</option><option value="Letter">Letter</option></select>
+      </div>
+      <div class="field"><label>Invoice Due After (days)</label><input type="number" id="defaultInvoiceDueDays-input" min="0" step="1" /></div>
+      <div class="field full">
+        <label class="inline-check"><input type="checkbox" id="pricesIncludeTax-input" /> Prices already include tax / VAT</label>
+        <span class="small-note">When ticked, the tax shown on quotations and invoices is the part already inside the total, rather than added on top.</span>
+      </div>
+    </div>
+
+    <h3 class="related-title" style="margin-top:22px;">Document Numbers</h3>
+    <div class="small-note" style="margin-bottom:10px; max-width:780px;">
+      Use <code>{PROJECT}</code> for the project number, <code>{YYYY}</code> or <code>{YY}</code> for the year, and <code>{SEQ}</code> for the running number (001, 002…).
+      Numbers already issued never change. Leave a box empty to use the standard format.
+    </div>
+    <div class="settings-grid">
+      <div class="field"><label>Bill of Quantities</label><input type="text" id="numberFormatBOQ-input" data-type="BOQ" placeholder="{PROJECT}-BOQ-{SEQ}" /><span class="number-example" id="numberFormatBOQ-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-BOQ" min="1" step="1" placeholder="1" /></label></div>
+      <div class="field"><label>Quotation</label><input type="text" id="numberFormatQuotation-input" data-type="QT" placeholder="Qt{YY}{SEQ}" /><span class="number-example" id="numberFormatQuotation-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-QT" min="1" step="1" placeholder="1" /></label></div>
+      <div class="field"><label>Invoice</label><input type="text" id="numberFormatInvoice-input" data-type="INV" placeholder="H{YY}{SEQ}" /><span class="number-example" id="numberFormatInvoice-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-INV" min="1" step="1" placeholder="1" /></label></div>
+      <div class="field"><label>Delivery Note</label><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /><span class="number-example" id="numberFormatDeliveryNote-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label></div>
+    </div>
+
+    <h2 style="margin-top:32px;">Standard Quotation</h2>
+    <div class="small-note" style="margin-bottom:10px; max-width:780px;">Used on every quotation, laid out like Qt26193.</div>
+    <div class="settings-grid">
+      <div class="field"><label>Signed by</label><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
+      <div class="field"><label>Title</label><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
+      <div class="field"><label>Terms &amp; Conditions web address</label><input type="text" id="termsURL-input" placeholder="www.pfitnet.com/TC" /></div>
+      <div class="field"><label>Standard delivery charge (HK$ per truck per trip)</label><input type="number" id="standardDeliveryCharge-input" min="0" step="0.01" placeholder="3800" /></div>
+      <div class="field"><label>Minimum hire for rentals (months)</label><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1" /></div>
+      <div class="field"><label>EUR → HKD exchange rate (SCAFOM list)</label><input type="number" id="eurRate-input" min="0" step="0.0001" /></div>
+      <div class="field full"><label>Key terms (one per line)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
+      <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
+    </div>
+
+    <h2 style="margin-top:32px;">Appearance</h2>
+    <div class="segmented" id="appearance-control">
+      <button data-value="System">Follow System</button>
+      <button data-value="Light">Light</button>
+      <button data-value="Dark">Dark</button>
+    </div>
+
+    <div class="save-row">
+      <button class="primary" id="save-btn">Save Settings</button>
+      <span class="saved-note hidden" id="saved-note">Saved.</span>
+    </div>
+
+    <h2 style="margin-top:36px;" id="backup">Backup &amp; Restore</h2>
+    <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive.</div>
+
+    <div class="backup-actions">
+      <button class="primary" id="create-backup-btn">Create Backup</button>
+      <button id="restore-other-btn">Restore from Folder…</button>
+      <button id="show-backups-btn">Show Backups Folder</button>
+      <span class="backup-status" id="backup-status"></span>
+    </div>
+
+    <div id="backup-list"></div>
+
+    <h2 style="margin-top:36px;">Data Location</h2>
+    <div class="location-grid">
+      <div class="location-label">Business files</div><div class="location-path" id="loc-documents">—</div>
+      <div class="location-label">Backups</div><div class="location-path" id="loc-backups">—</div>
+      <div class="location-label">Database</div><div class="location-path" id="loc-database">—</div>
+    </div>
+    <div style="margin-top:10px;"><button id="show-data-folder-btn">Show in Finder</button></div>
+  </main>
+  <script src="js/sidebar.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

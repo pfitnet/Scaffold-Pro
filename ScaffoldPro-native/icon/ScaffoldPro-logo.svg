@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>ScaffoldPro</title>
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B3556"/><stop offset="1" stop-color="#10223A"/>
+    </linearGradient>
+  </defs>
+  <!-- Body: macOS icon grid, 824 × 824 -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#navy)"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="184.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.15" stroke-width="3"/>
+  <!-- Ledgers -->
+  <rect x="312" y="288" width="400" height="24" fill="#E4E8EC"/><rect x="312" y="305" width="400" height="7" fill="#B4BDC7"/>
+  <rect x="312" y="500" width="400" height="24" fill="#E4E8EC"/><rect x="312" y="517" width="400" height="7" fill="#B4BDC7"/>
+  <rect x="312" y="712" width="400" height="24" fill="#E4E8EC"/><rect x="312" y="729" width="400" height="7" fill="#B4BDC7"/>
+  <!-- Standards and base plates -->
+  <rect x="296" y="236" width="32" height="556" fill="#E4E8EC"/><rect x="320" y="236" width="8" height="556" fill="#B4BDC7"/><rect x="266" y="792" width="92" height="16" rx="4" fill="#B4BDC7"/>
+  <rect x="496" y="236" width="32" height="556" fill="#E4E8EC"/><rect x="520" y="236" width="8" height="556" fill="#B4BDC7"/><rect x="466" y="792" width="92" height="16" rx="4" fill="#B4BDC7"/>
+  <rect x="696" y="236" width="32" height="556" fill="#E4E8EC"/><rect x="720" y="236" width="8" height="556" fill="#B4BDC7"/><rect x="666" y="792" width="92" height="16" rx="4" fill="#B4BDC7"/>
+  <!-- Safety-yellow brace -->
+  <line x1="312" y1="724" x2="712" y2="300" stroke="#D99800" stroke-width="44" stroke-linecap="round"/>
+  <line x1="312" y1="724" x2="712" y2="300" stroke="#F4B400" stroke-width="38" stroke-linecap="round"/>
+  <!-- Rosettes -->
+  <circle cx="312" cy="300" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="327.6" cy="315.6" r="5.5" fill="#4A5D76"/><circle cx="296.4" cy="315.6" r="5.5" fill="#4A5D76"/><circle cx="296.4" cy="284.4" r="5.5" fill="#4A5D76"/><circle cx="327.6" cy="284.4" r="5.5" fill="#4A5D76"/><circle cx="312" cy="300" r="12" fill="#B4BDC7"/>
+  <circle cx="312" cy="512" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="327.6" cy="527.6" r="5.5" fill="#4A5D76"/><circle cx="296.4" cy="527.6" r="5.5" fill="#4A5D76"/><circle cx="296.4" cy="496.4" r="5.5" fill="#4A5D76"/><circle cx="327.6" cy="496.4" r="5.5" fill="#4A5D76"/><circle cx="312" cy="512" r="12" fill="#B4BDC7"/>
+  <circle cx="312" cy="724" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="327.6" cy="739.6" r="5.5" fill="#4A5D76"/><circle cx="296.4" cy="739.6" r="5.5" fill="#4A5D76"/><circle cx="296.4" cy="708.4" r="5.5" fill="#4A5D76"/><circle cx="327.6" cy="708.4" r="5.5" fill="#4A5D76"/><circle cx="312" cy="724" r="12" fill="#B4BDC7"/>
+  <circle cx="512" cy="300" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="527.6" cy="315.6" r="5.5" fill="#4A5D76"/><circle cx="496.4" cy="315.6" r="5.5" fill="#4A5D76"/><circle cx="496.4" cy="284.4" r="5.5" fill="#4A5D76"/><circle cx="527.6" cy="284.4" r="5.5" fill="#4A5D76"/><circle cx="512" cy="300" r="12" fill="#B4BDC7"/>
+  <circle cx="512" cy="512" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="527.6" cy="527.6" r="5.5" fill="#4A5D76"/><circle cx="496.4" cy="527.6" r="5.5" fill="#4A5D76"/><circle cx="496.4" cy="496.4" r="5.5" fill="#4A5D76"/><circle cx="527.6" cy="496.4" r="5.5" fill="#4A5D76"/><circle cx="512" cy="512" r="12" fill="#B4BDC7"/>
+  <circle cx="512" cy="724" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="527.6" cy="739.6" r="5.5" fill="#4A5D76"/><circle cx="496.4" cy="739.6" r="5.5" fill="#4A5D76"/><circle cx="496.4" cy="708.4" r="5.5" fill="#4A5D76"/><circle cx="527.6" cy="708.4" r="5.5" fill="#4A5D76"/><circle cx="512" cy="724" r="12" fill="#B4BDC7"/>
+  <circle cx="712" cy="300" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="727.6" cy="315.6" r="5.5" fill="#4A5D76"/><circle cx="696.4" cy="315.6" r="5.5" fill="#4A5D76"/><circle cx="696.4" cy="284.4" r="5.5" fill="#4A5D76"/><circle cx="727.6" cy="284.4" r="5.5" fill="#4A5D76"/><circle cx="712" cy="300" r="12" fill="#B4BDC7"/>
+  <circle cx="712" cy="512" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="727.6" cy="527.6" r="5.5" fill="#4A5D76"/><circle cx="696.4" cy="527.6" r="5.5" fill="#4A5D76"/><circle cx="696.4" cy="496.4" r="5.5" fill="#4A5D76"/><circle cx="727.6" cy="496.4" r="5.5" fill="#4A5D76"/><circle cx="712" cy="512" r="12" fill="#B4BDC7"/>
+  <circle cx="712" cy="724" r="32.5" fill="#E4E8EC" stroke="#B4BDC7" stroke-width="3"/><circle cx="727.6" cy="739.6" r="5.5" fill="#4A5D76"/><circle cx="696.4" cy="739.6" r="5.5" fill="#4A5D76"/><circle cx="696.4" cy="708.4" r="5.5" fill="#4A5D76"/><circle cx="727.6" cy="708.4" r="5.5" fill="#4A5D76"/><circle cx="712" cy="724" r="12" fill="#B4BDC7"/>
+</svg>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Quotation — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .boq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .qty-input { width: 60px; padding: 3px 6px; }
+    .price-input { width: 80px; padding: 3px 6px; }
+    .ref-price { font-size: 11px; color: var(--text-secondary); display: block; }
+    .override { color: var(--accent); font-weight: 600; }
+    .totals-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+    .totals-box .row.grand { font-size: 18px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+    .header-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
+    .header-fields .field.full { grid-column: 1 / -1; }
+    .letter-fields { grid-template-columns: repeat(4, 1fr); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .header-fields label { font-size: 11px; color: var(--text-secondary); }
+    .picker-results { max-height: 320px; overflow-y: auto; }
+    .boq-reference {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+    }
+    .boq-reference label { font-size: 12px; color: var(--text-secondary); }
+    .boq-reference-note { font-size: 12px; color: var(--text-secondary); margin-left: 4px; }
+  </style>
+</head>
+<body data-page="project-detail">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div id="quotation-header"></div>
+
+    <div id="not-found" class="empty-state hidden">
+      <h2>Quotation not found</h2>
+    </div>
+
+    <div id="quotation-body" class="hidden">
+      <div class="toolbar" style="justify-content: space-between;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="font-size:12px; color:var(--text-secondary);">Status</label>
+          <select id="status-select">
+            <option value="Draft">Draft</option>
+            <option value="Issued">Issued</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+          <button id="export-pdf-btn">Export PDF</button>
+          <button id="print-btn">Print…</button>
+        </div>
+        <a id="back-link" href="#">&larr; Back to project</a>
+      </div>
+
+      <div class="boq-reference">
+        <label for="boq-reference-select">Reference BOQ</label>
+        <select id="boq-reference-select"></select>
+        <button id="import-boq-btn">Import Items</button>
+        <span class="boq-reference-note" id="boq-reference-note"></span>
+      </div>
+
+      <!-- The standard quotation's letter fields (as on Qt26193) -->
+      <div class="header-fields letter-fields">
+        <div class="field full"><label>Re: (subject line)</label><input type="text" id="q-subject" placeholder="e.g. 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez" /></div>
+        <div class="field"><label>Your Ref. No.</label><input type="text" id="q-clientRef" /></div>
+        <div class="field"><label>Site Ref.</label><input type="text" id="q-siteRef" placeholder="e.g. MTR 1601" /></div>
+        <div class="field"><label>Sent</label><input type="text" id="q-deliveryMethod" placeholder="BY EMAIL ONLY" /></div>
+        <div class="field" id="q-hire-field"><label>Minimum Hire (months)</label><input type="number" id="q-minimumHireMonths" min="1" step="1" /></div>
+      </div>
+
+      <div class="header-fields">
+        <div class="field"><label>Date</label><input type="date" id="doc-date-input" /></div>
+        <div class="field"><label>Pricing</label>
+          <select id="pricing-mode-select">
+            <option value="Sale">Sale</option>
+            <option value="Rental">Rental</option>
+          </select>
+        </div>
+        <div class="field"><label>Valid Until</label><input type="date" id="valid-until-input" /></div>
+        <div class="field"><label>Payment Terms</label><input type="text" id="payment-terms-input" placeholder="e.g. 30 days net" /></div>
+        <div class="field"><label>Discount Type</label>
+          <select id="discount-type-select">
+            <option value="None">None</option>
+            <option value="Percent">Percent</option>
+            <option value="Fixed">Fixed Amount</option>
+          </select>
+        </div>
+        <div class="field"><label>Discount Value</label><input type="number" id="discount-value-input" min="0" step="0.01" /></div>
+        <div class="field"><label>Tax / VAT Rate (%)</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
+      </div>
+
+      <div class="boq-grid">
+        <div>
+          <h2>Add Materials</h2>
+          <div class="toolbar">
+            <select id="source-select">
+              <option value="SP">SP Material &amp; Price List 2026</option>
+              <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
+            </select>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="search-box" placeholder="Search items" />
+            <select id="category-select"><option value="">All Categories</option></select>
+          </div>
+          <div class="picker-results" id="picker-results"></div>
+        </div>
+
+        <div>
+          <h2>Line Items</h2>
+          <div id="line-items"></div>
+          <details class="custom-item" id="custom-item-box">
+            <summary>+ Add a custom item (not on a price list)</summary>
+            <div class="custom-item-row">
+              <input type="text" id="ci-description" placeholder="Description, e.g. Transport to site" />
+              <input type="text" id="ci-unit" value="lot" title="Unit" />
+              <input type="number" id="ci-qty" min="1" step="1" value="1" title="Quantity" />
+              <input type="number" id="ci-extra" min="0" step="0.01" placeholder="Unit price" />
+              <button id="ci-add-btn">Add</button>
+            </div>
+          </details>
+
+          <div class="line-quick-add"><button id="add-delivery-btn">+ Delivery Charge</button></div>
+          <div class="totals-box" id="totals-box"></div>
+
+          <div style="margin-top: 20px;">
+            <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
+            <textarea id="notes-box" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/quotation-editor.js"></script>
+</body>
+</html>

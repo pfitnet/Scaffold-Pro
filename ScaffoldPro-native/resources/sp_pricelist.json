@@ -1,0 +1,1189 @@
+[
+  {
+    "itemCode": "1.1",
+    "category": "Base Items",
+    "name": "600mm Base Jack",
+    "weightKg": 3.8,
+    "unitSalePriceHKD": 42,
+    "unitRentalPriceHKD": 4.2,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "1.2",
+    "category": "Base Items",
+    "name": "Base Jack (with Wheels)",
+    "weightKg": null,
+    "unitSalePriceHKD": 49,
+    "unitRentalPriceHKD": 4.9,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "1.3",
+    "category": "Base Items",
+    "name": "60mm U Jack",
+    "weightKg": 4.4,
+    "unitSalePriceHKD": null,
+    "unitRentalPriceHKD": null,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "1.4",
+    "category": "Base Items",
+    "name": "235 Base Collar",
+    "weightKg": 1.7,
+    "unitSalePriceHKD": 25,
+    "unitRentalPriceHKD": 2.5,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.05",
+    "category": "Standards (without Spigots)",
+    "name": "0.5m standard without spigot",
+    "weightKg": 2.4,
+    "unitSalePriceHKD": 40,
+    "unitRentalPriceHKD": 4.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.075",
+    "category": "Standards (without Spigots)",
+    "name": "0.75m standard without spigot",
+    "weightKg": 3.9,
+    "unitSalePriceHKD": 52,
+    "unitRentalPriceHKD": 5.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.1",
+    "category": "Standards (without Spigots)",
+    "name": "1.0m standard without spigot",
+    "weightKg": 5.0,
+    "unitSalePriceHKD": 65,
+    "unitRentalPriceHKD": 6.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.125",
+    "category": "Standards (without Spigots)",
+    "name": "1.25m standard without spigot",
+    "weightKg": 6.5,
+    "unitSalePriceHKD": 80,
+    "unitRentalPriceHKD": 8.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.15",
+    "category": "Standards (without Spigots)",
+    "name": "1.5m standard without spigot",
+    "weightKg": 7.3,
+    "unitSalePriceHKD": 90,
+    "unitRentalPriceHKD": 9.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.2",
+    "category": "Standards (without Spigots)",
+    "name": "2.0m standard without spigot",
+    "weightKg": 9.8,
+    "unitSalePriceHKD": 113,
+    "unitRentalPriceHKD": 11.3,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.25",
+    "category": "Standards (without Spigots)",
+    "name": "2.5m standard without spigot",
+    "weightKg": 12.5,
+    "unitSalePriceHKD": 138,
+    "unitRentalPriceHKD": 13.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "2.3",
+    "category": "Standards (without Spigots)",
+    "name": "3.0m standard without spigot",
+    "weightKg": 15.0,
+    "unitSalePriceHKD": 182.0,
+    "unitRentalPriceHKD": 18.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "3.1",
+    "category": "Standards (with Spigots)",
+    "name": "1.0m standard with spigot",
+    "weightKg": 6.5,
+    "unitSalePriceHKD": 90,
+    "unitRentalPriceHKD": 9.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "3.15",
+    "category": "Standards (with Spigots)",
+    "name": "1.5m standard with spigot",
+    "weightKg": 8.8,
+    "unitSalePriceHKD": 115,
+    "unitRentalPriceHKD": 11.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "3.2",
+    "category": "Standards (with Spigots)",
+    "name": "2.0m standard with spigot",
+    "weightKg": 10.9,
+    "unitSalePriceHKD": 139,
+    "unitRentalPriceHKD": 13.9,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.03",
+    "category": "Ledgers",
+    "name": "0.30m Ledger",
+    "weightKg": 1.7,
+    "unitSalePriceHKD": 31,
+    "unitRentalPriceHKD": 3.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.039",
+    "category": "Ledgers",
+    "name": "0.39m Ledger",
+    "weightKg": 1.9,
+    "unitSalePriceHKD": 34,
+    "unitRentalPriceHKD": 3.4,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.0415",
+    "category": "Ledgers",
+    "name": "0.415m Ledger",
+    "weightKg": 2.0,
+    "unitSalePriceHKD": 36,
+    "unitRentalPriceHKD": 3.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.06",
+    "category": "Ledgers",
+    "name": "0.60m Ledger",
+    "weightKg": 2.7,
+    "unitSalePriceHKD": 38,
+    "unitRentalPriceHKD": 3.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.07",
+    "category": "Ledgers",
+    "name": "0.73m Ledger",
+    "weightKg": 2.9,
+    "unitSalePriceHKD": 45,
+    "unitRentalPriceHKD": 4.5,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.09",
+    "category": "Ledgers",
+    "name": "0.90m Ledger",
+    "weightKg": 3.5,
+    "unitSalePriceHKD": 50,
+    "unitRentalPriceHKD": 5.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.11",
+    "category": "Ledgers",
+    "name": "1.09m Ledger",
+    "weightKg": 3.8,
+    "unitSalePriceHKD": 57,
+    "unitRentalPriceHKD": 5.7,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.12",
+    "category": "Ledgers",
+    "name": "1.20m Ledger",
+    "weightKg": 4.5,
+    "unitSalePriceHKD": 60,
+    "unitRentalPriceHKD": 6.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.15",
+    "category": "Ledgers",
+    "name": "1.50m Ledger",
+    "weightKg": 5.2,
+    "unitSalePriceHKD": 69,
+    "unitRentalPriceHKD": 6.9,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.157",
+    "category": "Ledgers",
+    "name": "1.57m Ledger",
+    "weightKg": 5.3,
+    "unitSalePriceHKD": 71,
+    "unitRentalPriceHKD": 7.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.18",
+    "category": "Ledgers",
+    "name": "1.80m Ledger",
+    "weightKg": 6.3,
+    "unitSalePriceHKD": 80,
+    "unitRentalPriceHKD": 8.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.2",
+    "category": "Ledgers",
+    "name": "2.07m Ledger",
+    "weightKg": 6.9,
+    "unitSalePriceHKD": 85,
+    "unitRentalPriceHKD": 8.5,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.25",
+    "category": "Ledgers",
+    "name": "2.57m Ledger",
+    "weightKg": 8.4,
+    "unitSalePriceHKD": 99,
+    "unitRentalPriceHKD": 9.9,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.5157",
+    "category": "Reinforced Ledgers",
+    "name": "1.57m Renforced Ledger",
+    "weightKg": 8.2,
+    "unitSalePriceHKD": 126,
+    "unitRentalPriceHKD": 12.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.5207",
+    "category": "Reinforced Ledgers",
+    "name": "2.07m Renforced Ledger",
+    "weightKg": 11.3,
+    "unitSalePriceHKD": 165,
+    "unitRentalPriceHKD": 16.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "4.5257",
+    "category": "Reinforced Ledgers",
+    "name": "2.57m Renforced Ledger",
+    "weightKg": 14.1,
+    "unitSalePriceHKD": 196,
+    "unitRentalPriceHKD": 19.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.109",
+    "category": "0.75m Elevation Face Brace",
+    "name": "0.90m x 0.75m Face Brace",
+    "weightKg": 5.4,
+    "unitSalePriceHKD": 76,
+    "unitRentalPriceHKD": 7.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.112",
+    "category": "0.75m Elevation Face Brace",
+    "name": "1.20m x 0.75m Face Brace",
+    "weightKg": 6.0,
+    "unitSalePriceHKD": 81,
+    "unitRentalPriceHKD": 8.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.206",
+    "category": "1.0m Elevation Face Brace",
+    "name": "0.60m x 1.0m Face Brace",
+    "weightKg": 4.9,
+    "unitSalePriceHKD": 72,
+    "unitRentalPriceHKD": 7.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.2073",
+    "category": "1.0m Elevation Face Brace",
+    "name": "0.73m x 1.0m Face Brace",
+    "weightKg": 5.0,
+    "unitSalePriceHKD": 74,
+    "unitRentalPriceHKD": 7.4,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.209",
+    "category": "1.0m Elevation Face Brace",
+    "name": "0.90m x 1.0m Face Brace",
+    "weightKg": 5.5,
+    "unitSalePriceHKD": 76,
+    "unitRentalPriceHKD": 7.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.212",
+    "category": "1.0m Elevation Face Brace",
+    "name": "1.20m x 1.0m Face Brace",
+    "weightKg": 6.0,
+    "unitSalePriceHKD": 82,
+    "unitRentalPriceHKD": 8.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.215",
+    "category": "1.0m Elevation Face Brace",
+    "name": "1.50m x 1.0m Face Brace",
+    "weightKg": 7.4,
+    "unitSalePriceHKD": 97,
+    "unitRentalPriceHKD": 9.7,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.306",
+    "category": "1.5m Elevation Face Brace",
+    "name": "0.60m x 1.5m Face Brace",
+    "weightKg": 6.4,
+    "unitSalePriceHKD": 85,
+    "unitRentalPriceHKD": 8.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.3073",
+    "category": "1.5m Elevation Face Brace",
+    "name": "0.73m x 1.5m Face Brace",
+    "weightKg": 6.5,
+    "unitSalePriceHKD": 86,
+    "unitRentalPriceHKD": 8.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.309",
+    "category": "1.5m Elevation Face Brace",
+    "name": "0.90m x 1.5m Face Brace",
+    "weightKg": 6.8,
+    "unitSalePriceHKD": 88,
+    "unitRentalPriceHKD": 8.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.3109",
+    "category": "1.5m Elevation Face Brace",
+    "name": "1.09m x 1.5m Face Brace",
+    "weightKg": 7.0,
+    "unitSalePriceHKD": 92,
+    "unitRentalPriceHKD": 9.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.312",
+    "category": "1.5m Elevation Face Brace",
+    "name": "1.20m x 1.5m Face Brace",
+    "weightKg": 7.1,
+    "unitSalePriceHKD": 92,
+    "unitRentalPriceHKD": 9.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.315",
+    "category": "1.5m Elevation Face Brace",
+    "name": "1.50m x 1.5m Face Brace",
+    "weightKg": 8.5,
+    "unitSalePriceHKD": 106,
+    "unitRentalPriceHKD": 10.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.3157",
+    "category": "1.5m Elevation Face Brace",
+    "name": "1.57m x 1.5m Face Brace",
+    "weightKg": 8.0,
+    "unitSalePriceHKD": 99,
+    "unitRentalPriceHKD": 9.9,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.3157",
+    "category": "1.5m Elevation Face Brace",
+    "name": "1.80m x 1.5m Face Brace",
+    "weightKg": 9.2,
+    "unitSalePriceHKD": 113,
+    "unitRentalPriceHKD": 11.3,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.3207",
+    "category": "1.5m Elevation Face Brace",
+    "name": "2.07m x 1.5m Face Brace",
+    "weightKg": 9.1,
+    "unitSalePriceHKD": 111,
+    "unitRentalPriceHKD": 11.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.406",
+    "category": "2.0m Elevation Face Brace",
+    "name": "0.60m x 2.0m Face Brace",
+    "weightKg": 7.7,
+    "unitSalePriceHKD": 99,
+    "unitRentalPriceHKD": 9.9,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.4073",
+    "category": "2.0m Elevation Face Brace",
+    "name": "0.73m x 2.0m Face Brace",
+    "weightKg": 7.8,
+    "unitSalePriceHKD": 100,
+    "unitRentalPriceHKD": 10.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.409",
+    "category": "2.0m Elevation Face Brace",
+    "name": "0.90m x 2.0m Face Brace",
+    "weightKg": 7.9,
+    "unitSalePriceHKD": 102,
+    "unitRentalPriceHKD": 10.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.4109",
+    "category": "2.0m Elevation Face Brace",
+    "name": "1.09m x 2.0m Face Brace",
+    "weightKg": 8.1,
+    "unitSalePriceHKD": 104,
+    "unitRentalPriceHKD": 10.4,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.412",
+    "category": "2.0m Elevation Face Brace",
+    "name": "1.20m x 2.0m Face Brace",
+    "weightKg": 8.6,
+    "unitSalePriceHKD": 106,
+    "unitRentalPriceHKD": 10.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.415",
+    "category": "2.0m Elevation Face Brace",
+    "name": "1.50m x 2.0m Face Brace",
+    "weightKg": 9.0,
+    "unitSalePriceHKD": 107,
+    "unitRentalPriceHKD": 10.7,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.4157",
+    "category": "2.0m Elevation Face Brace",
+    "name": "1.57m x 2.0m Face Brace",
+    "weightKg": 9.4,
+    "unitSalePriceHKD": 111,
+    "unitRentalPriceHKD": 11.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.418",
+    "category": "2.0m Elevation Face Brace",
+    "name": "1.80m x 2.0m Face Brace",
+    "weightKg": 9.6,
+    "unitSalePriceHKD": 116,
+    "unitRentalPriceHKD": 11.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.4207",
+    "category": "2.0m Elevation Face Brace",
+    "name": "2.07m x 2.0m Face Brace",
+    "weightKg": 10.2,
+    "unitSalePriceHKD": 120,
+    "unitRentalPriceHKD": 12.0,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "6.4257",
+    "category": "2.0m Elevation Face Brace",
+    "name": "2.57m x 2.0m Face Brace",
+    "weightKg": 11.2,
+    "unitSalePriceHKD": 131,
+    "unitRentalPriceHKD": 13.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.106",
+    "category": "0.32m Steel Decks",
+    "name": "0.60m x 0.32m Steel Deck",
+    "weightKg": 3.4,
+    "unitSalePriceHKD": 95,
+    "unitRentalPriceHKD": 9.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.1065",
+    "category": "0.32m Steel Decks",
+    "name": "0.65m x 0.32m Steel Deck",
+    "weightKg": 5.0,
+    "unitSalePriceHKD": 100,
+    "unitRentalPriceHKD": 10.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.1073",
+    "category": "0.32m Steel Decks",
+    "name": "0.73m x 0.32m Steel Deck",
+    "weightKg": 5.9,
+    "unitSalePriceHKD": 103,
+    "unitRentalPriceHKD": 10.3,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.109",
+    "category": "0.32m Steel Decks",
+    "name": "0.90m x 0.32m Steel Deck",
+    "weightKg": 6.8,
+    "unitSalePriceHKD": 112,
+    "unitRentalPriceHKD": 11.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.1109",
+    "category": "0.32m Steel Decks",
+    "name": "1.09m x 0.32m Steel Deck",
+    "weightKg": 7.8,
+    "unitSalePriceHKD": 120,
+    "unitRentalPriceHKD": 12.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.112",
+    "category": "0.32m Steel Decks",
+    "name": "1.20m x 0.32m Steel Deck",
+    "weightKg": 9.5,
+    "unitSalePriceHKD": 128,
+    "unitRentalPriceHKD": 12.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.1157",
+    "category": "0.32m Steel Decks",
+    "name": "1.57m x 0.32m Steel Deck",
+    "weightKg": 10.6,
+    "unitSalePriceHKD": 141,
+    "unitRentalPriceHKD": 14.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.1207",
+    "category": "0.32m Steel Decks",
+    "name": "2.07m x 0.32m Steel Deck",
+    "weightKg": 13.5,
+    "unitSalePriceHKD": 171,
+    "unitRentalPriceHKD": 17.1,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.1257",
+    "category": "0.32m Steel Decks",
+    "name": "2.57m x 0.32m Steel Deck",
+    "weightKg": 16.2,
+    "unitSalePriceHKD": 194,
+    "unitRentalPriceHKD": 19.4,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.2",
+    "category": "Thin Steel Decks",
+    "name": "0.73m x 0.16m Steel Deck",
+    "weightKg": 4.3,
+    "unitSalePriceHKD": 82,
+    "unitRentalPriceHKD": 8.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.21",
+    "category": "Thin Steel Decks",
+    "name": "1.20m x 0.16m Steel Deck",
+    "weightKg": 6.0,
+    "unitSalePriceHKD": 100,
+    "unitRentalPriceHKD": 10.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.22",
+    "category": "Thin Steel Decks",
+    "name": "1.57m x 0.16m Steel Deck",
+    "weightKg": 6.7,
+    "unitSalePriceHKD": 108,
+    "unitRentalPriceHKD": 10.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.23",
+    "category": "Thin Steel Decks",
+    "name": "2.07m x 0.16m Steel Deck",
+    "weightKg": 8.1,
+    "unitSalePriceHKD": 118,
+    "unitRentalPriceHKD": 11.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.24",
+    "category": "Thin Steel Decks",
+    "name": "2.57m x 0.16m Steel Deck",
+    "weightKg": 9.5,
+    "unitSalePriceHKD": 131,
+    "unitRentalPriceHKD": 13.1,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.3073",
+    "category": "Thin Steel Decks",
+    "name": "0.73m x 0.19m Steel Deck",
+    "weightKg": 3.7,
+    "unitSalePriceHKD": 85,
+    "unitRentalPriceHKD": 8.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.3157",
+    "category": "Thin Steel Decks",
+    "name": "1.57m x 0.19m Steel Deck",
+    "weightKg": 6.2,
+    "unitSalePriceHKD": 120,
+    "unitRentalPriceHKD": 12.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "7.3207",
+    "category": "Thin Steel Decks",
+    "name": "2.07m x 0.19m Steel Deck",
+    "weightKg": 7.8,
+    "unitSalePriceHKD": 178,
+    "unitRentalPriceHKD": 17.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.2041",
+    "category": "Toe Boards",
+    "name": "0.41m Toe Board",
+    "weightKg": 2.0,
+    "unitSalePriceHKD": 32,
+    "unitRentalPriceHKD": 3.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.206",
+    "category": "Toe Boards",
+    "name": "0.60m Toe Board",
+    "weightKg": 2.2,
+    "unitSalePriceHKD": 38,
+    "unitRentalPriceHKD": 3.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.2065",
+    "category": "Toe Boards",
+    "name": "0.65m Toe Board",
+    "weightKg": 2.4,
+    "unitSalePriceHKD": 40,
+    "unitRentalPriceHKD": 4.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.2073",
+    "category": "Toe Boards",
+    "name": "0.73m Toe Board",
+    "weightKg": 2.7,
+    "unitSalePriceHKD": 42,
+    "unitRentalPriceHKD": 4.2,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.209",
+    "category": "Toe Boards",
+    "name": "0.90m Toe Board",
+    "weightKg": 3.2,
+    "unitSalePriceHKD": 45,
+    "unitRentalPriceHKD": 4.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.2109",
+    "category": "Toe Boards",
+    "name": "1.09m Toe Board",
+    "weightKg": 3.7,
+    "unitSalePriceHKD": 49,
+    "unitRentalPriceHKD": 4.9,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.212",
+    "category": "Toe Boards",
+    "name": "1.20m Toe Board",
+    "weightKg": 4.0,
+    "unitSalePriceHKD": 52,
+    "unitRentalPriceHKD": 5.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.2157",
+    "category": "Toe Boards",
+    "name": "1.57m Toe Board",
+    "weightKg": 5.0,
+    "unitSalePriceHKD": 62,
+    "unitRentalPriceHKD": 6.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.2207",
+    "category": "Toe Boards",
+    "name": "2.07m Toe Board",
+    "weightKg": 6.7,
+    "unitSalePriceHKD": 73,
+    "unitRentalPriceHKD": 7.3,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "8.22570000000001",
+    "category": "Toe Boards",
+    "name": "2.57m Toe Board",
+    "weightKg": 8.1,
+    "unitSalePriceHKD": 84,
+    "unitRentalPriceHKD": 8.4,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "9.0",
+    "category": "Turning Steel Decks",
+    "name": "0.73m Triangular Steel Deck",
+    "weightKg": 9.6,
+    "unitSalePriceHKD": 145,
+    "unitRentalPriceHKD": 14.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "9.1",
+    "category": "Turning Steel Decks",
+    "name": "Angle Turning Steel Deck",
+    "weightKg": 14.5,
+    "unitSalePriceHKD": 150,
+    "unitRentalPriceHKD": 15.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "9.2",
+    "category": "Turning Steel Decks",
+    "name": "Turning Steel Deck",
+    "weightKg": 10.3,
+    "unitSalePriceHKD": 150,
+    "unitRentalPriceHKD": 15.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "10.109",
+    "category": "Flip Boards",
+    "name": "1.09m Flip Board",
+    "weightKg": 15.6,
+    "unitSalePriceHKD": 270,
+    "unitRentalPriceHKD": 27.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "10.12",
+    "category": "Flip Boards",
+    "name": "1.20m Flip Board",
+    "weightKg": 15.6,
+    "unitSalePriceHKD": 280,
+    "unitRentalPriceHKD": 28.0,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "10.157",
+    "category": "Flip Boards",
+    "name": "1.57m Flip Board",
+    "weightKg": 18.6,
+    "unitSalePriceHKD": 346,
+    "unitRentalPriceHKD": 34.6,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "10.207",
+    "category": "Flip Boards",
+    "name": "2.07m Flip Board",
+    "weightKg": 19.2,
+    "unitSalePriceHKD": 774,
+    "unitRentalPriceHKD": 77.4,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "10.257",
+    "category": "Flip Boards",
+    "name": "2.57m Flip Board",
+    "weightKg": 21.7,
+    "unitSalePriceHKD": 905,
+    "unitRentalPriceHKD": 90.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.0",
+    "category": "Staircases",
+    "name": "2.57m Aluminumn Staircase",
+    "weightKg": 27.8,
+    "unitSalePriceHKD": 1400,
+    "unitRentalPriceHKD": 140.0,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.1",
+    "category": "Staircases",
+    "name": "0.5m x 0.45m Assistant Staircase",
+    "weightKg": 7.9,
+    "unitSalePriceHKD": 144,
+    "unitRentalPriceHKD": 14.4,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.2",
+    "category": "Staircases",
+    "name": "1.0m x 0.45m Assistant Staircase",
+    "weightKg": 14.9,
+    "unitSalePriceHKD": 232,
+    "unitRentalPriceHKD": 23.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.3",
+    "category": "Staircases",
+    "name": "1.5m x 0.45m Assistant Staircase",
+    "weightKg": 16.1,
+    "unitSalePriceHKD": 345,
+    "unitRentalPriceHKD": 34.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.4",
+    "category": "Staircases",
+    "name": "1800 Diagonal Staircase",
+    "weightKg": 25.0,
+    "unitSalePriceHKD": 423,
+    "unitRentalPriceHKD": 42.3,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.5",
+    "category": "Staircases",
+    "name": "2.07m Iron Diagonal Starcase",
+    "weightKg": 28.0,
+    "unitSalePriceHKD": 425,
+    "unitRentalPriceHKD": 42.5,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "11.6",
+    "category": "Staircases",
+    "name": "2.0m Cat Ladder",
+    "weightKg": 10.6,
+    "unitSalePriceHKD": 178,
+    "unitRentalPriceHKD": 17.8,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "12.0",
+    "category": "Guard Rails",
+    "name": "2.57m Outer Guard Rail",
+    "weightKg": 18.2,
+    "unitSalePriceHKD": 262,
+    "unitRentalPriceHKD": 26.2,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "12.1",
+    "category": "Guard Rails",
+    "name": "2.57m Inner Guard Rail",
+    "weightKg": 10.5,
+    "unitSalePriceHKD": 172,
+    "unitRentalPriceHKD": 17.2,
+    "spProductNo": null,
+    "applicableTypes": [
+      "T2"
+    ],
+    "source": "SP"
+  },
+  {
+    "itemCode": "15.0",
+    "category": "Accessories",
+    "name": "Twin Ledger End Coupler",
+    "weightKg": 1.8,
+    "unitSalePriceHKD": 42,
+    "unitRentalPriceHKD": 4.2,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "15.1",
+    "category": "Accessories",
+    "name": "Tube Connector with Semi Coupler",
+    "weightKg": 1.9,
+    "unitSalePriceHKD": 39,
+    "unitRentalPriceHKD": 3.9,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "15.2",
+    "category": "Accessories",
+    "name": "0.36m Triangular rack",
+    "weightKg": 4.6,
+    "unitSalePriceHKD": 74,
+    "unitRentalPriceHKD": 7.4,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  },
+  {
+    "itemCode": "15.3",
+    "category": "Accessories",
+    "name": "732 Bracket",
+    "weightKg": 6.4,
+    "unitSalePriceHKD": 112.88,
+    "unitRentalPriceHKD": 11.29,
+    "spProductNo": null,
+    "applicableTypes": [],
+    "source": "SP"
+  }
+]

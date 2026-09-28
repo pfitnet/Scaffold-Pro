@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Material List — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="price-lists">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Material List</h1>
+    <div class="subtitle">Materials with their weights, rental and sale prices — used for BOQs, quotations and invoices</div>
+
+    <div class="toolbar">
+      <select id="list-select"></select>
+      <input type="text" id="search-box" placeholder="Search items" />
+      <select id="category-select"><option value="">All Categories</option></select>
+      <span class="toolbar-spacer"></span>
+      <button id="import-btn" title="Update prices from an Excel or CSV file">Import…</button>
+      <button id="export-btn" title="Save this material list as a CSV file">Export CSV</button>
+      <button class="primary" id="add-item-btn">+ Add Item</button>
+    </div>
+
+    <div class="small-note" id="currency-note" style="margin:-6px 0 12px;"></div>
+    <div id="table-container"></div>
+  </main>
+
+  <div class="modal-backdrop hidden" id="item-modal">
+    <div class="modal">
+      <h2>Add Item</h2>
+      <div class="form-grid">
+        <div class="field span-2"><label>Item Name</label><input type="text" id="n-itemName" /></div>
+        <div class="field"><label>Category</label><input type="text" id="n-category" list="category-options" /></div>
+        <div class="field"><label>Unit</label><input type="text" id="n-unit" placeholder="pc" /></div>
+        <div class="field"><label>Weight (kg)</label><input type="number" id="n-weightKg" min="0" step="0.01" /></div>
+        <div class="field"><label>Sale Price</label><input type="number" id="n-unitSalePrice" min="0" step="0.01" /></div>
+        <div class="field"><label>Rental Price</label><input type="number" id="n-unitRentalPrice" min="0" step="0.01" /></div>
+      </div>
+      <datalist id="category-options"></datalist>
+      <div class="error-text hidden" id="n-error"></div>
+      <div class="actions">
+        <button id="n-cancel-btn">Cancel</button>
+        <button class="primary" id="n-save-btn">Add Item</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="import-modal">
+    <div class="modal wide">
+      <h2>Review Import</h2>
+      <div id="import-summary"></div>
+      <div class="actions">
+        <button id="import-cancel-btn">Cancel</button>
+        <button class="primary" id="import-apply-btn">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/price-lists.js"></script>
+</body>
+</html>
