@@ -32,6 +32,7 @@
             <option value="Issued">Issued</option>
           </select>
           <button id="export-pdf-btn">Export PDF</button>
+          <button id="export-word-btn" title="A Word copy laid out like the PDF, saved next to it">Export Word</button>
           <button id="print-btn">Print…</button>
         </div>
         <a id="back-link" href="#">&larr; Back to project</a>
@@ -88,7 +89,7 @@
 
           <!-- Drawings this document is based on (PDF, DWG, DXF, images) -->
           <div class="linked-drawings-panel">
-            <div class="section-toolbar"><h2>Drawings</h2><button id="upload-linked-drawing-btn">Upload Drawing…</button></div>
+            <div class="section-toolbar"><h2>Drawings</h2><button id="upload-linked-drawing-btn" title="PDF, DWG, DXF or images — you can choose several at once">Upload Drawings…</button></div>
             <div id="linked-drawings"></div>
           </div>
         </div>
@@ -98,6 +99,7 @@
 
   <script src="js/sidebar.js"></script>
   <script src="js/linked-drawings.js"></script>
+  <script src="js/docx-export.js"></script>
   <script src="js/boq-editor.js"></script>
 </body>
 </html>

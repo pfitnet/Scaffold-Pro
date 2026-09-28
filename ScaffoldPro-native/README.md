@@ -723,3 +723,62 @@ under "Letterhead layout".
 - **Invoice PDF:** "Payment Terms :" with the same formatting under Payment
   Information.
 - The standard key terms print exactly as before.
+
+## Batch 26 — every quotation has its own editable Key Terms
+- The quotation editor's **Payment Terms** box is now **Key Terms**: all of the
+  quotation's key terms (Payment, Delivery, Modification…), fully editable with
+  the paragraph formatting from batch 25. **Start from Standard Terms** copies
+  the Settings key terms in, ready to edit.
+- **Blank = standard terms.** A quotation without key terms of its own prints
+  the standard key terms from Settings (Settings → Standard Quotation →
+  "Standard key terms"). The preview under the box shows them.
+- **Indented lines go under the item above:** an indented bullet, number or
+  label lines up with the text of the item above it (e.g. bullets under
+  "(i) Payment :"). The toolbar has **Indent →** and **← Outdent**.
+- Quotations whose payment terms were typed in (different from the Settings
+  default) are given key terms of their own once, when the app starts: the
+  standard key terms, with those payment terms as the Payment term. They print
+  as before.
+- Invoices keep their own **Payment Terms**. Settings' "Default Payment Terms"
+  now says it's for invoices.
+
+## Batch 27 — Export Word (.docx), laid out like the PDF
+- Every BOQ, quotation, invoice and delivery note editor has an **Export Word**
+  button next to Export PDF. It saves `<project>_<type>_<number>.docx` next to
+  the PDF in the project folder and opens it.
+- The Word copy follows the PDF layout:
+  - the letterhead and footer on every page, exactly as on the PDF (a
+    page-sized picture behind the text, drawn by the same code as the PDF),
+    with the page number as a live field;
+  - EB Garamond **embedded** in the file, so it looks the same on a Mac or PC
+    without the font installed;
+  - the client and reference block, title, "Re:" line, the items table (same
+    column widths, row heights, line breaks, merged title, "(Rate Only)" and
+    note rows, repeated heading row), Terms and Conditions with hanging
+    indents, the Terms page break, signatures and closing line.
+  Everything except the letterhead is ordinary, editable Word text and
+  tables.
+- How it works: the app lays the document out as for the PDF
+  (`PDFGenerator.wordLayout`) and the page builds the .docx from that
+  (`js/docx-export.js`), then hands it back to be saved.
+- Checked without a Mac using `tools/pdf-preview/word.py`. It builds the sample
+  documents as .docx and renders them with LibreOffice for side-by-side
+  comparison with the PDF preview.
+
+## Batch 28 — choose several files at once when uploading
+- **Upload Drawings…** (project Drawings tab, and the Drawings panel in BOQ and
+  quotation editors), **Upload Documents…** (project Documents), and the worker
+  and admin document **Upload…** buttons all let you choose several files in
+  one go (⌘-click or Shift-click in the file window). Each file is copied in
+  with the same category, link and expiry date chosen on the page.
+- If some files can't be copied, the others are still added, and a message
+  names the ones that failed.
+- Replacing or re-linking a file, choosing a price-list file and restoring a
+  backup still take one item, as they only make sense for one.
+
+## Batch 29 — more space around the document title
+- On every document (quotation, BOQ, invoice, delivery note) there is 6pt more
+  space above and below the title ("QUOTATION", "BILL OF QUANTITIES", …), in
+  the PDF and the Word copy alike (`PDFGenerator.titlePadding`,
+  `TITLE_PADDING` in `js/docx-export.js`). 6pt keeps a full Qt26193-sized
+  quotation on one page; 8pt pushed its last row onto page 2.

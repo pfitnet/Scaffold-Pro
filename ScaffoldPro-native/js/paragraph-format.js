@@ -4,7 +4,8 @@
 // (hanging indent, bullets, numbering), Tab for a hanging indent, and a
 // live preview laid out the way the PDF prints it.
 //
-//   window.attachParagraphFormatting(textarea)  — once, when the page loads
+//   window.attachParagraphFormatting(textarea, { fallback })  — once, when the page loads;
+//     fallback() gives the text printed when the box is left blank
 //   window.refreshParagraphPreview(textarea)    — after setting its value
 //
 // The rules match formattedParagraphs() in main.swift:
@@ -13,7 +14,8 @@
 //   "1. text", "(a) text", "b) text", "(iv) text"   numbered
 //   "marker<Tab>text"                         any marker
 // Lines after one of these (up to a blank line) continue its text, lined up
-// under it. Anything else is an ordinary paragraph; a blank line starts a
+// under it; an indented bullet, number or label goes under it, lined up with
+// its text. Anything else is an ordinary paragraph; a blank line starts a
 // new one.
 
 (function () {
@@ -57,11 +59,16 @@
     return null;
   }
 
-  // → [{ kind: 'text', lines } | { kind: 'hanging', marker, lines, style }]
+  // Where an item's text starts, in points from its marker (as in main.swift).
+  const TEXT_OFFSET = { label: 89.25, bullet: 12, marker: 24 };
+
+  // → [{ kind: 'text', lines } | { kind: 'hanging', marker, lines, style, left }]
+  //   left: points in from the margin (indented items sit under their parent's text)
   function parse(text) {
     const result = [];
     let current = null;
     let plain = [];
+    let parentText = null;
     const flush = () => {
       if (current) { result.push(current); current = null; }
       if (plain.length) { result.push({ kind: 'text', lines: plain }); plain = []; }
@@ -72,11 +79,15 @@
       const item = hangingItem(raw);
       if (item) {
         flush();
-        current = { kind: 'hanging', marker: item.marker, lines: item.text ? [item.text] : [], style: item.style };
+        const indented = raw[0] === ' ' || raw[0] === '\t';
+        const left = indented && parentText !== null ? parentText : 0;
+        if (!indented || parentText === null) parentText = TEXT_OFFSET[item.style];
+        current = { kind: 'hanging', marker: item.marker, lines: item.text ? [item.text] : [], style: item.style, left };
       } else if (current) {
         current.lines.push(trimmed);
       } else {
         plain.push(trimmed);
+        parentText = null;
       }
     }
     flush();
@@ -88,7 +99,8 @@
       const body = p.lines.map(esc).join('<br>');
       if (p.kind === 'text') return `<p class="pf-text">${body}</p>`;
       const cls = p.style === 'label' ? 'pf-label' : p.style === 'bullet' ? 'pf-bullet' : 'pf-marker';
-      return `<div class="pf-hang ${cls}"><span class="pf-m">${esc(p.marker)}${p.style === 'label' ? '<span class="pf-colon">:</span>' : ''}</span><span class="pf-t">${body}</span></div>`;
+      // 11pt text previewed at 14px: 1pt ≈ 1.27px.
+      return `<div class="pf-hang ${cls}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${esc(p.marker)}${p.style === 'label' ? '<span class="pf-colon">:</span>' : ''}</span><span class="pf-t">${body}</span></div>`;
     }).join('');
   }
 
@@ -106,9 +118,9 @@
       .pf-preview:empty { display: none; }
       .pf-preview .pf-text { margin: 0 0 6px; }
       .pf-hang { display: grid; column-gap: 6px; margin: 0 0 2px; }
-      .pf-hang.pf-label { grid-template-columns: 7.4em 1fr; }
-      .pf-hang.pf-bullet { grid-template-columns: 1em 1fr; }
-      .pf-hang.pf-marker { grid-template-columns: minmax(1.6em, max-content) 1fr; }
+      .pf-hang.pf-label { grid-template-columns: 107px 1fr; }
+      .pf-hang.pf-bullet { grid-template-columns: 9px 1fr; }
+      .pf-hang.pf-marker { grid-template-columns: minmax(24px, max-content) 1fr; }
       .pf-hang .pf-m { display: flex; justify-content: space-between; white-space: nowrap; }
       .pf-hang .pf-colon { padding-left: 4px; }
       .pf-preview-label { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }`;
@@ -158,6 +170,15 @@
     replaceLines(ta, sel, sel.lines.map((l) => (!l.trim() ? l : all ? stripMarker(l) : `- ${stripMarker(l)}`)));
   }
 
+  // Indent: puts the lines under the item above (lined up with its text).
+  function indent(ta, out) {
+    const sel = selectedLines(ta);
+    replaceLines(ta, sel, sel.lines.map((l) => {
+      if (!l.trim()) return l;
+      return out ? l.replace(/^[ \t]+/, '') : `    ${l.replace(/^[ \t]+/, '')}`;
+    }));
+  }
+
   function numbering(ta, roman) {
     const sel = selectedLines(ta);
     const numerals = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii'];
@@ -173,10 +194,13 @@
 
   window.refreshParagraphPreview = function refreshParagraphPreview(ta) {
     const preview = ta.pfPreview;
-    if (preview) preview.innerHTML = previewHTML(ta.value);
+    if (!preview) return;
+    const fallback = !ta.value.trim() && ta.pfFallback ? ta.pfFallback() : '';
+    preview.innerHTML = previewHTML(ta.value.trim() ? ta.value : fallback);
+    ta.pfPreviewLabel.textContent = fallback ? 'As printed (standard terms from Settings):' : 'As printed:';
   };
 
-  window.attachParagraphFormatting = function attachParagraphFormatting(ta) {
+  window.attachParagraphFormatting = function attachParagraphFormatting(ta, options) {
     if (!ta || ta.pfPreview) return;
     addStyles();
     const bar = document.createElement('div');
@@ -186,6 +210,8 @@
       <button type="button" data-pf="bullet" title="Bullet points with a hanging indent">• Bullets</button>
       <button type="button" data-pf="number" title="Numbered 1. 2. 3.">1. Numbering</button>
       <button type="button" data-pf="roman" title="Numbered (i) (ii) (iii)">(i) Numbering</button>
+      <button type="button" data-pf="indent" title="Put the lines under the item above, lined up with its text">Indent →</button>
+      <button type="button" data-pf="outdent" title="Back to the margin">← Outdent</button>
       <span class="pf-help">Tab after a label or number also makes a hanging indent. Lines below it line up under the text; a blank line ends it.</span>`;
     ta.parentNode.insertBefore(bar, ta);
     const label = document.createElement('div');
@@ -195,6 +221,8 @@
     preview.className = 'pf-preview';
     ta.after(label, preview);
     ta.pfPreview = preview;
+    ta.pfPreviewLabel = label;
+    ta.pfFallback = options && options.fallback;
 
     bar.addEventListener('mousedown', (e) => e.preventDefault()); // keep the selection in the text box
     bar.addEventListener('click', (e) => {
@@ -202,6 +230,7 @@
       if (!b || ta.disabled) return;
       if (b.dataset.pf === 'hang') hangingIndent(ta);
       else if (b.dataset.pf === 'bullet') bullets(ta);
+      else if (b.dataset.pf === 'indent' || b.dataset.pf === 'outdent') indent(ta, b.dataset.pf === 'outdent');
       else numbering(ta, b.dataset.pf === 'roman');
     });
     ta.addEventListener('input', () => window.refreshParagraphPreview(ta));

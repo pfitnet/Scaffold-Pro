@@ -205,7 +205,7 @@ async function renderWorkerDetail() {
       <div class="controls">
         <select id="worker-doc-category">${WORKER_DOC_CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('')}</select>
         <input type="date" id="worker-doc-expiry" class="date-input" title="Expiry date (optional)" />
-        <button class="primary" id="upload-worker-doc-btn">Upload</button>
+        <button class="primary" id="upload-worker-doc-btn" title="You can choose several files at once">Upload…</button>
       </div>
     </div>
     <div id="worker-doc-list"></div>`;
@@ -231,11 +231,13 @@ async function renderWorkerDetail() {
   document.getElementById('upload-worker-doc-btn').addEventListener('click', async () => {
     const category = document.getElementById('worker-doc-category').value;
     const expiry = document.getElementById('worker-doc-expiry').value;
-    const result = await window.api.workerDocuments.upload(worker.id, category, expiry);
-    if (result) {
-      await refreshWorkerDocs(worker.id);
-      await refreshExpiring();
+    try {
+      await window.api.workerDocuments.upload(worker.id, category, expiry);
+    } catch (e) {
+      alert(`Not every document could be added.\n\n${e.message}`);
     }
+    await refreshWorkerDocs(worker.id);
+    await refreshExpiring();
   });
 
   await refreshWorkerDocs(worker.id);
@@ -315,12 +317,15 @@ async function init() {
   document.getElementById('upload-admin-doc-btn').addEventListener('click', async () => {
     const category = document.getElementById('admin-doc-category').value;
     const expiry = document.getElementById('admin-doc-expiry').value;
-    const result = await window.api.adminDocuments.upload(category, expiry);
-    if (result) {
-      document.getElementById('admin-doc-expiry').value = '';
-      await refreshAdminDocs();
-      await refreshExpiring();
+    let result = null;
+    try {
+      result = await window.api.adminDocuments.upload(category, expiry);
+    } catch (e) {
+      alert(`Not every document could be added.\n\n${e.message}`);
     }
+    if (result) document.getElementById('admin-doc-expiry').value = '';
+    await refreshAdminDocs();
+    await refreshExpiring();
   });
   document.getElementById('admin-doc-search').addEventListener('input', applyAdminDocSearch);
 

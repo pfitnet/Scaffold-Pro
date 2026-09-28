@@ -611,11 +611,12 @@ async function init() {
     try {
       const link = document.getElementById('drawing-link-select').value;
       const [linkedKind, linkedId] = link ? link.split('|') : [null, null];
-      const result = await window.api.projects.uploadDrawing(project.projectNumber, { linkedKind: linkedKind, linkedId: linkedId });
-      if (result) await refreshDrawingList();
+      await window.api.projects.uploadDrawing(project.projectNumber, { linkedKind: linkedKind, linkedId: linkedId });
     } catch (e) {
-      alert(`The drawing couldn't be added.\n\n${e.message}`);
+      alert(`Not every drawing could be added.\n\n${e.message}`);
     }
+    // Several files can be chosen at once; show whatever was added.
+    await refreshDrawingList();
     await refreshHistory();
   });
 
@@ -625,11 +626,11 @@ async function init() {
   document.getElementById('upload-document-btn').addEventListener('click', async () => {
     const category = document.getElementById('document-category-select').value;
     try {
-      const result = await window.api.documents.upload(project.projectNumber, category);
-      if (result) await refreshDocumentList();
+      await window.api.documents.upload(project.projectNumber, category);
     } catch (e) {
-      alert(`The document couldn't be added.\n\n${e.message}`);
+      alert(`Not every document could be added.\n\n${e.message}`);
     }
+    await refreshDocumentList();
     await refreshHistory();
   });
 

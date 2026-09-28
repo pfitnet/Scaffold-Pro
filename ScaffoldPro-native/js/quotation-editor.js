@@ -103,12 +103,14 @@ function render() {
   if (document.activeElement !== validUntilInput) validUntilInput.value = d.validUntil || '';
   validUntilInput.disabled = isLocked;
 
-  const paymentTermsInput = document.getElementById('payment-terms-input');
-  if (document.activeElement !== paymentTermsInput) {
-    paymentTermsInput.value = d.paymentTerms || '';
-    window.refreshParagraphPreview(paymentTermsInput);
+  // Key terms: this quotation's own, or blank for the standard ones.
+  const keyTermsInput = document.getElementById('key-terms-input');
+  if (document.activeElement !== keyTermsInput) {
+    keyTermsInput.value = d.keyTerms || '';
+    window.refreshParagraphPreview(keyTermsInput);
   }
-  paymentTermsInput.disabled = isLocked;
+  keyTermsInput.disabled = isLocked;
+  document.getElementById('key-terms-standard-btn').disabled = isLocked;
 
   const adjustmentInput = document.getElementById('adjustment-input');
   if (document.activeElement !== adjustmentInput) adjustmentInput.value = formatAdjustment(d);
@@ -448,7 +450,8 @@ async function saveHeader() {
   const header = {
     quotationDate: document.getElementById('doc-date-input').value || null,
     validUntil: document.getElementById('valid-until-input').value || null,
-    paymentTerms: document.getElementById('payment-terms-input').value || null,
+    // Not edited on quotations any more (key terms instead); kept for invoices made from it.
+    paymentTerms: currentDetail.paymentTerms || null,
     notes: document.getElementById('notes-box').value || null,
     discountType: adjustment.discountType,
     discountValue: adjustment.discountValue,
@@ -548,7 +551,19 @@ async function importFromBOQ() {
 }
 
 async function init() {
-  window.attachParagraphFormatting(document.getElementById('payment-terms-input'));
+  const keyTermsInput = document.getElementById('key-terms-input');
+  window.attachParagraphFormatting(keyTermsInput, { fallback: () => (currentDetail ? currentDetail.standardKeyTerms : '') });
+  keyTermsInput.addEventListener('change', () => saveLetterField('keyTerms', keyTermsInput.value));
+  document.getElementById('key-terms-standard-btn').addEventListener('click', () => {
+    const standard = currentDetail.standardKeyTerms || '';
+    const current = keyTermsInput.value.trim();
+    if (current && current !== standard.trim() &&
+        !confirm('Replace this quotation\'s key terms with the standard key terms from Settings?')) return;
+    keyTermsInput.value = standard;
+    window.refreshParagraphPreview(keyTermsInput);
+    keyTermsInput.focus();
+    saveLetterField('keyTerms', standard);
+  });
   quotationId = getQuotationIdFromURL();
   if (!quotationId) {
     document.getElementById('not-found').classList.remove('hidden');
@@ -574,6 +589,18 @@ async function init() {
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
     const result = await window.api.quotations.exportPDF(quotationId);
     if (!result.ok) { alert(result.error); }
+  });
+
+  document.getElementById('export-word-btn').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      const result = await window.exportWord(() => window.api.quotations.exportWord(quotationId));
+      if (!result.ok) { alert(result.error); }
+    } catch (err) {
+      alert(`The Word document couldn't be made.\n\n${err.message}`);
+    } finally {
+      e.target.disabled = false;
+    }
   });
 
 
@@ -604,7 +631,7 @@ async function init() {
     if (!result.ok) { alert(result.error); }
   });
 
-  for (const fieldId of ['doc-date-input', 'valid-until-input', 'payment-terms-input', 'adjustment-input', 'tax-rate-input', 'notes-box']) {
+  for (const fieldId of ['doc-date-input', 'valid-until-input', 'adjustment-input', 'tax-rate-input', 'notes-box']) {
     document.getElementById(fieldId).addEventListener('change', saveHeader);
   }
 

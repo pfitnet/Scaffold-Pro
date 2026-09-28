@@ -35,22 +35,25 @@ def hangingItem(raw):
     m=NUMBER_RE.match(l)
     if m: return (m.group(0).strip(),l[m.end():],'marker')
     return None
+OFFSET={'label':LABEL_INDENT,'bullet':12,'marker':24}
 def formatted(t,left=0):
-    out=[]; cur=None; plain=[]
+    out=[]; cur=None; plain=[]; parent=None
     def flush():
         nonlocal cur,plain
         if cur:
-            ind=left+LABEL_INDENT if cur[2]=='label' else (left+12 if cur[2]=='bullet' else None)
-            out.append(('hanging',cur[0],cur[1],left,ind,cur[2]=='label')); cur=None
+            out.append(('hanging',cur[0],cur[1],cur[3],cur[3]+OFFSET[cur[2]],cur[2]=='label')); cur=None
         if plain:
             out.append(('text','\n'.join(plain),None) if left==0 else ('hanging','',plain,left,left,False)); plain=[]
     for raw in t.replace('\r\n','\n').split('\n'):
         tr=raw.strip()
         if not tr: flush(); continue
         it=hangingItem(raw)
-        if it: flush(); cur=(it[0],[it[1]] if it[1] else [],it[2])
+        if it:
+            flush(); ind=raw[:1] in (' ','\t'); il=parent if (ind and parent is not None) else left
+            if not ind or parent is None: parent=left+OFFSET[it[2]]
+            cur=(it[0],[it[1]] if it[1] else [],it[2],il)
         elif cur: cur[1].append(tr)
-        else: plain.append(tr)
+        else: plain.append(tr); parent=None
     flush(); return out
 def paymentTerms(pt,label):
     nested=formatted(pt,LABEL_INDENT); opening=[]
@@ -128,6 +131,42 @@ def quotation_sections():
     rows.append(('note','* Please note that labour rates are subject to a price increase for over-time works and works on sundays / public holidays'))
     doc=quotation(); doc.update(number='Qt26202',status='Draft',rows=rows,refRows=[('Our Ref. No.','Qt26202'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','28 Sep 2026')])
     return doc
+def keyTermsText(standard,pt):
+    # Same as keyTermsText(_:withPaymentTerms:) in main.swift.
+    lines=standard.replace('\r\n','\n').split('\n')
+    def isPay(l):
+        it=hangingItem(l); return bool(it) and it[2]=='label' and 'payment' in it[0].lower()
+    start=next((i for i,l in enumerate(lines) if isPay(l)),None)
+    label=hangingItem(lines[start])[0] if start is not None else 'Payment'
+    block=[]; opening=True
+    for raw in pt.split('\n'):
+        l=raw.strip()
+        if not l: continue
+        if opening and hangingItem(l) is None: block.append(f'{label} : {l}' if not block else l)
+        else:
+            if not block: block.append(f'{label} :')
+            opening=False; block.append('    '+l)
+    if start is None: return '\n'.join(lines+block)
+    end=start+1
+    while end<len(lines):
+        l=lines[end]
+        if not l.strip(): break
+        if hangingItem(l) is not None and l[:1] not in (' ','\t'): break
+        end+=1
+    return '\n'.join(lines[:start]+block+lines[end:])
+def quotation_keyterms():
+    # A quotation's own key terms (all editable), with indented bullets and a
+    # labelled line under "(i) Payment" — here made the way the one-time
+    # carry-over turns older payment terms into key terms.
+    doc=quotation_short()
+    pt="""First two month's rental is to be paid upon order confirmation.
+- Following rental charges are to be paid monthly on the first day of the month, by cheque or bank transfer to the account shown on the invoice.
+- Delivery charges are to be paid within 7 days against each truck's delivery.
+Deposit: HK$ 10,000.00, refundable on return of all materials in good condition."""
+    kt=keyTermsText(TERMS,pt).replace('Minimum of 5 days','Minimum of 3 working days')
+    print(kt)
+    doc['sections'][0]['paragraphs']=[doc['sections'][0]['paragraphs'][0]]+formatted(kt)+[('text',ACCEPT,None)]
+    doc.update(number='Qt26204'); return doc
 def quotation_payment():
     # This quotation's own payment terms, with bullets and a labelled line, in
     # place of the standard "(i) Payment" term.
@@ -138,7 +177,7 @@ def quotation_payment():
 Deposit: HK$ 10,000.00, refundable on return of all materials in good condition."""
     doc['sections'][0]['paragraphs']=[doc['sections'][0]['paragraphs'][0]]+parseTerms(TERMS,pt)+[('text',ACCEPT,None)]
     doc.update(number='Qt26203'); return doc
-for name,fn in [('quotation_payment',quotation_payment),('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('invoice',invoice),('dn',dn),('boq',boq)]:
+for name,fn in [('quotation_keyterms',quotation_keyterms),('quotation_payment',quotation_payment),('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('invoice',invoice),('dn',dn),('boq',boq)]:
     pages=Gen().generate(fn())
     for i,p in enumerate(pages): p.save(os.path.join(OUT,f'{name}_{i+1}.png'))
     print(name,len(pages),'pages')

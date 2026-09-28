@@ -88,11 +88,11 @@ class Gen:
                 n+=len(vl)
         base=104.25+(max(len(left),n,1)-1)*15.75
         if doc.get('deliveryMethod'):
-            base+=19.5; s.text(doc['deliveryMethod'],550.5,base,body(13,True),align='right',underline=True); base+=21.0
-        else: base+=40.5
+            base+=19.5; s.text(doc['deliveryMethod'],550.5,base,body(13,True),align='right',underline=True); base+=21.0+6.0
+        else: base+=40.5+6.0  # + title padding
         s.text(doc['title'],W/2,base,body(15,True),align='center',underline=True)
         if doc['status']!='Issued': s.text(doc['status'].upper(),s.textRight,base,body(11,True),GREY,align='right')
-        last=base; nxt=base+18
+        last=base; nxt=base+18+6.0
         if doc.get('salutation'): s.text(doc['salutation'],s.textLeft,nxt,body(11)); last=nxt; nxt+=16.5
         if doc.get('subject'):
             for l in s.wrap(doc['subject'],body(11,True),s.textRight-s.textLeft): s.text(l,s.textLeft,nxt,body(11,True),underline=True); last=nxt; nxt+=16.5

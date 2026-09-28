@@ -15,3 +15,14 @@ fonts (Verdana Bold, PingFang, Songti) are replaced by similar Linux fonts, so
 letter shapes differ slightly. Positions, sizes and colours are the same as in
 the Swift code. If you change the layout in `main.swift`, make the same change
 in `render.py`.
+
+## Word export check
+
+```bash
+pip install pillow numpy pymupdf   # and LibreOffice Writer (soffice)
+python3 word.py      # sample documents → out/word_*.docx, rendered to out/word_*_<page>.png
+```
+
+`word.py` turns the sample documents into the layout the app sends to
+`js/docx-export.js`, builds the .docx files with it (node), and renders them
+with LibreOffice so they can be compared with `docs.py`'s PDF pages.

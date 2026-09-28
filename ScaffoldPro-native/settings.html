@@ -48,7 +48,7 @@
       <div class="field full"><label>Bank Details (shown on invoices, one line each)</label><textarea id="bankDetails-input"></textarea></div>
       <div class="field"><label>Currency</label><input type="text" id="currency-input" /></div>
       <div class="field"><label>Default Tax / VAT Rate (%)</label><input type="number" id="defaultTaxRatePercent-input" min="0" step="0.01" /></div>
-      <div class="field full"><label for="defaultPaymentTerms-input">Default Payment Terms (filled in on new quotations; printed as their Payment term)</label><textarea id="defaultPaymentTerms-input" rows="3"></textarea></div>
+      <div class="field full"><label for="defaultPaymentTerms-input">Default Payment Terms (printed on invoices)</label><textarea id="defaultPaymentTerms-input" rows="3"></textarea></div>
       <div class="field full"><label>Default Notes (filled in on new quotations and invoices)</label><textarea id="defaultNotes-input"></textarea></div>
     </div>
 
@@ -94,7 +94,7 @@
           <option value="Always">Always on a new page</option>
         </select>
       </div>
-      <div class="field full"><label>Key terms (one per line)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
+      <div class="field full"><label>Standard key terms (used on quotations that don't have key terms of their own)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
       <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
     </div>
 

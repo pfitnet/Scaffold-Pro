@@ -497,6 +497,7 @@ extension Quotation {
         minimumHireMonths = try c.decodeIfPresent(Int.self, forKey: .minimumHireMonths)
         minimumHireEnabled = try c.decodeIfPresent(Bool.self, forKey: .minimumHireEnabled)
         markupPercent = try c.decodeIfPresent(Double.self, forKey: .markupPercent)
+        keyTerms = try c.decodeIfPresent(String.self, forKey: .keyTerms)
         pdfPath = try c.decodeIfPresent(String.self, forKey: .pdfPath)
     }
 }
@@ -726,6 +727,9 @@ struct Quotation: Codable {
     var markupPercent: Double?
     /// The last PDF exported for this document (sections 31-32).
     var pdfPath: String?
+    /// This quotation's own key terms (payment, delivery, modification…),
+    /// with paragraph formatting. nil/blank = the key terms from Settings.
+    var keyTerms: String?
 }
 
 struct QuotationLineItem: Codable {
@@ -838,6 +842,10 @@ struct QuotationDetail: Codable {
     var blocks: [QuotationBlock]
     /// The priced sections' rows, added to the total.
     var otherChargesTotal: Double
+    /// This quotation's own key terms; nil = the standard ones below.
+    var keyTerms: String?
+    /// The key terms from Settings, printed when `keyTerms` is blank.
+    var standardKeyTerms: String
 }
 
 struct QuotationActionResult: Codable {
@@ -1138,6 +1146,83 @@ func nextDocumentNumber(template rawTemplate: String, projectNumber: String, exi
 enum PDFMode {
     case export
     case print
+    /// A Word (.docx) copy laid out like the PDF (built by js/docx-export.js).
+    case word
+}
+
+// ---- Word (.docx) export: the document as the PDF lays it out ----
+
+struct WordColumn: Encodable { var title: String; var width: Double; var kind: String }
+
+struct WordRow: Encodable {
+    /// "item", "section", "summary", "partial" or "note"
+    var type: String
+    /// Row height on the PDF, in points.
+    var height: Double
+    /// item/partial: each cell's lines, wrapped as on the PDF.
+    var cells: [[String]]? = nil
+    /// section title, note, or the partial row's merged text.
+    var text: String? = nil
+    var label: String? = nil
+    var value: String? = nil
+    var emphasized: Bool? = nil
+}
+
+struct WordParagraph: Encodable {
+    /// "text" (justified) or "hanging"
+    var type: String
+    var text: String? = nil
+    var link: String? = nil
+    var marker: String? = nil
+    var lines: [String]? = nil
+    /// Points in from the margin: the marker, and where the text starts.
+    var left: Double? = nil
+    var textX: Double? = nil
+    var colon: Bool? = nil
+}
+
+struct WordSection: Encodable {
+    var heading: String?
+    var paragraphs: [WordParagraph]
+    var pageBreakBefore: Bool
+}
+
+struct WordRefRow: Encodable { var label: String; var value: String; var wraps: Bool }
+struct WordSignatureLine: Encodable { var text: String; var colon: Bool; var value: String? }
+struct WordSignature: Encodable { var heading: String; var lines: [WordSignatureLine] }
+struct WordFont: Encodable { var style: String; var data: String }
+
+struct WordLayout: Encodable {
+    var ok = true
+    var paperSize: String
+    var pageWidth: Double
+    var pageHeight: Double
+    var textLeft: Double
+    var textRight: Double
+    var contentBottom: Double
+    var number: String
+    var status: String
+    var title: String
+    var clientName: String
+    var clientLines: [String]
+    var refRows: [WordRefRow]
+    var deliveryMethod: String?
+    var salutation: String?
+    var subject: String?
+    var intro: String?
+    var currencySymbol: String
+    var columns: [WordColumn]
+    var rows: [WordRow]
+    var sections: [WordSection]
+    var signatures: [WordSignature]
+    var closingLine: String?
+    // Filled in by the bridge:
+    var projectNumber = ""
+    var subfolder = ""
+    var fileName = ""
+    /// The letterhead and footer, page-sized, as a base64 PNG.
+    var letterheadPNG = ""
+    var fonts: [WordFont] = []
 }
 
 /// How a table column's cells are drawn, as on the company's quotation.
@@ -1198,7 +1283,8 @@ enum LetterParagraph {
 //   "1. text", "(a) text", "b) text", "(iv) text"   numbered, hanging indent
 //   "marker<Tab>text"                       any marker, hanging indent
 // Lines after one of these (up to a blank line) continue its text, lined up
-// under it. Anything else is an ordinary paragraph; a blank line starts a
+// under it; an indented bullet, number or label goes under it, lined up with
+// its text. Anything else is an ordinary paragraph; a blank line starts a
 // new one. js/paragraph-format.js follows the same rules for the preview.
 
 /// Where the text of a labelled line starts: 89.25pt in, so the colon is
@@ -1247,14 +1333,24 @@ func hangingItem(_ raw: String) -> (marker: String, text: String, style: Hanging
 
 /// Formatted text as letter paragraphs, `left` points in from the margin
 /// (0 for the Terms and Conditions; more when nested under a label).
+/// Where a hanging item's text starts, from its marker's position.
+func hangingTextOffset(_ style: HangingStyle) -> CGFloat {
+    switch style {
+    case .label: return labelTextIndent
+    case .bullet: return 12
+    case .marker: return 24
+    }
+}
+
 func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph] {
     var result: [LetterParagraph] = []
-    var current: (marker: String, lines: [String], style: HangingStyle)? = nil
+    var current: (marker: String, lines: [String], style: HangingStyle, left: CGFloat)? = nil
     var plain: [String] = []
+    /// The text column of the last item at `left`: indented items go there.
+    var parentText: CGFloat? = nil
     func flush() {
         if let c = current {
-            let indent: CGFloat? = c.style == .label ? left + labelTextIndent : c.style == .bullet ? left + 12 : nil
-            result.append(.hanging(marker: c.marker, lines: c.lines, left: left, indent: indent, colon: c.style == .label))
+            result.append(.hanging(marker: c.marker, lines: c.lines, left: c.left, indent: c.left + hangingTextOffset(c.style), colon: c.style == .label))
             current = nil
         }
         if !plain.isEmpty {
@@ -1268,15 +1364,55 @@ func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph]
         if trimmed.isEmpty { flush(); continue }
         if let item = hangingItem(raw) {
             flush()
-            current = (item.marker, item.text.isEmpty ? [] : [item.text], item.style)
+            let indented = raw.first == " " || raw.first == "\t"
+            let itemLeft = indented ? (parentText ?? left) : left
+            if !indented || parentText == nil { parentText = left + hangingTextOffset(item.style) }
+            current = (item.marker, item.text.isEmpty ? [] : [item.text], item.style, itemLeft)
         } else if current != nil {
             current?.lines.append(trimmed)
         } else {
             plain.append(trimmed)
+            parentText = nil
         }
     }
     flush()
     return result
+}
+
+/// Key terms text with `paymentTerms` as the text of its "Payment" term
+/// (replacing that term and the lines under it), or added as one: the
+/// payment terms' opening lines beside the label, the rest indented under it.
+func keyTermsText(_ standard: String, withPaymentTerms paymentTerms: String) -> String {
+    let lines = standard.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+    let isPaymentLabel: (String) -> Bool = { line in
+        guard let item = hangingItem(line), item.style == .label else { return false }
+        return item.marker.lowercased().contains("payment")
+    }
+    let start = lines.firstIndex(where: isPaymentLabel)
+    let label = start.flatMap { hangingItem(lines[$0])?.marker } ?? "Payment"
+    var block: [String] = []
+    var opening = true
+    for raw in paymentTerms.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+        let line = raw.trimmingCharacters(in: .whitespaces)
+        guard !line.isEmpty else { continue }
+        if opening && hangingItem(line) == nil {
+            block.append(block.isEmpty ? "\(label) : \(line)" : line)
+        } else {
+            if block.isEmpty { block.append("\(label) :") }
+            opening = false
+            block.append("    \(line)")
+        }
+    }
+    guard let first = start else { return (lines + block).joined(separator: "\n") }
+    var end = first + 1
+    while end < lines.count {
+        let line = lines[end]
+        if line.trimmingCharacters(in: .whitespaces).isEmpty { break }
+        let indented = line.first == " " || line.first == "\t"
+        if hangingItem(line) != nil && !indented { break }
+        end += 1
+    }
+    return (Array(lines[..<first]) + block + Array(lines[end...])).joined(separator: "\n")
 }
 
 /// A quotation's or invoice's own payment terms under a "Payment" label:
@@ -2297,6 +2433,26 @@ final class AppDatabase {
         UserDefaults.standard.set(true, forKey: key)
     }
 
+    /// Once: quotations whose own payment terms were typed in (not just the
+    /// Settings default) get key terms of their own — the standard key
+    /// terms with those payment terms as the Payment term — so they print
+    /// as before now that each quotation has key terms instead.
+    func movePaymentTermsIntoKeyTermsIfNeeded() {
+        let key = "ScaffoldPro.paymentTermsMovedToKeyTerms"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let settings = getCompanySettings()
+        let standard = settings.quotationTerms ?? defaultQuotationTerms
+        var qs = quotationsStore.readAll()
+        var changed = false
+        for i in qs.indices where nonBlank(qs[i].keyTerms) == nil {
+            guard let pt = nonBlank(qs[i].paymentTerms), pt != nonBlank(settings.defaultPaymentTerms) else { continue }
+            qs[i].keyTerms = keyTermsText(standard, withPaymentTerms: pt)
+            changed = true
+        }
+        if changed { quotationsStore.writeAll(qs) }
+        UserDefaults.standard.set(true, forKey: key)
+    }
+
     /// Section 8's "Edit item" — item code is intentionally left alone
     /// here (it's the identifier everything else keys off), everything
     /// else is editable.
@@ -2817,7 +2973,8 @@ final class AppDatabase {
             markupPercent: q.markupPercent,
             effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
             lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a }),
-            blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal
+            blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal,
+            keyTerms: q.keyTerms, standardKeyTerms: getCompanySettings().quotationTerms ?? defaultQuotationTerms
         )
     }
 
@@ -2944,6 +3101,7 @@ final class AppDatabase {
         if payload.keys.contains("clientRef") { qs[i].clientRef = text(payload, "clientRef") }
         if payload.keys.contains("siteRef") { qs[i].siteRef = text(payload, "siteRef") }
         if payload.keys.contains("deliveryMethod") { qs[i].deliveryMethod = text(payload, "deliveryMethod") }
+        if payload.keys.contains("keyTerms") { qs[i].keyTerms = text(payload, "keyTerms") }
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
         if let enabled = payload["minimumHireEnabled"] as? Bool { qs[i].minimumHireEnabled = enabled }
         qs[i].updatedAt = nowISO()
@@ -4407,6 +4565,40 @@ final class PDFGenerator {
         context = ctx
     }
 
+    /// Draws into a bitmap instead of a PDF: for the letterhead picture of
+    /// Word documents.
+    private init?(bitmapPaperSize paperSize: String, scale: CGFloat) {
+        self.paperSize = paperSize
+        if paperSize == "Letter" {
+            pageWidth = 612
+            pageHeight = 792
+        } else {
+            pageWidth = 595.28
+            pageHeight = 841.89
+        }
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: Int((pageWidth * scale).rounded()), height: Int((pageHeight * scale).rounded()),
+                                  bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.scaleBy(x: scale, y: scale)
+        mutableData = NSMutableData()
+        context = ctx
+    }
+
+    /// The letterhead and footer (without the page number, which Word adds
+    /// as a field) as a transparent, page-sized PNG at 300 dpi.
+    static func letterheadPNG(paperSize: String) -> Data? {
+        guard let generator = PDFGenerator(bitmapPaperSize: paperSize, scale: 300.0 / 72.0) else { return nil }
+        generator.showPageNumber = false
+        generator.drawLetterhead()
+        generator.drawFooter()
+        guard let image = generator.context.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+    }
+
+    /// Off for the Word letterhead picture.
+    private var showPageNumber = true
+
     // MARK: fonts
 
     private func firstFont(_ names: [String], _ size: CGFloat) -> NSFont {
@@ -4581,7 +4773,9 @@ final class PDFGenerator {
         for (segment, left) in contacts {
             textAtInk(segment, inkLeft: left + x, baseline: 827.25 + y, font: font, color: grey)
         }
-        textAtInk("Page \(pageNumber)", inkRight: 552.0 + x, baseline: 827.25 + y, font: times(9, italic: true), color: grey)
+        if showPageNumber {
+            textAtInk("Page \(pageNumber)", inkRight: 552.0 + x, baseline: 827.25 + y, font: times(9, italic: true), color: grey)
+        }
     }
 
     private func beginPage() {
@@ -4601,6 +4795,11 @@ final class PDFGenerator {
     }
 
     // MARK: opening (client, references, title, "Re:")
+
+    /// Extra space above and below the title ("QUOTATION", "BILL OF
+    /// QUANTITIES", …), on top of the original's spacing.
+    static let titlePadding: CGFloat = 6.0
+    private var titlePadding: CGFloat { PDFGenerator.titlePadding }
 
     private func drawOpening(_ doc: LetterDocument) {
         let blockLeft = 47.75 + dx
@@ -4639,9 +4838,9 @@ final class PDFGenerator {
         if let method = doc.deliveryMethod, !method.isEmpty {
             baseline += 19.5
             text(method, x: 550.5 + dx, baseline: baseline, font: body(13, bold: true), align: .right, underline: true)
-            baseline += 21.0
+            baseline += 21.0 + titlePadding
         } else {
-            baseline += 40.5
+            baseline += 40.5 + titlePadding
         }
 
         text(doc.title, x: pageWidth / 2, baseline: baseline, font: body(15, bold: true), align: .center, underline: true)
@@ -4649,7 +4848,7 @@ final class PDFGenerator {
             text(doc.status.uppercased(), x: textRight, baseline: baseline, font: body(11, bold: true), color: LetterheadColor.grey, align: .right)
         }
         var last = baseline
-        var next = baseline + 18.0
+        var next = baseline + 18.0 + titlePadding
         if let salutation = doc.salutation, !salutation.isEmpty {
             text(salutation, x: textLeft, baseline: next, font: body(11))
             last = next
@@ -4909,16 +5108,21 @@ final class PDFGenerator {
         return baseline
     }
 
+    /// Where a hanging paragraph's text starts, in points from the margin.
+    private func hangingTextX(marker: String, left: CGFloat, indent: CGFloat?, colon: Bool) -> CGFloat {
+        let markerWidth = marker.isEmpty ? 0 : lineWidth(makeLine(marker, body(11), .black))
+        var textX = indent ?? (left + max(18, markerWidth + 6))
+        if !marker.isEmpty { textX = max(textX, left + markerWidth + (colon ? 7.5 : 5)) }
+        return min(textX, textRight - 120 - textLeft)
+    }
+
     /// A hanging-indent paragraph (see `LetterParagraph.hanging`). A long
     /// label pushes the text column right; the text always keeps at least
     /// 120pt. Returns the last baseline used.
     private func drawHanging(marker: String, lines: [String], left: CGFloat, indent: CGFloat?, colon: Bool, firstBaseline: CGFloat) -> CGFloat {
         let font = body(11)
         let markerX = textLeft + left
-        let markerWidth = marker.isEmpty ? 0 : lineWidth(makeLine(marker, font, .black))
-        var textX = textLeft + (indent ?? (left + max(18, markerWidth + 6)))
-        if colon { textX = max(textX, markerX + markerWidth + 7.5) }
-        textX = min(textX, textRight - 120)
+        let textX = textLeft + hangingTextX(marker: marker, left: left, indent: indent, colon: colon)
         var baseline = firstBaseline
         if !marker.isEmpty { text(marker, x: markerX, baseline: baseline, font: font) }
         if colon { text(":", x: textX - 3.75, baseline: baseline, font: font) }
@@ -5055,6 +5259,62 @@ final class PDFGenerator {
             documentIsLong = trial.pageNumber > 1
         }
         return layOut(doc)
+    }
+
+    /// The document for a Word copy (js/docx-export.js): table cells wrapped
+    /// as here, row heights, where hanging text starts, and which sections
+    /// start a new page — so Word lays it out like the PDF.
+    func wordLayout(_ doc: LetterDocument) -> WordLayout {
+        var long = false
+        if doc.sections.contains(where: { $0.newPageUnlessSinglePage }), let trial = PDFGenerator(paperSize: paperSize) {
+            _ = trial.layOut(doc)
+            long = trial.pageNumber > 1
+        }
+        let font = body(11)
+        let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
+        func lines(_ cells: [String]) -> [[String]] {
+            cells.enumerated().filter { $0.offset < doc.columns.count }.map {
+                cellLines($0.element, column: doc.columns[$0.offset], font: font, currencyWidth: currencyWidth)
+            }
+        }
+        let rows: [WordRow] = doc.rows.map { row in
+            let h = Double(height(of: row, in: doc))
+            switch row {
+            case .item(let cells): return WordRow(type: "item", height: h, cells: lines(cells))
+            case .section(let title): return WordRow(type: "section", height: h, text: title)
+            case .summary(let label, let value, let emphasized):
+                return WordRow(type: "summary", height: h, label: label, value: value, emphasized: emphasized)
+            case .partial(let cells, let tail): return WordRow(type: "partial", height: h, cells: lines(cells), text: tail)
+            case .note(let note): return WordRow(type: "note", height: h, text: note)
+            }
+        }
+        let sections: [WordSection] = doc.sections.map { section in
+            let paragraphs: [WordParagraph] = section.paragraphs.map { p in
+                switch p {
+                case .text(let string, let link):
+                    return WordParagraph(type: "text", text: string, link: link)
+                case .term(let label, let lines):
+                    return WordParagraph(type: "hanging", marker: label ?? "", lines: lines, left: 0, textX: Double(labelTextIndent), colon: true)
+                case .hanging(let marker, let lines, let left, let indent, let colon):
+                    return WordParagraph(type: "hanging", marker: marker, lines: lines, left: Double(left),
+                                         textX: Double(hangingTextX(marker: marker, left: left, indent: indent, colon: colon)), colon: colon)
+                }
+            }
+            return WordSection(heading: section.heading, paragraphs: paragraphs,
+                               pageBreakBefore: section.alwaysNewPage || (section.newPageUnlessSinglePage && long))
+        }
+        return WordLayout(
+            paperSize: paperSize, pageWidth: Double(pageWidth), pageHeight: Double(pageHeight),
+            textLeft: Double(textLeft), textRight: Double(textRight), contentBottom: Double(contentBottom),
+            number: doc.number, status: doc.status, title: doc.title, clientName: doc.clientName, clientLines: doc.clientLines,
+            refRows: doc.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: wrap($0.value, font, 66).count > 1) },
+            deliveryMethod: nonBlank(doc.deliveryMethod), salutation: nonBlank(doc.salutation), subject: nonBlank(doc.subject),
+            intro: nonBlank(doc.intro), currencySymbol: doc.currencySymbol,
+            columns: doc.columns.map { WordColumn(title: $0.title, width: Double($0.width), kind: "\($0.kind)") },
+            rows: rows, sections: sections,
+            signatures: doc.signatures.map { WordSignature(heading: $0.heading, lines: $0.lines.map { WordSignatureLine(text: $0.text, colon: $0.colon, value: $0.value) }) },
+            closingLine: nonBlank(doc.closingLine)
+        )
     }
 
     private func layOut(_ doc: LetterDocument) -> Data {
@@ -6026,6 +6286,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:exportPDF":
             let qid = (payload["id"] as? String) ?? ""
             handleExportQuotationPDF(id: id, quotationId: qid)
+        case "boq:exportWord":
+            handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .word)
+        case "quotations:exportWord":
+            handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .word)
+        case "invoices:exportWord":
+            handleExportInvoicePDF(id: id, invoiceId: (payload["id"] as? String) ?? "", mode: .word)
+        case "deliveryNotes:exportWord":
+            handleExportDeliveryNotePDF(id: id, deliveryNoteId: (payload["id"] as? String) ?? "", mode: .word)
+        case "files:saveWord":
+            handleSaveWord(id: id, payload: payload)
         case "boq:print":
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .print)
         case "quotations:print":
@@ -6568,13 +6838,62 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// into the project's own folder under a meaningful filename
     /// (sections 31-32) and opens it. Print: renders the same PDF and
     /// opens the standard macOS print dialog (section 54) — nothing saved.
-    private func deliverRenderedPDF(id: String, mode: PDFMode, company: CompanySettings, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String, render: (PDFGenerator) -> Data) {
+    /// Saves a Word copy built by the page (js/docx-export.js) into the
+    /// project's folder next to its PDF, and opens it.
+    private func handleSaveWord(id: String, payload: [String: Any]) {
+        let projectNumber = (payload["projectNumber"] as? String) ?? ""
+        let subfolder = (payload["subfolder"] as? String) ?? ""
+        let fileName = ((payload["fileName"] as? String) ?? "").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        guard !projectNumber.isEmpty, db.getProjectByNumber(projectNumber) != nil,
+              ["BOQ", "Quotations", "Invoices", "Delivery Notes"].contains(subfolder),
+              fileName.hasSuffix(".docx"), !fileName.hasPrefix("."),
+              let data = Data(base64Encoded: (payload["data"] as? String) ?? ""), !data.isEmpty else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The Word document couldn't be saved.", path: nil))
+            return
+        }
+        do {
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: fileName)
+            NSWorkspace.shared.open(destination)
+            if let project = db.getProjectByNumber(projectNumber) {
+                db.logActivity(projectId: project.id, "Word document exported", reference: destination.lastPathComponent)
+            }
+            respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
+        } catch {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The Word document couldn't be saved to the project folder. Please check there's free disk space and try again.", path: nil))
+        }
+    }
+
+    private func deliverRenderedPDF(id: String, mode: PDFMode, company: CompanySettings, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String, letter: LetterDocument) {
         let paper = company.paperSize ?? "A4"
         guard let generator = PDFGenerator(paperSize: paper) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document.", path: nil))
             return
         }
-        let data = render(generator)
+        let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+
+        if mode == .word {
+            // The page reads this, builds the .docx (js/docx-export.js) and
+            // hands it back to "files:saveWord".
+            var layout = generator.wordLayout(letter)
+            guard let png = PDFGenerator.letterheadPNG(paperSize: paper) else {
+                respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letterhead for the Word document.", path: nil))
+                return
+            }
+            layout.letterheadPNG = png.base64EncodedString()
+            layout.projectNumber = projectNumber
+            layout.subfolder = subfolder
+            layout.fileName = "\(projectNumber)_\(docTypeTag)_\(safeNumber).docx"
+            if let fonts = Bundle.main.resourceURL?.appendingPathComponent("resources/fonts", isDirectory: true) {
+                for (style, file) in [("regular", "EBGaramond-Regular"), ("bold", "EBGaramond-Bold"), ("italic", "EBGaramond-Italic"), ("boldItalic", "EBGaramond-BoldItalic")] {
+                    if let data = try? Data(contentsOf: fonts.appendingPathComponent("\(file).ttf")) {
+                        layout.fonts.append(WordFont(style: style, data: data.base64EncodedString()))
+                    }
+                }
+            }
+            respond(id: id, encodable: layout)
+            return
+        }
+        let data = generator.generate(letter)
 
         if mode == .print {
             guard let document = PDFDocument(data: data), let window = window else {
@@ -6598,7 +6917,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
 
-        let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         let filename = "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: filename)
@@ -6759,7 +7077,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             sections: remarks(detail.notes), signatures: [], closingLine: nil
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ",
-                           documentNumber: detail.boqNumber, docTypeTag: "BOQ") { $0.generate(letter) }
+                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: letter)
     }
 
     private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
@@ -6813,21 +7131,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if let url = nonBlank(company.termsURL) {
             terms.append(.text("The terms and conditions set out in \(url) are hereby expressively incorporated into this quotation with other relevant key terms set forth below.", link: url))
         }
-        // The key terms, with this quotation's own payment terms (if any) in
-        // place of the text of the one labelled "Payment".
-        var keyTerms = formattedParagraphs(company.quotationTerms ?? defaultQuotationTerms)
-        if let pt = nonBlank(detail.paymentTerms) {
-            let isPayment: (LetterParagraph) -> Bool = {
-                if case .hanging(let marker, _, let left, _, _) = $0 { return left == 0 && marker.lowercased().contains("payment") }
-                return false
-            }
-            if let i = keyTerms.firstIndex(where: isPayment), case .hanging(let label, _, _, _, _) = keyTerms[i] {
-                keyTerms.replaceSubrange(i...i, with: paymentTermParagraphs(pt, label: label))
-            } else {
-                keyTerms += paymentTermParagraphs(pt, label: "Payment")
-            }
-        }
-        terms += keyTerms
+        // This quotation's own key terms, or the standard ones from Settings.
+        terms += formattedParagraphs(nonBlank(detail.keyTerms) ?? detail.standardKeyTerms)
         terms.append(.text(company.quotationAcceptance ?? defaultQuotationAcceptance, link: nil))
 
         let letter = LetterDocument(
@@ -6852,7 +7157,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             closingLine: "-[Remainder of this page is intentionally left blank]-"
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
-                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation") { $0.generate(letter) }
+                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter)
     }
 
     private func handleExportInvoicePDF(id: String, invoiceId: String, mode: PDFMode = .export) {
@@ -6938,7 +7243,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             sections: sections, signatures: [companySignature(company)], closingLine: nil
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Invoices",
-                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice") { $0.generate(letter) }
+                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice", letter: letter)
     }
 
     private func handleExportDeliveryNotePDF(id: String, deliveryNoteId: String, mode: PDFMode = .export) {
@@ -6982,7 +7287,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             closingLine: nil
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
-                           documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote") { $0.generate(letter) }
+                           documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote", letter: letter)
     }
 
     private func projectListEntries() -> [ProjectListEntry] {
@@ -7049,6 +7354,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         respond(id: id, encodable: detail)
     }
 
+    /// Adds each file chosen in an upload panel. Replies with everything
+    /// added; if some couldn't be copied, the rest are still added and the
+    /// reply is an error naming the ones that failed.
+    private func addEachFile<T: Encodable>(id: String, urls: [URL], add: (URL) throws -> T) {
+        var added: [T] = []
+        var failed: [String] = []
+        for url in urls {
+            do {
+                added.append(try add(url))
+            } catch {
+                failed.append("\(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        if failed.isEmpty {
+            respond(id: id, encodable: added)
+        } else {
+            respondError(id: id, message: "\(added.count) of \(urls.count) file\(urls.count == 1 ? "" : "s") added. These couldn't be copied:\n\(failed.joined(separator: "\n"))")
+        }
+    }
+
     private func handleUploadDrawing(id: String, projectNumber: String, linkedKind: String?, linkedId: String?) {
         guard let window = window else {
             respondNull(id: id)
@@ -7059,28 +7384,25 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = drawingContentTypes
-        panel.message = "Choose a drawing: PDF, DWG, DXF or an image. The original stays where it is; a copy goes in the project's Drawings folder."
+        panel.message = "Choose one or more drawings: PDF, DWG, DXF or images. The originals stay where they are; copies go in the project's Drawings folder."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
-            let originalName = sourceURL.lastPathComponent
-            let meaningfulName = "\(projectNumber)_Drawing_\(originalName)"
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> UploadDrawingResult in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFileIntoProject(
                     source: sourceURL, projectNumber: projectNumber,
-                    subfolder: "Drawings", meaningfulFilename: meaningfulName
+                    subfolder: "Drawings", meaningfulFilename: "\(projectNumber)_Drawing_\(originalName)"
                 )
                 self.db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination, linkedKind: linkedKind, linkedId: linkedId)
-                self.respond(id: id, encodable: UploadDrawingResult(originalName: originalName, destination: destination.path))
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return UploadDrawingResult(originalName: originalName, destination: destination.path)
             }
         }
     }
@@ -7095,29 +7417,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.message = "Choose one or more documents."
         // Deliberately no allowedContentTypes restriction here — section
         // 34's general documents (contracts, correspondence, etc.) can
         // be any file type, unlike drawings.
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
-            let originalName = sourceURL.lastPathComponent
-            let meaningfulName = "\(projectNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> ProjectDocument in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFileIntoProject(
-                    source: sourceURL, projectNumber: projectNumber,
-                    subfolder: "Documents", meaningfulFilename: meaningfulName
+                    source: sourceURL, projectNumber: projectNumber, subfolder: "Documents",
+                    meaningfulFilename: "\(projectNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
                 )
-                let document = self.db.recordDocument(projectId: project.id, originalName: originalName, category: category, storedURL: destination)
-                self.respond(id: id, encodable: document)
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return self.db.recordDocument(projectId: project.id, originalName: originalName, category: category, storedURL: destination)
             }
         }
     }
@@ -7168,12 +7487,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.message = "Choose one or more documents for \(worker.name)."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
@@ -7183,18 +7503,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             case "Certification", "Training Certificate": subfolder = "Certificates"
             default: subfolder = "Other"
             }
-            let originalName = sourceURL.lastPathComponent
-            let meaningfulName = "\(worker.workerNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> WorkerDocument in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFile(
                     source: sourceURL,
                     into: self.storage.workerFolder(worker.workerNumber).appendingPathComponent(subfolder, isDirectory: true),
-                    meaningfulFilename: meaningfulName
+                    meaningfulFilename: "\(worker.workerNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
                 )
-                let doc = self.db.recordWorkerDocument(workerId: worker.id, originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
-                self.respond(id: id, encodable: doc)
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return self.db.recordWorkerDocument(workerId: worker.id, originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
             }
         }
     }
@@ -7207,12 +7523,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.message = "Choose one or more documents."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
-            guard response == .OK, let sourceURL = panel.url else {
+            guard response == .OK, !panel.urls.isEmpty else {
                 self.respondNull(id: id)
                 return
             }
@@ -7224,17 +7541,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             case "Company Documents": folderName = "Company"
             default: folderName = "Other"
             }
-            let originalName = sourceURL.lastPathComponent
-            do {
+            self.addEachFile(id: id, urls: panel.urls) { sourceURL -> AdminDocument in
+                let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFile(
                     source: sourceURL,
                     into: self.storage.administrationCategoryFolder(folderName),
                     meaningfulFilename: originalName
                 )
-                let doc = self.db.recordAdminDocument(originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
-                self.respond(id: id, encodable: doc)
-            } catch {
-                self.respondError(id: id, message: "Could not copy file: \(error.localizedDescription)")
+                return self.db.recordAdminDocument(originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
             }
         }
     }
@@ -7635,6 +7949,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         seedPriceListsIfNeeded()
         db.fixScafomCurrencyIfNeeded()
         db.applyDeliveryChargeUpdateIfNeeded()
+        db.movePaymentTermsIntoKeyTermsIfNeeded()
     }
 
     private func seedPriceListsIfNeeded() {

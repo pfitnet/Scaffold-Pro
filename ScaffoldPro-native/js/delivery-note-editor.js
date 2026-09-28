@@ -226,6 +226,18 @@ async function init() {
     if (!result.ok) { alert(result.error); }
   });
 
+  document.getElementById('export-word-btn').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      const result = await window.exportWord(() => window.api.deliveryNotes.exportWord(deliveryNoteId));
+      if (!result.ok) { alert(result.error); }
+    } catch (err) {
+      alert(`The Word document couldn't be made.\n\n${err.message}`);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+
 
   // Custom item not on a price list (section 21).
   document.getElementById('ci-add-btn').addEventListener('click', async () => {
