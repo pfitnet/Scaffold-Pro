@@ -14,16 +14,55 @@ Following rental charges are to be paid monthly on the first day of the month
 Delivery charges are to be paid within 7 days against each trucks' delivery
 (ii) Delivery : Minimum of 5 days upon order confirmation
 (iv) Modification : Extra works & modifications of works will be subject to an extra charge."""
-def parseTerms(t):
-    out=[]
-    for raw in t.split('\n'):
-        l=raw.strip()
-        if not l: continue
-        if l.startswith('(') and ':' in l:
-            a,b=l.split(':',1); out.append(['term',a.strip(),[b.strip()]])
-        elif out: out[-1][2].append(l)
-        else: out.append(['term',None,[l]])
-    return [tuple(x) for x in out]
+# Same rules as formattedParagraphs() in main.swift.
+import re
+NUMBER_RE=re.compile(r'^(\(?[0-9]{1,3}[.)]|\([0-9]{1,3}\)|\(?[a-zA-Z][.)]|\([a-zA-Z]\)|\(?[ivxIVX]{1,5}[.)]|\([ivxIVX]{1,5}\))\s+')
+LABEL_INDENT=89.25
+def labelSplit(l):
+    if ':' not in l: return None
+    label,after=l.split(':',1); label=label.strip()
+    if not label or len(label)>40 or len(label.split())>5 or (after and after[0] not in ' \t') or 'http' in label.lower() or 'www.' in label.lower(): return None
+    return (label,after.strip(),'label')
+def hangingItem(raw):
+    l=raw.strip()
+    if '\t' in l:
+        m,rest=l.split('\t',1); m=m.strip()
+        if m: return (m[:-1].strip(),rest.strip(),'label') if m.endswith(':') else (m,rest.strip(),'marker')
+    for b in ['- ','• ','* ','· ']:
+        if l.startswith(b): return ('•',l[len(b):].strip(),'bullet')
+    lab=labelSplit(l)
+    if lab: return lab
+    m=NUMBER_RE.match(l)
+    if m: return (m.group(0).strip(),l[m.end():],'marker')
+    return None
+def formatted(t,left=0):
+    out=[]; cur=None; plain=[]
+    def flush():
+        nonlocal cur,plain
+        if cur:
+            ind=left+LABEL_INDENT if cur[2]=='label' else (left+12 if cur[2]=='bullet' else None)
+            out.append(('hanging',cur[0],cur[1],left,ind,cur[2]=='label')); cur=None
+        if plain:
+            out.append(('text','\n'.join(plain),None) if left==0 else ('hanging','',plain,left,left,False)); plain=[]
+    for raw in t.replace('\r\n','\n').split('\n'):
+        tr=raw.strip()
+        if not tr: flush(); continue
+        it=hangingItem(raw)
+        if it: flush(); cur=(it[0],[it[1]] if it[1] else [],it[2])
+        elif cur: cur[1].append(tr)
+        else: plain.append(tr)
+    flush(); return out
+def paymentTerms(pt,label):
+    nested=formatted(pt,LABEL_INDENT); opening=[]
+    if nested and nested[0][0]=='hanging' and nested[0][1]=='' and not nested[0][5]: opening=nested[0][2]; nested=nested[1:]
+    return [('hanging',label,opening,0,LABEL_INDENT,True)]+nested
+def parseTerms(t,pt=None):
+    out=formatted(t)
+    if pt:
+        for i,p in enumerate(out):
+            if p[0]=='hanging' and p[3]==0 and 'payment' in p[1].lower(): return out[:i]+paymentTerms(pt,p[1])+out[i+1:]
+        out+=paymentTerms(pt,'Payment')
+    return out
 ACCEPT="Order shall be confirmed and regarded as properly accepted upon signature by all parties AND such signed copy is returned to Proficiency (HK) Limited via instant electronic communication means. This quotation shall be valid for 7 business days against the issue date."
 def companySig(): return {'heading':'For and on Behalf of','lines':[('Proficiency (HK) Limited',False,None),('Richard Kwan',False,None),('Director',False,None)]}
 def quotation(status='Issued'):
@@ -46,7 +85,7 @@ def invoice():
     rows+=[('summary','Total Amount:',money(tot),True),('summary','Less Amount Paid:','-'+money(2000),False),('summary','Balance Due:',money(tot-2000),True)]
     return dict(number='H26012',status='Issued',title='INVOICE',clientName=client[0],clientLines=client[1],refRows=[('Invoice No.','H26012'),('Project No.','26017'),('Site Ref.','MTR 1601'),('Date','28 Sep 2026'),('Due Date','28 Oct 2026')],
         subject='Re: 26017 GL-28 G/F South G-015 Scaffolding',cur='HK$',columns=PRICED,rows=rows,
-        sections=[{'heading':'Payment Information','paragraphs':[('text','Payment terms: 30 days net',None),('text','Bank: HSBC\nAccount name: Proficiency (HK) Limited\nAccount no.: 123-456789-001',None)]}],
+        sections=[{'heading':'Payment Information','paragraphs':paymentTerms('Within 30 days of the invoice date','Payment Terms')+[('text','Bank: HSBC\nAccount name: Proficiency (HK) Limited\nAccount no.: 123-456789-001',None)]}],
         signatures=[companySig()],closing=None)
 def dn():
     rows=[('item',[str(i+1),d,'pc',str(q)]) for i,(d,p,q) in enumerate(items)]
@@ -89,7 +128,17 @@ def quotation_sections():
     rows.append(('note','* Please note that labour rates are subject to a price increase for over-time works and works on sundays / public holidays'))
     doc=quotation(); doc.update(number='Qt26202',status='Draft',rows=rows,refRows=[('Our Ref. No.','Qt26202'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','28 Sep 2026')])
     return doc
-for name,fn in [('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('invoice',invoice),('dn',dn),('boq',boq)]:
+def quotation_payment():
+    # This quotation's own payment terms, with bullets and a labelled line, in
+    # place of the standard "(i) Payment" term.
+    doc=quotation_short()
+    pt="""First two month's rental is to be paid upon order confirmation.
+- Following rental charges are to be paid monthly on the first day of the month, by cheque or bank transfer to the account shown on the invoice.
+- Delivery charges are to be paid within 7 days against each truck's delivery.
+Deposit: HK$ 10,000.00, refundable on return of all materials in good condition."""
+    doc['sections'][0]['paragraphs']=[doc['sections'][0]['paragraphs'][0]]+parseTerms(TERMS,pt)+[('text',ACCEPT,None)]
+    doc.update(number='Qt26203'); return doc
+for name,fn in [('quotation_payment',quotation_payment),('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('invoice',invoice),('dn',dn),('boq',boq)]:
     pages=Gen().generate(fn())
     for i,p in enumerate(pages): p.save(os.path.join(OUT,f'{name}_{i+1}.png'))
     print(name,len(pages),'pages')

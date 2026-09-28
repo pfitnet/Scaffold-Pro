@@ -1182,6 +1182,114 @@ enum LetterParagraph {
     /// A numbered term: "(i) Payment : First two month's rental…", with
     /// any further lines indented under the first.
     case term(label: String?, lines: [String])
+    /// A hanging-indent paragraph: `marker` ("(i) Payment", "•", "1.") at
+    /// `left` points in from the margin, and the text wrapped at `indent`
+    /// points in (nil: just past the marker). `colon` puts a colon just
+    /// before the text, as in "(i) Payment : First two month's rental…".
+    case hanging(marker: String, lines: [String], left: CGFloat, indent: CGFloat?, colon: Bool)
+}
+
+// ---- Paragraph formatting in payment terms and key terms ----
+//
+// Typed in a plain text box, one paragraph per line:
+//   "(i) Payment : text" or "Deposit: text"  label, colon, and the text in a
+//                                           hanging indent at a fixed column
+//   "- text" or "• text"                    bullet, hanging indent
+//   "1. text", "(a) text", "b) text", "(iv) text"   numbered, hanging indent
+//   "marker<Tab>text"                       any marker, hanging indent
+// Lines after one of these (up to a blank line) continue its text, lined up
+// under it. Anything else is an ordinary paragraph; a blank line starts a
+// new one. js/paragraph-format.js follows the same rules for the preview.
+
+/// Where the text of a labelled line starts: 89.25pt in, so the colon is
+/// at 128.25pt and the text at 132pt, as on Qt26193.
+let labelTextIndent: CGFloat = 89.25
+
+enum HangingStyle { case label, bullet, marker }
+
+private let numberMarkerPattern = #"^(\(?[0-9]{1,3}[.)]|\([0-9]{1,3}\)|\(?[a-zA-Z][.)]|\([a-zA-Z]\)|\(?[ivxIVX]{1,5}[.)]|\([ivxIVX]{1,5}\))\s+"#
+
+/// "Deposit: 50%…" → ("Deposit", "50%…"). A label is short (up to five
+/// words) and the colon is followed by a space or nothing, so "10:30" and
+/// web addresses aren't labels.
+private func labelSplit(_ line: String) -> (marker: String, text: String, style: HangingStyle)? {
+    guard let colon = line.firstIndex(of: ":") else { return nil }
+    let label = line[..<colon].trimmingCharacters(in: .whitespaces)
+    let after = line[line.index(after: colon)...]
+    guard !label.isEmpty, label.count <= 40, label.split(separator: " ").count <= 5,
+          after.isEmpty || after.first == " " || after.first == "\t",
+          !label.lowercased().contains("http"), !label.lowercased().contains("www.") else { return nil }
+    return (label, after.trimmingCharacters(in: .whitespaces), .label)
+}
+
+/// The marker and text of a formatted line, or nil for ordinary text.
+func hangingItem(_ raw: String) -> (marker: String, text: String, style: HangingStyle)? {
+    let line = raw.trimmingCharacters(in: .whitespaces)
+    if let tab = line.firstIndex(of: "\t") {
+        let marker = line[..<tab].trimmingCharacters(in: .whitespaces)
+        let rest = line[line.index(after: tab)...].trimmingCharacters(in: .whitespaces)
+        if !marker.isEmpty {
+            if marker.hasSuffix(":") {
+                return (String(marker.dropLast()).trimmingCharacters(in: .whitespaces), rest, .label)
+            }
+            return (marker, rest, .marker)
+        }
+    }
+    for bullet in ["- ", "• ", "* ", "· "] where line.hasPrefix(bullet) {
+        return ("•", String(line.dropFirst(bullet.count)).trimmingCharacters(in: .whitespaces), .bullet)
+    }
+    if let label = labelSplit(line) { return label }
+    if let range = line.range(of: numberMarkerPattern, options: .regularExpression) {
+        return (line[range].trimmingCharacters(in: .whitespaces), String(line[range.upperBound...]), .marker)
+    }
+    return nil
+}
+
+/// Formatted text as letter paragraphs, `left` points in from the margin
+/// (0 for the Terms and Conditions; more when nested under a label).
+func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph] {
+    var result: [LetterParagraph] = []
+    var current: (marker: String, lines: [String], style: HangingStyle)? = nil
+    var plain: [String] = []
+    func flush() {
+        if let c = current {
+            let indent: CGFloat? = c.style == .label ? left + labelTextIndent : c.style == .bullet ? left + 12 : nil
+            result.append(.hanging(marker: c.marker, lines: c.lines, left: left, indent: indent, colon: c.style == .label))
+            current = nil
+        }
+        if !plain.isEmpty {
+            result.append(left == 0 ? .text(plain.joined(separator: "\n"), link: nil)
+                                    : .hanging(marker: "", lines: plain, left: left, indent: left, colon: false))
+            plain = []
+        }
+    }
+    for raw in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { flush(); continue }
+        if let item = hangingItem(raw) {
+            flush()
+            current = (item.marker, item.text.isEmpty ? [] : [item.text], item.style)
+        } else if current != nil {
+            current?.lines.append(trimmed)
+        } else {
+            plain.append(trimmed)
+        }
+    }
+    flush()
+    return result
+}
+
+/// A quotation's or invoice's own payment terms under a "Payment" label:
+/// their opening text beside the label, and any bullets, numbered or
+/// labelled lines after it indented under that text.
+func paymentTermParagraphs(_ paymentTerms: String, label: String) -> [LetterParagraph] {
+    var nested = formattedParagraphs(paymentTerms, left: labelTextIndent)
+    var opening: [String] = []
+    if case .hanging(let marker, let lines, _, _, false)? = nested.first, marker.isEmpty {
+        opening = lines
+        nested.removeFirst()
+    }
+    return [.hanging(marker: label, lines: opening, left: 0, indent: labelTextIndent, colon: true)] + nested
 }
 
 struct LetterSection {
@@ -4801,6 +4909,34 @@ final class PDFGenerator {
         return baseline
     }
 
+    /// A hanging-indent paragraph (see `LetterParagraph.hanging`). A long
+    /// label pushes the text column right; the text always keeps at least
+    /// 120pt. Returns the last baseline used.
+    private func drawHanging(marker: String, lines: [String], left: CGFloat, indent: CGFloat?, colon: Bool, firstBaseline: CGFloat) -> CGFloat {
+        let font = body(11)
+        let markerX = textLeft + left
+        let markerWidth = marker.isEmpty ? 0 : lineWidth(makeLine(marker, font, .black))
+        var textX = textLeft + (indent ?? (left + max(18, markerWidth + 6)))
+        if colon { textX = max(textX, markerX + markerWidth + 7.5) }
+        textX = min(textX, textRight - 120)
+        var baseline = firstBaseline
+        if !marker.isEmpty { text(marker, x: markerX, baseline: baseline, font: font) }
+        if colon { text(":", x: textX - 3.75, baseline: baseline, font: font) }
+        var first = true
+        for piece in lines.flatMap({ wrap($0, font, textRight - textX) }) {
+            if !first {
+                baseline += bodyPitch
+                if baseline > contentBottom {
+                    newPage()
+                    baseline = continuationBaseline
+                }
+            }
+            text(piece, x: textX, baseline: baseline, font: font)
+            first = false
+        }
+        return baseline
+    }
+
     /// Set by `generate` after a trial layout: the document needs more
     /// than one page.
     private var documentIsLong = false
@@ -4838,6 +4974,14 @@ final class PDFGenerator {
                     }
                     cursor = drawParagraph(string, link: link, firstBaseline: baseline)
                     previousWasTerm = false
+                case .hanging(let marker, let lines, let left, let indent, let colon):
+                    if index > 0 { baseline = cursor + (previousWasTerm ? bodyPitch : 26.25) }
+                    if baseline > contentBottom {
+                        newPage()
+                        baseline = continuationBaseline
+                    }
+                    cursor = drawHanging(marker: marker, lines: lines, left: left, indent: indent, colon: colon, firstBaseline: baseline)
+                    previousWasTerm = true
                 case .term(let label, let lines):
                     if index > 0 { baseline = cursor + (previousWasTerm ? bodyPitch : 26.25) }
                     if baseline > contentBottom {
@@ -6527,23 +6671,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// The numbered terms from Settings: a line starting "(" begins a term
     /// ("(i) Payment : …"); other lines continue the one above.
-    private func parseTerms(_ text: String) -> [LetterParagraph] {
-        var terms: [(label: String?, lines: [String])] = []
-        for raw in text.components(separatedBy: "\n") {
-            guard let line = nonBlank(raw) else { continue }
-            if line.hasPrefix("("), let colon = line.range(of: ":") {
-                let label = line[..<colon.lowerBound].trimmingCharacters(in: .whitespaces)
-                let rest = line[colon.upperBound...].trimmingCharacters(in: .whitespaces)
-                terms.append((label: label, lines: [rest]))
-            } else if !terms.isEmpty {
-                terms[terms.count - 1].lines.append(line)
-            } else {
-                terms.append((label: nil, lines: [line]))
-            }
-        }
-        return terms.map { .term(label: $0.label, lines: $0.lines) }
-    }
-
     /// Materials numbered 1, 2, 3…; lines in the "Delivery" section go
     /// under a "Delivery Charges" heading, numbered D1, D2… (as on Qt26193).
     /// A line's own discount is printed under its description ("Less 10%
@@ -6686,10 +6813,21 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if let url = nonBlank(company.termsURL) {
             terms.append(.text("The terms and conditions set out in \(url) are hereby expressively incorporated into this quotation with other relevant key terms set forth below.", link: url))
         }
-        terms += parseTerms(company.quotationTerms ?? defaultQuotationTerms)
-        if let pt = nonBlank(detail.paymentTerms), company.quotationTerms == nil, pt != company.defaultPaymentTerms {
-            terms.append(.text("Payment terms for this quotation: \(pt)", link: nil))
+        // The key terms, with this quotation's own payment terms (if any) in
+        // place of the text of the one labelled "Payment".
+        var keyTerms = formattedParagraphs(company.quotationTerms ?? defaultQuotationTerms)
+        if let pt = nonBlank(detail.paymentTerms) {
+            let isPayment: (LetterParagraph) -> Bool = {
+                if case .hanging(let marker, _, let left, _, _) = $0 { return left == 0 && marker.lowercased().contains("payment") }
+                return false
+            }
+            if let i = keyTerms.firstIndex(where: isPayment), case .hanging(let label, _, _, _, _) = keyTerms[i] {
+                keyTerms.replaceSubrange(i...i, with: paymentTermParagraphs(pt, label: label))
+            } else {
+                keyTerms += paymentTermParagraphs(pt, label: "Payment")
+            }
         }
+        terms += keyTerms
         terms.append(.text(company.quotationAcceptance ?? defaultQuotationAcceptance, link: nil))
 
         let letter = LetterDocument(
@@ -6780,7 +6918,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
 
         var payment: [LetterParagraph] = []
-        if let terms = nonBlank(detail.paymentTerms) { payment.append(.text("Payment terms: \(terms)", link: nil)) }
+        if let terms = nonBlank(detail.paymentTerms) { payment += paymentTermParagraphs(terms, label: "Payment Terms") }
         if let bank = nonBlank(company.bankDetails) { payment.append(.text(bank, link: nil)) }
         var sections = remarks(detail.notes)
         if !payment.isEmpty { sections.append(LetterSection(heading: "Payment Information", paragraphs: payment)) }

@@ -104,7 +104,10 @@ function render() {
   validUntilInput.disabled = isLocked;
 
   const paymentTermsInput = document.getElementById('payment-terms-input');
-  if (document.activeElement !== paymentTermsInput) paymentTermsInput.value = d.paymentTerms || '';
+  if (document.activeElement !== paymentTermsInput) {
+    paymentTermsInput.value = d.paymentTerms || '';
+    window.refreshParagraphPreview(paymentTermsInput);
+  }
   paymentTermsInput.disabled = isLocked;
 
   const adjustmentInput = document.getElementById('adjustment-input');
@@ -545,6 +548,7 @@ async function importFromBOQ() {
 }
 
 async function init() {
+  window.attachParagraphFormatting(document.getElementById('payment-terms-input'));
   quotationId = getQuotationIdFromURL();
   if (!quotationId) {
     document.getElementById('not-found').classList.remove('hidden');

@@ -106,7 +106,10 @@ function render() {
   dueDateInput.disabled = isLocked;
 
   const paymentTermsInput = document.getElementById('payment-terms-input');
-  if (document.activeElement !== paymentTermsInput) paymentTermsInput.value = d.paymentTerms || '';
+  if (document.activeElement !== paymentTermsInput) {
+    paymentTermsInput.value = d.paymentTerms || '';
+    window.refreshParagraphPreview(paymentTermsInput);
+  }
   paymentTermsInput.disabled = isLocked;
 
   const discountTypeSelect = document.getElementById('discount-type-select');
@@ -296,6 +299,7 @@ async function populateCategories() {
 }
 
 async function init() {
+  window.attachParagraphFormatting(document.getElementById('payment-terms-input'));
   invoiceId = getInvoiceIdFromURL();
   if (!invoiceId) {
     document.getElementById('not-found').classList.remove('hidden');

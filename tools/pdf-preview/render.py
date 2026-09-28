@@ -187,6 +187,21 @@ class Gen:
                     s.text(':',128.25,base,f)
                 s.text(piece,132.0,base,f); first=False
         return base
+    def hanging(s,marker,lines,left,indent,colon,base):
+        f=body(11); mx=s.textLeft+left; mw=width(marker,f) if marker else 0
+        tx=s.textLeft+(indent if indent is not None else left+max(18,mw+6))
+        if colon: tx=max(tx,mx+mw+7.5)
+        tx=min(tx,s.textRight-120)
+        if marker: s.text(marker,mx,base,f)
+        if colon: s.text(':',tx-3.75,base,f)
+        first=True
+        for raw in lines:
+            for piece in s.wrap(raw,f,s.textRight-tx):
+                if not first:
+                    base+=s.pitch
+                    if base>s.contentBottom: s.newPage(); base=s.contBase
+                s.text(piece,tx,base,f); first=False
+        return base
     def sections(s,secs):
         after=True
         for sec in secs:
@@ -204,7 +219,7 @@ class Gen:
                 else:
                     if i>0: base=s.cursor+(16.5 if prevTerm else 26.25)
                     if base>s.contentBottom: s.newPage(); base=s.contBase
-                    s.cursor=s.term(p[1],p[2],base); prevTerm=True
+                    s.cursor=s.hanging(*p[1:],base) if p[0]=='hanging' else s.term(p[1],p[2],base); prevTerm=True
     def signatures(s,sigs,afterTable):
         if not sigs: return
         base=s.cursor+(30.0 if afterTable else 32.25)
