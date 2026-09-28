@@ -32,6 +32,21 @@
     .discount-btn.active { color: var(--accent); border-color: var(--accent); }
     .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
     .markup-price { display: block; font-size: 11px; color: var(--accent); }
+    .extra-section { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+    .extra-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .extra-head .controls { display: flex; gap: 4px; }
+    .extra-head .controls button { padding: 2px 8px; font-size: 12px; }
+    .extra-title-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .extra-title-row .block-title { flex: 1; font-weight: 600; }
+    .extra-title-row .block-prefix { width: 44px; }
+    .extra-section table input { width: 100%; padding: 3px 6px; box-sizing: border-box; }
+    .extra-section table .narrow { width: 64px; }
+    .extra-section .rate-only { color: var(--text-secondary); font-style: italic; text-align: center; white-space: nowrap; }
+    .extra-add-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+    .extra-add-row .add-desc { flex: 1; min-width: 160px; }
+    .extra-add-row .add-unit, .extra-add-row .add-qty { width: 64px; }
+    .extra-add-row .add-price { width: 110px; }
+    .extra-section .block-note { width: 100%; margin-top: 8px; font-style: italic; box-sizing: border-box; }
   </style>
 </head>
 <body data-page="project-detail">
@@ -123,7 +138,15 @@
             </div>
           </details>
 
-          <div class="line-quick-add"><button id="add-delivery-btn">+ Delivery Charge</button></div>
+          <!-- Extra sections, as on the company's quotations: priced rows
+               (design fees, erection prices), rates-only rows, notes. -->
+          <div id="extra-sections"></div>
+          <div class="line-quick-add">
+            <button id="add-delivery-btn">+ Delivery Charge</button>
+            <button id="add-priced-btn" title="A titled section of priced rows added to the total, e.g. Design Fees or Erection &amp; Dismantle">+ Priced Section</button>
+            <button id="add-rates-btn" title="A titled section of rates shown after the total as “(Rate Only)”, e.g. manpower rates">+ Rates Section</button>
+            <button id="add-note-btn" title="A note across the table, after the total">+ Note</button>
+          </div>
           <div class="totals-box" id="totals-box"></div>
 
           <div style="margin-top: 20px;">

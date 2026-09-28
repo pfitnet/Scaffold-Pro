@@ -361,8 +361,12 @@ async function loadInvoiceSource() {
     document.getElementById('inv-months').value = q.minimumHireMonths;
     document.querySelector(`input[name="inv-charge"][value="${q.minimumHireEnabled ? 'full' : 'one'}"]`).checked = true;
   }
-  const hasDelivery = !!q && q.lineItems.some((i) => i.section === 'Delivery');
+  const hasDelivery = !!q && q.lineItems.some((i) => i.section === 'Delivery' && !i.blockId);
   document.getElementById('inv-delivery-row').classList.toggle('hidden', !hasDelivery);
+  // Priced sections (design fees, erection prices…) with rows.
+  const pricedBlocks = q ? q.blocks.filter((b) => b.kind === 'Priced' && q.lineItems.some((i) => i.blockId === b.id)) : [];
+  document.getElementById('inv-other-row').classList.toggle('hidden', pricedBlocks.length === 0);
+  document.getElementById('inv-other-names').textContent = pricedBlocks.map((b) => b.title || 'other charges').join(', ');
   updateInvoiceSummary();
 }
 
@@ -377,16 +381,18 @@ function updateInvoiceSummary() {
   if (!q) return;
   const months = invoiceMonthsChosen();
   const delivery = !document.getElementById('inv-delivery-row').classList.contains('hidden') && document.getElementById('inv-delivery').checked;
-  const parts = [`${q.lineItems.filter((i) => i.section !== 'Delivery').length} item(s) from ${q.quotationNumber}`];
+  const other = !document.getElementById('inv-other-row').classList.contains('hidden') && document.getElementById('inv-other').checked;
+  const parts = [`${q.lineItems.filter((i) => i.section !== 'Delivery' && !i.blockId).length} item(s) from ${q.quotationNumber}`];
   if (months) parts.push(`${months} month${months === 1 ? '' : 's'} of rent (monthly charge ${money(q.materialsSubtotal)})`);
   if (delivery) parts.push(`delivery charges ${money(q.deliveryTotal)}`);
+  if (other) parts.push(`other charges ${money(q.otherChargesTotal)}`);
   document.getElementById('inv-summary').textContent = parts.join(' · ');
 }
 
 function setupInvoiceSheet() {
   const close = () => document.getElementById('invoice-modal').classList.add('hidden');
   document.getElementById('inv-quotation').addEventListener('change', loadInvoiceSource);
-  for (const el of document.querySelectorAll('input[name="inv-charge"], #inv-months, #inv-delivery')) {
+  for (const el of document.querySelectorAll('input[name="inv-charge"], #inv-months, #inv-delivery, #inv-other')) {
     el.addEventListener('input', updateInvoiceSummary);
     el.addEventListener('change', updateInvoiceSummary);
   }
@@ -400,9 +406,10 @@ function setupInvoiceSheet() {
     const quotationId = document.getElementById('inv-quotation').value;
     const months = invoiceMonthsChosen();
     const includeDelivery = document.getElementById('inv-delivery-row').classList.contains('hidden') || document.getElementById('inv-delivery').checked;
+    const includeOtherCharges = document.getElementById('inv-other-row').classList.contains('hidden') || document.getElementById('inv-other').checked;
     try {
       const invoice = await window.api.invoices.create(currentProject.id, currentProject.projectNumber, quotationId,
-        { rentalMonths: months, includeDelivery: includeDelivery });
+        { rentalMonths: months, includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges });
       location.href = `invoice-editor.html?id=${invoice.id}`;
     } catch (e) {
       const err = document.getElementById('inv-error');

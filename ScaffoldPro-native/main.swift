@@ -748,6 +748,31 @@ struct QuotationLineItem: Codable {
     /// (taken off the line total).
     var discountType: String? = nil
     var discountValue: Double? = nil
+    /// Set for a row of one of the quotation's extra sections
+    /// (`QuotationBlock`) rather than a material or delivery charge.
+    var blockId: String? = nil
+}
+
+/// An extra section of a quotation's table, after the materials and
+/// delivery charges, as on the company's own quotations:
+/// - "Priced": a title row and priced rows added to the total, e.g.
+///   "Design Fees" — A1 Design and Drawing HK$ 3,000.00, or erection &
+///   dismantle prices;
+/// - "Rates": a title row and rate-only rows after the Total Amount, e.g.
+///   "Erection & Dismantle Manpower Rates" — R1 Scaffolder CP
+///   HK$ 2,300.00 / md "(Rate Only)";
+/// - "Note": just a note, after the Total Amount.
+/// Any of them can end with a note across the whole table, in small italics.
+struct QuotationBlock: Codable {
+    var id: String
+    var quotationId: String
+    var kind: String
+    /// The merged title row ("" = none).
+    var title: String
+    /// Row numbers: "A" → A1, A2…
+    var prefix: String
+    var note: String?
+    var sortOrder: Int
 }
 
 struct QuotationSummary: Codable {
@@ -808,6 +833,11 @@ struct QuotationDetail: Codable {
     var effectiveUnitPrices: [String: Double]
     /// Line id → line total (after the markup and the line's discount).
     var lineTotals: [String: Double]
+    /// Extra sections (priced, rates, notes), in order. Their rows are in
+    /// `lineItems` with `blockId` set.
+    var blocks: [QuotationBlock]
+    /// The priced sections' rows, added to the total.
+    var otherChargesTotal: Double
 }
 
 struct QuotationActionResult: Codable {
@@ -864,6 +894,10 @@ struct InvoiceLineItem: Codable {
     /// (taken off the line total).
     var discountType: String? = nil
     var discountValue: Double? = nil
+    /// A one-off charge copied from one of the quotation's priced
+    /// sections: its title (e.g. "Design Fees") and row prefix ("A").
+    var chargeGroup: String? = nil
+    var chargePrefix: String? = nil
 }
 
 struct InvoiceSummary: Codable {
@@ -912,6 +946,8 @@ struct InvoiceDetail: Codable {
     /// materialsSubtotal × rentalMonths.
     var materialsCharge: Double
     var deliveryTotal: Double
+    /// One-off charges from the quotation's priced sections.
+    var otherChargesTotal: Double
 }
 
 struct InvoiceActionResult: Codable {
@@ -1131,6 +1167,12 @@ enum LetterTableRow {
     /// A label across every column but the last, and a bold value in the
     /// last column. `emphasized` is the larger "Total Amount:" style.
     case summary(label: String, value: String, emphasized: Bool)
+    /// Values for the first columns, then `tail` centred across the rest,
+    /// e.g. a rates-only row: No, description, rate, "(Rate Only)".
+    case partial([String], tail: String)
+    /// A note across the whole table in small grey italics, e.g. "* Please
+    /// note that labour rates are subject to a price increase…".
+    case note(String)
 }
 
 enum LetterParagraph {
@@ -1567,6 +1609,7 @@ final class AppDatabase {
     let boqLineItemsStore: JSONStore<BOQLineItem>
     let quotationsStore: JSONStore<Quotation>
     let quotationLineItemsStore: JSONStore<QuotationLineItem>
+    let quotationBlocksStore: JSONStore<QuotationBlock>
     let invoicesStore: JSONStore<Invoice>
     let invoiceLineItemsStore: JSONStore<InvoiceLineItem>
     let deliveryNotesStore: JSONStore<DeliveryNote>
@@ -1590,6 +1633,7 @@ final class AppDatabase {
         boqLineItemsStore = JSONStore(fileURL: dataDir.appendingPathComponent("boq_line_items.json"))
         quotationsStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotations.json"))
         quotationLineItemsStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_line_items.json"))
+        quotationBlocksStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_blocks.json"))
         invoicesStore = JSONStore(fileURL: dataDir.appendingPathComponent("invoices.json"))
         invoiceLineItemsStore = JSONStore(fileURL: dataDir.appendingPathComponent("invoice_line_items.json"))
         deliveryNotesStore = JSONStore(fileURL: dataDir.appendingPathComponent("delivery_notes.json"))
@@ -2469,6 +2513,7 @@ final class AppDatabase {
         var materialsSubtotal: Double
         var materialsCharge: Double
         var deliveryTotal: Double
+        var otherTotal: Double
         var subtotal: Double
         var discountAmount: Double
         var taxAmount: Double
@@ -2478,7 +2523,17 @@ final class AppDatabase {
     /// The unit price a quotation line is charged at: its price with the
     /// quotation's markup (materials only, rounded to 0.1).
     func effectiveUnitPrice(_ line: QuotationLineItem, _ q: Quotation) -> Double {
-        line.section == "Delivery" ? line.appliedUnitPrice : markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent)
+        isMaterialLine(line) ? markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent) : line.appliedUnitPrice
+    }
+
+    /// A material (or custom item) — not a delivery charge, and not a row
+    /// of an extra section.
+    func isMaterialLine(_ line: QuotationLineItem) -> Bool {
+        line.section != "Delivery" && line.blockId == nil
+    }
+
+    func isDeliveryLine(_ line: QuotationLineItem) -> Bool {
+        line.section == "Delivery" && line.blockId == nil
     }
 
     func quotationLineTotal(_ line: QuotationLineItem, _ q: Quotation) -> Decimal {
@@ -2488,12 +2543,16 @@ final class AppDatabase {
     func quotationMoney(_ q: Quotation, lineItems: [QuotationLineItem]) -> QuotationMoney {
         let months = hireMonths(q)
         func net(_ line: QuotationLineItem) -> Decimal { quotationLineTotal(line, q) }
-        let materials = lineItems.filter { $0.section != "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
-        let delivery = lineItems.filter { $0.section == "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
+        let materials = lineItems.filter { isMaterialLine($0) }.reduce(Decimal(0)) { $0 + net($1) }
+        let delivery = lineItems.filter { isDeliveryLine($0) }.reduce(Decimal(0)) { $0 + net($1) }
+        // Priced sections count once; rates-only rows aren't charged.
+        let priced = Set(quotationBlocks(for: q.id).filter { $0.kind == "Priced" }.map { $0.id })
+        let other = lineItems.filter { $0.blockId.map { priced.contains($0) } ?? false }.reduce(Decimal(0)) { $0 + net($1) }
         let charge = materials * Decimal(months)
-        let t = moneyTotals(subtotal: charge + delivery, discountType: q.discountType, discountValue: q.discountValue,
+        let t = moneyTotals(subtotal: charge + delivery + other, discountType: q.discountType, discountValue: q.discountValue,
                             taxRatePercent: q.taxRatePercent, pricesIncludeTax: getCompanySettings().pricesIncludeTax ?? false)
         return QuotationMoney(materialsSubtotal: doubleOf(materials), materialsCharge: doubleOf(charge), deliveryTotal: doubleOf(delivery),
+                              otherTotal: doubleOf(other),
                               subtotal: t.subtotal, discountAmount: t.discountAmount, taxAmount: t.taxAmount, total: t.total)
     }
 
@@ -2588,7 +2647,8 @@ final class AppDatabase {
 
         var allQuotationItems = quotationLineItemsStore.readAll()
         if replaceExisting {
-            allQuotationItems.removeAll { $0.quotationId == quotationId }
+            // The extra sections (design fees, rates, notes) stay.
+            allQuotationItems.removeAll { $0.quotationId == quotationId && $0.blockId == nil }
         }
         let startOrder = (allQuotationItems.filter { $0.quotationId == quotationId }.map { $0.sortOrder }.max() ?? -1) + 1
 
@@ -2648,8 +2708,122 @@ final class AppDatabase {
             minimumHireMonths: max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2),
             markupPercent: q.markupPercent,
             effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
-            lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a })
+            lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a }),
+            blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal
         )
+    }
+
+    // ---- Extra sections: priced rows, rates-only rows, notes ----
+
+    func quotationBlocks(for quotationId: String) -> [QuotationBlock] {
+        quotationBlocksStore.readAll().filter { $0.quotationId == quotationId }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    private func draftQuotation(_ id: String) -> Result<Quotation, WorkerError> {
+        guard let q = getQuotation(id: id) else { return .failure(WorkerError(message: "Quotation not found.")) }
+        guard q.status == "Draft" else { return .failure(WorkerError(message: "This quotation is issued and can no longer be edited.")) }
+        return .success(q)
+    }
+
+    /// A new section at the end. Priced sections are numbered A, B, C…
+    /// (D is taken by delivery charges); rates sections R, S, T…; a rates
+    /// section starts with the usual note about labour rates.
+    func addQuotationBlock(quotationId: String, kind: String) -> Result<QuotationBlock, WorkerError> {
+        guard ["Priced", "Rates", "Note"].contains(kind) else { return .failure(WorkerError(message: "Unknown kind of section.")) }
+        if case .failure(let e) = draftQuotation(quotationId) { return .failure(e) }
+        let existing = quotationBlocks(for: quotationId)
+        let used = Set(existing.map { $0.prefix.uppercased() })
+        let letters: [String]
+        switch kind {
+        case "Priced": letters = "ABCEFGHJKLMNPQ".map { String($0) }
+        case "Rates": letters = "RSTUVWXYZ".map { String($0) }
+        default: letters = [""]
+        }
+        let prefix = letters.first { !used.contains($0) } ?? letters.first ?? ""
+        let block = QuotationBlock(
+            id: makeId("qblock"), quotationId: quotationId, kind: kind,
+            title: kind == "Priced" ? "Design Fees" : kind == "Rates" ? "Erection & Dismantle Manpower Rates" : "",
+            prefix: prefix,
+            note: kind == "Rates" ? "* Please note that labour rates are subject to a price increase for over-time works and works on sundays / public holidays" : nil,
+            sortOrder: (existing.map { $0.sortOrder }.max() ?? -1) + 1
+        )
+        quotationBlocksStore.insert(block)
+        touchQuotation(quotationId)
+        return .success(block)
+    }
+
+    /// Title, row prefix and note. Only fields actually sent are changed.
+    func updateQuotationBlock(id: String, payload: [String: Any]) -> String? {
+        var blocks = quotationBlocksStore.readAll()
+        guard let i = blocks.firstIndex(where: { $0.id == id }) else { return "Section not found." }
+        if case .failure(let e) = draftQuotation(blocks[i].quotationId) { return e.message }
+        if payload.keys.contains("title") {
+            blocks[i].title = ((payload["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if payload.keys.contains("prefix") {
+            let prefix = ((payload["prefix"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard prefix.count <= 4 else { return "Keep the row prefix short, e.g. \"A\" or \"R\"." }
+            blocks[i].prefix = prefix
+        }
+        if payload.keys.contains("note") { blocks[i].note = text(payload, "note") }
+        quotationBlocksStore.writeAll(blocks)
+        touchQuotation(blocks[i].quotationId)
+        return nil
+    }
+
+    /// Moves a section up or down among the quotation's sections.
+    func moveQuotationBlock(id: String, up: Bool) -> String? {
+        var blocks = quotationBlocksStore.readAll()
+        guard let target = blocks.first(where: { $0.id == id }) else { return "Section not found." }
+        if case .failure(let e) = draftQuotation(target.quotationId) { return e.message }
+        let ordered = quotationBlocks(for: target.quotationId)
+        guard let position = ordered.firstIndex(where: { $0.id == id }) else { return nil }
+        let other = up ? position - 1 : position + 1
+        guard ordered.indices.contains(other) else { return nil }
+        var order = ordered.map { $0.id }
+        order.swapAt(position, other)
+        for (n, blockId) in order.enumerated() {
+            if let i = blocks.firstIndex(where: { $0.id == blockId }) { blocks[i].sortOrder = n }
+        }
+        quotationBlocksStore.writeAll(blocks)
+        touchQuotation(target.quotationId)
+        return nil
+    }
+
+    /// Removes a section and its rows.
+    func removeQuotationBlock(id: String) -> String? {
+        var blocks = quotationBlocksStore.readAll()
+        guard let target = blocks.first(where: { $0.id == id }) else { return "Section not found." }
+        if case .failure(let e) = draftQuotation(target.quotationId) { return e.message }
+        blocks.removeAll { $0.id == id }
+        quotationBlocksStore.writeAll(blocks)
+        var items = quotationLineItemsStore.readAll()
+        items.removeAll { $0.blockId == id }
+        quotationLineItemsStore.writeAll(items)
+        touchQuotation(target.quotationId)
+        return nil
+    }
+
+    /// A row of a priced or rates section: description, unit, quantity
+    /// (always 1 for a rate) and unit price / rate.
+    func addQuotationBlockLine(blockId: String, description: String, unit: String, quantity: Double, price: Double) -> String? {
+        guard let block = quotationBlocksStore.readAll().first(where: { $0.id == blockId }) else { return "Section not found." }
+        guard block.kind != "Note" else { return "A note has no rows." }
+        if case .failure(let e) = draftQuotation(block.quotationId) { return e.message }
+        let description = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !description.isEmpty else { return "Enter a description." }
+        guard price >= 0 else { return "Enter a price of zero or more." }
+        let nextSortOrder = (quotationLineItemsStore.readAll().filter { $0.quotationId == block.quotationId }.map { $0.sortOrder }.max() ?? -1) + 1
+        var line = QuotationLineItem(
+            id: makeId("qitem"), quotationId: block.quotationId, sourceKey: nil, priceListItemId: nil,
+            itemCode: "", itemDescription: description, unit: unit.trimmingCharacters(in: .whitespacesAndNewlines),
+            quantity: block.kind == "Rates" ? 1 : max(1, quantity.rounded()),
+            appliedUnitPrice: doubleOf(roundToCents(decimalOf(price))), section: nil, sortOrder: nextSortOrder
+        )
+        line.blockId = block.id
+        quotationLineItemsStore.insert(line)
+        touchQuotation(block.quotationId)
+        return nil
     }
 
     /// The standard-quotation fields (subject, refs, delivery method,
@@ -2700,7 +2874,7 @@ final class AppDatabase {
         return nil
     }
 
-    func updateQuotationLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?) -> String? {
+    func updateQuotationLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?, description: String? = nil, unit: String? = nil) -> String? {
         var items = quotationLineItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
         guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
@@ -2708,6 +2882,12 @@ final class AppDatabase {
 
         if let quantity = quantity { items[index].quantity = quantity.rounded() }
         if let appliedUnitPrice = appliedUnitPrice { items[index].appliedUnitPrice = appliedUnitPrice }
+        if let description = description {
+            let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return "Enter a description." }
+            items[index].itemDescription = trimmed
+        }
+        if let unit = unit { items[index].unit = unit.trimmingCharacters(in: .whitespacesAndNewlines) }
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
         return nil
@@ -2863,6 +3043,9 @@ final class AppDatabase {
         var items = quotationLineItemsStore.readAll()
         items.removeAll { $0.quotationId == id }
         quotationLineItemsStore.writeAll(items)
+        var blocks = quotationBlocksStore.readAll()
+        blocks.removeAll { $0.quotationId == id }
+        quotationBlocksStore.writeAll(blocks)
         return nil
     }
 
@@ -2887,18 +3070,20 @@ final class AppDatabase {
     /// Each line net of its own discount. For rental, the materials are a
     /// monthly charge × the months charged; delivery lines are charged
     /// once. Then the invoice-wide discount and tax.
-    private func invoiceTotals(_ inv: Invoice, lineItems: [InvoiceLineItem]) -> (subtotal: Double, discountAmount: Double, taxAmount: Double, total: Double, balanceDue: Double, materials: Double, materialsCharge: Double, delivery: Double) {
+    private func invoiceTotals(_ inv: Invoice, lineItems: [InvoiceLineItem]) -> (subtotal: Double, discountAmount: Double, taxAmount: Double, total: Double, balanceDue: Double, materials: Double, materialsCharge: Double, delivery: Double, other: Double) {
         func net(_ line: InvoiceLineItem) -> Decimal {
             netLineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice, discountType: line.discountType, discountValue: line.discountValue)
         }
-        let materials = lineItems.filter { $0.section != "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
-        let delivery = lineItems.filter { $0.section == "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
+        let materials = lineItems.filter { $0.section != "Delivery" && $0.chargeGroup == nil }.reduce(Decimal(0)) { $0 + net($1) }
+        let delivery = lineItems.filter { $0.section == "Delivery" && $0.chargeGroup == nil }.reduce(Decimal(0)) { $0 + net($1) }
+        // Design fees, erection prices…: charged once, like delivery.
+        let other = lineItems.filter { $0.chargeGroup != nil }.reduce(Decimal(0)) { $0 + net($1) }
         let charge = materials * Decimal(invoiceMonths(inv))
-        let t = moneyTotals(subtotal: charge + delivery, discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent,
+        let t = moneyTotals(subtotal: charge + delivery + other, discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent,
                             pricesIncludeTax: getCompanySettings().pricesIncludeTax ?? false)
         let balance = decimalOf(t.total) - roundToCents(decimalOf(inv.amountPaid))
         return (t.subtotal, t.discountAmount, t.taxAmount, t.total, doubleOf(balance > 0 ? balance : 0),
-                doubleOf(materials), doubleOf(charge), doubleOf(delivery))
+                doubleOf(materials), doubleOf(charge), doubleOf(delivery), doubleOf(other))
     }
 
     func listInvoiceSummaries(projectId: String) -> [InvoiceSummary] {
@@ -2925,8 +3110,10 @@ final class AppDatabase {
     /// pricing are copied (copies, not references). For a rental
     /// quotation the invoice charges `rentalMonths` of rent — one month,
     /// or the quotation's full hire period; delivery charges are included
-    /// when `includeDelivery` is set.
-    func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String, rentalMonths: Int?, includeDelivery: Bool) -> Result<Invoice, WorkerError> {
+    /// when `includeDelivery` is set, and the priced sections' charges
+    /// (design fees, erection…) when `includeOtherCharges` is. Rates-only
+    /// rows and notes aren't copied.
+    func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String, rentalMonths: Int?, includeDelivery: Bool, includeOtherCharges: Bool = true) -> Result<Invoice, WorkerError> {
         guard let quotation = getQuotation(id: sourceQuotationId), quotation.projectId == projectId else {
             return .failure(WorkerError(message: "Choose one of this project's quotations to base the invoice on."))
         }
@@ -2954,15 +3141,28 @@ final class AppDatabase {
         logActivity(projectId: projectId, "Invoice created from \(quotation.quotationNumber)\(charge)", reference: invoice.invoiceNumber)
 
         // Prices as charged on the quotation (with its markup).
-        let sourceItems = quotationLineItems(for: quotation.id).filter { includeDelivery || $0.section != "Delivery" }
-        let copied: [InvoiceLineItem] = sourceItems.enumerated().map { index, item in
-            InvoiceLineItem(
+        let allItems = quotationLineItems(for: quotation.id)
+        var sourceItems = allItems.filter { isMaterialLine($0) || (includeDelivery && isDeliveryLine($0)) }
+            .map { (line: $0, block: QuotationBlock?.none) }
+        if includeOtherCharges {
+            for block in quotationBlocks(for: quotation.id) where block.kind == "Priced" {
+                sourceItems += allItems.filter { $0.blockId == block.id }.sorted { $0.sortOrder < $1.sortOrder }.map { (line: $0, block: Optional(block)) }
+            }
+        }
+        let copied: [InvoiceLineItem] = sourceItems.enumerated().map { index, source in
+            let item = source.line
+            var copy = InvoiceLineItem(
                 id: makeId("iitem"), invoiceId: invoice.id, sourceKey: item.sourceKey,
                 priceListItemId: item.priceListItemId, itemCode: item.itemCode,
                 itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
                 appliedUnitPrice: effectiveUnitPrice(item, quotation), section: item.section, sortOrder: index,
                 discountType: item.discountType, discountValue: item.discountValue
             )
+            if let block = source.block {
+                copy.chargeGroup = nonBlank(block.title) ?? "Other Charges"
+                copy.chargePrefix = block.prefix
+            }
+            return copy
         }
         invoiceLineItemsStore.insertMany(copied)
         return .success(invoice)
@@ -3007,7 +3207,8 @@ final class AppDatabase {
             sourceQuotationId: inv.sourceQuotationId,
             sourceQuotationNumber: inv.sourceQuotationId.flatMap { getQuotation(id: $0)?.quotationNumber },
             pricingMode: inv.pricingMode, rentalMonths: invoiceMonths(inv), rentalPeriod: inv.rentalPeriod,
-            materialsSubtotal: totals.materials, materialsCharge: totals.materialsCharge, deliveryTotal: totals.delivery
+            materialsSubtotal: totals.materials, materialsCharge: totals.materialsCharge, deliveryTotal: totals.delivery,
+            otherChargesTotal: totals.other
         )
     }
 
@@ -3202,13 +3403,14 @@ final class AppDatabase {
 
         var seeds: [(sourceKey: String?, priceListItemId: String?, itemCode: String, itemDescription: String, unit: String, quantity: Double, section: String?, sortOrder: Int)] = []
         if let invoiceId = sourceInvoiceId {
+            // Materials only: not delivery charges or other one-off charges.
             seeds = invoiceLineItemsStore.readAll()
-                .filter { $0.invoiceId == invoiceId }
+                .filter { $0.invoiceId == invoiceId && $0.section != "Delivery" && $0.chargeGroup == nil }
                 .sorted { $0.sortOrder < $1.sortOrder }
                 .enumerated().map { index, item in (item.sourceKey, item.priceListItemId, item.itemCode, item.itemDescription, item.unit, item.quantity, item.section, index) }
         } else if let quotationId = sourceQuotationId {
             seeds = quotationLineItemsStore.readAll()
-                .filter { $0.quotationId == quotationId }
+                .filter { $0.quotationId == quotationId && isMaterialLine($0) }
                 .sorted { $0.sortOrder < $1.sortOrder }
                 .enumerated().map { index, item in (item.sourceKey, item.priceListItemId, item.itemCode, item.itemDescription, item.unit, item.quantity, item.section, index) }
         }
@@ -4404,7 +4606,19 @@ final class PDFGenerator {
             return 37.5
         case .summary(_, _, let emphasized):
             return emphasized ? 37.5 : 29.25
+        case .partial(let cells, _):
+            return height(of: .item(cells), in: doc)
+        case .note(let note):
+            let lines = wrap(note, noteFont, noteWidth(doc)).count
+            return 29.25 + CGFloat(max(1, lines) - 1) * notePitch
         }
+    }
+
+    // Table notes: 9.5pt italic, grey, 13pt apart.
+    private var noteFont: NSFont { body(9.5, italic: true) }
+    private let notePitch: CGFloat = 13.0
+    private func noteWidth(_ doc: LetterDocument) -> CGFloat {
+        doc.columns.reduce(0) { $0 + $1.width } - 12.0
     }
 
     private func drawCell(_ lines: [String], column: LetterColumn, left: CGFloat, right: CGFloat, top: CGFloat, height: CGFloat, font: NSFont, currency: String) {
@@ -4478,6 +4692,26 @@ final class PDFGenerator {
                 let font = body(emphasized ? 12 : 11, bold: true)
                 text(label, x: edges[last - 1] - 4.25, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: font, align: .right)
                 drawCell([value], column: doc.columns[last - 1], left: edges[last - 1], right: edges[last], top: top, height: h, font: font, currency: doc.currencySymbol)
+            case .partial(let cells, let tail):
+                let count = min(cells.count, doc.columns.count - 1)
+                for x in edges[0...count] { vRule(x, top, h) }
+                vRule(edges[last], top, h)
+                let font = body(11)
+                let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
+                for (i, cell) in cells.prefix(count).enumerated() {
+                    let lines = cellLines(cell, column: doc.columns[i], font: font, currencyWidth: currencyWidth)
+                    drawCell(lines, column: doc.columns[i], left: edges[i], right: edges[i + 1], top: top, height: h, font: font, currency: doc.currencySymbol)
+                }
+                text(tail, x: (edges[count] + edges[last] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0),
+                     font: font, align: .center)
+            case .note(let note):
+                vRule(edges[0], top, h)
+                vRule(edges[last], top, h)
+                let lines = wrap(note, noteFont, noteWidth(doc))
+                let first = top + h / 2 + 3.4 - CGFloat(max(1, lines.count) - 1) * notePitch / 2
+                for (j, line) in lines.enumerated() {
+                    text(line, x: edges[0] + 6.0, baseline: first + CGFloat(j) * notePitch, font: noteFont, color: LetterheadColor.darkGrey)
+                }
             }
             cursor += h
         }
@@ -5444,7 +5678,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let lineId = (payload["id"] as? String) ?? ""
             let quantity = payload["quantity"] as? Double
             let appliedUnitPrice = payload["appliedUnitPrice"] as? Double
-            if let error = db.updateQuotationLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice) {
+            if let error = db.updateQuotationLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice,
+                                                      description: payload["itemDescription"] as? String, unit: payload["unit"] as? String) {
                 respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
@@ -5456,6 +5691,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
             }
+        case "quotations:addBlock":
+            switch db.addQuotationBlock(quotationId: (payload["quotationId"] as? String) ?? "", kind: (payload["kind"] as? String) ?? "") {
+            case .success: respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
+            case .failure(let e): respond(id: id, encodable: QuotationActionResult(ok: false, error: e.message))
+            }
+        case "quotations:updateBlock":
+            let error = db.updateQuotationBlock(id: (payload["id"] as? String) ?? "", payload: payload)
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:moveBlock":
+            let error = db.moveQuotationBlock(id: (payload["id"] as? String) ?? "", up: (payload["up"] as? Bool) ?? true)
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:removeBlock":
+            let error = db.removeQuotationBlock(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:addBlockLine":
+            let error = db.addQuotationBlockLine(
+                blockId: (payload["blockId"] as? String) ?? "", description: (payload["description"] as? String) ?? "",
+                unit: (payload["unit"] as? String) ?? "", quantity: (payload["quantity"] as? Double) ?? 1,
+                price: (payload["price"] as? Double) ?? 0)
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:updateLineDiscount":
             let error = db.updateQuotationLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
                                                        value: payload["discountValue"] as? Double)
@@ -6040,7 +6295,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         switch db.createInvoice(projectId: projectId, projectNumber: projectNumber,
                                 sourceQuotationId: (payload["quotationId"] as? String) ?? "",
                                 rentalMonths: payload["rentalMonths"] as? Int,
-                                includeDelivery: (payload["includeDelivery"] as? Bool) ?? true) {
+                                includeDelivery: (payload["includeDelivery"] as? Bool) ?? true,
+                                includeOtherCharges: (payload["includeOtherCharges"] as? Bool) ?? true) {
         case .success(let invoice): respond(id: id, encodable: invoice)
         case .failure(let e): respondError(id: id, message: e.message)
         }
@@ -6310,6 +6566,30 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         return (materials, delivery)
     }
 
+    /// One of a quotation's extra sections as table rows: its title, its
+    /// rows (numbered A1, A2… or R1, R2…) and its note.
+    private func blockRows(_ block: QuotationBlock, _ detail: QuotationDetail, currency: String) -> [LetterTableRow] {
+        var rows: [LetterTableRow] = []
+        if let title = nonBlank(block.title) { rows.append(.section(title)) }
+        let lines = detail.lineItems.filter { $0.blockId == block.id }.sorted { $0.sortOrder < $1.sortOrder }
+        for (i, line) in lines.enumerated() {
+            let number = "\(block.prefix)\(i + 1)"
+            let unit = line.unit.trimmingCharacters(in: .whitespaces)
+            if block.kind == "Rates" {
+                rows.append(.partial([number, line.itemDescription, "\(formatMoney(line.appliedUnitPrice))\(unit.isEmpty ? "" : " / \(unit)")"],
+                                     tail: "(Rate Only)"))
+            } else {
+                let note = lineDiscountNote(discountType: line.discountType, discountValue: line.discountValue, currencySymbol: currency)
+                let description = note.map { "\(line.itemDescription)\n\($0)" } ?? line.itemDescription
+                let total = detail.lineTotals[line.id] ?? line.appliedUnitPrice * line.quantity.rounded()
+                rows.append(.item([number, description, "\(formatMoney(line.appliedUnitPrice))\(unit.isEmpty ? "" : " /\(unit)")",
+                                   formatQuantity(line.quantity), formatMoney(total)]))
+            }
+        }
+        if let note = nonBlank(block.note) { rows.append(.note(note)) }
+        return rows
+    }
+
     private let pricedColumns = [
         LetterColumn(title: "No", width: 29.25, kind: .center),
         LetterColumn(title: "Item Description", width: 219.75, kind: .left),
@@ -6365,14 +6645,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
 
         // Unit prices as charged: with the quotation's markup, if any.
-        let priced = pricedRows(detail.lineItems.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
+        let priced = pricedRows(detail.lineItems.filter { $0.blockId == nil }.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
                                                          price: detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
                                 currency: currencySymbol(company), rateSuffix: { _ in isRental ? " /Month" : "" })
         var rows = priced.materials
         if isRental {
             rows.append(.summary(label: "Subtotal of Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
-            if detail.minimumHireEnabled {
+            // Only when it changes the amount: ticked, and more than one month.
+            if detail.minimumHireEnabled && detail.hireMonths > 1 {
                 rows.append(.summary(label: "Minimum Hire of \(detail.hireMonths) Month\(detail.hireMonths == 1 ? "" : "s"):", value: formatMoney(detail.materialsCharge), emphasized: false))
             }
         } else if !priced.materials.isEmpty {
@@ -6381,6 +6662,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if !priced.delivery.isEmpty {
             rows.append(.section("Delivery Charges"))
             rows += priced.delivery
+        }
+        // Priced sections (design fees, erection prices…) count towards the
+        // total; rates-only sections and notes follow the Total Amount.
+        let currency = currencySymbol(company)
+        for block in detail.blocks where block.kind == "Priced" {
+            rows += blockRows(block, detail, currency: currency)
         }
         if detail.discountAmount > 0 {
             let percent = detail.discountType == "Percent" ? " \(formatMoney(detail.discountValue).replacingOccurrences(of: ".00", with: ""))%" : ""
@@ -6391,6 +6678,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             rows.append(.summary(label: label, value: formatMoney(detail.taxAmount), emphasized: false))
         }
         rows.append(.summary(label: "Total Amount:", value: formatMoney(detail.total), emphasized: true))
+        for block in detail.blocks where block.kind != "Priced" {
+            rows += blockRows(block, detail, currency: currency)
+        }
 
         var terms: [LetterParagraph] = []
         if let url = nonBlank(company.termsURL) {
@@ -6437,7 +6727,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let isRental = detail.pricingMode == "Rental"
         let quotation = detail.sourceQuotationId.flatMap { db.getQuotation(id: $0) }
 
-        let priced = pricedRows(detail.lineItems.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
+        let priced = pricedRows(detail.lineItems.filter { $0.chargeGroup == nil }.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
                                                          price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
                                 currency: currencySymbol(company),
@@ -6456,6 +6746,21 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if !priced.delivery.isEmpty {
             rows.append(.section("Delivery Charges"))
             rows += priced.delivery
+        }
+        // One-off charges from the quotation's priced sections, under their titles.
+        let charges = detail.lineItems.filter { $0.chargeGroup != nil }
+        var groups: [String] = []
+        for line in charges { if let g = line.chargeGroup, !groups.contains(g) { groups.append(g) } }
+        for group in groups {
+            rows.append(.section(group))
+            for (n, line) in charges.filter({ $0.chargeGroup == group }).enumerated() {
+                let note = lineDiscountNote(discountType: line.discountType, discountValue: line.discountValue, currencySymbol: currencySymbol(company))
+                let description = note.map { "\(line.itemDescription)\n\($0)" } ?? line.itemDescription
+                let unit = line.unit.trimmingCharacters(in: .whitespaces)
+                let total = netLineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice, discountType: line.discountType, discountValue: line.discountValue)
+                rows.append(.item(["\(line.chargePrefix ?? "")\(n + 1)", description, "\(formatMoney(line.appliedUnitPrice))\(unit.isEmpty ? "" : " /\(unit)")",
+                                   formatQuantity(line.quantity), formatMoney(doubleOf(total))]))
+            }
         }
         // A subtotal only when something is taken off or added on.
         if detail.discountAmount > 0 || detail.taxAmount > 0 {
