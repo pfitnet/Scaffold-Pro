@@ -741,3 +741,26 @@ under "Letterhead layout".
   as before.
 - Invoices keep their own **Payment Terms**. Settings' "Default Payment Terms"
   now says it's for invoices.
+
+## Batch 27 — Export Word (.docx), laid out like the PDF
+- Every BOQ, quotation, invoice and delivery note editor has an **Export Word**
+  button next to Export PDF. It saves `<project>_<type>_<number>.docx` next to
+  the PDF in the project folder and opens it.
+- The Word copy follows the PDF layout:
+  - the letterhead and footer on every page, exactly as on the PDF (a
+    page-sized picture behind the text, drawn by the same code as the PDF),
+    with the page number as a live field;
+  - EB Garamond **embedded** in the file, so it looks the same on a Mac or PC
+    without the font installed;
+  - the client and reference block, title, "Re:" line, the items table (same
+    column widths, row heights, line breaks, merged title, "(Rate Only)" and
+    note rows, repeated heading row), Terms and Conditions with hanging
+    indents, the Terms page break, signatures and closing line.
+  Everything except the letterhead is ordinary, editable Word text and
+  tables.
+- How it works: the app lays the document out as for the PDF
+  (`PDFGenerator.wordLayout`) and the page builds the .docx from that
+  (`js/docx-export.js`), then hands it back to be saved.
+- Checked without a Mac using `tools/pdf-preview/word.py`. It builds the sample
+  documents as .docx and renders them with LibreOffice for side-by-side
+  comparison with the PDF preview.

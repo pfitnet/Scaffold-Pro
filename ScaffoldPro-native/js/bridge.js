@@ -122,6 +122,7 @@
       updateNotes: (id, notes) => callNative('boq:updateNotes', { id: id, notes: notes }),
       remove: (id) => callNative('boq:delete', { id: id }),
       exportPDF: (id) => callNative('boq:exportPDF', { id: id }),
+      exportWord: (id) => callNative('boq:exportWord', { id: id }),
       updateDetails: (id, changes) => callNative('boq:updateDetails', Object.assign({ id: id }, changes)),
       moveLineItem: (id, direction) => callNative('boq:moveLineItem', { id: id, direction: direction }),
       duplicateLineItem: (id) => callNative('boq:duplicateLineItem', { id: id }),
@@ -150,6 +151,7 @@
       updateStatus: (id, status) => callNative('quotations:updateStatus', { id: id, status: status }),
       remove: (id) => callNative('quotations:delete', { id: id }),
       exportPDF: (id) => callNative('quotations:exportPDF', { id: id }),
+      exportWord: (id) => callNative('quotations:exportWord', { id: id }),
       print: (id) => callNative('quotations:print', { id: id }),
     },
     invoices: {
@@ -167,6 +169,7 @@
       recordPayment: (id, amount) => callNative('invoices:recordPayment', { id: id, amount: amount }),
       remove: (id) => callNative('invoices:delete', { id: id }),
       exportPDF: (id) => callNative('invoices:exportPDF', { id: id }),
+      exportWord: (id) => callNative('invoices:exportWord', { id: id }),
       print: (id) => callNative('invoices:print', { id: id }),
     },
     deliveryNotes: {
@@ -181,6 +184,7 @@
       updateStatus: (id, status) => callNative('deliveryNotes:updateStatus', { id: id, status: status }),
       remove: (id) => callNative('deliveryNotes:delete', { id: id }),
       exportPDF: (id) => callNative('deliveryNotes:exportPDF', { id: id }),
+      exportWord: (id) => callNative('deliveryNotes:exportWord', { id: id }),
       print: (id) => callNative('deliveryNotes:print', { id: id }),
     },
     settings: {
@@ -190,6 +194,10 @@
       removeLogo: () => callNative('settings:removeLogo'),
       logoPreview: () => callNative('settings:logoPreview'),
       numberPreview: (type, template) => callNative('settings:numberPreview', { type: type, template: template }),
+    },
+    // Word copies built by js/docx-export.js, saved next to the PDFs.
+    files: {
+      saveWord: (input) => callNative('files:saveWord', input),
     },
     backup: {
       list: () => callNative('backup:list'),
