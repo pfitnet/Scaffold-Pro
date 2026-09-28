@@ -375,6 +375,7 @@ async function init() {
 
   await loadDetail();
   if (!currentDetail) return;
+  window.setupLinkedDrawings({ kind: 'Quotation', id: quotationId, projectNumber: currentDetail.projectNumber });
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
     if (!allowStatusChange(currentDetail.status, e.target.value, 'quotation')) {

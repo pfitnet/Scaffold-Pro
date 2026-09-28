@@ -83,10 +83,12 @@
       update: (id, input) => callNative('projects:update', Object.assign({ id: id }, input)),
       updateStatus: (id, status) => callNative('projects:updateStatus', { id: id, status: status }),
       revealFolder: (projectNumber) => callNative('projects:revealFolder', { projectNumber: projectNumber }),
-      uploadDrawing: (projectNumber) => callNative('projects:uploadDrawing', { projectNumber: projectNumber }),
+      uploadDrawing: (projectNumber, link) => callNative('projects:uploadDrawing', Object.assign({ projectNumber: projectNumber }, link || {})),
     },
     drawings: {
       listForProject: (projectId) => callNative('drawings:listForProject', { projectId: projectId }),
+      listForDocument: (linkedKind, linkedId) => callNative('drawings:listForDocument', { linkedKind: linkedKind, linkedId: linkedId }),
+      setLink: (id, linkedKind, linkedId) => callNative('drawings:setLink', { id: id, linkedKind: linkedKind || null, linkedId: linkedId || null }),
       updateDescription: (id, description) => callNative('drawings:updateDescription', { id: id, description: description }),
       rename: (id, newName) => callNative('drawings:rename', { id: id, newName: newName }),
       archive: (id) => callNative('drawings:archive', { id: id }),
@@ -146,8 +148,9 @@
     },
     invoices: {
       listForProject: (projectId) => callNative('invoices:listForProject', { projectId: projectId }),
-      create: (projectId, projectNumber, quotationId) =>
-        callNative('invoices:create', { projectId: projectId, projectNumber: projectNumber, quotationId: quotationId || null }),
+      create: (projectId, projectNumber, quotationId, options) =>
+        callNative('invoices:create', Object.assign({ projectId: projectId, projectNumber: projectNumber, quotationId: quotationId || null }, options || {})),
+      updateRental: (id, changes) => callNative('invoices:updateRental', Object.assign({ id: id }, changes)),
       get: (id) => callNative('invoices:get', { id: id }),
       addLineItem: (input) => callNative('invoices:addLineItem', input),
       updateLineItem: (id, changes) => callNative('invoices:updateLineItem', Object.assign({ id: id }, changes)),

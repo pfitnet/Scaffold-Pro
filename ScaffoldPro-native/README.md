@@ -639,3 +639,19 @@ under "Letterhead layout".
   Open Font Licence) is bundled in `resources/fonts`.
 - **Terms and Conditions start on a new page** whenever the whole quotation
   doesn't fit on one page (worked out with a trial layout first).
+
+## Batch 22 — invoices from quotations; drawings as DWG, linked to a BOQ or quotation
+- **Every invoice is based on one of the project's quotations.** "+ New Invoice"
+  opens a sheet to choose the quotation. Its items, prices, line discounts,
+  discount/tax terms and Sale/Rental pricing are copied. For a rental quotation,
+  choose **one month's rent** or the **full hire period** (the quotation's
+  minimum hire months, adjustable), and whether to include delivery charges.
+  The invoice editor shows the quotation it's based on, plus "Months charged"
+  and an optional "Rental period" while Draft. The PDF shows "/Month" rates,
+  "Monthly Rental Charge" and "Rental for N Months", and the quotation number,
+  your ref., site ref. and subject line.
+- **Drawings can be DWG or DXF** as well as PDF, PNG, JPEG or TIFF.
+- **Drawings can be linked to a BOQ or a quotation**: choose "For …" when
+  uploading, or change it any time in the project's Drawings list. Each BOQ and
+  quotation editor has a Drawings panel listing its drawings (Open / Reveal)
+  with an Upload Drawing button that links automatically.
