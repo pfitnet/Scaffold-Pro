@@ -186,7 +186,10 @@ function setAppearanceButtons(value) {
 }
 
 async function init() {
+  const formatted = ['defaultPaymentTerms-input', 'quotationTerms-input'].map((id) => document.getElementById(id));
+  for (const ta of formatted) window.attachParagraphFormatting(ta);
   await loadSettings();
+  for (const ta of formatted) window.refreshParagraphPreview(ta);
   document.getElementById('save-btn').addEventListener('click', saveSettings);
   for (const f of NUMBER_FIELDS) {
     document.getElementById(`${f}-input`).addEventListener('input', () => updateNumberExample(f));

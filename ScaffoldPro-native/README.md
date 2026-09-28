@@ -702,3 +702,24 @@ under "Letterhead layout".
   "Include Design Fees…" tick box. Rates and notes aren't copied.
 - **Delivery notes** made from a quotation or invoice now list the materials
   only, without delivery charges or other charges.
+
+## Batch 25 — paragraph formatting (hanging indents) in payment terms
+- **Payment Terms** on quotations and invoices, and **Default Payment Terms** and
+  **Key terms** in Settings, are now multi-line boxes. Each has a small toolbar
+  (Hanging Indent, • Bullets, 1. Numbering, (i) Numbering) and an "As printed"
+  preview underneath. One paragraph per line:
+  - `Deposit : 50% upon order confirmation` (or `Deposit: …`): label, colon,
+    and the text in a hanging indent at the same column as "(i) Payment :".
+  - `- text` or `• text`: bullet with a hanging indent.
+  - `1. text`, `(a) text`, `b) text`, `(iv) text`: numbered, hanging indent.
+  - A label or number, then **Tab**, then the text: hanging indent.
+  - Lines that follow one of these line up under its text. A blank line ends
+    it; any other line is an ordinary paragraph.
+- **Quotation PDF:** the quotation's own payment terms replace the text of the
+  standard "Payment" key term, under its label. Bullets and labelled lines line
+  up under the text. Leave the box blank to print the standard term. (Before
+  this, a quotation's payment terms were only printed when the Settings key
+  terms were blank.)
+- **Invoice PDF:** "Payment Terms :" with the same formatting under Payment
+  Information.
+- The standard key terms print exactly as before.
