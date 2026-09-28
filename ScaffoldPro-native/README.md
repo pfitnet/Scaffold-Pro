@@ -617,3 +617,25 @@ registered when the app starts); black-ruled tables with "HK$" in money
 cells; Times New Roman signature blocks. The Settings logo chooser was
 replaced by a note, since the letterhead is fixed. Details are in AUDIT.md,
 under "Letterhead layout".
+
+## Batch 21 — quotation pricing, item discounts, minimum hire, logo text
+- **Sale ↔ Rental re-prices existing items.** Changing a quotation's pricing
+  re-prices every material-list item already on it (after a confirmation).
+  Prices typed in by hand are kept. Each line remembers its list price, and a
+  hand-typed price shows "List 25.00" under it. A subject still reading
+  "<project> - Rental" follows the switch.
+- **Discount per item** (quotations and invoices): a Discount button on each
+  line sets no discount (the default), a percentage, or an amount off the line
+  total. The PDF prints "Less 10% discount" under the item, and its Total Price
+  is net. Invoices made from a quotation keep the line discounts.
+- **Items in item-code order** ("1.2" before "1.10") on quotations, invoices
+  and delivery notes, on screen and on the PDF. Custom items and delivery
+  charges follow, in the order they were added.
+- **Minimum hire is optional per quotation**: a "Minimum Hire: Apply" tick
+  box. It's off on new quotations; the months default from Settings. Existing
+  rental quotations keep the minimum hire they had.
+- **Logo text**: "建機 (香港) 有限公司" is Noto Sans TC at 15pt, drawn at its
+  natural shape. A subset of the font with just those characters (7 KB, SIL
+  Open Font Licence) is bundled in `resources/fonts`.
+- **Terms and Conditions start on a new page** whenever the whole quotation
+  doesn't fit on one page (worked out with a trial layout first).

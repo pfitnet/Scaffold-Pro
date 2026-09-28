@@ -135,7 +135,7 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
@@ -143,8 +143,12 @@ function renderLineItems() {
   let materialNo = 0;
   let deliveryNo = 0;
   for (const [index, item] of items.entries()) {
-    const lineTotal = Math.round(item.quantity * item.appliedUnitPrice * 100) / 100;
+    const lineTotal = window.lineNetTotal(item);
     const isDelivery = item.section === 'Delivery';
+    // Section 20: a hand-typed price shows the material-list price under it.
+    const listPrice = item.priceListUnitPrice;
+    const overridden = listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
+    const discountLabel = window.lineDiscountLabel(item, currencyLabel);
     const rowNo = isDelivery ? `D${++deliveryNo}` : String(++materialNo);
     void index;
     const tr = document.createElement('tr');
@@ -153,7 +157,8 @@ function renderLineItems() {
       <td>${isDelivery ? '<span class="line-tag">Delivery</span>' : ''}${item.itemDescription}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-      <td class="num"><input type="number" class="price-input" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} /></td>
+      <td class="num"><input type="number" class="price-input${overridden ? ' override' : ''}" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item">${discountLabel || 'Discount'}</button>`}</td>
       <td class="num">${money(lineTotal)}</td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 
@@ -163,6 +168,14 @@ function renderLineItems() {
     priceInput.addEventListener('change', () => updateLine(item.id, { appliedUnitPrice: parseFloat(priceInput.value) || 0 }));
     const removeBtn = tr.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
+    const discountBtn = tr.querySelector('.discount-btn');
+    if (discountBtn) discountBtn.addEventListener('click', () => {
+      window.openLineDiscount(item, currencyLabel, async (type, value) => {
+        const r = await window.api.quotations.updateLineDiscount(item.id, type, value);
+        if (r.ok) await loadDetail();
+        return r;
+      });
+    });
 
     tbody.appendChild(tr);
   }
@@ -177,7 +190,9 @@ function renderTotals() {
   const rows = [];
   if (d.pricingMode === 'Rental') {
     rows.push(['Subtotal of Monthly Rental Charge', money(d.materialsSubtotal)]);
-    rows.push([`Minimum Hire of ${d.hireMonths} Month${d.hireMonths === 1 ? '' : 's'}`, money(d.materialsCharge)]);
+    if (d.minimumHireEnabled) {
+      rows.push([`Minimum Hire of ${d.hireMonths} Month${d.hireMonths === 1 ? '' : 's'}`, money(d.materialsCharge)]);
+    }
   } else {
     rows.push(['Materials', money(d.materialsSubtotal)]);
   }
@@ -200,9 +215,12 @@ function renderLetterFields() {
     if (document.activeElement !== el) el.value = d[f] || '';
     el.disabled = locked;
   }
+  const hireOn = document.getElementById('q-minimumHireEnabled');
+  hireOn.checked = !!d.minimumHireEnabled;
+  hireOn.disabled = locked;
   const hire = document.getElementById('q-minimumHireMonths');
-  if (document.activeElement !== hire) hire.value = d.hireMonths;
-  hire.disabled = locked;
+  if (document.activeElement !== hire) hire.value = d.minimumHireMonths;
+  hire.disabled = locked || !d.minimumHireEnabled;
   document.getElementById('q-hire-field').classList.toggle('hidden', d.pricingMode !== 'Rental');
   document.getElementById('add-delivery-btn').disabled = locked;
 }
@@ -408,6 +426,8 @@ async function init() {
   for (const f of LETTER_FIELDS) {
     document.getElementById(`q-${f}`).addEventListener('change', (e) => saveLetterField(f, e.target.value));
   }
+  document.getElementById('q-minimumHireEnabled').addEventListener('change', (e) =>
+    saveLetterField('minimumHireEnabled', e.target.checked));
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
@@ -415,7 +435,14 @@ async function init() {
   await populateBOQReference();
   document.getElementById('import-boq-btn').addEventListener('click', importFromBOQ);
 
-  document.getElementById('pricing-mode-select').addEventListener('change', async () => {
+  // Switching Sale ↔ Rental re-prices the items already on the quotation.
+  document.getElementById('pricing-mode-select').addEventListener('change', async (e) => {
+    const to = e.target.value;
+    const fromList = currentDetail.lineItems.some((i) => i.priceListItemId);
+    if (fromList && !confirm(`Change this quotation to ${to} pricing?\n\nEvery item from the material list will be re-priced at its ${to.toLowerCase()} price. Prices you typed in by hand are kept.`)) {
+      e.target.value = currentDetail.pricingMode;
+      return;
+    }
     await saveHeader();
     await renderPickerResults();
   });

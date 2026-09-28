@@ -18,6 +18,9 @@
     .picker-results { max-height: 320px; overflow-y: auto; }
     .payment-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
     .payment-row input { width: 100px; }
+      .discount-btn { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
+    .discount-btn.active { color: var(--accent); border-color: var(--accent); }
+    .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
   </style>
 </head>
 <body data-page="project-detail">
@@ -110,6 +113,7 @@
   </main>
 
   <script src="js/sidebar.js"></script>
+  <script src="js/line-discount.js"></script>
   <script src="js/invoice-editor.js"></script>
 </body>
 </html>

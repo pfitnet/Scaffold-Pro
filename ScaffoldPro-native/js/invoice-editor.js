@@ -125,12 +125,13 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
   for (const [index, item] of items.entries()) {
-    const lineTotal = item.quantity * item.appliedUnitPrice;
+    const lineTotal = window.lineNetTotal(item);
+    const discountLabel = window.lineDiscountLabel(item, currencyLabel);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num row-no">${index + 1}</td>
@@ -138,6 +139,7 @@ function renderLineItems() {
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td class="num"><input type="number" class="price-input" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} /></td>
+      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item">${discountLabel || 'Discount'}</button>`}</td>
       <td class="num">${money(lineTotal)}</td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 
@@ -147,6 +149,14 @@ function renderLineItems() {
     priceInput.addEventListener('change', () => updateLine(item.id, { appliedUnitPrice: parseFloat(priceInput.value) || 0 }));
     const removeBtn = tr.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
+    const discountBtn = tr.querySelector('.discount-btn');
+    if (discountBtn) discountBtn.addEventListener('click', () => {
+      window.openLineDiscount(item, currencyLabel, async (type, value) => {
+        const r = await window.api.invoices.updateLineDiscount(item.id, type, value);
+        if (r.ok) await loadDetail();
+        return r;
+      });
+    });
 
     tbody.appendChild(tr);
   }
