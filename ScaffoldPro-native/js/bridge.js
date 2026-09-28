@@ -137,6 +137,12 @@
       updateLineItem: (id, changes) => callNative('quotations:updateLineItem', Object.assign({ id: id }, changes)),
       removeLineItem: (id) => callNative('quotations:removeLineItem', { id: id }),
       updateLineDiscount: (id, discountType, discountValue) => callNative('quotations:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
+      // Extra sections: kind 'Priced' | 'Rates' | 'Note'.
+      addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
+      updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),
+      moveBlock: (id, up) => callNative('quotations:moveBlock', { id: id, up: !!up }),
+      removeBlock: (id) => callNative('quotations:removeBlock', { id: id }),
+      addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
       updateHeader: (id, header) => callNative('quotations:updateHeader', Object.assign({ id: id }, header)),
       updateLetterFields: (id, changes) => callNative('quotations:updateLetterFields', Object.assign({ id: id }, changes)),
       importFromBOQ: (quotationId, boqId, replaceExisting) =>

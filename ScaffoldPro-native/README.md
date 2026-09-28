@@ -678,3 +678,27 @@ under "Letterhead layout".
 - **Terms and Conditions page option** (Settings → Standard Quotation): "New
   page when the quotation runs over one page" (the default, as before) or
   "Always on a new page".
+
+## Batch 24 — quotation sections: titles, priced rows, rates-only rows, notes
+- **Minimum hire row** shows only when "Minimum Hire: Apply" is ticked and the
+  hire is more than 1 month (on the PDF and in the editor's totals).
+- **Extra sections on quotations**, as on the company's own quotations. Add them
+  below the line items:
+  - **+ Priced Section**: a merged title row (e.g. "Design Fees" or "Erection &
+    Dismantle") and priced rows numbered A1, A2… (prefix editable). They are
+    added to the Total Amount and aren't marked up.
+  - **+ Rates Section**: a merged title row (default "Erection & Dismantle
+    Manpower Rates") and rows R1, R2… showing "HK$ 2,300.00 / md" with
+    "(Rate Only)" across Qty and Total Price. They appear after the Total Amount
+    and aren't charged. The section starts with the usual note about overtime
+    and Sunday / public holiday rates.
+  - **+ Note**: a note across the table, in small grey italics, after the total.
+    Every priced or rates section can also end with its own note.
+  - Titles, row prefixes, notes and each row's description, unit, quantity and
+    price can be edited in place. Sections can be moved up or down and removed.
+    Importing a BOQ with "replace" keeps them.
+- **Invoices** made from the quotation copy the priced sections' rows under
+  their titles, charged once (not per month). The New Invoice sheet has an
+  "Include Design Fees…" tick box. Rates and notes aren't copied.
+- **Delivery notes** made from a quotation or invoice now list the materials
+  only, without delivery charges or other charges.

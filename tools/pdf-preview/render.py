@@ -107,7 +107,10 @@ class Gen:
             for i,c in enumerate(row[1]): n=max(n,len(s.cellLines(c,doc['columns'][i],f,cw)))
             return s.rowH+(n-1)*14.9
         if row[0]=='section': return 37.5
+        if row[0]=='partial': return s.rowHeight(('item',row[1]),doc)
+        if row[0]=='note': return 29.25+(max(1,len(s.wrap(row[1],body(9.5,italic=True),s.noteWidth(doc))))-1)*13.0
         return 37.5 if row[3] else 29.25
+    def noteWidth(s,doc): return sum(c[1] for c in doc['columns'])-12.0
     def hr(s,e,y): s.fill(e[0],y,e[-1]-e[0]+s.rule,s.rule,BLACK)
     def vr(s,x,t,h): s.fill(x,t,s.rule,h+s.rule,BLACK)
     def drawCell(s,lines,col,l,r,top,h,f,cur):
@@ -137,6 +140,16 @@ class Gen:
                 for i,c in enumerate(row[1]): s.drawCell(s.cellLines(c,cols[i],f,cw),cols[i],e[i],e[i+1],t,h,f,doc['cur'])
             elif row[0]=='section':
                 s.vr(e[0],t,h); s.vr(e[last],t,h); s.text(row[1],(e[0]+e[last]+s.rule)/2,s.cellBase(t,h,1,0),body(12,True),align='center')
+            elif row[0]=='partial':
+                n=min(len(row[1]),len(cols)-1)
+                for x in e[:n+1]: s.vr(x,t,h)
+                s.vr(e[last],t,h); f=body(11); cw=width(doc['cur'],f)
+                for i,c in enumerate(row[1][:n]): s.drawCell(s.cellLines(c,cols[i],f,cw),cols[i],e[i],e[i+1],t,h,f,doc['cur'])
+                s.text(row[2],(e[n]+e[last]+s.rule)/2,s.cellBase(t,h,1,0),f,align='center')
+            elif row[0]=='note':
+                s.vr(e[0],t,h); s.vr(e[last],t,h); f=body(9.5,italic=True); lines=s.wrap(row[1],f,s.noteWidth(doc))
+                first=t+h/2+3.4-(max(1,len(lines))-1)*13.0/2
+                for j,l in enumerate(lines): s.text(l,e[0]+6.0,first+j*13.0,f,c=DGREY)
             else:
                 s.vr(e[0],t,h); s.vr(e[last-1],t,h); s.vr(e[last],t,h); f=body(12 if row[3] else 11,True)
                 s.text(row[1],e[last-1]-4.25,s.cellBase(t,h,1,0),f,align='right'); s.drawCell([row[2]],cols[last-1],e[last-1],e[last],t,h,f,doc['cur'])

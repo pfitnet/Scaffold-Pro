@@ -30,6 +30,10 @@ function getInvoiceIdFromURL() {
 }
 
 // "1,234.56" format everywhere (not "1234.56").
+function esc(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function money(value) {
   return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -151,7 +155,7 @@ function renderLineItems() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num row-no">${index + 1}</td>
-      <td>${item.itemDescription}</td>
+      <td>${item.chargeGroup ? `<span class="line-tag">${esc(item.chargeGroup)}</span>` : (item.section === 'Delivery' ? '<span class="line-tag">Delivery</span>' : '')}${item.itemDescription}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td class="num"><input type="number" class="price-input" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} /></td>
@@ -188,7 +192,8 @@ function renderTotals() {
   if (d.pricingMode === 'Rental') {
     rentalRows = `<div class="row"><span>Monthly Rental Charge</span><span>${money(d.materialsSubtotal)}</span></div>` +
       (d.rentalMonths > 1 ? `<div class="row"><span>Rental for ${d.rentalMonths} Months</span><span>${money(d.materialsCharge)}</span></div>` : '') +
-      (d.deliveryTotal > 0 ? `<div class="row"><span>Delivery Charges</span><span>${money(d.deliveryTotal)}</span></div>` : '');
+      (d.deliveryTotal > 0 ? `<div class="row"><span>Delivery Charges</span><span>${money(d.deliveryTotal)}</span></div>` : '') +
+      (d.otherChargesTotal > 0 ? `<div class="row"><span>Other Charges</span><span>${money(d.otherChargesTotal)}</span></div>` : '');
   }
   box.innerHTML = rentalRows + `
     <div class="row"><span>Subtotal</span><span>${money(d.subtotal)}</span></div>

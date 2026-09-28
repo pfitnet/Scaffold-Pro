@@ -35,6 +35,10 @@ function money(value) {
   return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function esc(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // Quantities are whole numbers: "1,250".
 function qty(value) {
   return Math.round(Number(value || 0)).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -116,12 +120,14 @@ function render() {
   notesBox.disabled = isLocked;
 
   renderLineItems();
+  renderBlocks();
   renderTotals();
 }
 
 function renderLineItems() {
   const container = document.getElementById('line-items');
-  const items = currentDetail.lineItems;
+  // Rows of the extra sections are shown in their own sections below.
+  const items = currentDetail.lineItems.filter((i) => !i.blockId);
   const isLocked = currentDetail.status !== 'Draft';
 
   if (items.length === 0) {
@@ -188,13 +194,19 @@ function renderTotals() {
   const rows = [];
   if (d.pricingMode === 'Rental') {
     rows.push(['Subtotal of Monthly Rental Charge', money(d.materialsSubtotal)]);
-    if (d.minimumHireEnabled) {
+    // Only when it changes the amount: ticked, and more than one month.
+    if (d.minimumHireEnabled && d.hireMonths > 1) {
       rows.push([`Minimum Hire of ${d.hireMonths} Month${d.hireMonths === 1 ? '' : 's'}`, money(d.materialsCharge)]);
     }
   } else {
     rows.push(['Materials', money(d.materialsSubtotal)]);
   }
   if (d.deliveryTotal > 0) rows.push(['Delivery Charges', money(d.deliveryTotal)]);
+  for (const block of d.blocks.filter((b) => b.kind === 'Priced')) {
+    const lines = d.lineItems.filter((i) => i.blockId === block.id);
+    if (lines.length === 0) continue;
+    rows.push([esc(block.title || 'Other Charges'), money(lines.reduce((sum, i) => sum + (d.lineTotals[i.id] || 0), 0))]);
+  }
   if (d.discountAmount > 0) {
     rows.push([d.discountType === 'Percent' ? `Less ${d.discountValue}% Discount` : 'Less Discount', `-${money(d.discountAmount)}`]);
   }
@@ -204,6 +216,131 @@ function renderTotals() {
     : '';
   box.innerHTML = markupNote + rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('') +
     `<div class="row grand"><span>Total Amount</span><span>${currencyLabel} ${money(d.total)}</span></div>`;
+}
+
+// ---------- Extra sections: priced rows, rates-only rows, notes ----------
+
+const BLOCK_KINDS = {
+  Priced: 'Priced · added to the total',
+  Rates: 'Rates only · shown after the total',
+  Note: 'Note · shown after the total',
+};
+
+async function blockCall(promise) {
+  const r = await promise;
+  if (r && !r.ok) alert(r.error);
+  await loadDetail();
+}
+
+function renderBlocks() {
+  const d = currentDetail;
+  const container = document.getElementById('extra-sections');
+  const locked = d.status !== 'Draft';
+  container.innerHTML = '';
+  for (const btn of ['add-priced-btn', 'add-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
+
+  d.blocks.forEach((block, index) => {
+    const lines = d.lineItems.filter((i) => i.blockId === block.id).sort((a, b) => a.sortOrder - b.sortOrder);
+    const rates = block.kind === 'Rates';
+    const card = document.createElement('div');
+    card.className = 'extra-section';
+
+    let body = '';
+    if (block.kind !== 'Note') {
+      const head = rates
+        ? '<th class="num row-no">No.</th><th>Description</th><th class="num">Rate</th><th>Unit</th><th></th><th></th>'
+        : '<th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th><th></th>';
+      const rows = lines.map((line, n) => {
+        const dis = locked ? 'disabled' : '';
+        const common = `<td class="num row-no">${esc(block.prefix)}${n + 1}</td>
+          <td><input type="text" class="row-desc" value="${esc(line.itemDescription)}" ${dis} /></td>`;
+        const remove = `<td>${locked ? '' : '<button class="row-remove">Remove</button>'}</td>`;
+        return rates
+          ? `<tr data-id="${line.id}">${common}
+              <td class="num"><input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} /></td>
+              <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" ${dis} /></td>
+              <td class="rate-only">(Rate Only)</td>${remove}</tr>`
+          : `<tr data-id="${line.id}">${common}
+              <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" ${dis} /></td>
+              <td class="num"><input type="number" class="row-qty narrow" min="1" step="1" value="${Math.round(line.quantity)}" ${dis} /></td>
+              <td class="num"><input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} /></td>
+              <td class="num">${money(d.lineTotals[line.id])}</td>${remove}</tr>`;
+      }).join('');
+      body = `
+        <div class="extra-title-row">
+          <input type="text" class="block-title" placeholder="Title row (optional), e.g. Design Fees" value="${esc(block.title)}" ${locked ? 'disabled' : ''} />
+          <label class="small-note">Rows <input type="text" class="block-prefix" maxlength="4" value="${esc(block.prefix)}" title="Row numbers, e.g. A → A1, A2" ${locked ? 'disabled' : ''} /></label>
+        </div>
+        ${lines.length ? `<table class="compact"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>` : '<p class="small-note">No rows yet.</p>'}
+        ${locked ? '' : `<div class="extra-add-row">
+          <input type="text" class="add-desc" placeholder="${rates ? 'e.g. Scaffolder CP' : 'e.g. Design and Drawing'}" />
+          ${rates ? '' : '<input type="number" class="add-qty" min="1" step="1" value="1" title="Quantity" />'}
+          <input type="number" class="add-price" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" />
+          <input type="text" class="add-unit" value="${rates ? 'md' : ''}" placeholder="Unit" title="Unit${rates ? ', e.g. md (man-day)' : ' (optional), e.g. lot'}" />
+          <button class="add-row">Add Row</button>
+        </div>`}`;
+    }
+
+    card.innerHTML = `
+      <div class="extra-head">
+        <span class="line-tag">${BLOCK_KINDS[block.kind] || block.kind}</span>
+        ${locked ? '' : `<span class="controls">
+          <button data-move="up" ${index === 0 ? 'disabled' : ''} title="Move up">↑</button>
+          <button data-move="down" ${index === d.blocks.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+          <button class="block-remove">Remove</button>
+        </span>`}
+      </div>
+      ${body}
+      <textarea class="block-note" rows="2" placeholder="${block.kind === 'Note' ? 'Note, shown in small italics across the table' : 'Note row (optional), shown in small italics under these rows'}" ${locked ? 'disabled' : ''}>${esc(block.note || '')}</textarea>`;
+
+    const q = (sel) => card.querySelector(sel);
+    const title = q('.block-title');
+    if (title) title.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { title: title.value })));
+    const prefix = q('.block-prefix');
+    if (prefix) prefix.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { prefix: prefix.value })));
+    const note = q('.block-note');
+    note.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { note: note.value })));
+    for (const b of card.querySelectorAll('[data-move]')) {
+      b.addEventListener('click', () => blockCall(window.api.quotations.moveBlock(block.id, b.dataset.move === 'up')));
+    }
+    const remove = q('.block-remove');
+    if (remove) remove.addEventListener('click', () => {
+      const what = block.kind === 'Note' ? 'this note' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;
+      if (confirm(`Remove ${what}?`)) blockCall(window.api.quotations.removeBlock(block.id));
+    });
+    for (const tr of card.querySelectorAll('tr[data-id]')) {
+      const lineId = tr.dataset.id;
+      const field = (sel, key, parse) => {
+        const el = tr.querySelector(sel);
+        if (el) el.addEventListener('change', () => updateLine(lineId, { [key]: parse(el.value) }));
+      };
+      field('.row-desc', 'itemDescription', (v) => v);
+      field('.row-unit', 'unit', (v) => v);
+      field('.row-qty', 'quantity', (v) => Math.max(1, Math.round(Number(v) || 1)));
+      field('.row-price', 'appliedUnitPrice', (v) => parseFloat(v) || 0);
+      const rm = tr.querySelector('.row-remove');
+      if (rm) rm.addEventListener('click', () => removeLine(lineId));
+    }
+    const addBtn = q('.add-row');
+    if (addBtn) {
+      const add = () => {
+        const desc = q('.add-desc');
+        if (!desc.value.trim()) { desc.focus(); return; }
+        const qtyInput = q('.add-qty');
+        blockCall(window.api.quotations.addBlockLine(block.id, {
+          description: desc.value,
+          unit: q('.add-unit').value,
+          quantity: qtyInput ? Math.max(1, Math.round(Number(qtyInput.value) || 1)) : 1,
+          price: Number(q('.add-price').value) || 0,
+        }));
+      };
+      addBtn.addEventListener('click', add);
+      for (const input of card.querySelectorAll('.extra-add-row input')) {
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+      }
+    }
+    container.appendChild(card);
+  });
 }
 
 // ---------- Standard quotation letter fields ----------
@@ -475,6 +612,9 @@ async function init() {
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
+  for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-rates-btn', 'Rates'], ['add-note-btn', 'Note']]) {
+    document.getElementById(btn).addEventListener('click', () => blockCall(window.api.quotations.addBlock(quotationId, kind)));
+  }
 
   await populateBOQReference();
   document.getElementById('import-boq-btn').addEventListener('click', importFromBOQ);

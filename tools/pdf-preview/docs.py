@@ -74,7 +74,22 @@ def quotation_short():
            ('item',['D1','Delivery of materials\n(from yard to site and from site to yard)',f'{money(3800)} /truck/trip','2',money(7600)]),('summary','Total Amount:',money(sub+7600),True)]
     doc=quotation(); doc.update(number='Qt26201',status='Draft',rows=rows,refRows=[('Our Ref. No.','Qt26201'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','28 Sep 2026')])
     return doc
-for name,fn in [('quotation',quotation),('quotation_short',quotation_short),('invoice',invoice),('dn',dn),('boq',boq)]:
+def quotation_sections():
+    # Delivery, a priced "Design Fees" section, the total, then a rates-only
+    # section with its note (as on the company's quotation). Minimum hire of
+    # 1 month: no "Minimum Hire" row.
+    lines=[('600mm Base Jack',5.50,6),('1.57m Ledger',9.30,36),('2.0m Cat Ladder',23.20,2)]
+    rows=[('item',[str(i+1),d,f'{money(p)} /Month',str(q),money(round(p*q,2))]) for i,(d,p,q) in enumerate(lines)]
+    sub=sum(round(p*q,2) for d,p,q in lines)
+    rows+=[('summary','Subtotal of Monthly Rental Charge:',money(sub),False),('section','Delivery Charges'),
+           ('item',['D1','Delivery of materials\n(from yard to site and from site to yard )',f'{money(3800)} /truck/trip','8',money(30400)]),
+           ('section','Design Fees'),('item',['A1','Design and Drawing',money(3000),'1',money(3000)]),
+           ('summary','Total Amount:',money(sub+30400+3000),True),('section','Erection & Dismantle Manpower Rates')]
+    rows+=[('partial',[f'R{i+1}',d,f'{money(r)} / md'],'(Rate Only)') for i,(d,r) in enumerate([('Scaffolder CP',2300),('Scaffolder',2100),('Rigger',2000),('General Helper',1800)])]
+    rows.append(('note','* Please note that labour rates are subject to a price increase for over-time works and works on sundays / public holidays'))
+    doc=quotation(); doc.update(number='Qt26202',status='Draft',rows=rows,refRows=[('Our Ref. No.','Qt26202'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','28 Sep 2026')])
+    return doc
+for name,fn in [('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('invoice',invoice),('dn',dn),('boq',boq)]:
     pages=Gen().generate(fn())
     for i,p in enumerate(pages): p.save(os.path.join(OUT,f'{name}_{i+1}.png'))
     print(name,len(pages),'pages')
