@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .admin-section { margin-top: 28px; }
+    .admin-section:first-of-type { margin-top: 16px; }
+    .section-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .section-toolbar h2 { margin: 0; }
+    .section-toolbar .controls { display: flex; gap: 8px; align-items: center; }
+    .workers-grid { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 24px; align-items: start; }
+    tr.selected td { background: var(--row-selected, rgba(47, 111, 237, 0.10)); }
+    .expiry-expired { color: var(--danger); font-weight: 600; }
+    .expiry-soon { color: #b26a00; font-weight: 600; }
+    .worker-detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 14px; }
+    .worker-detail-fields .field { display: flex; flex-direction: column; gap: 4px; }
+    .worker-detail-fields .field.full { grid-column: 1 / -1; }
+    .worker-detail-fields label { font-size: 11px; color: var(--text-secondary); }
+    .date-input { width: 130px; }
+    .small-note { font-size: 12px; color: var(--text-secondary); }
+    @media (prefers-color-scheme: dark) { .expiry-soon { color: #f0a53a; } }
+  </style>
+</head>
+<body data-page="admin">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Admin</h1>
+    <div class="subtitle">Workers, their documents, and company paperwork. Company details and currency live in Settings.</div>
+
+    <!-- Expiry reminders (sections 42-43) -->
+    <section class="admin-section">
+      <div class="section-toolbar"><h2>Needs Attention</h2></div>
+      <div id="expiring-list"></div>
+    </section>
+
+    <!-- Workers (sections 41-42) -->
+    <section class="admin-section">
+      <div class="section-toolbar">
+        <h2>Workers</h2>
+        <div class="controls">
+          <label class="small-note"><input type="checkbox" id="show-archived-workers" /> Show archived</label>
+          <button class="primary" id="new-worker-btn">+ New Worker</button>
+        </div>
+      </div>
+      <div class="workers-grid">
+        <div id="worker-list"></div>
+        <div id="worker-detail">
+          <div class="empty-state"><h2>No worker selected</h2><p>Select a worker to see their details and documents.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Company / administrative documents (section 43) -->
+    <section class="admin-section">
+      <div class="section-toolbar">
+        <h2>Company Documents</h2>
+        <div class="controls">
+          <select id="admin-doc-category"></select>
+          <input type="date" id="admin-doc-expiry" class="date-input" title="Expiry date (optional)" />
+          <button class="primary" id="upload-admin-doc-btn">Upload Document</button>
+        </div>
+      </div>
+      <div class="toolbar"><input type="text" id="admin-doc-search" placeholder="Search company documents" /></div>
+      <div id="admin-doc-list"></div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop hidden" id="worker-modal">
+    <div class="modal">
+      <h2>New Worker</h2>
+      <div class="field"><label>Name</label><input type="text" id="w-name" /></div>
+      <div class="field"><label>Position</label><input type="text" id="w-position" /></div>
+      <div class="field"><label>Phone</label><input type="text" id="w-phone" /></div>
+      <div class="field"><label>Email</label><input type="text" id="w-email" /></div>
+      <div class="field"><label>Start Date</label><input type="date" id="w-startDate" /></div>
+      <div class="error-text hidden" id="w-error"></div>
+      <div class="actions">
+        <button id="w-cancel-btn">Cancel</button>
+        <button class="primary" id="w-save-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

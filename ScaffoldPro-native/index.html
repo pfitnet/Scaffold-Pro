@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="dashboard">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <div class="subtitle" id="today-line"></div>
+      </div>
+      <div class="header-actions quick-actions">
+        <button onclick="location.href='projects.html?new=1'">New Project</button>
+        <button id="qa-quotation">New Quotation</button>
+        <button id="qa-invoice">New Invoice</button>
+        <button id="qa-delivery">New Delivery Note</button>
+        <button onclick="location.href='clients.html?new=1'">New Client</button>
+        <button onclick="location.href='sites.html?new=1'">New Site</button>
+      </div>
+    </div>
+
+    <div class="backup-reminder hidden" id="backup-reminder"></div>
+
+    <div class="stat-grid" id="stat-grid"></div>
+
+    <div class="dash-grid">
+      <section class="panel">
+        <h3 class="panel-title">Unpaid Invoices</h3>
+        <div id="unpaid-list"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Quotations Awaiting Reply</h3>
+        <div id="quotation-list"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Active &amp; Recent Projects</h3>
+        <div id="recent-projects"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Recently Changed Documents</h3>
+        <div id="recent-docs"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Recent Delivery Notes</h3>
+        <div id="delivery-list"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Recent Activity</h3>
+        <div id="activity-list"></div>
+      </section>
+    </div>
+
+    <section class="panel hidden" id="attention-block" style="margin-top:16px;">
+      <h3 class="panel-title">Documents Needing Attention</h3>
+      <div id="attention-list"></div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop hidden" id="pick-project-modal">
+    <div class="modal">
+      <h2 id="pick-project-title">Choose a Project</h2>
+      <div class="field"><select id="pick-project-select"></select></div>
+      <div class="actions">
+        <button id="pick-cancel-btn">Cancel</button>
+        <button class="primary" id="pick-go-btn">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

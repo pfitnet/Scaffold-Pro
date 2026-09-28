@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Delivery Note — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .boq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .qty-input { width: 70px; padding: 3px 6px; }
+    .header-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
+    .header-fields label { font-size: 11px; color: var(--text-secondary); }
+    .picker-results { max-height: 320px; overflow-y: auto; }
+  </style>
+</head>
+<body data-page="project-detail">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div id="dn-header"></div>
+
+    <div id="not-found" class="empty-state hidden">
+      <h2>Delivery note not found</h2>
+    </div>
+
+    <div id="dn-body" class="hidden">
+      <div class="toolbar" style="justify-content: space-between;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="font-size:12px; color:var(--text-secondary);">Status</label>
+          <select id="status-select">
+            <option value="Draft">Draft</option>
+            <option value="Issued">Issued</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+          <button id="export-pdf-btn">Export PDF</button>
+          <button id="print-btn">Print…</button>
+        </div>
+        <a id="back-link" href="#">&larr; Back to project</a>
+      </div>
+
+      <div class="header-fields">
+        <div class="field"><label>Delivery Address</label><input type="text" id="delivery-address-input" /></div>
+        <div class="field"><label>Delivered By</label><input type="text" id="delivered-by-input" /></div>
+        <div class="field"><label>Received By</label><input type="text" id="received-by-input" /></div>
+      </div>
+
+      <div class="boq-grid">
+        <div>
+          <h2>Add Materials</h2>
+          <div class="toolbar">
+            <select id="source-select">
+              <option value="SP">SP Material &amp; Price List 2026</option>
+              <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
+            </select>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="search-box" placeholder="Search items" />
+            <select id="category-select"><option value="">All Categories</option></select>
+          </div>
+          <div class="picker-results" id="picker-results"></div>
+        </div>
+
+        <div>
+          <h2>Items Delivered</h2>
+          <div id="line-items"></div>
+          <details class="custom-item" id="custom-item-box">
+            <summary>+ Add a custom item (not on a price list)</summary>
+            <div class="custom-item-row">
+              <input type="text" id="ci-description" placeholder="Description, e.g. Transport to site" />
+              <input type="text" id="ci-unit" value="lot" title="Unit" />
+              <input type="number" id="ci-qty" min="1" step="1" value="1" title="Quantity" />
+              
+              <button id="ci-add-btn">Add</button>
+            </div>
+          </details>
+
+          <div style="margin-top: 20px;">
+            <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
+            <textarea id="notes-box" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/delivery-note-editor.js"></script>
+</body>
+</html>

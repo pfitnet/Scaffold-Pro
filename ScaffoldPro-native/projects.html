@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Projects — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="projects">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Projects</h1>
+    <div class="subtitle">Every project is the home for its BOQs, quotations, invoices, and documents</div>
+
+    <div class="toolbar">
+      <input type="text" id="search-box" placeholder="Search by number or name" />
+      <button class="primary" id="new-project-btn">+ New Project</button>
+    </div>
+
+    <div id="list-container"></div>
+  </main>
+
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal wide">
+      <h2>New Project</h2>
+
+      <div class="field">
+        <label>Project Number</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="proposed-number" style="font-family: monospace; font-weight:600;"></span>
+          <label style="display:flex; align-items:center; gap:4px; font-size:12px; color:var(--text-secondary);">
+            <input type="checkbox" id="f-override" /> Override
+          </label>
+          <input type="text" id="f-manualNumber" placeholder="YYNNN" class="hidden" style="width:80px;" />
+        </div>
+      </div>
+
+      <div class="field"><label>Project Name</label><input type="text" id="f-name" /></div>
+      <div class="form-grid">
+        <div class="field"><label>Client</label><select id="f-client"></select></div>
+        <div class="field"><label>Site</label><select id="f-site"></select></div>
+      </div>
+
+      <details class="optional-details">
+        <summary>Optional details</summary>
+        <div class="form-grid">
+          <div class="field"><label>Start Date</label><input type="date" id="f-startDate" /></div>
+          <div class="field"><label>Expected Completion</label><input type="date" id="f-expectedCompletionDate" /></div>
+          <div class="field span-2"><label>Project Manager</label><input type="text" id="f-projectManager" /></div>
+          <div class="field span-2"><label>Description</label><textarea id="f-projectDescription" rows="2"></textarea></div>
+          <div class="field span-2"><label>Internal Notes</label><textarea id="f-internalNotes" rows="2"></textarea></div>
+        </div>
+      </details>
+
+      <label class="small-note" style="display:flex; gap:6px; align-items:center; margin-top:10px;">
+        <input type="checkbox" id="f-uploadDrawing" /> Upload a drawing after creating the project
+      </label>
+
+      <div class="error-text hidden" id="form-error"></div>
+      <div class="actions">
+        <button id="cancel-btn">Cancel</button>
+        <button class="primary" id="save-btn">Create Project</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/projects.js"></script>
+</body>
+</html>

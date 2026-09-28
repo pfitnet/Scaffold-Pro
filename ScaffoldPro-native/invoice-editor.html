@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Invoice — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .boq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .qty-input { width: 60px; padding: 3px 6px; }
+    .price-input { width: 80px; padding: 3px 6px; }
+    .totals-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+    .totals-box .row.grand { font-size: 18px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+    .totals-box .row.balance { font-weight: 600; color: var(--danger); }
+    .header-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
+    .header-fields label { font-size: 11px; color: var(--text-secondary); }
+    .picker-results { max-height: 320px; overflow-y: auto; }
+    .payment-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .payment-row input { width: 100px; }
+  </style>
+</head>
+<body data-page="project-detail">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div id="invoice-header"></div>
+
+    <div id="not-found" class="empty-state hidden">
+      <h2>Invoice not found</h2>
+    </div>
+
+    <div id="invoice-body" class="hidden">
+      <div class="toolbar" style="justify-content: space-between;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="font-size:12px; color:var(--text-secondary);">Status</label>
+          <select id="status-select">
+            <option value="Draft">Draft</option>
+            <option value="Issued">Issued</option>
+            <option value="PartiallyPaid">Partially Paid</option>
+            <option value="Paid">Paid</option>
+            <option value="Overdue">Overdue</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+          <button id="export-pdf-btn">Export PDF</button>
+          <button id="print-btn">Print…</button>
+        </div>
+        <a id="back-link" href="#">&larr; Back to project</a>
+      </div>
+
+      <div class="header-fields">
+        <div class="field"><label>Due Date</label><input type="date" id="due-date-input" /></div>
+        <div class="field"><label>Payment Terms</label><input type="text" id="payment-terms-input" placeholder="e.g. 30 days net" /></div>
+        <div class="field"><label>Discount Type</label>
+          <select id="discount-type-select">
+            <option value="None">None</option>
+            <option value="Percent">Percent</option>
+            <option value="Fixed">Fixed Amount</option>
+          </select>
+        </div>
+        <div class="field"><label>Discount Value</label><input type="number" id="discount-value-input" min="0" step="0.01" /></div>
+        <div class="field"><label>Tax / VAT Rate (%)</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
+      </div>
+
+      <div class="boq-grid">
+        <div>
+          <h2>Add Materials</h2>
+          <div class="toolbar">
+            <select id="source-select">
+              <option value="SP">SP Material &amp; Price List 2026</option>
+              <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
+            </select>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="search-box" placeholder="Search items" />
+            <select id="category-select"><option value="">All Categories</option></select>
+          </div>
+          <div class="picker-results" id="picker-results"></div>
+        </div>
+
+        <div>
+          <h2>Line Items</h2>
+          <div id="line-items"></div>
+          <details class="custom-item" id="custom-item-box">
+            <summary>+ Add a custom item (not on a price list)</summary>
+            <div class="custom-item-row">
+              <input type="text" id="ci-description" placeholder="Description, e.g. Transport to site" />
+              <input type="text" id="ci-unit" value="lot" title="Unit" />
+              <input type="number" id="ci-qty" min="1" step="1" value="1" title="Quantity" />
+              <input type="number" id="ci-extra" min="0" step="0.01" placeholder="Unit price" />
+              <button id="ci-add-btn">Add</button>
+            </div>
+          </details>
+
+          <div class="totals-box" id="totals-box"></div>
+
+          <div class="payment-row hidden" id="payment-row">
+            <label style="font-size:12px; color:var(--text-secondary);">Record payment</label>
+            <input type="number" id="payment-amount-input" min="0" step="0.01" />
+            <button id="record-payment-btn">Add Payment</button>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
+            <textarea id="notes-box" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/invoice-editor.js"></script>
+</body>
+</html>
