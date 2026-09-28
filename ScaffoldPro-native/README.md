@@ -593,3 +593,17 @@ Print menu item.
 ## Batch 18
 - Standard delivery charge set to **HK$3,800 per truck per trip** (owner-confirmed). Existing installs still on the earlier 1,200 default are moved to 3,800 once at launch; a value set by hand afterwards is never overwritten
 - `icon/preview.png` added — the icon at every size on light and dark backgrounds
+
+## Batch 19 — audit against the master prompt
+A full read-through against all 67 sections of the master prompt; results,
+remaining gaps and open questions are in **AUDIT.md**. Fixed in this pass:
+blank "Attn:"/address lines on PDFs for new clients and sites; project-number
+override validation (year / sequence 000); issued invoices can no longer go back
+to Draft and cancelled documents stay cancelled; empty documents can't be issued;
+overpayments rejected; line order after deleting a line; faster Dashboard/⌘K
+search; Overdue shown consistently; Rename (no more `Plan.pdf.pdf`, shows the new
+name); ⌘K → worker opens that worker; quotation totals use the Settings currency;
+editable quotation / invoice / delivery dates; wrapped rows, measured footers and
+page numbers on invoice / delivery-note / BOQ PDFs; exported PDF path stored on
+each document and re-export replaces the old PDF; delivery address pre-filled from
+the site. Still not compiled — run `./install.sh` on a Mac.

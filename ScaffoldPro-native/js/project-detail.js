@@ -188,11 +188,16 @@ function renderFileList(containerId, items, api, opts) {
   for (const item of items) {
     const tr = document.createElement('tr');
     const missingBadge = item.fileExists ? '' : ' <span class="status-pill" style="color:var(--danger);">File unavailable</span>';
-    const categoryCell = opts.showCategory ? `<td>${item.category}</td>` : '';
+    const categoryCell = opts.showCategory ? `<td>${esc(item.category)}</td>` : '';
+    // The name shown is the file's name in Finder; the name it was
+    // uploaded under is kept underneath when different (section 33).
+    const shownName = item.storedFilename || item.originalName;
+    const uploadedAs = item.originalName && item.originalName !== shownName
+      ? `<div class="sub muted">Uploaded as ${esc(item.originalName)}</div>` : '';
     tr.innerHTML = `
-      <td>${item.originalName}${missingBadge}</td>
+      <td>${esc(shownName)}${missingBadge}${uploadedAs}</td>
       ${categoryCell}
-      <td>${item.fileType}</td>
+      <td>${esc(item.fileType)}</td>
       <td>${formatFileSize(item.fileSizeBytes)}</td>
       <td>${(item.uploadedAt || '').slice(0, 10)}</td>
       <td><input type="text" class="desc-input" value="${(item.description || '').replace(/"/g, '&quot;')}" placeholder="Add a description" /></td>
@@ -224,14 +229,15 @@ function renderFileList(containerId, items, api, opts) {
         if (!result.ok) alert(result.error);
       });
       actionsCell.querySelector('.rename-btn').addEventListener('click', async () => {
-        const newName = prompt('New name for this file:', item.originalName);
+        const current = shownName.replace(/\.[^.]+$/, '');
+        const newName = prompt('New name for this file:', current);
         if (!newName) return;
         const result = await api.rename(item.id, newName);
         if (!result.ok) alert(result.error);
         await opts.refresh();
       });
       actionsCell.querySelector('.archive-btn').addEventListener('click', async () => {
-        if (!confirm(`Archive "${item.originalName}"? It will no longer show in this list.`)) return;
+        if (!confirm(`Archive "${shownName}"? It will no longer show in this list.`)) return;
         await api.archive(item.id);
         await opts.refresh();
       });
@@ -500,10 +506,13 @@ async function init() {
   });
 
   document.getElementById('upload-drawing-btn').addEventListener('click', async () => {
-    const result = await window.api.projects.uploadDrawing(project.projectNumber);
-    if (result) {
-      await refreshDrawingList();
+    try {
+      const result = await window.api.projects.uploadDrawing(project.projectNumber);
+      if (result) await refreshDrawingList();
+    } catch (e) {
+      alert(`The drawing couldn't be added.\n\n${e.message}`);
     }
+    await refreshHistory();
   });
 
   document.getElementById('document-category-select').innerHTML =
@@ -511,10 +520,13 @@ async function init() {
 
   document.getElementById('upload-document-btn').addEventListener('click', async () => {
     const category = document.getElementById('document-category-select').value;
-    const result = await window.api.documents.upload(project.projectNumber, category);
-    if (result) {
-      await refreshDocumentList();
+    try {
+      const result = await window.api.documents.upload(project.projectNumber, category);
+      if (result) await refreshDocumentList();
+    } catch (e) {
+      alert(`The document couldn't be added.\n\n${e.message}`);
     }
+    await refreshHistory();
   });
 
   document.getElementById('new-boq-btn').addEventListener('click', createNewBOQ);

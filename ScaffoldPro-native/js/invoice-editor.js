@@ -1,7 +1,28 @@
 'use strict';
 
+// Section 25: issued documents are protected. Cancelled is final, and
+// reopening an issued document for editing asks first.
+function allowStatusChange(from, to, label) {
+  if (from === 'Cancelled' && to !== 'Cancelled') return false;
+  if (from !== 'Draft' && to === 'Draft') {
+    return confirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
+  }
+  if (to === 'Cancelled' && from !== 'Cancelled') {
+    return confirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
+  }
+  return true;
+}
+
+function lockStatusOptions(select, status, finalFromIssued) {
+  for (const opt of select.options) {
+    opt.disabled = (status === 'Cancelled' && opt.value !== 'Cancelled') ||
+      (finalFromIssued && status !== 'Draft' && opt.value === 'Draft');
+  }
+}
+
 let invoiceId = null;
 let currentDetail = null;
+let currencyLabel = '';
 
 function getInvoiceIdFromURL() {
   const params = new URLSearchParams(location.search);
@@ -16,6 +37,14 @@ function money(value) {
 // Quantities are whole numbers: "1,250".
 function qty(value) {
   return Math.round(Number(value || 0)).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+// An ISO timestamp → "yyyy-mm-dd" in local time, for a date field.
+function localDay(iso) {
+  const d = new Date(iso || '');
+  if (isNaN(d)) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function defaultPrice(item) {
@@ -43,8 +72,14 @@ function render() {
   document.getElementById('back-link').href = `project-detail.html?number=${d.projectNumber}`;
 
   document.getElementById('status-select').value = d.status;
+  lockStatusOptions(document.getElementById('status-select'), d.status, true);
+  document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
 
   const isLocked = d.status !== 'Draft';
+
+  const docDateInput = document.getElementById('doc-date-input');
+  if (document.activeElement !== docDateInput) docDateInput.value = localDay(d.invoiceDate);
+  docDateInput.disabled = isLocked;
 
   const dueDateInput = document.getElementById('due-date-input');
   if (document.activeElement !== dueDateInput) dueDateInput.value = d.dueDate || '';
@@ -127,9 +162,9 @@ function renderTotals() {
     <div class="row"><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
     <div class="row"><span>Discount</span><span>-${money(d.discountAmount)}</span></div>
     <div class="row"><span>Tax / VAT</span><span>${money(d.taxAmount)}</span></div>
-    <div class="row grand"><span>Total</span><span>${money(d.total)}</span></div>
+    <div class="row grand"><span>Total</span><span>${currencyLabel} ${money(d.total)}</span></div>
     <div class="row"><span>Paid</span><span>${money(d.amountPaid)}</span></div>
-    <div class="row balance"><span>Balance Due</span><span>${money(d.balanceDue)}</span></div>`;
+    <div class="row balance"><span>Balance Due</span><span>${currencyLabel} ${money(d.balanceDue)}</span></div>`;
 }
 
 async function updateLine(lineId, changes) {
@@ -146,6 +181,7 @@ async function removeLine(lineId) {
 
 async function saveHeader() {
   const header = {
+    invoiceDate: document.getElementById('doc-date-input').value || null,
     dueDate: document.getElementById('due-date-input').value || null,
     paymentTerms: document.getElementById('payment-terms-input').value || null,
     notes: document.getElementById('notes-box').value || null,
@@ -228,11 +264,17 @@ async function init() {
     document.getElementById('not-found').classList.remove('hidden');
     return;
   }
+  const settings = await window.api.settings.get();
+  currencyLabel = settings.currency;
 
   await loadDetail();
   if (!currentDetail) return;
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
+    if (!allowStatusChange(currentDetail.status, e.target.value, 'invoice')) {
+      e.target.value = currentDetail.status;
+      return;
+    }
     const result = await window.api.invoices.updateStatus(invoiceId, e.target.value);
     if (!result.ok) { alert(result.error); }
     await loadDetail();
@@ -271,7 +313,7 @@ async function init() {
     if (!result.ok) { alert(result.error); }
   });
 
-  for (const fieldId of ['due-date-input', 'payment-terms-input', 'discount-type-select', 'discount-value-input', 'tax-rate-input', 'notes-box']) {
+  for (const fieldId of ['doc-date-input', 'due-date-input', 'payment-terms-input', 'discount-type-select', 'discount-value-input', 'tax-rate-input', 'notes-box']) {
     document.getElementById(fieldId).addEventListener('change', saveHeader);
   }
 

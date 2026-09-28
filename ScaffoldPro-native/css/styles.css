@@ -275,7 +275,7 @@ th.sorted-desc::after { content: " ▼"; font-size: 8px; vertical-align: 1px; }
 table.compact { border: none; border-radius: 0; background: transparent; }
 table.compact td { padding: 7px 4px; }
 table.compact tr:first-child td { border-top: none; }
-table.compact .sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
 
 .row-actions { white-space: nowrap; text-align: right; }
 .row-actions button { padding: 3px 9px; font-size: 12px; }

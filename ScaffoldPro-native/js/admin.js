@@ -324,8 +324,17 @@ async function init() {
   });
   document.getElementById('admin-doc-search').addEventListener('input', applyAdminDocSearch);
 
+  // Arriving from global search (⌘K): admin.html?worker=<id> opens that worker.
+  const wantedWorker = new URLSearchParams(location.search).get('worker');
+  if (wantedWorker) selectedWorkerId = wantedWorker;
+
   await refreshExpiring();
   await refreshWorkers();
+  if (wantedWorker && !workers.some((w) => w.id === wantedWorker)) {
+    document.getElementById('show-archived-workers').checked = true;
+    selectedWorkerId = wantedWorker;
+    await refreshWorkers();
+  }
   await refreshAdminDocs();
 }
 

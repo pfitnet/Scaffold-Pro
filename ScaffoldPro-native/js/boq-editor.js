@@ -58,6 +58,7 @@ function render() {
 
   const statusSelect = document.getElementById('status-select');
   statusSelect.value = d.status;
+  document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
 
   const isIssued = d.status === 'Issued';
   renderLineItems();
@@ -227,6 +228,11 @@ async function init() {
   if (!currentDetail) return;
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
+    if (currentDetail.status === 'Issued' && e.target.value === 'Draft' &&
+        !confirm('Return this BOQ to Draft?\n\nIt has already been issued; its items become editable again.')) {
+      e.target.value = currentDetail.status;
+      return;
+    }
     const result = await window.api.boq.updateStatus(boqId, e.target.value);
     if (!result.ok) { alert(result.error); }
     await loadDetail();

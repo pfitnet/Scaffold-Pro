@@ -478,6 +478,7 @@ extension Quotation {
         siteRef = try c.decodeIfPresent(String.self, forKey: .siteRef)
         deliveryMethod = try c.decodeIfPresent(String.self, forKey: .deliveryMethod)
         minimumHireMonths = try c.decodeIfPresent(Int.self, forKey: .minimumHireMonths)
+        pdfPath = try c.decodeIfPresent(String.self, forKey: .pdfPath)
     }
 }
 
@@ -565,6 +566,8 @@ struct BillOfQuantities: Codable {
     /// mark-down (−) on price-list prices, and what the structure is.
     var markupPercent: Double?
     var structure: String?
+    /// The last PDF exported for this document (sections 31-32).
+    var pdfPath: String?
 }
 
 struct BOQLineItem: Codable {
@@ -661,6 +664,8 @@ struct Quotation: Codable {
     var deliveryMethod: String?
     /// Rental: "Minimum Hire of N Months".
     var minimumHireMonths: Int?
+    /// The last PDF exported for this document (sections 31-32).
+    var pdfPath: String?
 }
 
 struct QuotationLineItem: Codable {
@@ -754,6 +759,8 @@ struct Invoice: Codable {
     var notes: String?
     var createdAt: String
     var updatedAt: String
+    /// The last PDF exported for this document (sections 31-32).
+    var pdfPath: String?
 }
 
 struct InvoiceLineItem: Codable {
@@ -830,6 +837,8 @@ struct DeliveryNote: Codable {
     var notes: String?
     var createdAt: String
     var updatedAt: String
+    /// The last PDF exported for this document (sections 31-32).
+    var pdfPath: String?
 }
 
 /// No pricing fields on purpose — section 23 lists delivery notes as
@@ -1100,10 +1109,43 @@ func formatQuantity(_ value: Double) -> String {
     return formatter.string(from: NSNumber(value: value.rounded())) ?? String(format: "%.0f", value)
 }
 
+/// nil for a missing or whitespace-only value — records saved by earlier
+/// versions can hold "" where nothing was entered.
+func nonBlank(_ value: String?) -> String? {
+    guard let v = value?.trimmingCharacters(in: .whitespacesAndNewlines), !v.isEmpty else { return nil }
+    return v
+}
+
+/// A name typed for Rename, made safe as a file name: no folder
+/// separators, and without the extension if the person typed it too
+/// (so "Plan.pdf" doesn't become "Plan.pdf.pdf").
+func safeFileBaseName(_ raw: String, extension ext: String) -> String {
+    var name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        .replacingOccurrences(of: "/", with: "-")
+        .replacingOccurrences(of: ":", with: "-")
+    if !ext.isEmpty, name.lowercased().hasSuffix("." + ext.lowercased()) {
+        name = String(name.dropLast(ext.count + 1)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    while name.hasPrefix(".") { name.removeFirst() }
+    return name
+}
+
 /// A BOQ line's description with its note (if any) appended.
 func lineDescription(_ description: String, notes: String?) -> String {
     guard let notes = notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty else { return description }
     return "\(description) — \(notes)"
+}
+
+/// "2026-09-28" (from a date field) → the stored ISO timestamp, fixed at
+/// midday UTC so it shows as the same calendar day in any time zone.
+/// nil if the text isn't a real date.
+func isoFromDay(_ day: String) -> String? {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.timeZone = TimeZone(identifier: "UTC")
+    f.dateFormat = "yyyy-MM-dd"
+    guard let date = f.date(from: String(day.prefix(10))) else { return nil }
+    return isoFormatter.string(from: date.addingTimeInterval(12 * 3600))
 }
 
 func formatDateForDisplay(_ iso: String) -> String {
@@ -1192,8 +1234,11 @@ func nextProjectNumber(existingNumbers: [String], date: Date = Date()) -> String
         guard number.count == 5, number.hasPrefix(yearSuffix) else { return nil }
         return Int(number.suffix(3))
     }
-    let next = (sequences.max() ?? 0) + 1
-    return "\(yearSuffix)\(String(format: "%03d", next))"
+    // Skip any sequence already taken (e.g. by a manual override) and never
+    // go past 999, which would make a 6-digit number.
+    var next = (sequences.max() ?? 0) + 1
+    while existingNumbers.contains("\(yearSuffix)\(String(format: "%03d", next))") { next += 1 }
+    return "\(yearSuffix)\(String(format: "%03d", min(next, 999)))"
 }
 
 struct NumberValidation {
@@ -1201,12 +1246,20 @@ struct NumberValidation {
     let reason: String?
 }
 
-func validateProjectNumber(_ number: String, existingNumbers: [String]) -> NumberValidation {
+func validateProjectNumber(_ number: String, existingNumbers: [String], date: Date = Date()) -> NumberValidation {
     guard number.count == 5 else {
         return NumberValidation(valid: false, reason: "Project number must be exactly 5 digits (YYNNN).")
     }
-    guard number.allSatisfy({ $0.isNumber }) else {
+    guard number.allSatisfy({ $0.isASCII && $0.isNumber }) else {
         return NumberValidation(valid: false, reason: "Project number must contain only digits.")
+    }
+    // YY is the calendar year the project belongs to. A past year is
+    // allowed (entering an older project), a future year is not.
+    guard let yy = Int(number.prefix(2)), let currentYY = Int(currentYearSuffix(date)), yy <= currentYY else {
+        return NumberValidation(valid: false, reason: "The first two digits must be the project's year (\(currentYearSuffix(date)) for this year) — not a future year.")
+    }
+    guard number.suffix(3) != "000" else {
+        return NumberValidation(valid: false, reason: "The last three digits are the project's sequence and start at 001.")
     }
     guard !existingNumbers.contains(number) else {
         return NumberValidation(valid: false, reason: "Project number \(number) is already in use.")
@@ -1300,11 +1353,13 @@ final class FileStorage {
     /// Writes generated data (a rendered PDF, typically) into a project
     /// subfolder under a meaningful filename (sections 31-32) rather than
     /// copying an existing source file.
+    /// A document's PDF always has the same name (its number), so a new
+    /// export replaces the previous one rather than piling up copies.
     func writeGeneratedFile(data: Data, projectNumber: String, subfolder: String, meaningfulFilename: String) throws -> URL {
         let destFolder = projectFolder(projectNumber).appendingPathComponent(subfolder, isDirectory: true)
         try FileManager.default.createDirectory(at: destFolder, withIntermediateDirectories: true)
-        let destination = uniqueDestination(destFolder.appendingPathComponent(meaningfulFilename))
-        try data.write(to: destination)
+        let destination = destFolder.appendingPathComponent(meaningfulFilename)
+        try data.write(to: destination, options: .atomic)
         return destination
     }
 
@@ -1397,6 +1452,10 @@ final class AppDatabase {
         let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
         let today = todayYMD()
+        // Each line-item file is read once and grouped, rather than re-read
+        // for every document — search runs this on every keystroke.
+        let quotationLines = Dictionary(grouping: quotationLineItemsStore.readAll(), by: { $0.quotationId })
+        let invoiceLines = Dictionary(grouping: invoiceLineItemsStore.readAll(), by: { $0.invoiceId })
         var rows: [DocRow] = []
         func include(_ pid: String) -> Project? {
             guard projectIds == nil || projectIds!.contains(pid) else { return nil }
@@ -1410,16 +1469,15 @@ final class AppDatabase {
         }
         for q in quotationsStore.readAll() {
             guard let p = include(q.projectId) else { continue }
-            let t = quotationMoney(q, lineItems: quotationLineItems(for: q.id))
+            let t = quotationMoney(q, lineItems: quotationLines[q.id] ?? [])
             rows.append(DocRow(id: q.id, kind: "Quotation", number: q.quotationNumber, status: q.status, projectNumber: p.projectNumber,
                                projectName: p.name, clientName: clients[p.clientId], date: q.quotationDate, updatedAt: q.updatedAt,
                                amount: t.total, balance: nil, dueDate: q.validUntil, isOverdue: false, url: "quotation-editor.html?id=\(q.id)"))
         }
         for inv in invoicesStore.readAll() {
             guard let p = include(inv.projectId) else { continue }
-            let t = invoiceTotals(lineItems: invoiceLineItems(for: inv.id), discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid)
-            let open = !["Draft", "Paid", "Cancelled"].contains(inv.status) && t.balanceDue > 0
-            let overdue = open && (inv.dueDate.map { String($0.prefix(10)) < today } ?? false)
+            let t = invoiceTotals(lineItems: invoiceLines[inv.id] ?? [], discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid)
+            let overdue = isInvoiceOverdue(inv, balanceDue: t.balanceDue, today: today)
             rows.append(DocRow(id: inv.id, kind: "Invoice", number: inv.invoiceNumber, status: overdue ? "Overdue" : inv.status,
                                projectNumber: p.projectNumber, projectName: p.name, clientName: clients[p.clientId],
                                date: inv.invoiceDate, updatedAt: inv.updatedAt, amount: t.total, balance: t.balanceDue,
@@ -1597,12 +1655,14 @@ final class AppDatabase {
     func createClient(_ payload: [String: Any]) -> Client {
         let client = Client(
             id: makeId("client"),
-            companyName: (payload["companyName"] as? String) ?? "",
-            contactPerson: payload["contactPerson"] as? String,
-            address: payload["address"] as? String,
-            phone: payload["phone"] as? String,
-            email: payload["email"] as? String,
-            notes: payload["notes"] as? String,
+            // Blank form fields are stored as nil, not "" — otherwise PDFs
+            // print empty "Attn:" / address lines for new clients.
+            companyName: text(payload, "companyName") ?? "",
+            contactPerson: text(payload, "contactPerson"),
+            address: text(payload, "address"),
+            phone: text(payload, "phone"),
+            email: text(payload, "email"),
+            notes: text(payload, "notes"),
             isArchived: false,
             createdAt: nowISO(),
             clientReference: text(payload, "clientReference"), city: text(payload, "city"),
@@ -1651,11 +1711,11 @@ final class AppDatabase {
     func createSite(_ payload: [String: Any]) -> Site {
         let site = Site(
             id: makeId("site"),
-            name: (payload["name"] as? String) ?? "",
-            address: payload["address"] as? String,
-            contactPerson: payload["contactPerson"] as? String,
-            phone: payload["phone"] as? String,
-            notes: payload["notes"] as? String,
+            name: text(payload, "name") ?? "",
+            address: text(payload, "address"),
+            contactPerson: text(payload, "contactPerson"),
+            phone: text(payload, "phone"),
+            notes: text(payload, "notes"),
             isArchived: false,
             createdAt: nowISO(),
             siteReference: text(payload, "siteReference"), city: text(payload, "city"),
@@ -2032,12 +2092,12 @@ final class AppDatabase {
         guard let boq = getBOQ(id: boqId) else { return "BOQ not found." }
         guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
 
-        let existingCount = lineItems(for: boqId).count
+        let nextSortOrder = (lineItems(for: boqId).map { $0.sortOrder }.max() ?? -1) + 1
         let line = BOQLineItem(
             id: makeId("boqitem"), boqId: boqId, sourceKey: sourceKey, priceListItemId: priceListItemId,
             itemCode: itemCode, itemDescription: description, unit: unit, quantity: quantity.rounded(),
             priceListUnitPrice: priceListUnitPrice, appliedUnitPrice: appliedUnitPrice, weightKg: weightKg,
-            section: section, sortOrder: existingCount, notes: nil
+            section: section, sortOrder: nextSortOrder, notes: nil
         )
         boqLineItemsStore.insert(line)
         touchBOQ(boqId)
@@ -2174,6 +2234,7 @@ final class AppDatabase {
         var boqs = boqsStore.readAll()
         guard let index = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
         guard ["Draft", "Issued"].contains(status) else { return "Invalid status." }
+        if status == "Issued" && boqs[index].status == "Draft" && lineItems(for: id).isEmpty { return "Add at least one item before issuing this BOQ." }
         let changed = boqs[index].status != status
         boqs[index].status = status
         boqs[index].updatedAt = nowISO()
@@ -2333,7 +2394,7 @@ final class AppDatabase {
         if replaceExisting {
             allQuotationItems.removeAll { $0.quotationId == quotationId }
         }
-        let startOrder = allQuotationItems.filter { $0.quotationId == quotationId }.count
+        let startOrder = (allQuotationItems.filter { $0.quotationId == quotationId }.map { $0.sortOrder }.max() ?? -1) + 1
 
         let priceItems = priceListItemsStore.readAll()
         let pricingMode = qs[qIndex].pricingMode
@@ -2414,11 +2475,11 @@ final class AppDatabase {
         guard let q = getQuotation(id: quotationId) else { return "Quotation not found." }
         guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
 
-        let existingCount = quotationLineItems(for: quotationId).count
+        let nextSortOrder = (quotationLineItems(for: quotationId).map { $0.sortOrder }.max() ?? -1) + 1
         let line = QuotationLineItem(
             id: makeId("qitem"), quotationId: quotationId, sourceKey: sourceKey, priceListItemId: priceListItemId,
             itemCode: itemCode, itemDescription: description, unit: unit, quantity: quantity.rounded(),
-            appliedUnitPrice: appliedUnitPrice, section: section, sortOrder: existingCount
+            appliedUnitPrice: appliedUnitPrice, section: section, sortOrder: nextSortOrder
         )
         quotationLineItemsStore.insert(line)
         touchQuotation(quotationId)
@@ -2468,11 +2529,28 @@ final class AppDatabase {
         return nil
     }
 
+    /// The quotation's own date (editable while Draft).
+    func updateQuotationDate(id: String, day: String) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+        guard qs[i].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        guard let iso = isoFromDay(day) else { return "Enter a valid date." }
+        qs[i].quotationDate = iso
+        qs[i].updatedAt = nowISO()
+        quotationsStore.writeAll(qs)
+        return nil
+    }
+
     func updateQuotationStatus(id: String, status: String) -> String? {
         var qs = quotationsStore.readAll()
         guard let index = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
         guard ["Draft", "Issued", "Cancelled"].contains(status) else { return "Invalid status." }
-        let changed = qs[index].status != status
+        let previous = qs[index].status
+        // Section 25: a cancelled quotation is kept for the record and stays
+        // cancelled; one can only be issued once it has something on it.
+        if previous == "Cancelled" && status != "Cancelled" { return "This quotation is cancelled and can't be reopened. Create a new quotation instead." }
+        if status == "Issued" && previous == "Draft" && quotationLineItems(for: id).isEmpty { return "Add at least one item before issuing this quotation." }
+        let changed = previous != status
         qs[index].status = status
         qs[index].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
@@ -2497,6 +2575,13 @@ final class AppDatabase {
 
     // ---- Invoices (Phase 9) ----
 
+    /// Issued (or part-paid) with money still owed and past its due date.
+    /// Shown as "Overdue" everywhere without having to be set by hand.
+    func isInvoiceOverdue(_ inv: Invoice, balanceDue: Double, today: String) -> Bool {
+        let open = !["Draft", "Paid", "Cancelled"].contains(inv.status) && balanceDue > 0
+        return open && (inv.dueDate.map { !$0.isEmpty && String($0.prefix(10)) < today } ?? false)
+    }
+
     private func invoiceLineItems(for invoiceId: String) -> [InvoiceLineItem] {
         invoiceLineItemsStore.readAll()
             .filter { $0.invoiceId == invoiceId }
@@ -2514,13 +2599,15 @@ final class AppDatabase {
     }
 
     func listInvoiceSummaries(projectId: String) -> [InvoiceSummary] {
-        invoicesStore.readAll()
+        let today = todayYMD()
+        return invoicesStore.readAll()
             .filter { $0.projectId == projectId }
             .sorted { $0.invoiceNumber > $1.invoiceNumber }
             .map { inv in
                 let items = invoiceLineItems(for: inv.id)
                 let totals = invoiceTotals(lineItems: items, discountType: inv.discountType, discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid)
-                return InvoiceSummary(id: inv.id, invoiceNumber: inv.invoiceNumber, status: inv.status, itemCount: items.count, total: totals.total, amountPaid: inv.amountPaid, dueDate: inv.dueDate, createdAt: inv.createdAt)
+                let status = isInvoiceOverdue(inv, balanceDue: totals.balanceDue, today: today) ? "Overdue" : inv.status
+                return InvoiceSummary(id: inv.id, invoiceNumber: inv.invoiceNumber, status: status, itemCount: items.count, total: totals.total, amountPaid: inv.amountPaid, dueDate: inv.dueDate, createdAt: inv.createdAt)
             }
     }
 
@@ -2614,11 +2701,11 @@ final class AppDatabase {
         guard let inv = getInvoice(id: invoiceId) else { return "Invoice not found." }
         guard inv.status == "Draft" else { return "This invoice is issued and can no longer be edited." }
 
-        let existingCount = invoiceLineItems(for: invoiceId).count
+        let nextSortOrder = (invoiceLineItems(for: invoiceId).map { $0.sortOrder }.max() ?? -1) + 1
         let line = InvoiceLineItem(
             id: makeId("iitem"), invoiceId: invoiceId, sourceKey: sourceKey, priceListItemId: priceListItemId,
             itemCode: itemCode, itemDescription: description, unit: unit, quantity: quantity.rounded(),
-            appliedUnitPrice: appliedUnitPrice, section: section, sortOrder: existingCount
+            appliedUnitPrice: appliedUnitPrice, section: section, sortOrder: nextSortOrder
         )
         invoiceLineItemsStore.insert(line)
         touchInvoice(invoiceId)
@@ -2666,6 +2753,18 @@ final class AppDatabase {
         return nil
     }
 
+    /// The invoice date (editable while Draft).
+    func updateInvoiceDate(id: String, day: String) -> String? {
+        var invs = invoicesStore.readAll()
+        guard let i = invs.firstIndex(where: { $0.id == id }) else { return "Invoice not found." }
+        guard invs[i].status == "Draft" else { return "This invoice is issued and can no longer be edited." }
+        guard let iso = isoFromDay(day) else { return "Enter a valid date." }
+        invs[i].invoiceDate = iso
+        invs[i].updatedAt = nowISO()
+        invoicesStore.writeAll(invs)
+        return nil
+    }
+
     /// Explicit status changes an admin makes by hand (e.g. Draft →
     /// Issued, or → Cancelled). Payment-driven transitions (→
     /// PartiallyPaid/Paid) happen automatically in recordPayment below.
@@ -2673,7 +2772,18 @@ final class AppDatabase {
         var invs = invoicesStore.readAll()
         guard let index = invs.firstIndex(where: { $0.id == id }) else { return "Invoice not found." }
         guard ["Draft", "Issued", "PartiallyPaid", "Paid", "Overdue", "Cancelled"].contains(status) else { return "Invalid status." }
-        let changed = invs[index].status != status
+        let previous = invs[index].status
+        // Section 25: an issued invoice is a financial record — it's never
+        // put back to Draft (which would unlock its figures). Mistakes are
+        // corrected by cancelling it and issuing a new one.
+        if previous == "Cancelled" && status != "Cancelled" { return "This invoice is cancelled and can't be reopened. Create a new invoice instead." }
+        if previous != "Draft" && status == "Draft" { return "An issued invoice can't be returned to Draft. Cancel it and create a new invoice instead." }
+        if previous == "Draft" && status != "Draft" && status != "Issued" && status != "Cancelled" { return "Issue this invoice first." }
+        if status == "Issued" && previous == "Draft" {
+            if invoiceLineItems(for: id).isEmpty { return "Add at least one item before issuing this invoice." }
+            if (invs[index].dueDate ?? "").isEmpty { return "Set a due date before issuing this invoice." }
+        }
+        let changed = previous != status
         invs[index].status = status
         invs[index].updatedAt = nowISO()
         invoicesStore.writeAll(invs)
@@ -2694,9 +2804,13 @@ final class AppDatabase {
         guard invs[index].status != "Cancelled" else { return "Cannot record a payment on a cancelled invoice." }
         guard invs[index].status != "Draft" else { return "Issue this invoice before recording a payment." }
 
-        invs[index].amountPaid += amount
-
         let items = invoiceLineItems(for: id)
+        let before = invoiceTotals(lineItems: items, discountType: invs[index].discountType, discountValue: invs[index].discountValue, taxRatePercent: invs[index].taxRatePercent, amountPaid: invs[index].amountPaid)
+        guard roundToCents(decimalOf(amount)) <= decimalOf(before.balanceDue) else {
+            return "That's more than the balance due (\(formatMoney(before.balanceDue)))."
+        }
+        invs[index].amountPaid = doubleOf(roundToCents(decimalOf(invs[index].amountPaid) + decimalOf(amount)))
+
         let totals = invoiceTotals(lineItems: items, discountType: invs[index].discountType, discountValue: invs[index].discountValue, taxRatePercent: invs[index].taxRatePercent, amountPaid: invs[index].amountPaid)
         invs[index].status = totals.balanceDue <= 0 ? "Paid" : "PartiallyPaid"
         invs[index].updatedAt = nowISO()
@@ -2751,10 +2865,17 @@ final class AppDatabase {
     /// over a quotation source when both are somehow supplied. Copies,
     /// not references.
     func createDeliveryNote(projectId: String, projectNumber: String, sourceQuotationId: String?, sourceInvoiceId: String?) -> DeliveryNote {
+        // Deliveries go to the project's site unless changed on the note.
+        let siteAddress: String? = projectsStore.readAll().first(where: { $0.id == projectId }).flatMap { project in
+            sitesStore.readAll().first(where: { $0.id == project.siteId })
+        }.flatMap { site -> String? in
+            let parts = [site.address, site.city, site.postalCode].compactMap { nonBlank($0) }
+            return parts.isEmpty ? nil : parts.joined(separator: ", ")
+        }
         let note = DeliveryNote(
             id: makeId("dn"), projectId: projectId, sourceQuotationId: sourceQuotationId, sourceInvoiceId: sourceInvoiceId,
             deliveryNoteNumber: nextDeliveryNoteNumber(projectNumber: projectNumber, projectId: projectId),
-            status: "Draft", deliveryDate: nowISO(), deliveryAddress: nil, deliveredBy: nil, receivedBy: nil,
+            status: "Draft", deliveryDate: nowISO(), deliveryAddress: siteAddress, deliveredBy: nil, receivedBy: nil,
             notes: nil, createdAt: nowISO(), updatedAt: nowISO()
         )
         deliveryNotesStore.insert(note)
@@ -2816,11 +2937,11 @@ final class AppDatabase {
         guard let dn = getDeliveryNote(id: deliveryNoteId) else { return "Delivery note not found." }
         guard dn.status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
 
-        let existingCount = deliveryNoteLineItems(for: deliveryNoteId).count
+        let nextSortOrder = (deliveryNoteLineItems(for: deliveryNoteId).map { $0.sortOrder }.max() ?? -1) + 1
         let line = DeliveryNoteLineItem(
             id: makeId("dnitem"), deliveryNoteId: deliveryNoteId, sourceKey: sourceKey, priceListItemId: priceListItemId,
             itemCode: itemCode, itemDescription: description, unit: unit, quantity: quantity.rounded(),
-            section: section, sortOrder: existingCount, notes: nil
+            section: section, sortOrder: nextSortOrder, notes: nil
         )
         deliveryNoteLineItemsStore.insert(line)
         touchDeliveryNote(deliveryNoteId)
@@ -2865,11 +2986,26 @@ final class AppDatabase {
         return nil
     }
 
+    /// The delivery date (editable while Draft).
+    func updateDeliveryNoteDate(id: String, day: String) -> String? {
+        var notesArr = deliveryNotesStore.readAll()
+        guard let i = notesArr.firstIndex(where: { $0.id == id }) else { return "Delivery note not found." }
+        guard notesArr[i].status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
+        guard let iso = isoFromDay(day) else { return "Enter a valid date." }
+        notesArr[i].deliveryDate = iso
+        notesArr[i].updatedAt = nowISO()
+        deliveryNotesStore.writeAll(notesArr)
+        return nil
+    }
+
     func updateDeliveryNoteStatus(id: String, status: String) -> String? {
         var notesArr = deliveryNotesStore.readAll()
         guard let index = notesArr.firstIndex(where: { $0.id == id }) else { return "Delivery note not found." }
         guard ["Draft", "Issued", "Cancelled"].contains(status) else { return "Invalid status." }
-        let changed = notesArr[index].status != status
+        let previous = notesArr[index].status
+        if previous == "Cancelled" && status != "Cancelled" { return "This delivery note is cancelled and can't be reopened. Create a new delivery note instead." }
+        if status == "Issued" && previous == "Draft" && deliveryNoteLineItems(for: id).isEmpty { return "Add at least one item before issuing this delivery note." }
+        let changed = previous != status
         notesArr[index].status = status
         notesArr[index].updatedAt = nowISO()
         deliveryNotesStore.writeAll(notesArr)
@@ -2890,6 +3026,34 @@ final class AppDatabase {
         items.removeAll { $0.deliveryNoteId == id }
         deliveryNoteLineItemsStore.writeAll(items)
         return nil
+    }
+
+    /// Remembers where a document's exported PDF was saved (section 32).
+    func recordGeneratedPDF(docTypeTag: String, documentNumber: String, path: String) {
+        switch docTypeTag {
+        case "BOQ":
+            var all = boqsStore.readAll()
+            guard let i = all.firstIndex(where: { $0.boqNumber == documentNumber }) else { return }
+            all[i].pdfPath = path
+            boqsStore.writeAll(all)
+        case "Quotation":
+            var all = quotationsStore.readAll()
+            guard let i = all.firstIndex(where: { $0.quotationNumber == documentNumber }) else { return }
+            all[i].pdfPath = path
+            quotationsStore.writeAll(all)
+        case "Invoice":
+            var all = invoicesStore.readAll()
+            guard let i = all.firstIndex(where: { $0.invoiceNumber == documentNumber }) else { return }
+            all[i].pdfPath = path
+            invoicesStore.writeAll(all)
+        case "DeliveryNote":
+            var all = deliveryNotesStore.readAll()
+            guard let i = all.firstIndex(where: { $0.deliveryNoteNumber == documentNumber }) else { return }
+            all[i].pdfPath = path
+            deliveryNotesStore.writeAll(all)
+        default:
+            break
+        }
     }
 
     // ---- Company settings (section 28) ----
@@ -3040,10 +3204,14 @@ final class AppDatabase {
         guard FileManager.default.fileExists(atPath: oldURL.path) else {
             return "The original file could not be found, so it can't be renamed. Try Locate File first."
         }
-        let sanitized = newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sanitized.isEmpty else { return "Enter a name." }
         let ext = oldURL.pathExtension
+        let sanitized = safeFileBaseName(newDisplayName, extension: ext)
+        guard !sanitized.isEmpty else { return "Enter a name." }
         let newFilename = ext.isEmpty ? sanitized : "\(sanitized).\(ext)"
+        guard newFilename != oldURL.lastPathComponent else { return nil }
+        guard !FileManager.default.fileExists(atPath: oldURL.deletingLastPathComponent().appendingPathComponent(newFilename).path) else {
+            return "A file called \"\(newFilename)\" already exists in that folder."
+        }
         let newURL = oldURL.deletingLastPathComponent().appendingPathComponent(newFilename)
         do {
             try FileManager.default.moveItem(at: oldURL, to: newURL)
@@ -3176,10 +3344,14 @@ final class AppDatabase {
         guard FileManager.default.fileExists(atPath: oldURL.path) else {
             return "The original file could not be found, so it can't be renamed. Try Locate File first."
         }
-        let sanitized = newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sanitized.isEmpty else { return "Enter a name." }
         let ext = oldURL.pathExtension
+        let sanitized = safeFileBaseName(newDisplayName, extension: ext)
+        guard !sanitized.isEmpty else { return "Enter a name." }
         let newFilename = ext.isEmpty ? sanitized : "\(sanitized).\(ext)"
+        guard newFilename != oldURL.lastPathComponent else { return nil }
+        guard !FileManager.default.fileExists(atPath: oldURL.deletingLastPathComponent().appendingPathComponent(newFilename).path) else {
+            return "A file called \"\(newFilename)\" already exists in that folder."
+        }
         let newURL = oldURL.deletingLastPathComponent().appendingPathComponent(newFilename)
         do {
             try FileManager.default.moveItem(at: oldURL, to: newURL)
@@ -3442,6 +3614,22 @@ final class AppDatabase {
         rebase(documentsStore)
         rebase(workerDocumentsStore)
         rebase(adminDocumentsStore)
+        func rebasePDF(_ path: String?) -> String? {
+            guard let p = path, p.hasPrefix(oldRoot + "/") else { return path }
+            return newRoot + String(p.dropFirst(oldRoot.count))
+        }
+        var boqs = boqsStore.readAll()
+        for i in boqs.indices { boqs[i].pdfPath = rebasePDF(boqs[i].pdfPath) }
+        boqsStore.writeAll(boqs)
+        var quotations = quotationsStore.readAll()
+        for i in quotations.indices { quotations[i].pdfPath = rebasePDF(quotations[i].pdfPath) }
+        quotationsStore.writeAll(quotations)
+        var invoices = invoicesStore.readAll()
+        for i in invoices.indices { invoices[i].pdfPath = rebasePDF(invoices[i].pdfPath) }
+        invoicesStore.writeAll(invoices)
+        var notes = deliveryNotesStore.readAll()
+        for i in notes.indices { notes[i].pdfPath = rebasePDF(notes[i].pdfPath) }
+        deliveryNotesStore.writeAll(notes)
         var settings = getCompanySettings()
         if let logo = settings.logoPath, logo.hasPrefix(oldRoot + "/") {
             settings.logoPath = newRoot + String(logo.dropFirst(oldRoot.count))
@@ -3614,15 +3802,26 @@ final class PDFGenerator {
         drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 1)
     }
 
-    private func drawTableRow(_ row: [String], columns: [PDFColumn]) {
+    /// A row is as tall as its tallest cell, so long descriptions wrap
+    /// onto extra lines instead of being cut off.
+    private func tableRowHeight(_ row: [String], columns: [PDFColumn]) -> CGFloat {
+        let positions = columnPositions(columns)
+        var tallest: CGFloat = 0
+        for (index, cell) in row.enumerated() where index < positions.count {
+            tallest = max(tallest, measure(cell, width: positions[index].width - 8, font: bodyFont()))
+        }
+        return max(rowHeight, tallest + 6)
+    }
+
+    private func drawTableRow(_ row: [String], columns: [PDFColumn], height: CGFloat) {
         let positions = columnPositions(columns)
         for (index, cell) in row.enumerated() {
             guard index < positions.count else { continue }
             let pos = positions[index]
             let alignment = index < columns.count ? columns[index].alignment : .left
-            drawText(cell, x: pos.x + 4, topY: cursorTopY + 3, width: pos.width - 8, font: bodyFont(), color: .black, alignment: alignment, lineBreak: .byTruncatingTail)
+            drawText(cell, x: pos.x + 4, topY: cursorTopY + 3, width: pos.width - 8, font: bodyFont(), color: .black, alignment: alignment, lineBreak: .byWordWrapping)
         }
-        cursorTopY += rowHeight
+        cursorTopY += height
         drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 0.5)
     }
 
@@ -3708,9 +3907,11 @@ final class PDFGenerator {
 
     private func estimateFooterHeight(spec: PDFDocumentSpec) -> CGFloat {
         var height: CGFloat = 14
-        height += CGFloat(spec.totals.count) * 17
-        if let notes = spec.notes, !notes.isEmpty { height += 54 }
-        if let payment = spec.paymentInfoLines, !payment.isEmpty { height += CGFloat(payment.count) * 12 + 24 }
+        height += CGFloat(spec.totals.count) * 17 + 12
+        if let notes = spec.notes, !notes.isEmpty { height += measure(notes, width: contentWidth, font: bodyFont()) + 28 }
+        if let payment = spec.paymentInfoLines, !payment.isEmpty {
+            height += payment.reduce(CGFloat(0)) { $0 + measure($1, width: contentWidth, font: bodyFont()) + 2 } + 26
+        }
         if spec.signatureLeftLabel != nil || spec.signatureRightLabel != nil { height += 64 }
         return height
     }
@@ -3983,24 +4184,40 @@ final class PDFGenerator {
 
     // MARK: entry point
 
+    private var genericPage = 0
+
+    private func beginNumberedPage() {
+        beginPage()
+        genericPage += 1
+    }
+
+    /// "INVOICE H26012 · Page 2" at the foot of every page.
+    private func endNumberedPage(_ spec: PDFDocumentSpec) {
+        drawText("\(spec.kind.capitalized) \(spec.number)  ·  Page \(genericPage)", x: marginX, topY: pageHeight - marginBottom + 22,
+                 width: contentWidth, font: smallFont(), color: secondaryColor, alignment: .right)
+        endPage()
+    }
+
     /// Renders the whole document, paginating the table and repeating
     /// its column header on every page (section 27), and keeping the
     /// totals/notes/signature block together as a unit — pushing the
     /// whole block to a fresh page if it wouldn't otherwise fit.
     func generate(spec: PDFDocumentSpec, company: CompanySettings) -> Data {
-        beginPage()
+        genericPage = 0
+        beginNumberedPage()
         drawDocumentHeader(spec: spec, company: company)
         drawTableColumnHeader(columns: spec.columns)
 
         for row in spec.rows {
-            if cursorTopY + rowHeight > pageHeight - marginBottom {
+            let height = tableRowHeight(row, columns: spec.columns)
+            if cursorTopY + height > pageHeight - marginBottom {
                 drawContinuedNote()
-                endPage()
-                beginPage()
+                endNumberedPage(spec)
+                beginNumberedPage()
                 drawContinuationHeader(spec: spec, company: company)
                 drawTableColumnHeader(columns: spec.columns)
             }
-            drawTableRow(row, columns: spec.columns)
+            drawTableRow(row, columns: spec.columns, height: height)
         }
 
         if spec.rows.isEmpty {
@@ -4009,13 +4226,13 @@ final class PDFGenerator {
 
         let footerHeight = estimateFooterHeight(spec: spec)
         if cursorTopY + footerHeight > pageHeight - marginBottom {
-            endPage()
-            beginPage()
+            endNumberedPage(spec)
+            beginNumberedPage()
             drawContinuationHeader(spec: spec, company: company)
         }
         drawTotalsAndFooter(spec: spec)
 
-        endPage()
+        endNumberedPage(spec)
         context.closePDF()
         return mutableData as Data
     }
@@ -5323,6 +5540,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let taxRatePercent = (payload["taxRatePercent"] as? Double) ?? 0
         let pricingMode = (payload["pricingMode"] as? String) ?? "Rental"
 
+        if let day = payload["quotationDate"] as? String, !day.isEmpty,
+           let error = db.updateQuotationDate(id: qid, day: day) {
+            respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
+            return
+        }
         if let error = db.updateQuotationHeader(
             id: qid, validUntil: validUntil, paymentTerms: paymentTerms, notes: notes,
             discountType: discountType, discountValue: discountValue, taxRatePercent: taxRatePercent,
@@ -5386,6 +5608,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let discountValue = (payload["discountValue"] as? Double) ?? 0
         let taxRatePercent = (payload["taxRatePercent"] as? Double) ?? 0
 
+        if let day = payload["invoiceDate"] as? String, !day.isEmpty,
+           let error = db.updateInvoiceDate(id: invId, day: day) {
+            respond(id: id, encodable: InvoiceActionResult(ok: false, error: error))
+            return
+        }
         if let error = db.updateInvoiceHeader(
             id: invId, dueDate: dueDate, paymentTerms: paymentTerms, notes: notes,
             discountType: discountType, discountValue: discountValue, taxRatePercent: taxRatePercent
@@ -5445,6 +5672,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let receivedBy = payload["receivedBy"] as? String
         let notes = payload["notes"] as? String
 
+        if let day = payload["deliveryDate"] as? String, !day.isEmpty,
+           let error = db.updateDeliveryNoteDate(id: dnId, day: day) {
+            respond(id: id, encodable: DeliveryNoteActionResult(ok: false, error: error))
+            return
+        }
         if let error = db.updateDeliveryNoteHeader(id: dnId, deliveryAddress: deliveryAddress, deliveredBy: deliveredBy, receivedBy: receivedBy, notes: notes) {
             respond(id: id, encodable: DeliveryNoteActionResult(ok: false, error: error))
         } else {
@@ -5502,6 +5734,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let filename = "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: filename)
+            db.recordGeneratedPDF(docTypeTag: docTypeTag, documentNumber: documentNumber, path: destination.path)
             NSWorkspace.shared.open(destination)
             if let project = db.getProjectByNumber(projectNumber) {
                 db.logActivity(projectId: project.id, "PDF exported", reference: destination.lastPathComponent)
@@ -5517,26 +5750,26 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     private func partyBillTo(projectNumber: String) -> [String] {
         guard let project = db.getProjectByNumber(projectNumber), let c = db.getClient(id: project.clientId) else { return [] }
         var lines = [c.companyName]
-        if let v = c.contactPerson { lines.append("Attn: \(v)") }
-        if let v = c.billingInfo, !v.isEmpty {
-            lines.append(contentsOf: v.components(separatedBy: "\n").filter { !$0.isEmpty })
+        if let v = nonBlank(c.contactPerson) { lines.append("Attn: \(v)") }
+        if let v = nonBlank(c.billingInfo) {
+            lines.append(contentsOf: v.components(separatedBy: "\n").filter { nonBlank($0) != nil })
         } else {
-            if let v = c.address { lines.append(v) }
-            let cityLine = [c.city, c.postalCode].compactMap { $0 }.joined(separator: " ")
+            if let v = nonBlank(c.address) { lines.append(v) }
+            let cityLine = [c.city, c.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
             if !cityLine.isEmpty { lines.append(cityLine) }
-            if let v = c.country { lines.append(v) }
+            if let v = nonBlank(c.country) { lines.append(v) }
         }
-        if let v = c.vatNumber { lines.append("VAT/Tax No.: \(v)") }
+        if let v = nonBlank(c.vatNumber) { lines.append("VAT/Tax No.: \(v)") }
         return lines
     }
 
     private func partySiteLines(projectNumber: String) -> [String] {
         guard let project = db.getProjectByNumber(projectNumber), let st = db.getSite(id: project.siteId) else { return [] }
         var lines = [st.name]
-        if let v = st.address { lines.append(v) }
-        let cityLine = [st.city, st.postalCode].compactMap { $0 }.joined(separator: " ")
+        if let v = nonBlank(st.address) { lines.append(v) }
+        let cityLine = [st.city, st.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
         if !cityLine.isEmpty { lines.append(cityLine) }
-        if let v = st.contactPerson { lines.append("Contact: \(v)\(st.phone.map { ", \($0)" } ?? "")") }
+        if let v = nonBlank(st.contactPerson) { lines.append("Contact: \(v)\(nonBlank(st.phone).map { ", \($0)" } ?? "")") }
         return lines
     }
 
@@ -5597,15 +5830,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
         var clientLines: [String] = []
         if let c = client {
-            if let b = c.billingInfo, !b.isEmpty {
-                clientLines = b.components(separatedBy: "\n").filter { !$0.isEmpty }
+            if let b = nonBlank(c.billingInfo) {
+                clientLines = b.components(separatedBy: "\n").filter { nonBlank($0) != nil }
             } else {
-                if let a = c.address { clientLines.append(a) }
-                let cityLine = [c.city, c.postalCode].compactMap { $0 }.joined(separator: " ")
+                if let a = nonBlank(c.address) { clientLines.append(a) }
+                let cityLine = [c.city, c.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
                 if !cityLine.isEmpty { clientLines.append(cityLine) }
-                if let v = c.country { clientLines.append(v) }
+                if let v = nonBlank(c.country) { clientLines.append(v) }
             }
-            if let v = c.contactPerson { clientLines.append("Attn: \(v)") }
+            if let v = nonBlank(c.contactPerson) { clientLines.append("Attn: \(v)") }
         }
 
         let materials = detail.lineItems.filter { $0.section != "Delivery" }
@@ -5683,7 +5916,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let siteLines = partySiteLines(projectNumber: detail.projectNumber)
 
         var metaLines: [(String, String)] = [("Project", "\(detail.projectNumber) — \(detail.projectName)")]
-        if let due = detail.dueDate, !due.isEmpty { metaLines.append(("Due Date", due)) }
+        if let due = detail.dueDate, !due.isEmpty { metaLines.append(("Due Date", formatDateForDisplay(isoFromDay(due) ?? due))) }
         if let terms = detail.paymentTerms, !terms.isEmpty { metaLines.append(("Payment Terms", terms)) }
 
         var totals: [(String, String, Bool)] = [("Subtotal", "\(company.currency) \(formatMoney(detail.subtotal))", false)]
@@ -5724,7 +5957,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         let billTo = partyBillTo(projectNumber: detail.projectNumber)
         var siteLines = partySiteLines(projectNumber: detail.projectNumber)
-        if let addr = detail.deliveryAddress, !addr.isEmpty { siteLines.append(addr) }
+        // Only printed separately when it differs from the site's own
+        // address (new notes start with the site address filled in).
+        let siteAddress = db.getProjectByNumber(detail.projectNumber).flatMap { db.getSite(id: $0.siteId) }
+            .map { [$0.address, $0.city, $0.postalCode].compactMap { nonBlank($0) }.joined(separator: ", ") } ?? ""
+        if let addr = nonBlank(detail.deliveryAddress), addr != siteAddress { siteLines.append("Deliver to: \(addr)") }
 
         let metaLines: [(String, String)] = [("Project", "\(detail.projectNumber) — \(detail.projectName)")]
 

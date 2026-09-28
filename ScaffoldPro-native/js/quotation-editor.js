@@ -1,7 +1,29 @@
 'use strict';
 
+// Section 25: issued documents are protected. Cancelled is final, and
+// reopening an issued document for editing asks first.
+function allowStatusChange(from, to, label) {
+  if (from === 'Cancelled' && to !== 'Cancelled') return false;
+  if (from !== 'Draft' && to === 'Draft') {
+    return confirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
+  }
+  if (to === 'Cancelled' && from !== 'Cancelled') {
+    return confirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
+  }
+  return true;
+}
+
+function lockStatusOptions(select, status, finalFromIssued) {
+  for (const opt of select.options) {
+    opt.disabled = (status === 'Cancelled' && opt.value !== 'Cancelled') ||
+      (finalFromIssued && status !== 'Draft' && opt.value === 'Draft');
+  }
+}
+
 let quotationId = null;
 let currentDetail = null;
+// Currency label from Settings (section 50) — "HK$" for HKD, as on the PDF.
+let currencyLabel = '';
 
 function getQuotationIdFromURL() {
   const params = new URLSearchParams(location.search);
@@ -16,6 +38,14 @@ function money(value) {
 // Quantities are whole numbers: "1,250".
 function qty(value) {
   return Math.round(Number(value || 0)).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+// An ISO timestamp → "yyyy-mm-dd" in local time, for a date field.
+function localDay(iso) {
+  const d = new Date(iso || '');
+  if (isNaN(d)) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function priceForMode(item, pricingMode) {
@@ -45,6 +75,8 @@ function render() {
   document.getElementById('back-link').href = `project-detail.html?number=${d.projectNumber}`;
 
   document.getElementById('status-select').value = d.status;
+  lockStatusOptions(document.getElementById('status-select'), d.status, false);
+  document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
 
   const isLocked = d.status !== 'Draft';
 
@@ -58,6 +90,10 @@ function render() {
   document.getElementById('boq-reference-note').textContent = d.sourceBOQNumber
     ? `Currently referencing ${d.sourceBOQNumber}`
     : 'Not linked to a BOQ';
+
+  const docDateInput = document.getElementById('doc-date-input');
+  if (document.activeElement !== docDateInput) docDateInput.value = localDay(d.quotationDate);
+  docDateInput.disabled = isLocked;
 
   const validUntilInput = document.getElementById('valid-until-input');
   if (document.activeElement !== validUntilInput) validUntilInput.value = d.validUntil || '';
@@ -149,7 +185,7 @@ function renderTotals() {
   if (d.discountAmount > 0) rows.push(['Discount', `-${money(d.discountAmount)}`]);
   if (d.taxAmount > 0) rows.push(['Tax / VAT', money(d.taxAmount)]);
   box.innerHTML = rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('') +
-    `<div class="row grand"><span>Total Amount</span><span>HK$ ${money(d.total)}</span></div>`;
+    `<div class="row grand"><span>Total Amount</span><span>${currencyLabel} ${money(d.total)}</span></div>`;
 }
 
 // ---------- Standard quotation letter fields ----------
@@ -210,6 +246,7 @@ async function removeLine(lineId) {
 
 async function saveHeader() {
   const header = {
+    quotationDate: document.getElementById('doc-date-input').value || null,
     validUntil: document.getElementById('valid-until-input').value || null,
     paymentTerms: document.getElementById('payment-terms-input').value || null,
     notes: document.getElementById('notes-box').value || null,
@@ -315,11 +352,17 @@ async function init() {
     document.getElementById('not-found').classList.remove('hidden');
     return;
   }
+  const settings = await window.api.settings.get();
+  currencyLabel = settings.currency === 'HKD' ? 'HK$' : settings.currency;
 
   await loadDetail();
   if (!currentDetail) return;
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
+    if (!allowStatusChange(currentDetail.status, e.target.value, 'quotation')) {
+      e.target.value = currentDetail.status;
+      return;
+    }
     const result = await window.api.quotations.updateStatus(quotationId, e.target.value);
     if (!result.ok) { alert(result.error); }
     await loadDetail();
@@ -358,7 +401,7 @@ async function init() {
     if (!result.ok) { alert(result.error); }
   });
 
-  for (const fieldId of ['valid-until-input', 'payment-terms-input', 'discount-type-select', 'discount-value-input', 'tax-rate-input', 'notes-box']) {
+  for (const fieldId of ['doc-date-input', 'valid-until-input', 'payment-terms-input', 'discount-type-select', 'discount-value-input', 'tax-rate-input', 'notes-box']) {
     document.getElementById(fieldId).addEventListener('change', saveHeader);
   }
 
