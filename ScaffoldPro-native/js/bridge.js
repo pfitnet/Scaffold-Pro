@@ -134,6 +134,7 @@
       addLineItem: (input) => callNative('quotations:addLineItem', input),
       updateLineItem: (id, changes) => callNative('quotations:updateLineItem', Object.assign({ id: id }, changes)),
       removeLineItem: (id) => callNative('quotations:removeLineItem', { id: id }),
+      updateLineDiscount: (id, discountType, discountValue) => callNative('quotations:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
       updateHeader: (id, header) => callNative('quotations:updateHeader', Object.assign({ id: id }, header)),
       updateLetterFields: (id, changes) => callNative('quotations:updateLetterFields', Object.assign({ id: id }, changes)),
       importFromBOQ: (quotationId, boqId, replaceExisting) =>
@@ -151,6 +152,7 @@
       addLineItem: (input) => callNative('invoices:addLineItem', input),
       updateLineItem: (id, changes) => callNative('invoices:updateLineItem', Object.assign({ id: id }, changes)),
       removeLineItem: (id) => callNative('invoices:removeLineItem', { id: id }),
+      updateLineDiscount: (id, discountType, discountValue) => callNative('invoices:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
       updateHeader: (id, header) => callNative('invoices:updateHeader', Object.assign({ id: id }, header)),
       updateStatus: (id, status) => callNative('invoices:updateStatus', { id: id, status: status }),
       recordPayment: (id, amount) => callNative('invoices:recordPayment', { id: id, amount: amount }),

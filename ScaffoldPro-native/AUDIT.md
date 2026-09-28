@@ -66,8 +66,8 @@ and compared with the 67 sections of the master development prompt.
 | 15–17 | Project page, statuses, overview | ◐ | Every tab and status is there. The Overview has no **"Recent documents"** list (section 17), only recent activity |
 | 18 | BOQ item picker | ✅ | Both lists, search, category |
 | 19 | BOQ table | ◐ | Reorder, duplicate, delete, per-line notes. Per the owner's later request it shows **weights, not prices**, so BOQ discount, tax and money totals are gone. Lines are **not grouped into sections with subtotals** |
-| 20 | Price override shown vs list price | ✗ | Tracked only on BOQ lines, which no longer show prices. Quotation and invoice lines don't keep the list price, so an overridden price isn't marked anywhere |
-| 21 | Quotations | ✅ | From a BOQ, blank, or custom lines. Letter fields, discount, tax, delivery charges, rental months. Date is now editable |
+| 20 | Price override shown vs list price | ◐ | Quotation lines remember their material-list price: a hand-typed price shows "List 25.00" under it and is kept when switching Sale ↔ Rental. BOQ lines track it too but show weights. Invoice lines don't track it yet |
+| 21 | Quotations | ✅ | From a BOQ, blank, or custom lines. Letter fields, discount (whole quotation or per item), tax, delivery charges, optional minimum hire. Switching Sale ↔ Rental re-prices existing items. Items listed in item-code order. Date is editable |
 | 22 | Invoices | ◐ | Every status, payments, cancel-not-delete. An invoice created **from a rental quotation copies the monthly rates but not the minimum-hire months**, so its total doesn't match the quotation total (question below). Invoices have no Sale/Rental mode, so the item picker always uses the rental price |
 | 23 | Delivery notes | ✅ | No prices, delivered-by / received-by, signatures, PDF |
 | 24 | Numbering | ✅ | Separate sequences, configurable formats, company defaults Qt26XXX / H26XXX, "continue from" numbers, never duplicates |
@@ -133,8 +133,8 @@ layout of the company's quotation:
    (section 26). They already use the Qt26193 letterhead and style, but
    their reference block, columns and signature wording are my best guess.
 3. **Rental invoices** (question 1 below).
-4. **Section 20 price-override marker** on quotation and invoice lines:
-   store the list price per line and show "List 25.00 → 28.00".
+4. **Section 20 price-override marker** on invoice lines (quotations have
+   it).
 5. **Replace** for worker and company documents (section 42), and
    **multi-file upload** for drawings (section 14).
 6. **Recent documents** on the project Overview (section 17), plus

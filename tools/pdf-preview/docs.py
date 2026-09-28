@@ -35,7 +35,7 @@ def quotation(status='Issued'):
     return dict(number='Qt26193',status=status,title='QUOTATION',clientName=client[0],clientLines=client[1],refRows=[('Our Ref. No.','Qt26193'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','22 Sep 2026')],
         deliveryMethod='BY EMAIL ONLY',salutation='Dear Sir / Madam,',subject='Re: 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez',
         intro='We thank you for your inquiry related to the item above, the following is our quotation on the job.',cur='HK$',columns=PRICED,rows=rows,
-        sections=[{'heading':'Terms and Conditions','paragraphs':terms}],
+        sections=[{'heading':'Terms and Conditions','paragraphs':terms,'newPageUnlessSinglePage':True}],
         signatures=[companySig(),{'heading':'For and on Behalf of','lines':[(client[0],False,None),('Position',True,None),('Date',True,None)]}],
         closing='-[Remainder of this page is intentionally left blank]-')
 def invoice():
@@ -62,7 +62,19 @@ def boq():
     return dict(number='26017-BOQ-001',status='Issued',title='BILL OF QUANTITIES',clientName=client[0],clientLines=client[1],refRows=[('BOQ No.','26017-BOQ-001'),('Project No.','26017'),('Site Ref.','MTR 1601'),('Date','28 Sep 2026')],
         subject='Re: 26017 GL-28 G/F South G-015 Scaffolding - Rental',intro='Structure: Access platform for louvre installation',cur='HK$',
         columns=[('No',29.25,'center'),('Item Description',219.75,'left'),('Unit',50.0,'center'),('Qty',50.0,'center'),('Unit Wt (kg)',75.0,'right'),('Total Wt (kg)',83.0,'right')],rows=rows,sections=[],signatures=[],closing=None)
-for name,fn in [('quotation',quotation),('invoice',invoice),('dn',dn),('boq',boq)]:
+def quotation_short():
+    # Fits on one page, so the Terms stay on page 1. Minimum hire off; a 10% line discount.
+    lines=[('600mm Base Jack',5.50,6,None),('1.57m Ledger',9.30,36,('Percent',10)),('2.0m Cat Ladder',23.20,2,None)]
+    rows=[]; sub=0
+    for i,(d,p,q,disc) in enumerate(lines):
+        gross=round(p*q,2); net=gross-(round(gross*disc[1]/100,2) if disc else 0); sub+=net
+        desc=d+('\nLess 10% discount' if disc else '')
+        rows.append(('item',[str(i+1),desc,f'{money(p)} /Month',str(q),money(net)]))
+    rows+=[('summary','Subtotal of Monthly Rental Charge:',money(sub),False),('section','Delivery Charges'),
+           ('item',['D1','Delivery of materials\n(from yard to site and from site to yard)',f'{money(3800)} /truck/trip','2',money(7600)]),('summary','Total Amount:',money(sub+7600),True)]
+    doc=quotation(); doc.update(number='Qt26201',status='Draft',rows=rows,refRows=[('Our Ref. No.','Qt26201'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','28 Sep 2026')])
+    return doc
+for name,fn in [('quotation',quotation),('quotation_short',quotation_short),('invoice',invoice),('dn',dn),('boq',boq)]:
     pages=Gen().generate(fn())
     for i,p in enumerate(pages): p.save(os.path.join(OUT,f'{name}_{i+1}.png'))
     print(name,len(pages),'pages')

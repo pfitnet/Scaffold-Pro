@@ -26,7 +26,7 @@ def times(size,bold=False,italic=False): return font('t',size,bold,italic)
 def width(s,f): return f.getlength(s)/S
 
 class Gen:
-    def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0
+    def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0; s.documentIsLong=False
     textLeft=42.75; textRight=552.0; contentBottom=781.5; contBase=95.25; contTable=88.0; pitch=16.5; rule=0.75; rowH=24.1; cellPitch=14.25
     def fill(s,x,y,w,h,c):
         x0,y0=round(x*S),round(y*S); s.d.rectangle([x0,y0,max(x0,round((x+w)*S)-1),max(y0,round((y+h)*S)-1)],fill=c)
@@ -58,7 +58,8 @@ class Gen:
         return out
     def letterhead(s):
         f=s.fitted; f('P',VERD,ORANGE,42.75,28.5,57.75,46.5); f('ROFICIENCY',VERD,GREY,60.0,31.5,200.25,47.25); s.fill(6.0,51.0,209.25,2.25,ORANGE)
-        f('建機',CJK,DGREY,41.25,59.25,70.5,73.5); f('(香港)',CJK,DGREY,75.75,59.25,113.25,75.0); f('有限公司',CJK,DGREY,118.5,59.25,176.25,73.5)
+        # Noto Sans TC 15pt, natural shape (bundled subset in resources/fonts)
+        s.inktext('建機 (香港) 有限公司',72.25,ImageFont.truetype(EBG+'ScaffoldPro-LetterheadTC.ttf',15*S),DGREY,left=41.25)
         f('(HK)',VERD,ORANGE,190.5,58.5,240.75,77.25); f('LIMITED',VERD,GREY,251.25,61.5,331.5,74.25); s.fill(189.0,78.0,W-6.53-189.0,2.25,ORANGE)
     def footer(s):
         s.fill(42.75,792.75,510.0,2.25,ORANGE)
@@ -177,6 +178,7 @@ class Gen:
         after=True
         for sec in secs:
             base=s.cursor+(27.0 if after else 33.0); after=False
+            if sec.get('newPageUnlessSinglePage') and s.documentIsLong: s.newPage(); base=s.contBase
             if sec.get('heading'):
                 if base+26.25>s.contentBottom: s.newPage(); base=s.contBase
                 s.text(sec['heading'],s.textLeft,base,body(11,True),underline=True); s.cursor=base; base+=26.25
@@ -210,6 +212,10 @@ class Gen:
         if base>s.contentBottom: s.newPage(); base=s.contBase
         s.text(line,W/2,base,times(10.5,italic=True),align='center'); s.cursor=base
     def generate(s,doc):
+        if any(sec.get('newPageUnlessSinglePage') for sec in doc['sections']):
+            trial=Gen(); trial.layOut(doc); s.documentIsLong=trial.pageNumber>1
+        return s.layOut(doc)
+    def layOut(s,doc):
         s.begin(); s.opening(doc); s.table(doc); s.sections(doc['sections']); s.signatures(doc['signatures'],not doc['sections'])
         if doc.get('closing'): s.closing(doc['closing'])
         s.end(); return s.pages
