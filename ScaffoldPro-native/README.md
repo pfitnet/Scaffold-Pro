@@ -782,3 +782,28 @@ under "Letterhead layout".
   the PDF and the Word copy alike (`PDFGenerator.titlePadding`,
   `TITLE_PADDING` in `js/docx-export.js`). 6pt keeps a full Qt26193-sized
   quotation on one page; 8pt pushed its last row onto page 2.
+
+## Batch 30 — automatic backup to the shared iCloud folder
+- ScaffoldPro keeps an up-to-date copy of everything in the shared iCloud Drive
+  folder **Proficiency › William's Work**, in a folder called
+  **ScaffoldPro Backup**:
+  - `Database/`, `Projects/`, `Administration/`: the same layout as a normal
+    backup, plus `Configuration/manifest.json`, so **Restore from Folder…**
+    can restore it directly.
+  - `Database History/<date>/`: the database as it was each day, for the last
+    30 days.
+- **When it runs:** about a minute after anything is saved (a burst of changes
+  makes one backup), every 15 minutes, and when the app opens. Only new or
+  changed files are copied, so after the first run each backup is quick.
+  Files iCloud has moved off the Mac to save space aren't copied again.
+- **Safety:** nothing is ever deleted from the iCloud copy. It pauses during a
+  restore. Restoring from the iCloud copy while some of its files are still
+  only in iCloud stops and asks you to use Finder's "Download Now" first.
+- **Settings → Backup & Restore → Automatic iCloud Backup:** on/off (on by
+  default), the folder, the status ("Up to date — last backed up 2 minutes
+  ago", or what went wrong), Back Up Now, Choose Folder… (for a different
+  folder) and Show in Finder. These settings are kept per Mac.
+- If the Proficiency folder isn't in iCloud Drive yet (iCloud Drive off, or the
+  share not accepted), the status says so and it tries again later. It creates
+  "William's Work" inside Proficiency if needed, but never creates a separate
+  "Proficiency" folder, because that wouldn't be the shared one.

@@ -75,6 +75,62 @@ async function saveSettings() {
   setTimeout(() => note.classList.add('hidden'), 2000);
 }
 
+// ---------- Automatic iCloud backup ----------
+
+function timeAgo(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const minutes = Math.round((Date.now() - d.getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  return formatWhen(iso);
+}
+
+function renderCloud(s) {
+  if (!s) return;
+  document.getElementById('cloud-enabled').checked = s.enabled;
+  document.getElementById('cloud-folder').textContent = `${s.folderDisplay} › ScaffoldPro Backup`;
+  document.getElementById('cloud-default-btn').classList.toggle('hidden', s.usingDefault);
+  document.getElementById('cloud-now-btn').disabled = !s.enabled || s.running;
+  const status = document.getElementById('cloud-status');
+  let text;
+  if (!s.enabled) text = 'Off';
+  else if (s.running) text = 'Backing up…';
+  else if (s.lastError) text = s.lastError;
+  else if (s.lastBackupAt) text = `Up to date — last backed up ${timeAgo(s.lastBackupAt)}${s.lastFilesCopied ? ` (${s.lastFilesCopied.toLocaleString('en-US')} file${s.lastFilesCopied === 1 ? '' : 's'} copied)` : ''}`;
+  else text = 'Waiting for the first backup…';
+  if (s.enabled && s.lastError && s.lastBackupAt) text += ` Last successful backup: ${timeAgo(s.lastBackupAt)}.`;
+  status.textContent = text;
+  status.classList.toggle('error', !!(s.enabled && s.lastError && !s.running));
+}
+
+async function refreshCloud() {
+  renderCloud(await window.api.cloudBackup.status());
+}
+
+function setupCloudBackup() {
+  document.getElementById('cloud-enabled').addEventListener('change', async (e) => {
+    renderCloud(await window.api.cloudBackup.setEnabled(e.target.checked));
+  });
+  document.getElementById('cloud-now-btn').addEventListener('click', async () => {
+    renderCloud(Object.assign(await window.api.cloudBackup.status(), { running: true }));
+    renderCloud(await window.api.cloudBackup.backUpNow());
+  });
+  document.getElementById('cloud-choose-btn').addEventListener('click', async () => {
+    renderCloud(await window.api.cloudBackup.chooseFolder());
+  });
+  document.getElementById('cloud-default-btn').addEventListener('click', async () => {
+    renderCloud(await window.api.cloudBackup.useDefaultFolder());
+  });
+  document.getElementById('cloud-reveal-btn').addEventListener('click', async () => {
+    const r = await window.api.cloudBackup.reveal();
+    if (r && !r.ok) alert(r.error);
+  });
+  refreshCloud();
+  // Keep the status current while Settings is open.
+  setInterval(refreshCloud, 10000);
+}
+
 // ---------- Backup & Restore (Phase 14) ----------
 
 function formatBytes(bytes) {
@@ -210,6 +266,7 @@ async function init() {
   document.getElementById('show-backups-btn').addEventListener('click', () => window.api.backup.reveal());
   document.getElementById('show-data-folder-btn').addEventListener('click', () => window.api.backup.revealDataFolder());
 
+  setupCloudBackup();
   await refreshBackups();
   await loadLocations();
 }
