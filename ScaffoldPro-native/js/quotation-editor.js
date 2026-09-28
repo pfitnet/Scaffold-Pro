@@ -222,7 +222,7 @@ async function addDeliveryCharge() {
     sourceKey: null,
     priceListItemId: null,
     itemCode: '',
-    description: 'Delivery of materials (from yard to site and from site to yard)',
+    description: 'Delivery of materials\n(from yard to site and from site to yard)',
     unit: 'truck/trip',
     quantity: 2,
     appliedUnitPrice: price == null ? 0 : price,

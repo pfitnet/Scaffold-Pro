@@ -30,7 +30,6 @@ async function loadSettings() {
   document.getElementById('pricesIncludeTax-input').checked = !!settings.pricesIncludeTax;
   setAppearanceButtons(settings.appearance || 'System');
   for (const f of NUMBER_FIELDS) updateNumberExample(f);
-  await refreshLogo();
 }
 
 async function saveSettings() {
@@ -166,14 +165,7 @@ async function loadLocations() {
   document.getElementById('loc-database').textContent = loc.databaseFolder;
 }
 
-// ---------- Logo, numbering preview, appearance ----------
-
-async function refreshLogo() {
-  const preview = await window.api.settings.logoPreview();
-  const box = document.getElementById('logo-preview');
-  box.innerHTML = preview && preview.dataURL ? `<img src="${preview.dataURL}" alt="Company logo" />` : '<span class="small-note">No logo</span>';
-  document.getElementById('remove-logo-btn').disabled = !(preview && preview.dataURL);
-}
+// ---------- Numbering preview, appearance ----------
 
 async function updateNumberExample(field) {
   const input = document.getElementById(`${field}-input`);
@@ -194,16 +186,6 @@ function setAppearanceButtons(value) {
 async function init() {
   await loadSettings();
   document.getElementById('save-btn').addEventListener('click', saveSettings);
-  document.getElementById('choose-logo-btn').addEventListener('click', async () => {
-    const r = await window.api.settings.chooseLogo();
-    if (r && !r.ok) alert(r.error);
-    await refreshLogo();
-  });
-  document.getElementById('remove-logo-btn').addEventListener('click', async () => {
-    if (!confirm('Remove the logo from your documents? (The image file stays in the Company folder.)')) return;
-    await window.api.settings.removeLogo();
-    await refreshLogo();
-  });
   for (const f of NUMBER_FIELDS) {
     document.getElementById(`${f}-input`).addEventListener('input', () => updateNumberExample(f));
   }

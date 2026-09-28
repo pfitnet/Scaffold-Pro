@@ -607,3 +607,13 @@ editable quotation / invoice / delivery dates; wrapped rows, measured footers an
 page numbers on invoice / delivery-note / BOQ PDFs; exported PDF path stored on
 each document and re-export replaces the old PDF; delivery address pre-filled from
 the site. Still not compiled — run `./install.sh` on a Mac.
+
+## Batch 20 — every document on the company letterhead
+All PDFs (quotation, invoice, delivery note, BOQ) now use the layout of the
+standard quotation Qt26193: the Proficiency (HK) letterhead and address footer
+drawn to the sample's exact positions, sizes and colours on every page;
+EB Garamond body text (bundled in `resources/fonts`, SIL Open Font Licence,
+registered when the app starts); black-ruled tables with "HK$" in money
+cells; Times New Roman signature blocks. The Settings logo chooser was
+replaced by a note, since the letterhead is fixed. Details are in AUDIT.md,
+under "Letterhead layout".

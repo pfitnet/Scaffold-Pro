@@ -72,9 +72,9 @@ and compared with the 67 sections of the master development prompt.
 | 23 | Delivery notes | ✅ | No prices, delivered-by / received-by, signatures, PDF |
 | 24 | Numbering | ✅ | Separate sequences, configurable formats, company defaults Qt26XXX / H26XXX, "continue from" numbers, never duplicates |
 | 25 | Lifecycle | ✅ | Fixed in this pass (see #3, #4). A BOQ has no "Cancelled" status |
-| 26 | Separate templates | ◐ | The quotation has its own letter layout (Qt26193). **Invoice, BOQ and delivery note share one generic layout**, not built from the company's samples |
+| 26 | Separate templates | ◐ | All four documents now use the Qt26193 letterhead, footer, colours, fonts and table style (see "Letterhead layout" below). Each has its own title, reference block, columns and signature block. The quotation matches the sample; invoice, BOQ and delivery note follow the same style because there are no samples for them yet |
 | 27 | PDF generation | ✅ | Drawn directly, not screenshots. Repeating headers, page numbers, and totals and signatures kept together. A4/Letter |
-| 28 | Company info | ✅ | Logo, bank details, terms, signatory. It lives in Settings rather than Admin |
+| 28 | Company info | ✅ | Bank details, terms, signatory. It lives in Settings rather than Admin. The logo chooser was removed: every PDF uses the fixed company letterhead |
 | 29–35 | Folders in ~/Documents | ✅ | `~/Documents/ScaffoldPro/Projects/<number>/{Drawings,BOQ,Quotations,Invoices,Delivery Notes,Documents,Other}` plus `Administration/…` and `Backups/`. Meaningful file names |
 | 36 | Show in Finder | ✅ | Project, drawing, document, worker, backup folders |
 | 37 | Database + files | ◐ | Uses **JSON files, not SQLite** (section 46 prefers SQLite). Writes are atomic and unreadable files are preserved, but there are no foreign keys or constraints, and every operation re-reads the whole file |
@@ -96,14 +96,42 @@ and compared with the 67 sections of the master development prompt.
 | 62 | Validation | ◐ | Rules are enforced. Messages mostly appear as alert dialogs, not next to the field (section 62). No email or phone format checks |
 | 63 | End-to-end test | ✗ | Never run: needs a Mac |
 
+## Letterhead layout (from the sample quotation Qt26193)
+
+Every PDF (quotation, invoice, delivery note, BOQ) is now drawn in the
+layout of the company's quotation:
+
+- **Header and footer:** positions, sizes and colours were measured from
+  the sample (orange `#F19E38`, grey `#999999`, dark grey `#666666`).
+  Each piece of the "PROFICIENCY / 建機 (香港) 有限公司 (HK) LIMITED"
+  letterhead is scaled to fill exactly the box it fills on the sample, so
+  it comes out the same whichever font version the Mac has. The footer is
+  Times New Roman 9pt (Chinese line in Songti), placed word by word, with
+  "Page N" at the right.
+- **Body:** EB Garamond (the Google Docs font of the original, bundled in
+  `resources/fonts` under its free SIL Open Font Licence). Client 12pt,
+  reference block and text 11pt, title 15pt bold and underlined,
+  "BY EMAIL ONLY" 13pt.
+- **Tables:** black 0.75pt rules, bold centred headings, "HK$" at the left
+  of money cells, bold "Total Amount:" rows, "Delivery Charges" section.
+  Column titles repeat on every page.
+- **Terms and signatures:** laid out as on page 2 of the sample. Signature
+  blocks are Times New Roman Bold Italic and always kept together on one
+  page.
+- A Python copy of the layout code was rendered and compared with both
+  sample pages. Every header, footer, table and text element was within
+  1 pixel (0.75pt).
+- **Not reproduced:** the hand signature and company chop on the sample.
+  Those are added when signing.
+
 ## Not built yet (suggested order)
 
 1. **Build and run it on a Mac** (`./install.sh`) and fix whatever the
    compiler reports. Then do the section 63 walkthrough, especially PDF
    output, backup/restore and the new-year numbering case.
-2. **Invoice, BOQ and delivery-note templates from the real samples**
-   (section 26). This needs the sample files. Only the quotation layout is
-   specific to the company today.
+2. **Invoice, BOQ and delivery-note details from real samples**
+   (section 26). They already use the Qt26193 letterhead and style, but
+   their reference block, columns and signature wording are my best guess.
 3. **Rental invoices** (question 1 below).
 4. **Section 20 price-override marker** on quotation and invoice lines:
    store the list price per line and show "List 25.00 → 28.00".

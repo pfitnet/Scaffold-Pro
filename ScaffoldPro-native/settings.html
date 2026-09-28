@@ -11,10 +11,6 @@
     .settings-grid label { font-size: 12px; color: var(--text-secondary); }
     .settings-grid textarea { min-height: 70px; }
     .save-row { margin-top: 20px; display:flex; align-items:center; gap:10px; position: sticky; bottom: 0; padding: 10px 0; background: var(--bg); }
-    .logo-row { display:flex; gap:16px; align-items:center; }
-    .logo-preview { width: 180px; height: 64px; border: 1px dashed var(--border); border-radius: 6px; display:flex; align-items:center; justify-content:center; background: #fff; }
-    .logo-preview img { max-width: 170px; max-height: 56px; }
-    .logo-actions { display:flex; flex-direction: column; gap: 6px; align-items: flex-start; }
     .number-example { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
     .inline-check { display:flex; align-items:center; gap:6px; color: var(--text) !important; font-size: 13px !important; }
     .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
@@ -56,15 +52,8 @@
       <div class="field full"><label>Default Notes (filled in on new quotations and invoices)</label><textarea id="defaultNotes-input"></textarea></div>
     </div>
 
-    <h2 style="margin-top:32px;">Company Logo</h2>
-    <div class="logo-row">
-      <div class="logo-preview" id="logo-preview"><span class="small-note">No logo</span></div>
-      <div class="logo-actions">
-        <button id="choose-logo-btn">Choose Logo…</button>
-        <button id="remove-logo-btn">Remove</button>
-        <div class="small-note">Shown at the top-left of every PDF. A PNG with a transparent background looks best.</div>
-      </div>
-    </div>
+    <h2 style="margin-top:32px;">Letterhead</h2>
+    <p class="small-note">Every quotation, invoice, delivery note and BOQ is printed on the company letterhead — the Proficiency (HK) Limited heading and the address footer — exactly as on the standard quotation Qt26193. The signatory, terms and other wording below are used in the documents.</p>
 
     <h2 style="margin-top:32px;">Documents</h2>
     <div class="settings-grid">

@@ -2,6 +2,7 @@ import Cocoa
 import WebKit
 import UniformTypeIdentifiers
 import CoreGraphics
+import CoreText
 import PDFKit
 
 // =====================================================================
@@ -993,70 +994,96 @@ func nextDocumentNumber(template rawTemplate: String, projectNumber: String, exi
     return candidate
 }
 
-// ---- PDF generation (Phase 13 groundwork) ----
-
-struct PDFColumn {
-    let title: String
-    let widthFraction: CGFloat
-    let alignment: NSTextAlignment
-}
-
-struct PDFDocumentSpec {
-    var kind: String
-    var number: String
-    var status: String
-    var dateLabel: String
-    var dateValue: String
-    var metaLines: [(String, String)]
-    var billToLines: [String]
-    var siteLines: [String]
-    var columns: [PDFColumn]
-    var rows: [[String]]
-    /// (label, value, emphasize)
-    var totals: [(String, String, Bool)]
-    var notes: String?
-    var signatureLeftLabel: String?
-    var signatureRightLabel: String?
-    var paymentInfoLines: [String]?
-}
+// ---- PDF documents (layout of the company's quotation Qt26193) ----
 
 enum PDFMode {
     case export
     case print
 }
 
-/// Everything the standard quotation letter needs (layout from Qt26193).
-struct QuotationLetterRow {
-    var no: String
-    var description: String
-    var unitRate: String
-    var qty: String
-    var total: String
+/// How a table column's cells are drawn, as on the company's quotation.
+enum LetterColumnKind {
+    /// "No", "Qty"
+    case center
+    /// Descriptions
+    case left
+    /// Weights and other plain figures
+    case right
+    /// "HK$" at the left of the cell, the amount at the right
+    case money
 }
 
-struct QuotationLetter {
+struct LetterColumn {
+    let title: String
+    /// Points. The columns of a table add up to 507 (the original's width).
+    let width: CGFloat
+    let kind: LetterColumnKind
+}
+
+enum LetterTableRow {
+    /// One value per column; a value wraps, and "\n" starts a new line.
+    case item([String])
+    /// A full-width, centred bold heading, e.g. "Delivery Charges".
+    case section(String)
+    /// A label across every column but the last, and a bold value in the
+    /// last column. `emphasized` is the larger "Total Amount:" style.
+    case summary(label: String, value: String, emphasized: Bool)
+}
+
+enum LetterParagraph {
+    /// Justified body text. `link` (if it appears in the text) is shown as
+    /// a blue, underlined web address.
+    case text(String, link: String?)
+    /// A numbered term: "(i) Payment : First two month's rental…", with
+    /// any further lines indented under the first.
+    case term(label: String?, lines: [String])
+}
+
+struct LetterSection {
+    /// Bold and underlined, e.g. "Terms and Conditions".
+    var heading: String?
+    var paragraphs: [LetterParagraph]
+}
+
+struct LetterSignatureLine {
+    var text: String
+    /// "Position :" / "Date :" style.
+    var colon: Bool = false
+    /// Printed after the colon, e.g. a name already known.
+    var value: String? = nil
+}
+
+struct LetterSignature {
+    /// "For and on Behalf of"
+    var heading: String
+    /// Under the signing rule: party name, then name / position / date lines.
+    var lines: [LetterSignatureLine]
+}
+
+/// A complete document in the letterhead layout.
+struct LetterDocument {
     var number: String
     var status: String
-    var date: String
+    /// "QUOTATION", "INVOICE", …
+    var title: String
     var clientName: String
     var clientLines: [String]
-    var yourRef: String?
-    var siteRef: String?
+    /// The block at the top right: "Our Ref. No. : Qt26193", …
+    var refRows: [(label: String, value: String)]
+    /// e.g. "BY EMAIL ONLY"
     var deliveryMethod: String?
-    var subject: String
-    var materialRows: [QuotationLetterRow]
-    var deliveryRows: [QuotationLetterRow]
-    /// Shown after the materials, e.g. "Subtotal of Monthly Rental Charge:".
-    var materialSummary: [(label: String, value: String)]
-    /// Discount / tax (if any) then "Total Amount:" — last one is bold.
-    var finalRows: [(label: String, value: String)]
-    var termsURL: String?
-    var terms: [String]
-    var acceptance: String
-    var notes: String?
-    var companyName: String
-    var signatoryName: String?
-    var signatoryTitle: String?
+    var salutation: String?
+    /// Bold and underlined "Re: …" line.
+    var subject: String?
+    var intro: String?
+    /// "HK$" for HKD, otherwise the currency code.
+    var currencySymbol: String
+    var columns: [LetterColumn]
+    var rows: [LetterTableRow]
+    var sections: [LetterSection]
+    /// Left, then right.
+    var signatures: [LetterSignature]
+    var closingLine: String?
 }
 
 struct PDFExportResult: Codable {
@@ -3670,32 +3697,57 @@ final class AppDatabase {
 // =====================================================================
 // MARK: - PDF generation (Phase 13)
 //
-// Draws directly into a Core Graphics PDF context (no NSView, no
-// screenshotting the UI — section 27) using NSAttributedString for text
-// layout. Coordinates throughout this class are expressed as "distance
-// from the top of the page," which is the natural way to lay out a
-// document; drawText/drawLine/fillRect convert that to the PDF context's
-// native bottom-left-origin coordinate space internally.
+// Every document uses the layout of the company's own quotation Qt26193:
+// the Proficiency (HK) letterhead and footer on every page, EB Garamond
+// body text, black-ruled tables with "HK$" at the left of money cells,
+// and the original's colours. All positions, sizes and colours were
+// measured from the original (A4, points from the top-left corner);
+// drawing converts them to the PDF's bottom-left origin. On Letter
+// paper the body and footer are centred on the wider page.
+//
+// Letterhead and footer are drawn to match the original exactly: each
+// piece of the letterhead is scaled so its drawn outline fills the same
+// box it fills on the original, whichever font variant the Mac has.
 // =====================================================================
+
+/// The letterhead's colours, measured from the original document.
+enum LetterheadColor {
+    static let orange = NSColor(srgbRed: 241 / 255, green: 158 / 255, blue: 56 / 255, alpha: 1)
+    static let grey = NSColor(srgbRed: 153 / 255, green: 153 / 255, blue: 153 / 255, alpha: 1)
+    static let darkGrey = NSColor(srgbRed: 102 / 255, green: 102 / 255, blue: 102 / 255, alpha: 1)
+    static let link = NSColor(srgbRed: 40 / 255, green: 84 / 255, blue: 197 / 255, alpha: 1)
+}
 
 final class PDFGenerator {
     private let pageWidth: CGFloat
     private let pageHeight: CGFloat
-    private let marginX: CGFloat = 48
-    private let marginTop: CGFloat = 48
-    private let marginBottom: CGFloat = 56
-    private let rowHeight: CGFloat = 16
-
-    private let accentColor = NSColor(calibratedRed: 0.184, green: 0.435, blue: 0.929, alpha: 1)
-    private let secondaryColor = NSColor(calibratedWhite: 0.43, alpha: 1)
-    private let borderColor = NSColor(calibratedWhite: 0.85, alpha: 1)
-    private let headerFillColor = NSColor(calibratedWhite: 0.96, alpha: 1)
-
     private let mutableData: NSMutableData
     private let context: CGContext
-    private var cursorTopY: CGFloat = 0
+    private var pageNumber = 0
+    /// Distance from the page top of the last thing drawn: the last
+    /// baseline after text, or the bottom rule after a table.
+    private var cursor: CGFloat = 0
 
-    /// "A4" (595 × 842 pt) or "Letter" (612 × 792 pt) — sections 27, 54.
+    // Measured on A4; on Letter the body and footer are centred.
+    private var dx: CGFloat { (pageWidth - 595.28) / 2 }
+    private var footerDY: CGFloat { pageHeight - 841.89 }
+    private var textLeft: CGFloat { 42.75 + dx }
+    private var textRight: CGFloat { 552.0 + dx }
+    private var textWidth: CGFloat { textRight - textLeft }
+    /// Nothing goes below this; the footer rule starts at 792.75.
+    private var contentBottom: CGFloat { 781.5 + footerDY }
+    /// First baseline, or table top, on a continuation page.
+    private let continuationBaseline: CGFloat = 95.25
+    private let continuationTableTop: CGFloat = 88.0
+    /// Body text line spacing (11pt EB Garamond, as on the original).
+    private let bodyPitch: CGFloat = 16.5
+    /// Table rules are 0.75pt black; a one-line row is 24.1pt tall and
+    /// each further line of text adds 14.9pt, with lines 14.25pt apart.
+    private let rule: CGFloat = 0.75
+    private let rowHeight: CGFloat = 24.1
+    private let cellPitch: CGFloat = 14.25
+
+    /// "A4" (595.28 × 841.89 pt) or "Letter" (612 × 792 pt) — sections 27, 54.
     init?(paperSize: String = "A4") {
         if paperSize == "Letter" {
             pageWidth = 612
@@ -3712,527 +3764,577 @@ final class PDFGenerator {
         context = ctx
     }
 
-    private var contentWidth: CGFloat { pageWidth - marginX * 2 }
-
-    // MARK: page lifecycle
-
-    private func beginPage() {
-        context.beginPDFPage(nil)
-        cursorTopY = marginTop
-    }
-
-    private func endPage() {
-        context.endPDFPage()
-    }
-
-    // MARK: low-level drawing
-
-    private func withAppKitContext(_ block: () -> Void) {
-        let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
-        let previous = NSGraphicsContext.current
-        NSGraphicsContext.current = nsContext
-        block()
-        NSGraphicsContext.current = previous
-    }
-
-    /// Draws text top-down (topY is distance from the page's top edge)
-    /// and returns the height actually used, so callers can stack
-    /// elements without hardcoding line heights.
-    @discardableResult
-    private func drawText(_ string: String, x: CGFloat, topY: CGFloat, width: CGFloat, font: NSFont, color: NSColor = .black, alignment: NSTextAlignment = .left, lineBreak: NSLineBreakMode = .byWordWrapping) -> CGFloat {
-        guard !string.isEmpty, width > 0 else { return 0 }
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = alignment
-        paragraph.lineBreakMode = lineBreak
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: paragraph]
-        let attrString = NSAttributedString(string: string, attributes: attrs)
-        let bounding = attrString.boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin])
-        let height = ceil(bounding.height)
-        let originY = pageHeight - topY - height
-        withAppKitContext {
-            attrString.draw(with: NSRect(x: x, y: originY, width: width, height: height), options: [.usesLineFragmentOrigin])
-        }
-        return height
-    }
-
-    private func drawLine(fromX: CGFloat, fromTopY: CGFloat, toX: CGFloat, toTopY: CGFloat, color: NSColor, width: CGFloat = 0.75) {
-        context.setStrokeColor(color.cgColor)
-        context.setLineWidth(width)
-        context.move(to: CGPoint(x: fromX, y: pageHeight - fromTopY))
-        context.addLine(to: CGPoint(x: toX, y: pageHeight - toTopY))
-        context.strokePath()
-    }
-
-    private func fillRect(x: CGFloat, topY: CGFloat, width: CGFloat, height: CGFloat, color: NSColor) {
-        context.setFillColor(color.cgColor)
-        context.fill(CGRect(x: x, y: pageHeight - topY - height, width: width, height: height))
-    }
-
     // MARK: fonts
 
-    private func companyFont() -> NSFont { NSFont.systemFont(ofSize: 15, weight: .bold) }
-    private func titleFont() -> NSFont { NSFont.systemFont(ofSize: 16, weight: .bold) }
-    private func numberFont() -> NSFont { NSFont.systemFont(ofSize: 12, weight: .semibold) }
-    private func bodyFont() -> NSFont { NSFont.systemFont(ofSize: 9.5, weight: .regular) }
-    private func smallFont() -> NSFont { NSFont.systemFont(ofSize: 8.5, weight: .regular) }
-    private func boldSmallFont() -> NSFont { NSFont.systemFont(ofSize: 8.5, weight: .semibold) }
-    private func totalFont() -> NSFont { NSFont.systemFont(ofSize: 12, weight: .bold) }
+    private func firstFont(_ names: [String], _ size: CGFloat) -> NSFont {
+        for name in names {
+            if let font = NSFont(name: name, size: size) { return font }
+        }
+        return NSFont.systemFont(ofSize: size)
+    }
 
-    // MARK: table layout
+    /// EB Garamond — bundled with the app (resources/fonts) and
+    /// registered at launch. Georgia if it's somehow unavailable.
+    private func body(_ size: CGFloat = 11, bold: Bool = false, italic: Bool = false) -> NSFont {
+        switch (bold, italic) {
+        case (true, true): return firstFont(["EBGaramond-BoldItalic", "Georgia-BoldItalic"], size)
+        case (true, false): return firstFont(["EBGaramond-Bold", "Georgia-Bold"], size)
+        case (false, true): return firstFont(["EBGaramond-Italic", "Georgia-Italic"], size)
+        case (false, false): return firstFont(["EBGaramond-Regular", "Georgia"], size)
+        }
+    }
 
-    private func columnPositions(_ columns: [PDFColumn]) -> [(x: CGFloat, width: CGFloat)] {
-        var result: [(CGFloat, CGFloat)] = []
-        var x = marginX
-        for col in columns {
-            let w = contentWidth * col.widthFraction
-            result.append((x, w))
-            x += w
+    /// Times New Roman — the footer, signature block and closing line.
+    private func times(_ size: CGFloat, bold: Bool = false, italic: Bool = false) -> NSFont {
+        switch (bold, italic) {
+        case (true, true): return firstFont(["TimesNewRomanPS-BoldItalicMT", "Times-BoldItalic"], size)
+        case (true, false): return firstFont(["TimesNewRomanPS-BoldMT", "Times-Bold"], size)
+        case (false, true): return firstFont(["TimesNewRomanPS-ItalicMT", "Times-Italic"], size)
+        case (false, false): return firstFont(["TimesNewRomanPSMT", "Times-Roman"], size)
+        }
+    }
+
+    private let letterheadLatin = ["Verdana-Bold", "Tahoma-Bold", "Helvetica-Bold"]
+    private let letterheadChinese = ["PingFangHK-Regular", "PingFangTC-Regular", "STHeitiTC-Light", "HiraginoSans-W3"]
+    private let footerChinese = ["STSongti-TC-Regular", "STSong", "PingFangHK-Regular"]
+
+    // MARK: low-level drawing (top-down coordinates)
+
+    private func fill(_ x: CGFloat, _ top: CGFloat, _ width: CGFloat, _ height: CGFloat, _ color: NSColor) {
+        context.setFillColor(color.cgColor)
+        context.fill(CGRect(x: x, y: pageHeight - top - height, width: width, height: height))
+    }
+
+    private func makeLine(_ string: String, _ font: NSFont, _ color: NSColor) -> CTLine {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): color.cgColor,
+        ]
+        return CTLineCreateWithAttributedString(NSAttributedString(string: string, attributes: attributes))
+    }
+
+    private func lineWidth(_ line: CTLine) -> CGFloat {
+        CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+    }
+
+    private func draw(_ line: CTLine, x: CGFloat, baseline: CGFloat) {
+        context.saveGState()
+        context.textMatrix = .identity
+        context.textPosition = CGPoint(x: x, y: pageHeight - baseline)
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
+
+    /// One line of text on a baseline; returns its width.
+    @discardableResult
+    private func text(_ string: String, x: CGFloat, baseline: CGFloat, font: NSFont, color: NSColor = .black,
+                      align: NSTextAlignment = .left, underline: Bool = false) -> CGFloat {
+        guard !string.isEmpty else { return 0 }
+        let line = makeLine(string, font, color)
+        let width = lineWidth(line)
+        let startX: CGFloat
+        switch align {
+        case .right: startX = x - width
+        case .center: startX = x - width / 2
+        default: startX = x
+        }
+        draw(line, x: startX, baseline: baseline)
+        if underline { underlineRun(x: startX, width: width, baseline: baseline, font: font, color: color) }
+        return width
+    }
+
+    /// EB Garamond's own underline position and thickness.
+    private func underlineRun(x: CGFloat, width: CGFloat, baseline: CGFloat, font: NSFont, color: NSColor) {
+        fill(x, baseline + font.pointSize * 0.1, width, max(0.6, font.pointSize * 0.05), color)
+    }
+
+    private func inkBounds(_ line: CTLine) -> CGRect {
+        CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+    }
+
+    /// Places text so its drawn outline starts exactly at `inkLeft`, or
+    /// ends exactly at `inkRight`.
+    private func textAtInk(_ string: String, inkLeft: CGFloat? = nil, inkRight: CGFloat? = nil, baseline: CGFloat, font: NSFont, color: NSColor) {
+        let line = makeLine(string, font, color)
+        let ink = inkBounds(line)
+        let x: CGFloat
+        if let left = inkLeft { x = left - ink.minX } else { x = (inkRight ?? 0) - ink.maxX }
+        draw(line, x: x, baseline: baseline)
+    }
+
+    /// Scales text so its drawn outline exactly fills a box measured from
+    /// the original letterhead.
+    private func fitted(_ string: String, fonts: [String], color: NSColor, left: CGFloat, top: CGFloat, right: CGFloat, bottom: CGFloat) {
+        let line = makeLine(string, firstFont(fonts, 100), color)
+        let ink = inkBounds(line)
+        guard ink.width > 0, ink.height > 0 else { return }
+        let sx = (right - left) / ink.width
+        let sy = (bottom - top) / ink.height
+        context.saveGState()
+        context.translateBy(x: left - ink.minX * sx, y: (pageHeight - bottom) - ink.minY * sy)
+        context.scaleBy(x: sx, y: sy)
+        context.textMatrix = .identity
+        context.textPosition = .zero
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
+
+    /// Breaks text into lines no wider than `width`; "\n" always breaks.
+    private func wrap(_ string: String, _ font: NSFont, _ width: CGFloat) -> [String] {
+        var result: [String] = []
+        for paragraph in string.components(separatedBy: "\n") {
+            let trimmed = paragraph.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
+            let attributed = NSAttributedString(string: trimmed, attributes: [.font: font])
+            let typesetter = CTTypesetterCreateWithAttributedString(attributed)
+            let ns = trimmed as NSString
+            var start = 0
+            while start < ns.length {
+                let count = max(1, CTTypesetterSuggestLineBreak(typesetter, start, Double(max(width, 10))))
+                result.append(ns.substring(with: NSRange(location: start, length: min(count, ns.length - start))).trimmingCharacters(in: .whitespaces))
+                start += count
+            }
         }
         return result
     }
 
-    private func drawTableColumnHeader(columns: [PDFColumn]) {
-        let positions = columnPositions(columns)
-        fillRect(x: marginX, topY: cursorTopY, width: contentWidth, height: rowHeight, color: headerFillColor)
-        for (index, col) in columns.enumerated() {
-            let pos = positions[index]
-            drawText(col.title, x: pos.x + 4, topY: cursorTopY + 3, width: pos.width - 8, font: boldSmallFont(), color: secondaryColor, alignment: col.alignment, lineBreak: .byTruncatingTail)
-        }
-        cursorTopY += rowHeight
-        drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 1)
+    // MARK: letterhead and footer (identical on every page and document)
+
+    private func drawLetterhead() {
+        let orange = LetterheadColor.orange, grey = LetterheadColor.grey, darkGrey = LetterheadColor.darkGrey
+        fitted("P", fonts: letterheadLatin, color: orange, left: 42.75, top: 28.5, right: 57.75, bottom: 46.5)
+        fitted("ROFICIENCY", fonts: letterheadLatin, color: grey, left: 60.0, top: 31.5, right: 200.25, bottom: 47.25)
+        fill(6.0, 51.0, 209.25, 2.25, orange)
+        fitted("建機", fonts: letterheadChinese, color: darkGrey, left: 41.25, top: 59.25, right: 70.5, bottom: 73.5)
+        fitted("(香港)", fonts: letterheadChinese, color: darkGrey, left: 75.75, top: 59.25, right: 113.25, bottom: 75.0)
+        fitted("有限公司", fonts: letterheadChinese, color: darkGrey, left: 118.5, top: 59.25, right: 176.25, bottom: 73.5)
+        fitted("(HK)", fonts: letterheadLatin, color: orange, left: 190.5, top: 58.5, right: 240.75, bottom: 77.25)
+        fitted("LIMITED", fonts: letterheadLatin, color: grey, left: 251.25, top: 61.5, right: 331.5, bottom: 74.25)
+        fill(189.0, 78.0, pageWidth - 6.53 - 189.0, 2.25, orange)
     }
 
-    /// A row is as tall as its tallest cell, so long descriptions wrap
-    /// onto extra lines instead of being cut off.
-    private func tableRowHeight(_ row: [String], columns: [PDFColumn]) -> CGFloat {
-        let positions = columnPositions(columns)
-        var tallest: CGFloat = 0
-        for (index, cell) in row.enumerated() where index < positions.count {
-            tallest = max(tallest, measure(cell, width: positions[index].width - 8, font: bodyFont()))
+    private func drawFooter() {
+        let grey = LetterheadColor.grey
+        let x = dx, y = footerDY
+        fill(42.75 + x, 792.75 + y, 510.0, 2.25, LetterheadColor.orange)
+
+        let chinese: [(String, CGFloat, CGFloat)] = [
+            ("香港", 210.75, 228.75), ("北角", 231.75, 248.25), ("蜆殼街 9-23", 252.0, 297.0),
+            ("號", 300.0, 308.25), ("秀明中心", 311.25, 346.5), ("17樓 B室", 349.5, 384.0),
+        ]
+        for (segment, left, right) in chinese {
+            fitted(segment, fonts: footerChinese, color: grey, left: left + x, top: 798.75 + y, right: right + x, bottom: 807.75 + y)
         }
-        return max(rowHeight, tallest + 6)
+
+        let font = times(9)
+        let words = "Unit B, 17/F, Seabright Plaza, 9-23 Shell Street, Causeway Bay, Hong Kong".components(separatedBy: " ")
+        let wordLefts: [CGFloat] = [160.5, 178.5, 189.75, 209.25, 246.0, 270.0, 288.75, 309.75, 335.25, 374.25, 393.0, 414.75]
+        for (word, left) in zip(words, wordLefts) {
+            textAtInk(word, inkLeft: left + x, baseline: 816.75 + y, font: font, color: grey)
+        }
+        let contacts: [(String, CGFloat)] = [("Tel: +852 2690 0133", 153.0), ("Email: rk123@pfitnet.com", 249.75), ("Fax: +852 2663 0371", 368.25)]
+        for (segment, left) in contacts {
+            textAtInk(segment, inkLeft: left + x, baseline: 827.25 + y, font: font, color: grey)
+        }
+        textAtInk("Page \(pageNumber)", inkRight: 552.0 + x, baseline: 827.25 + y, font: times(9, italic: true), color: grey)
     }
 
-    private func drawTableRow(_ row: [String], columns: [PDFColumn], height: CGFloat) {
-        let positions = columnPositions(columns)
-        for (index, cell) in row.enumerated() {
-            guard index < positions.count else { continue }
-            let pos = positions[index]
-            let alignment = index < columns.count ? columns[index].alignment : .left
-            drawText(cell, x: pos.x + 4, topY: cursorTopY + 3, width: pos.width - 8, font: bodyFont(), color: .black, alignment: alignment, lineBreak: .byWordWrapping)
-        }
-        cursorTopY += height
-        drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 0.5)
+    private func beginPage() {
+        context.beginPDFPage(nil)
+        pageNumber += 1
+        drawLetterhead()
     }
 
-    // MARK: document header / footer
-
-    /// Draws the company logo (section 28) at the top-left, scaled to fit
-    /// a 48pt-high × 140pt-wide box. Returns the width used (0 if none).
-    private func drawLogo(_ path: String?) -> CGFloat {
-        guard let path = path, let image = NSImage(contentsOfFile: path), image.size.width > 0, image.size.height > 0 else { return 0 }
-        let maxH: CGFloat = 48, maxW: CGFloat = 140
-        let scale = min(maxH / image.size.height, maxW / image.size.width)
-        let w = image.size.width * scale, h = image.size.height * scale
-        withAppKitContext {
-            image.draw(in: NSRect(x: marginX, y: pageHeight - cursorTopY - h, width: w, height: h),
-                       from: .zero, operation: .sourceOver, fraction: 1)
-        }
-        return w
+    private func endPage() {
+        drawFooter()
+        context.endPDFPage()
     }
 
-    private func drawDocumentHeader(spec: PDFDocumentSpec, company: CompanySettings) {
-        let logoWidth = drawLogo(company.logoPath)
-        let leftX = logoWidth > 0 ? marginX + logoWidth + 14 : marginX
-        let leftWidth = contentWidth * 0.58 - (leftX - marginX)
-        var leftY = cursorTopY
-        leftY += drawText(company.companyName, x: leftX, topY: leftY, width: leftWidth, font: companyFont(), color: .black) + 3
-
-        let companyLines: [String] = [
-            company.addressLine1, company.addressLine2,
-            [company.phone.map { "Tel: \($0)" }, company.email].compactMap { $0 }.joined(separator: "   ·   "),
-            company.website,
-            company.registrationNumber.map { "Reg. No.: \($0)" },
-            company.vatNumber.map { "VAT No.: \($0)" },
-        ].compactMap { $0 }.filter { !$0.isEmpty }
-
-        for line in companyLines {
-            leftY += drawText(line, x: leftX, topY: leftY, width: leftWidth, font: smallFont(), color: secondaryColor) + 2
-        }
-        if logoWidth > 0 { leftY = max(leftY, cursorTopY + 50) }
-
-        let rightX = marginX + contentWidth * 0.60
-        let rightWidth = contentWidth * 0.40
-        var rightY = cursorTopY
-        rightY += drawText(spec.kind, x: rightX, topY: rightY, width: rightWidth, font: titleFont(), color: accentColor, alignment: .right) + 4
-        rightY += drawText(spec.number, x: rightX, topY: rightY, width: rightWidth, font: numberFont(), color: .black, alignment: .right) + 4
-        rightY += drawText("Status: \(spec.status)", x: rightX, topY: rightY, width: rightWidth, font: smallFont(), color: secondaryColor, alignment: .right) + 2
-        rightY += drawText("\(spec.dateLabel): \(spec.dateValue)", x: rightX, topY: rightY, width: rightWidth, font: smallFont(), color: secondaryColor, alignment: .right) + 2
-        for (label, value) in spec.metaLines where !value.isEmpty {
-            rightY += drawText("\(label): \(value)", x: rightX, topY: rightY, width: rightWidth, font: smallFont(), color: secondaryColor, alignment: .right) + 2
-        }
-
-        cursorTopY = max(leftY, rightY) + 8
-        drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 1)
-        cursorTopY += 14
-
-        if !spec.billToLines.isEmpty || !spec.siteLines.isEmpty {
-            let colWidth = contentWidth * 0.48
-            var billY = cursorTopY
-            if !spec.billToLines.isEmpty {
-                billY += drawText("BILL TO", x: marginX, topY: billY, width: colWidth, font: boldSmallFont(), color: secondaryColor) + 3
-                for line in spec.billToLines {
-                    billY += drawText(line, x: marginX, topY: billY, width: colWidth, font: bodyFont(), color: .black) + 2
-                }
-            }
-            let siteX = marginX + contentWidth * 0.52
-            var siteY = cursorTopY
-            if !spec.siteLines.isEmpty {
-                siteY += drawText("SITE", x: siteX, topY: siteY, width: colWidth, font: boldSmallFont(), color: secondaryColor) + 3
-                for line in spec.siteLines {
-                    siteY += drawText(line, x: siteX, topY: siteY, width: colWidth, font: bodyFont(), color: .black) + 2
-                }
-            }
-            cursorTopY = max(billY, siteY) + 10
-        }
-    }
-
-    private func drawContinuationHeader(spec: PDFDocumentSpec, company: CompanySettings) {
-        cursorTopY += drawText("\(company.companyName)  —  \(spec.kind) \(spec.number)  (continued)", x: marginX, topY: cursorTopY, width: contentWidth, font: smallFont(), color: secondaryColor) + 10
-    }
-
-    private func drawContinuedNote() {
-        drawText("Continued on next page…", x: marginX, topY: cursorTopY + 4, width: contentWidth, font: smallFont(), color: secondaryColor, alignment: .right)
-    }
-
-    private func estimateFooterHeight(spec: PDFDocumentSpec) -> CGFloat {
-        var height: CGFloat = 14
-        height += CGFloat(spec.totals.count) * 17 + 12
-        if let notes = spec.notes, !notes.isEmpty { height += measure(notes, width: contentWidth, font: bodyFont()) + 28 }
-        if let payment = spec.paymentInfoLines, !payment.isEmpty {
-            height += payment.reduce(CGFloat(0)) { $0 + measure($1, width: contentWidth, font: bodyFont()) + 2 } + 26
-        }
-        if spec.signatureLeftLabel != nil || spec.signatureRightLabel != nil { height += 64 }
-        return height
-    }
-
-    private func drawTotalsAndFooter(spec: PDFDocumentSpec) {
-        cursorTopY += 10
-
-        if !spec.totals.isEmpty {
-            let boxWidth = contentWidth * 0.42
-            let boxX = marginX + contentWidth - boxWidth
-            for (label, value, emphasize) in spec.totals {
-                let font = emphasize ? totalFont() : bodyFont()
-                let color: NSColor = emphasize ? .black : secondaryColor
-                if emphasize {
-                    drawLine(fromX: boxX, fromTopY: cursorTopY, toX: boxX + boxWidth, toTopY: cursorTopY, color: borderColor, width: 1)
-                    cursorTopY += 4
-                }
-                drawText(label, x: boxX, topY: cursorTopY, width: boxWidth * 0.5, font: font, color: color)
-                drawText(value, x: boxX + boxWidth * 0.5, topY: cursorTopY, width: boxWidth * 0.5, font: font, color: color, alignment: .right)
-                cursorTopY += emphasize ? 18 : 15
-            }
-            cursorTopY += 8
-        }
-
-        if let notes = spec.notes, !notes.isEmpty {
-            cursorTopY += drawText("Notes", x: marginX, topY: cursorTopY, width: contentWidth, font: boldSmallFont(), color: secondaryColor) + 3
-            cursorTopY += drawText(notes, x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont(), color: .black) + 12
-        }
-
-        if let payment = spec.paymentInfoLines, !payment.isEmpty {
-            cursorTopY += drawText("Payment Information", x: marginX, topY: cursorTopY, width: contentWidth, font: boldSmallFont(), color: secondaryColor) + 3
-            for line in payment where !line.isEmpty {
-                cursorTopY += drawText(line, x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont(), color: .black) + 2
-            }
-            cursorTopY += 8
-        }
-
-        if spec.signatureLeftLabel != nil || spec.signatureRightLabel != nil {
-            cursorTopY += 24
-            let colWidth = contentWidth * 0.42
-            if let left = spec.signatureLeftLabel {
-                drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + colWidth, toTopY: cursorTopY, color: borderColor, width: 1)
-                drawText(left, x: marginX, topY: cursorTopY + 4, width: colWidth, font: smallFont(), color: secondaryColor)
-            }
-            if let right = spec.signatureRightLabel {
-                let rightX = marginX + contentWidth - colWidth
-                drawLine(fromX: rightX, fromTopY: cursorTopY, toX: rightX + colWidth, toTopY: cursorTopY, color: borderColor, width: 1)
-                drawText(right, x: rightX, topY: cursorTopY + 4, width: colWidth, font: smallFont(), color: secondaryColor)
-            }
-            cursorTopY += 20
-        }
-    }
-
-    // MARK: standard quotation letter (layout from Qt26193)
-
-    private func measure(_ string: String, width: CGFloat, font: NSFont) -> CGFloat {
-        guard !string.isEmpty, width > 0 else { return 0 }
-        let attr = NSAttributedString(string: string, attributes: [.font: font])
-        return ceil(attr.boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin]).height)
-    }
-
-    private func italic(_ font: NSFont) -> NSFont {
-        NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
-    }
-
-    private var letterPage = 0
-    private var letterNumber = ""
-
-    private func beginLetterPage() {
-        beginPage()
-        letterPage += 1
-        if letterPage > 1 {
-            cursorTopY += drawText("\(letterNumber) (continued)", x: marginX, topY: cursorTopY, width: contentWidth,
-                                   font: smallFont(), color: secondaryColor) + 10
-        }
-    }
-
-    private func endLetterPage() {
-        drawText("\(letterNumber)  ·  Page \(letterPage)", x: marginX, topY: pageHeight - marginBottom + 22, width: contentWidth,
-                 font: smallFont(), color: secondaryColor, alignment: .right)
+    private func newPage() {
         endPage()
+        beginPage()
     }
 
-    /// Starts a new page if `height` won't fit; returns true if it did.
-    @discardableResult
-    private func ensureSpace(_ height: CGFloat) -> Bool {
-        guard cursorTopY + height > pageHeight - marginBottom else { return false }
-        endLetterPage()
-        beginLetterPage()
-        return true
+    // MARK: opening (client, references, title, "Re:")
+
+    private func drawOpening(_ doc: LetterDocument) {
+        let blockLeft = 47.75 + dx
+        let firstBaseline: CGFloat = 104.25
+        let pitch: CGFloat = 15.75
+
+        var left: [(String, NSFont)] = wrap(doc.clientName, body(12, bold: true), 345).map { ($0, body(12, bold: true)) }
+        for line in doc.clientLines {
+            left += wrap(line, body(12), 345).map { ($0, body(12)) }
+        }
+        for (i, item) in left.enumerated() {
+            text(item.0, x: blockLeft, baseline: firstBaseline + CGFloat(i) * pitch, font: item.1)
+        }
+
+        // Reference block: label, colon, value right-aligned; a value too
+        // long for the space runs on under itself, left-aligned.
+        let refFont = body(11)
+        var refLine = 0
+        for row in doc.refRows {
+            let baseline = firstBaseline + CGFloat(refLine) * pitch
+            text(row.label, x: 401.25 + dx, baseline: baseline, font: refFont)
+            text(":", x: 478.5 + dx, baseline: baseline, font: refFont)
+            let valueLines = wrap(row.value, refFont, 66)
+            if valueLines.count <= 1 {
+                text(row.value, x: 550.5 + dx, baseline: baseline, font: refFont, align: .right)
+                refLine += 1
+            } else {
+                for (j, line) in valueLines.enumerated() {
+                    text(line, x: 484.5 + dx, baseline: firstBaseline + CGFloat(refLine + j) * pitch, font: refFont)
+                }
+                refLine += valueLines.count
+            }
+        }
+
+        var baseline = firstBaseline + CGFloat(max(left.count, refLine, 1) - 1) * pitch
+        if let method = doc.deliveryMethod, !method.isEmpty {
+            baseline += 19.5
+            text(method, x: 550.5 + dx, baseline: baseline, font: body(13, bold: true), align: .right, underline: true)
+            baseline += 21.0
+        } else {
+            baseline += 40.5
+        }
+
+        text(doc.title, x: pageWidth / 2, baseline: baseline, font: body(15, bold: true), align: .center, underline: true)
+        if doc.status != "Issued" {
+            text(doc.status.uppercased(), x: textRight, baseline: baseline, font: body(11, bold: true), color: LetterheadColor.grey, align: .right)
+        }
+        var last = baseline
+        var next = baseline + 18.0
+        if let salutation = doc.salutation, !salutation.isEmpty {
+            text(salutation, x: textLeft, baseline: next, font: body(11))
+            last = next
+            next += bodyPitch
+        }
+        if let subject = doc.subject, !subject.isEmpty {
+            for line in wrap(subject, body(11, bold: true), textWidth) {
+                text(line, x: textLeft, baseline: next, font: body(11, bold: true), underline: true)
+                last = next
+                next += bodyPitch
+            }
+        }
+        if let intro = doc.intro, !intro.isEmpty {
+            for line in wrap(intro, body(11), textWidth) {
+                text(line, x: textLeft, baseline: next, font: body(11))
+                last = next
+                next += bodyPitch
+            }
+        }
+        // The table starts 15pt below the last line (243 → 258 on the original).
+        cursor = last + 15.0
     }
 
-    private func drawLetterhead(_ company: CompanySettings) {
-        let logoWidth = drawLogo(company.logoPath)
-        let x = logoWidth > 0 ? marginX + logoWidth + 14 : marginX
-        let w = contentWidth - (x - marginX)
-        var y = cursorTopY
-        y += drawText(company.companyName, x: x, topY: y, width: w, font: companyFont()) + 2
-        let lines: [String] = [
-            [company.addressLine1, company.addressLine2].compactMap { $0 }.joined(separator: ", "),
-            [company.phone.map { "Tel: \($0)" }, company.email, company.website].compactMap { $0 }.joined(separator: "   ·   "),
-        ].filter { !$0.isEmpty }
-        for line in lines { y += drawText(line, x: x, topY: y, width: w, font: smallFont(), color: secondaryColor) + 1 }
-        if logoWidth > 0 { y = max(y, cursorTopY + 50) }
-        cursorTopY = y + 8
-        drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 1)
-        cursorTopY += 16
+    // MARK: table
+
+    private func columnEdges(_ columns: [LetterColumn]) -> [CGFloat] {
+        var edges: [CGFloat] = [42.0 + dx]
+        for column in columns { edges.append((edges.last ?? 0) + column.width) }
+        return edges
     }
 
-    private struct LetterColumns {
-        let no: (x: CGFloat, w: CGFloat)
-        let desc: (x: CGFloat, w: CGFloat)
-        let rate: (x: CGFloat, w: CGFloat)
-        let qty: (x: CGFloat, w: CGFloat)
-        let total: (x: CGFloat, w: CGFloat)
+    private func hRule(_ edges: [CGFloat], _ y: CGFloat) {
+        guard let first = edges.first, let last = edges.last else { return }
+        fill(first, y, last - first + rule, rule, .black)
     }
 
-    private func letterColumns() -> LetterColumns {
-        let fr: [CGFloat] = [0.07, 0.45, 0.21, 0.08, 0.19]
-        var x = marginX
-        var cols: [(CGFloat, CGFloat)] = []
-        for f in fr { cols.append((x, contentWidth * f)); x += contentWidth * f }
-        return LetterColumns(no: cols[0], desc: cols[1], rate: cols[2], qty: cols[3], total: cols[4])
+    private func vRule(_ x: CGFloat, _ top: CGFloat, _ height: CGFloat) {
+        fill(x, top, rule, height + rule, .black)
     }
 
-    private func drawLetterTableHeader(_ c: LetterColumns) {
-        let h: CGFloat = 18
-        fillRect(x: marginX, topY: cursorTopY, width: contentWidth, height: h, color: headerFillColor)
-        let f = boldSmallFont()
-        drawText("No", x: c.no.x + 4, topY: cursorTopY + 4, width: c.no.w - 8, font: f, alignment: .center)
-        drawText("Item Description", x: c.desc.x + 4, topY: cursorTopY + 4, width: c.desc.w - 8, font: f)
-        drawText("Unit Rate", x: c.rate.x + 4, topY: cursorTopY + 4, width: c.rate.w - 8, font: f, alignment: .right)
-        drawText("Qty", x: c.qty.x + 4, topY: cursorTopY + 4, width: c.qty.w - 8, font: f, alignment: .center)
-        drawText("Total Price", x: c.total.x + 4, topY: cursorTopY + 4, width: c.total.w - 8, font: f, alignment: .right)
-        cursorTopY += h
-        drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 1)
+    /// Text is centred vertically in its cell, as on the original.
+    private func cellBaseline(top: CGFloat, height: CGFloat, lines: Int, line: Int) -> CGFloat {
+        top + height / 2 + 5.2 - CGFloat(lines - 1) * cellPitch / 2 + CGFloat(line) * cellPitch
     }
 
-    private func drawLetterRow(_ r: QuotationLetterRow, _ c: LetterColumns) {
-        let f = bodyFont()
-        let h = max(measure(r.description, width: c.desc.w - 8, font: f), 12) + 8
-        if ensureSpace(h + 2) { drawLetterTableHeader(c) }
-        drawText(r.no, x: c.no.x + 4, topY: cursorTopY + 4, width: c.no.w - 8, font: f, alignment: .center)
-        drawText(r.description, x: c.desc.x + 4, topY: cursorTopY + 4, width: c.desc.w - 8, font: f)
-        drawText(r.unitRate, x: c.rate.x + 4, topY: cursorTopY + 4, width: c.rate.w - 8, font: f, alignment: .right)
-        drawText(r.qty, x: c.qty.x + 4, topY: cursorTopY + 4, width: c.qty.w - 8, font: f, alignment: .center)
-        drawText(r.total, x: c.total.x + 4, topY: cursorTopY + 4, width: c.total.w - 8, font: f, alignment: .right)
-        cursorTopY += h
-        drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 0.5)
+    private func cellLines(_ value: String, column: LetterColumn, font: NSFont, currencyWidth: CGFloat) -> [String] {
+        let available = column.width - 10.5 - (column.kind == .money ? currencyWidth + 4 : 0)
+        return wrap(value, font, available)
     }
 
-    private func drawLetterSummary(_ label: String, _ value: String, _ c: LetterColumns, bold: Bool, topRule: Bool = false) {
-        let f = bold ? NSFont.systemFont(ofSize: 10, weight: .bold) : NSFont.systemFont(ofSize: 9.5, weight: .semibold)
-        ensureSpace(20)
-        if topRule { drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: .black, width: 0.8) }
-        drawText(label, x: c.no.x + 4, topY: cursorTopY + 4, width: c.rate.x + c.rate.w - c.no.x - 8, font: f)
-        drawText(value, x: c.qty.x + 4, topY: cursorTopY + 4, width: c.qty.w + c.total.w - 8, font: f, alignment: .right)
-        cursorTopY += 18
+    private func height(of row: LetterTableRow, in doc: LetterDocument) -> CGFloat {
+        switch row {
+        case .item(let cells):
+            let font = body(11)
+            let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
+            var lines = 1
+            for (i, cell) in cells.enumerated() where i < doc.columns.count {
+                lines = max(lines, cellLines(cell, column: doc.columns[i], font: font, currencyWidth: currencyWidth).count)
+            }
+            return rowHeight + CGFloat(lines - 1) * 14.9
+        case .section:
+            return 37.5
+        case .summary(_, _, let emphasized):
+            return emphasized ? 37.5 : 29.25
+        }
     }
 
-    func generateQuotationLetter(_ l: QuotationLetter, company: CompanySettings) -> Data {
-        letterNumber = l.number
-        letterPage = 0
-        beginLetterPage()
-        drawLetterhead(company)
-
-        // Client (left) and reference block (right)
-        let leftW = contentWidth * 0.56
-        let rightX = marginX + contentWidth * 0.60
-        let labelW: CGFloat = 78
-        let rightW = contentWidth * 0.40
-        var leftY = cursorTopY
-        leftY += drawText(l.clientName, x: marginX, topY: leftY, width: leftW, font: NSFont.systemFont(ofSize: 10.5, weight: .bold)) + 2
-        for line in l.clientLines { leftY += drawText(line, x: marginX, topY: leftY, width: leftW, font: bodyFont()) + 1 }
-        if let method = l.deliveryMethod, !method.isEmpty {
-            leftY += 8
-            leftY += drawText(method, x: marginX, topY: leftY, width: leftW, font: NSFont.systemFont(ofSize: 9.5, weight: .bold))
+    private func drawCell(_ lines: [String], column: LetterColumn, left: CGFloat, right: CGFloat, top: CGFloat, height: CGFloat, font: NSFont, currency: String) {
+        let count = max(1, lines.count)
+        for (j, line) in lines.enumerated() {
+            let baseline = cellBaseline(top: top, height: height, lines: count, line: j)
+            switch column.kind {
+            case .center: text(line, x: (left + right + rule) / 2, baseline: baseline, font: font, align: .center)
+            case .left: text(line, x: left + 5.0, baseline: baseline, font: font)
+            case .right, .money: text(line, x: right - 3.4, baseline: baseline, font: font, align: .right)
+            }
         }
-        var rightY = cursorTopY
-        for (label, value) in [("Our Ref. No.", l.number), ("Your Ref. No.", l.yourRef ?? ""), ("Site Ref.", l.siteRef ?? ""), ("Date", l.date)] {
-            drawText(label, x: rightX, topY: rightY, width: labelW, font: bodyFont(), color: secondaryColor)
-            drawText(":", x: rightX + labelW, topY: rightY, width: 8, font: bodyFont(), color: secondaryColor)
-            rightY += max(drawText(value, x: rightX + labelW + 10, topY: rightY, width: rightW - labelW - 10, font: NSFont.systemFont(ofSize: 9.5, weight: label == "Our Ref. No." ? .bold : .regular)), 12) + 3
+        if column.kind == .money, let first = lines.first, !first.isEmpty {
+            text(currency, x: left + 5.25, baseline: cellBaseline(top: top, height: height, lines: 1, line: 0), font: font)
         }
-        cursorTopY = max(leftY, rightY) + 18
+    }
 
-        // Title, salutation, subject
-        drawText("QUOTATION", x: marginX, topY: cursorTopY, width: contentWidth, font: NSFont.systemFont(ofSize: 13, weight: .bold), alignment: .center)
-        if l.status != "Issued" {
-            drawText(l.status.uppercased(), x: marginX, topY: cursorTopY + 2, width: contentWidth, font: boldSmallFont(),
-                     color: NSColor(calibratedRed: 0.78, green: 0.23, blue: 0.2, alpha: 1), alignment: .right)
+    private func drawHeaderRow(_ columns: [LetterColumn], _ edges: [CGFloat]) {
+        let top = cursor
+        hRule(edges, top)
+        hRule(edges, top + rowHeight)
+        for x in edges { vRule(x, top, rowHeight) }
+        let font = body(11, bold: true)
+        for (i, column) in columns.enumerated() {
+            text(column.title, x: (edges[i] + edges[i + 1] + rule) / 2,
+                 baseline: cellBaseline(top: top, height: rowHeight, lines: 1, line: 0), font: font, align: .center)
         }
-        cursorTopY += 26
-        cursorTopY += drawText("Dear Sir / Madam,", x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont()) + 10
-        cursorTopY += drawText("Re: \(l.subject)", x: marginX, topY: cursorTopY, width: contentWidth, font: NSFont.systemFont(ofSize: 10, weight: .bold)) + 8
-        cursorTopY += drawText("We thank you for your inquiry related to the item above, the following is our quotation on the job.",
-                               x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont()) + 12
+        cursor += rowHeight
+    }
 
-        // Items
-        let c = letterColumns()
-        ensureSpace(60)
-        drawLetterTableHeader(c)
-        for r in l.materialRows { drawLetterRow(r, c) }
-        for (label, value) in l.materialSummary { drawLetterSummary(label, value, c, bold: true) }
-        if !l.deliveryRows.isEmpty {
-            ensureSpace(44)
-            cursorTopY += 4
-            cursorTopY += drawText("Delivery Charges", x: marginX + 4, topY: cursorTopY, width: contentWidth, font: NSFont.systemFont(ofSize: 9.5, weight: .bold)) + 4
-            drawLine(fromX: marginX, fromTopY: cursorTopY, toX: marginX + contentWidth, toTopY: cursorTopY, color: borderColor, width: 0.5)
-            for r in l.deliveryRows { drawLetterRow(r, c) }
+    /// Draws the table, repeating the column titles at the top of every
+    /// page it runs onto (section 27).
+    private func drawTable(_ doc: LetterDocument) {
+        guard !doc.columns.isEmpty else { return }
+        let edges = columnEdges(doc.columns)
+        let last = edges.count - 1
+        drawHeaderRow(doc.columns, edges)
+        if doc.rows.isEmpty {
+            text("No items.", x: textLeft, baseline: cursor + 17.25, font: body(11, italic: true))
+            cursor += rowHeight
+            return
         }
-        for (i, row) in l.finalRows.enumerated() {
-            let isLast = i == l.finalRows.count - 1
-            drawLetterSummary(row.label, row.value, c, bold: isLast, topRule: isLast)
+        for row in doc.rows {
+            let h = height(of: row, in: doc)
+            if cursor + h > contentBottom {
+                newPage()
+                cursor = continuationTableTop
+                drawHeaderRow(doc.columns, edges)
+            }
+            let top = cursor
+            hRule(edges, top)
+            hRule(edges, top + h)
+            switch row {
+            case .item(let cells):
+                for x in edges { vRule(x, top, h) }
+                let font = body(11)
+                let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
+                for (i, cell) in cells.enumerated() where i < doc.columns.count {
+                    let lines = cellLines(cell, column: doc.columns[i], font: font, currencyWidth: currencyWidth)
+                    drawCell(lines, column: doc.columns[i], left: edges[i], right: edges[i + 1], top: top, height: h, font: font, currency: doc.currencySymbol)
+                }
+            case .section(let title):
+                vRule(edges[0], top, h)
+                vRule(edges[last], top, h)
+                text(title, x: (edges[0] + edges[last] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0),
+                     font: body(12, bold: true), align: .center)
+            case .summary(let label, let value, let emphasized):
+                vRule(edges[0], top, h)
+                vRule(edges[last - 1], top, h)
+                vRule(edges[last], top, h)
+                let font = body(emphasized ? 12 : 11, bold: true)
+                text(label, x: edges[last - 1] - 4.25, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: font, align: .right)
+                drawCell([value], column: doc.columns[last - 1], left: edges[last - 1], right: edges[last], top: top, height: h, font: font, currency: doc.currencySymbol)
+            }
+            cursor += h
         }
-        cursorTopY += 14
+    }
 
-        if let notes = l.notes, !notes.isEmpty {
-            ensureSpace(measure(notes, width: contentWidth, font: bodyFont()) + 24)
-            cursorTopY += drawText("Remarks", x: marginX, topY: cursorTopY, width: contentWidth, font: NSFont.systemFont(ofSize: 10, weight: .bold)) + 4
-            cursorTopY += drawText(notes, x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont()) + 14
+    // MARK: text after the table
+
+    /// Justified paragraph (the last line and lines ending in "\n" are
+    /// left-aligned). Returns the last baseline used.
+    private func drawParagraph(_ string: String, link: String?, firstBaseline: CGFloat) -> CGFloat {
+        let font = body(11)
+        let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
+        let attributed = NSMutableAttributedString(string: string, attributes: [.font: font, colorKey: NSColor.black.cgColor])
+        let ns = string as NSString
+        var linkRange = NSRange(location: NSNotFound, length: 0)
+        if let link = link, !link.isEmpty {
+            linkRange = ns.range(of: link)
+            if linkRange.location != NSNotFound {
+                attributed.addAttribute(colorKey, value: LetterheadColor.link.cgColor, range: linkRange)
+            }
         }
-
-        // Terms and conditions
-        ensureSpace(60)
-        cursorTopY += drawText("Terms and Conditions", x: marginX, topY: cursorTopY, width: contentWidth, font: NSFont.systemFont(ofSize: 10, weight: .bold)) + 6
-        if let url = l.termsURL, !url.isEmpty {
-            let intro = "The terms and conditions set out in \(url) are hereby expressively incorporated into this quotation with other relevant key terms set forth below."
-            ensureSpace(measure(intro, width: contentWidth, font: bodyFont()) + 6)
-            cursorTopY += drawText(intro, x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont()) + 8
+        let typesetter = CTTypesetterCreateWithAttributedString(attributed)
+        let breaks = CharacterSet.whitespacesAndNewlines
+        var start = 0
+        var baseline = firstBaseline
+        var firstLine = true
+        while start < ns.length {
+            let count = CTTypesetterSuggestLineBreak(typesetter, start, Double(textWidth))
+            guard count > 0 else { break }
+            // Leave out trailing spaces / the line break itself.
+            var visible = count
+            var hardBreak = false
+            while visible > 0, let scalar = UnicodeScalar(ns.character(at: start + visible - 1)), breaks.contains(scalar) {
+                if scalar == "\n" { hardBreak = true }
+                visible -= 1
+            }
+            if !firstLine { baseline += bodyPitch }
+            if baseline > contentBottom {
+                newPage()
+                baseline = continuationBaseline
+            }
+            firstLine = false
+            if visible > 0 {
+                var line = CTTypesetterCreateLine(typesetter, CFRange(location: start, length: visible))
+                let isLast = start + count >= ns.length
+                if !isLast, !hardBreak, let justified = CTLineCreateJustifiedLine(line, 1.0, Double(textWidth)) {
+                    line = justified
+                }
+                draw(line, x: textLeft, baseline: baseline)
+                if linkRange.location != NSNotFound {
+                    let from = max(linkRange.location, start)
+                    let to = min(NSMaxRange(linkRange), start + visible)
+                    if from < to {
+                        let x0 = CTLineGetOffsetForStringIndex(line, from, nil)
+                        let x1 = CTLineGetOffsetForStringIndex(line, to, nil)
+                        underlineRun(x: textLeft + x0, width: x1 - x0, baseline: baseline, font: font, color: LetterheadColor.link)
+                    }
+                }
+            }
+            start += count
         }
-        for line in l.terms where !line.trimmingCharacters(in: .whitespaces).isEmpty {
-            let indented = line.hasPrefix("(") ? 0 : 18
-            let w = contentWidth - CGFloat(indented)
-            ensureSpace(measure(line, width: w, font: bodyFont()) + 3)
-            cursorTopY += drawText(line, x: marginX + CGFloat(indented), topY: cursorTopY, width: w, font: bodyFont()) + 3
+        return baseline
+    }
+
+    /// "(i) Payment : First two month's rental…" — label at the margin,
+    /// colon at 128.25pt, text (and any further lines) at 132pt.
+    private func drawTerm(label: String?, lines: [String], firstBaseline: CGFloat) -> CGFloat {
+        let font = body(11)
+        let textX = 132.0 + dx
+        var baseline = firstBaseline
+        var firstLine = true
+        for raw in lines {
+            for piece in wrap(raw, font, textRight - textX) {
+                if !firstLine { baseline += bodyPitch }
+                if baseline > contentBottom {
+                    newPage()
+                    baseline = continuationBaseline
+                }
+                if firstLine {
+                    if let label = label { text(label, x: textLeft, baseline: baseline, font: font) }
+                    text(":", x: 128.25 + dx, baseline: baseline, font: font)
+                }
+                text(piece, x: textX, baseline: baseline, font: font)
+                firstLine = false
+            }
         }
-        cursorTopY += 10
-        ensureSpace(measure(l.acceptance, width: contentWidth, font: bodyFont()) + 6)
-        cursorTopY += drawText(l.acceptance, x: marginX, topY: cursorTopY, width: contentWidth, font: bodyFont()) + 26
+        return baseline
+    }
 
-        // Signatures — kept together on one page
-        ensureSpace(118)
-        let colW = contentWidth * 0.42
-        let rightColX = marginX + contentWidth - colW
-        let bi = italic(NSFont.systemFont(ofSize: 9.5, weight: .bold))
-        var ly = cursorTopY, ry = cursorTopY
-        ly += drawText("For and on Behalf of", x: marginX, topY: ly, width: colW, font: bi) + 1
-        ly += drawText(l.companyName, x: marginX, topY: ly, width: colW, font: bi) + 44
-        ry += drawText("For and on Behalf of", x: rightColX, topY: ry, width: colW, font: bi) + 1
-        ry += drawText(l.clientName, x: rightColX, topY: ry, width: colW, font: bi) + 44
-        let lineY = max(ly, ry)
-        drawLine(fromX: marginX, fromTopY: lineY, toX: marginX + colW, toTopY: lineY, color: .black, width: 0.7)
-        drawLine(fromX: rightColX, fromTopY: lineY, toX: rightColX + colW, toTopY: lineY, color: .black, width: 0.7)
-        var sy = lineY + 4
-        if let name = l.signatoryName { sy += drawText(name, x: marginX, topY: sy, width: colW, font: bi) + 1 }
-        if let title = l.signatoryTitle { drawText(title, x: marginX, topY: sy, width: colW, font: bi) }
-        drawText("Position   :", x: rightColX, topY: lineY + 4, width: colW, font: bi)
-        drawText("Date         :", x: rightColX, topY: lineY + 18, width: colW, font: bi)
-        cursorTopY = lineY + 48
+    private func drawSections(_ sections: [LetterSection]) {
+        var afterTable = true
+        for section in sections {
+            var baseline = cursor + (afterTable ? 27.0 : 33.0)
+            afterTable = false
+            if let heading = section.heading, !heading.isEmpty {
+                // Keep the heading with its first line.
+                if baseline + 26.25 > contentBottom {
+                    newPage()
+                    baseline = continuationBaseline
+                }
+                text(heading, x: textLeft, baseline: baseline, font: body(11, bold: true), underline: true)
+                cursor = baseline
+                baseline += 26.25
+            } else if baseline > contentBottom {
+                newPage()
+                baseline = continuationBaseline
+            }
+            var previousWasTerm = false
+            for (index, paragraph) in section.paragraphs.enumerated() {
+                switch paragraph {
+                case .text(let string, let link):
+                    if index > 0 { baseline = cursor + (previousWasTerm ? 33.0 : 26.25) }
+                    if baseline > contentBottom {
+                        newPage()
+                        baseline = continuationBaseline
+                    }
+                    cursor = drawParagraph(string, link: link, firstBaseline: baseline)
+                    previousWasTerm = false
+                case .term(let label, let lines):
+                    if index > 0 { baseline = cursor + (previousWasTerm ? bodyPitch : 26.25) }
+                    if baseline > contentBottom {
+                        newPage()
+                        baseline = continuationBaseline
+                    }
+                    cursor = drawTerm(label: label, lines: lines, firstBaseline: baseline)
+                    previousWasTerm = true
+                }
+            }
+        }
+    }
 
-        ensureSpace(20)
-        drawText("-[Remainder of this page is intentionally left blank]-", x: marginX, topY: cursorTopY, width: contentWidth,
-                 font: italic(bodyFont()), color: secondaryColor, alignment: .center)
+    // MARK: signatures and closing line
 
-        endLetterPage()
-        context.closePDF()
-        return mutableData as Data
+    /// "For and on Behalf of", a signing rule 75.75pt below, then the
+    /// party and name/position/date lines — kept together on one page.
+    private func drawSignatures(_ signatures: [LetterSignature], afterTable: Bool) {
+        guard !signatures.isEmpty else { return }
+        var baseline = cursor + (afterTable ? 30.0 : 32.25)
+        let maxLines = signatures.map { $0.lines.count }.max() ?? 0
+        let blockHeight = 75.75 + 39.0 + CGFloat(max(0, maxLines - 3)) * 14.0 + 6
+        if baseline + blockHeight > contentBottom {
+            newPage()
+            baseline = continuationBaseline
+        }
+        let font = times(10.5, bold: true, italic: true)
+        let columns: [(textX: CGFloat, ruleX: CGFloat, ruleWidth: CGFloat, colonX: CGFloat)] = [
+            (48.75 + dx, 43.5 + dx, 225.75, 120.75 + dx),
+            (331.5 + dx, 326.25 + dx, 225.0, 403.5 + dx),
+        ]
+        let offsets: [CGFloat] = [11.25, 24.75, 39.0]
+        var lowest = baseline
+        for (i, signature) in signatures.prefix(2).enumerated() {
+            let column = columns[i]
+            text(signature.heading, x: column.textX, baseline: baseline, font: font)
+            let ruleY = baseline + 75.75
+            fill(column.ruleX, ruleY, column.ruleWidth, 0.75, .black)
+            for (j, line) in signature.lines.enumerated() {
+                let lineBaseline = ruleY + (j < offsets.count ? offsets[j] : 39.0 + CGFloat(j - 2) * 14.0)
+                text(line.text, x: column.textX, baseline: lineBaseline, font: font)
+                if line.colon {
+                    text(":", x: column.colonX, baseline: lineBaseline, font: font)
+                    if let value = line.value, !value.isEmpty {
+                        text(value, x: column.colonX + 8, baseline: lineBaseline, font: font)
+                    }
+                }
+                lowest = max(lowest, lineBaseline)
+            }
+        }
+        cursor = lowest
+    }
+
+    private func drawClosingLine(_ line: String) {
+        var baseline = cursor + 69.0
+        if baseline > contentBottom {
+            newPage()
+            baseline = continuationBaseline
+        }
+        text(line, x: pageWidth / 2, baseline: baseline, font: times(10.5, italic: true), align: .center)
+        cursor = baseline
     }
 
     // MARK: entry point
 
-    private var genericPage = 0
-
-    private func beginNumberedPage() {
+    func generate(_ doc: LetterDocument) -> Data {
+        pageNumber = 0
         beginPage()
-        genericPage += 1
-    }
-
-    /// "INVOICE H26012 · Page 2" at the foot of every page.
-    private func endNumberedPage(_ spec: PDFDocumentSpec) {
-        drawText("\(spec.kind.capitalized) \(spec.number)  ·  Page \(genericPage)", x: marginX, topY: pageHeight - marginBottom + 22,
-                 width: contentWidth, font: smallFont(), color: secondaryColor, alignment: .right)
+        drawOpening(doc)
+        drawTable(doc)
+        drawSections(doc.sections)
+        drawSignatures(doc.signatures, afterTable: doc.sections.isEmpty)
+        if let closing = doc.closingLine { drawClosingLine(closing) }
         endPage()
-    }
-
-    /// Renders the whole document, paginating the table and repeating
-    /// its column header on every page (section 27), and keeping the
-    /// totals/notes/signature block together as a unit — pushing the
-    /// whole block to a fresh page if it wouldn't otherwise fit.
-    func generate(spec: PDFDocumentSpec, company: CompanySettings) -> Data {
-        genericPage = 0
-        beginNumberedPage()
-        drawDocumentHeader(spec: spec, company: company)
-        drawTableColumnHeader(columns: spec.columns)
-
-        for row in spec.rows {
-            let height = tableRowHeight(row, columns: spec.columns)
-            if cursorTopY + height > pageHeight - marginBottom {
-                drawContinuedNote()
-                endNumberedPage(spec)
-                beginNumberedPage()
-                drawContinuationHeader(spec: spec, company: company)
-                drawTableColumnHeader(columns: spec.columns)
-            }
-            drawTableRow(row, columns: spec.columns, height: height)
-        }
-
-        if spec.rows.isEmpty {
-            cursorTopY += drawText("No line items.", x: marginX, topY: cursorTopY + 4, width: contentWidth, font: bodyFont(), color: secondaryColor) + 8
-        }
-
-        let footerHeight = estimateFooterHeight(spec: spec)
-        if cursorTopY + footerHeight > pageHeight - marginBottom {
-            endNumberedPage(spec)
-            beginNumberedPage()
-            drawContinuationHeader(spec: spec, company: company)
-        }
-        drawTotalsAndFooter(spec: spec)
-
-        endNumberedPage(spec)
         context.closePDF()
         return mutableData as Data
     }
@@ -5686,20 +5788,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     // MARK: PDF export (Phase 13)
 
-    /// Shared by every document type: renders the PDF, saves it into the
-    /// project's own folder under a meaningful filename (sections 31-32),
-    /// and opens it so the person can see the result immediately.
     /// Shared by every document type. Export: renders the PDF, saves it
     /// into the project's own folder under a meaningful filename
     /// (sections 31-32) and opens it. Print: renders the same PDF and
     /// opens the standard macOS print dialog (section 54) — nothing saved.
-    private func exportAndOpenPDF(id: String, mode: PDFMode, spec: PDFDocumentSpec, company: CompanySettings, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String) {
-        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: projectNumber, subfolder: subfolder,
-                           documentNumber: documentNumber, docTypeTag: docTypeTag) { generator in
-            generator.generate(spec: spec, company: company)
-        }
-    }
-
     private func deliverRenderedPDF(id: String, mode: PDFMode, company: CompanySettings, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String, render: (PDFGenerator) -> Data) {
         let paper = company.paperSize ?? "A4"
         guard let generator = PDFGenerator(paperSize: paper) else {
@@ -5745,75 +5837,140 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
     }
 
-    /// Full "Bill To" block from the project's client record (sections
-    /// 21-22: billing information on quotations and invoices).
-    private func partyBillTo(projectNumber: String) -> [String] {
-        guard let project = db.getProjectByNumber(projectNumber), let c = db.getClient(id: project.clientId) else { return [] }
-        var lines = [c.companyName]
-        if let v = nonBlank(c.contactPerson) { lines.append("Attn: \(v)") }
-        if let v = nonBlank(c.billingInfo) {
-            lines.append(contentsOf: v.components(separatedBy: "\n").filter { nonBlank($0) != nil })
+    // MARK: Documents in the letterhead layout (from Qt26193)
+
+    /// "HK$" for Hong Kong dollars (as on the original), otherwise the code.
+    private func currencySymbol(_ company: CompanySettings) -> String {
+        company.currency == "HKD" ? "HK$" : company.currency
+    }
+
+    /// "22 Sep 2026", as on the original.
+    private func letterDate(_ iso: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_GB")
+        formatter.dateFormat = "d MMM yyyy"
+        if let date = isoFormatter.date(from: iso) ?? isoFromDay(iso).flatMap({ isoFormatter.date(from: $0) }) {
+            return formatter.string(from: date)
+        }
+        return iso
+    }
+
+    /// The client block at the top left: company name, then the billing
+    /// information (or address), then "Attn:" if there's a contact.
+    private func clientBlock(projectNumber: String, fallbackName: String?) -> (name: String, lines: [String]) {
+        guard let project = db.getProjectByNumber(projectNumber), let c = db.getClient(id: project.clientId) else {
+            return (fallbackName ?? "", [])
+        }
+        var lines: [String] = []
+        if let billing = nonBlank(c.billingInfo) {
+            lines = billing.components(separatedBy: "\n").compactMap { nonBlank($0) }
         } else {
             if let v = nonBlank(c.address) { lines.append(v) }
             let cityLine = [c.city, c.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
             if !cityLine.isEmpty { lines.append(cityLine) }
             if let v = nonBlank(c.country) { lines.append(v) }
         }
-        if let v = nonBlank(c.vatNumber) { lines.append("VAT/Tax No.: \(v)") }
-        return lines
+        if let v = nonBlank(c.contactPerson) { lines.append("Attn: \(v)") }
+        return (c.companyName, lines)
     }
 
-    private func partySiteLines(projectNumber: String) -> [String] {
-        guard let project = db.getProjectByNumber(projectNumber), let st = db.getSite(id: project.siteId) else { return [] }
-        var lines = [st.name]
-        if let v = nonBlank(st.address) { lines.append(v) }
-        let cityLine = [st.city, st.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
-        if !cityLine.isEmpty { lines.append(cityLine) }
-        if let v = nonBlank(st.contactPerson) { lines.append("Contact: \(v)\(nonBlank(st.phone).map { ", \($0)" } ?? "")") }
-        return lines
+    /// The site's own reference, or its name.
+    private func siteReference(projectNumber: String) -> String {
+        guard let project = db.getProjectByNumber(projectNumber), let site = db.getSite(id: project.siteId) else { return "" }
+        return nonBlank(site.siteReference) ?? site.name
     }
+
+    /// "For and on Behalf of" the company, with the signatory from Settings.
+    private func companySignature(_ company: CompanySettings) -> LetterSignature {
+        var lines = [LetterSignatureLine(text: company.companyName)]
+        if let name = nonBlank(company.signatoryName) { lines.append(LetterSignatureLine(text: name)) }
+        if let title = nonBlank(company.signatoryTitle) { lines.append(LetterSignatureLine(text: title)) }
+        return LetterSignature(heading: "For and on Behalf of", lines: lines)
+    }
+
+    private func remarks(_ notes: String?) -> [LetterSection] {
+        guard let notes = nonBlank(notes) else { return [] }
+        return [LetterSection(heading: "Remarks", paragraphs: [.text(notes, link: nil)])]
+    }
+
+    /// The numbered terms from Settings: a line starting "(" begins a term
+    /// ("(i) Payment : …"); other lines continue the one above.
+    private func parseTerms(_ text: String) -> [LetterParagraph] {
+        var terms: [(label: String?, lines: [String])] = []
+        for raw in text.components(separatedBy: "\n") {
+            guard let line = nonBlank(raw) else { continue }
+            if line.hasPrefix("("), let colon = line.range(of: ":") {
+                let label = line[..<colon.lowerBound].trimmingCharacters(in: .whitespaces)
+                let rest = line[colon.upperBound...].trimmingCharacters(in: .whitespaces)
+                terms.append((label: label, lines: [rest]))
+            } else if !terms.isEmpty {
+                terms[terms.count - 1].lines.append(line)
+            } else {
+                terms.append((label: nil, lines: [line]))
+            }
+        }
+        return terms.map { .term(label: $0.label, lines: $0.lines) }
+    }
+
+    /// Materials numbered 1, 2, 3…; lines in the "Delivery" section go
+    /// under a "Delivery Charges" heading, numbered D1, D2… (as on Qt26193).
+    private func pricedRows(_ lines: [(description: String, unit: String, quantity: Double, price: Double, isDelivery: Bool)], rateSuffix: (String) -> String) -> (materials: [LetterTableRow], delivery: [LetterTableRow]) {
+        var materials: [LetterTableRow] = []
+        var delivery: [LetterTableRow] = []
+        for line in lines {
+            let total = formatMoney(doubleOf(lineAmount(quantity: line.quantity, unitPrice: line.price)))
+            if line.isDelivery {
+                delivery.append(.item(["D\(delivery.count + 1)", line.description, "\(formatMoney(line.price)) /\(line.unit)", formatQuantity(line.quantity), total]))
+            } else {
+                materials.append(.item([String(materials.count + 1), line.description, "\(formatMoney(line.price))\(rateSuffix(line.unit))", formatQuantity(line.quantity), total]))
+            }
+        }
+        return (materials, delivery)
+    }
+
+    private let pricedColumns = [
+        LetterColumn(title: "No", width: 29.25, kind: .center),
+        LetterColumn(title: "Item Description", width: 219.75, kind: .left),
+        LetterColumn(title: "Unit Rate", width: 110.25, kind: .money),
+        LetterColumn(title: "Qty", width: 39.0, kind: .center),
+        LetterColumn(title: "Total Price", width: 108.75, kind: .money),
+    ]
 
     private func handleExportBOQPDF(id: String, boqId: String, mode: PDFMode = .export) {
         guard let detail = db.getBOQDetail(id: boqId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "BOQ not found.", path: nil))
             return
         }
-        guard let project = db.getProjectByNumber(detail.projectNumber) else {
-            respond(id: id, encodable: PDFExportResult(ok: false, error: "Project not found.", path: nil))
-            return
-        }
-        let client = db.getClient(id: project.clientId)
-        let site = db.getSite(id: project.siteId)
         let company = db.getCompanySettings()
-
+        let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: nil)
         let columns = [
-            PDFColumn(title: "No.", widthFraction: 0.07, alignment: .left),
-            PDFColumn(title: "Description", widthFraction: 0.47, alignment: .left),
-            PDFColumn(title: "Unit", widthFraction: 0.10, alignment: .left),
-            PDFColumn(title: "Qty", widthFraction: 0.10, alignment: .right),
-            PDFColumn(title: "Weight (kg)", widthFraction: 0.13, alignment: .right),
-            PDFColumn(title: "Total Weight (kg)", widthFraction: 0.13, alignment: .right),
+            LetterColumn(title: "No", width: 29.25, kind: .center),
+            LetterColumn(title: "Item Description", width: 219.75, kind: .left),
+            LetterColumn(title: "Unit", width: 50.0, kind: .center),
+            LetterColumn(title: "Qty", width: 50.0, kind: .center),
+            LetterColumn(title: "Unit Wt (kg)", width: 75.0, kind: .right),
+            LetterColumn(title: "Total Wt (kg)", width: 83.0, kind: .right),
         ]
-        let rows = detail.lineItems.enumerated().map { index, item -> [String] in
-            let weightText = item.weightKg.map { formatMoney($0) } ?? "—"
-            let totalWeightText = item.weightKg.map { formatMoney($0 * item.quantity) } ?? "—"
-            return [String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity), weightText, totalWeightText]
+        var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
+            .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity),
+                   item.weightKg.map { formatMoney($0) } ?? "—",
+                   item.weightKg.map { formatMoney($0 * item.quantity.rounded()) } ?? "—"])
         }
-        _ = (client, site)
-        let billTo = partyBillTo(projectNumber: detail.projectNumber)
-        let siteLines = partySiteLines(projectNumber: detail.projectNumber)
+        rows.append(.summary(label: "Total Weight:", value: "\(formatMoney(detail.totalWeightKg)) kg", emphasized: true))
 
-        let spec = PDFDocumentSpec(
-            kind: "BILL OF QUANTITIES", number: detail.boqNumber, status: detail.status,
-            dateLabel: "Date", dateValue: formatDateForDisplay(detail.createdAt),
-            metaLines: [("Pricing", detail.pricingMode), ("Project", "\(detail.projectNumber) — \(detail.projectName)")]
-                + (detail.structure.map { [("Structure", $0)] } ?? []),
-            billToLines: billTo, siteLines: siteLines, columns: columns, rows: rows,
-            totals: [("Total Weight", "\(formatMoney(detail.totalWeightKg)) kg", true)],
-            notes: detail.notes, signatureLeftLabel: nil, signatureRightLabel: nil, paymentInfoLines: nil
+        let letter = LetterDocument(
+            number: detail.boqNumber, status: detail.status, title: "BILL OF QUANTITIES",
+            clientName: client.name, clientLines: client.lines,
+            refRows: [("BOQ No.", detail.boqNumber), ("Project No.", detail.projectNumber),
+                      ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.createdAt))],
+            deliveryMethod: nil, salutation: nil,
+            subject: "Re: \(detail.projectNumber) \(detail.projectName) - \(detail.pricingMode)",
+            intro: detail.structure.flatMap { nonBlank($0) }.map { "Structure: \($0)" },
+            currencySymbol: currencySymbol(company), columns: columns, rows: rows,
+            sections: remarks(detail.notes), signatures: [], closingLine: nil
         )
-
-        exportAndOpenPDF(id: id, mode: mode, spec: spec, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ", documentNumber: detail.boqNumber, docTypeTag: "BOQ")
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ",
+                           documentNumber: detail.boqNumber, docTypeTag: "BOQ") { $0.generate(letter) }
     }
 
     private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
@@ -5822,77 +5979,64 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
-        let cur = company.currency == "HKD" ? "HK$" : company.currency
         let isRental = detail.pricingMode == "Rental"
-        let per = isRental ? " /Month" : ""
-        let project = db.getProjectByNumber(detail.projectNumber)
-        let client = project.flatMap { db.getClient(id: $0.clientId) }
+        let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
 
-        var clientLines: [String] = []
-        if let c = client {
-            if let b = nonBlank(c.billingInfo) {
-                clientLines = b.components(separatedBy: "\n").filter { nonBlank($0) != nil }
-            } else {
-                if let a = nonBlank(c.address) { clientLines.append(a) }
-                let cityLine = [c.city, c.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
-                if !cityLine.isEmpty { clientLines.append(cityLine) }
-                if let v = nonBlank(c.country) { clientLines.append(v) }
-            }
-            if let v = nonBlank(c.contactPerson) { clientLines.append("Attn: \(v)") }
-        }
-
-        let materials = detail.lineItems.filter { $0.section != "Delivery" }
-        let deliveries = detail.lineItems.filter { $0.section == "Delivery" }
-        func amount(_ q: Double, _ p: Double) -> String { "\(cur) \(formatMoney(doubleOf(lineAmount(quantity: q, unitPrice: p))))" }
-        let materialRows = materials.enumerated().map { i, item in
-            QuotationLetterRow(no: String(i + 1), description: item.itemDescription,
-                               unitRate: "\(cur) \(formatMoney(item.appliedUnitPrice))\(per)",
-                               qty: formatQuantity(item.quantity), total: amount(item.quantity, item.appliedUnitPrice))
-        }
-        let deliveryRows = deliveries.enumerated().map { i, item in
-            QuotationLetterRow(no: "D\(i + 1)", description: item.itemDescription,
-                               unitRate: "\(cur) \(formatMoney(item.appliedUnitPrice)) /\(item.unit)",
-                               qty: formatQuantity(item.quantity), total: amount(item.quantity, item.appliedUnitPrice))
-        }
-        var summary: [(label: String, value: String)] = []
+        let priced = pricedRows(detail.lineItems.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
+                                                         price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery") },
+                                rateSuffix: { _ in isRental ? " /Month" : "" })
+        var rows = priced.materials
         if isRental {
-            summary.append(("Subtotal of Monthly Rental Charge:", "\(cur) \(formatMoney(detail.materialsSubtotal))"))
-            summary.append(("Minimum Hire of \(detail.hireMonths) Month\(detail.hireMonths == 1 ? "" : "s"):", "\(cur) \(formatMoney(detail.materialsCharge))"))
-        } else if !materials.isEmpty {
-            summary.append(("Subtotal:", "\(cur) \(formatMoney(detail.materialsSubtotal))"))
+            rows.append(.summary(label: "Subtotal of Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
+            rows.append(.summary(label: "Minimum Hire of \(detail.hireMonths) Month\(detail.hireMonths == 1 ? "" : "s"):", value: formatMoney(detail.materialsCharge), emphasized: false))
+        } else if !priced.materials.isEmpty {
+            rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
         }
-        var finals: [(label: String, value: String)] = []
-        if detail.discountAmount > 0 { finals.append(("Less Discount:", "-\(cur) \(formatMoney(detail.discountAmount))")) }
+        if !priced.delivery.isEmpty {
+            rows.append(.section("Delivery Charges"))
+            rows += priced.delivery
+        }
+        if detail.discountAmount > 0 {
+            rows.append(.summary(label: "Less Discount:", value: "-\(formatMoney(detail.discountAmount))", emphasized: false))
+        }
         if detail.taxAmount > 0 {
-            finals.append(((company.pricesIncludeTax ?? false) ? "Tax / VAT included:" : "Tax / VAT (\(formatMoney(detail.taxRatePercent))%):", "\(cur) \(formatMoney(detail.taxAmount))"))
+            let label = (company.pricesIncludeTax ?? false) ? "Tax / VAT included:" : "Tax / VAT (\(formatMoney(detail.taxRatePercent))%):"
+            rows.append(.summary(label: label, value: formatMoney(detail.taxAmount), emphasized: false))
         }
-        finals.append(("Total Amount:", "\(cur) \(formatMoney(detail.total))"))
+        rows.append(.summary(label: "Total Amount:", value: formatMoney(detail.total), emphasized: true))
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_GB")
-        dateFormatter.dateFormat = "d MMM yyyy"
-        let date = isoFormatter.date(from: detail.quotationDate).map { dateFormatter.string(from: $0) } ?? detail.quotationDate
-
-        var terms = (company.quotationTerms ?? defaultQuotationTerms).components(separatedBy: "\n")
-        if let pt = detail.paymentTerms, !pt.isEmpty, company.quotationTerms == nil, pt != company.defaultPaymentTerms {
-            terms.append("Payment terms for this quotation : \(pt)")
+        var terms: [LetterParagraph] = []
+        if let url = nonBlank(company.termsURL) {
+            terms.append(.text("The terms and conditions set out in \(url) are hereby expressively incorporated into this quotation with other relevant key terms set forth below.", link: url))
         }
-        let letter = QuotationLetter(
-            number: detail.quotationNumber, status: detail.status, date: date,
-            clientName: client?.companyName ?? detail.clientName ?? "",
-            clientLines: clientLines, yourRef: detail.clientRef, siteRef: detail.siteRef ?? detail.siteName,
-            deliveryMethod: detail.deliveryMethod,
-            subject: detail.subject ?? "\(detail.projectName) - \(detail.pricingMode)",
-            materialRows: materialRows, deliveryRows: deliveryRows, materialSummary: summary, finalRows: finals,
-            termsURL: company.termsURL, terms: terms,
-            acceptance: company.quotationAcceptance ?? defaultQuotationAcceptance,
-            notes: detail.notes, companyName: company.companyName,
-            signatoryName: company.signatoryName, signatoryTitle: company.signatoryTitle
+        terms += parseTerms(company.quotationTerms ?? defaultQuotationTerms)
+        if let pt = nonBlank(detail.paymentTerms), company.quotationTerms == nil, pt != company.defaultPaymentTerms {
+            terms.append(.text("Payment terms for this quotation: \(pt)", link: nil))
+        }
+        terms.append(.text(company.quotationAcceptance ?? defaultQuotationAcceptance, link: nil))
+
+        let letter = LetterDocument(
+            number: detail.quotationNumber, status: detail.status, title: "QUOTATION",
+            clientName: client.name, clientLines: client.lines,
+            refRows: [("Our Ref. No.", detail.quotationNumber), ("Your Ref. No.", detail.clientRef ?? ""),
+                      ("Site Ref.", nonBlank(detail.siteRef) ?? detail.siteName ?? ""), ("Date", letterDate(detail.quotationDate))],
+            deliveryMethod: nonBlank(detail.deliveryMethod), salutation: "Dear Sir / Madam,",
+            subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
+            intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
+            currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
+            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms)],
+            signatures: [
+                companySignature(company),
+                LetterSignature(heading: "For and on Behalf of", lines: [
+                    LetterSignatureLine(text: client.name),
+                    LetterSignatureLine(text: "Position", colon: true),
+                    LetterSignatureLine(text: "Date", colon: true),
+                ]),
+            ],
+            closingLine: "-[Remainder of this page is intentionally left blank]-"
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
-                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation") { generator in
-            generator.generateQuotationLetter(letter, company: company)
-        }
+                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation") { $0.generate(letter) }
     }
 
     private func handleExportInvoicePDF(id: String, invoiceId: String, mode: PDFMode = .export) {
@@ -5901,43 +6045,52 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
-        let columns = [
-            PDFColumn(title: "No.", widthFraction: 0.07, alignment: .left),
-            PDFColumn(title: "Description", widthFraction: 0.45, alignment: .left),
-            PDFColumn(title: "Unit", widthFraction: 0.09, alignment: .left),
-            PDFColumn(title: "Qty", widthFraction: 0.10, alignment: .right),
-            PDFColumn(title: "Unit Price", widthFraction: 0.14, alignment: .right),
-            PDFColumn(title: "Total", widthFraction: 0.15, alignment: .right),
-        ]
-        let rows = detail.lineItems.enumerated().map { index, item -> [String] in
-            [String(index + 1), item.itemDescription, item.unit, formatQuantity(item.quantity), formatMoney(item.appliedUnitPrice), formatMoney(doubleOf(lineAmount(quantity: item.quantity, unitPrice: item.appliedUnitPrice)))]
+        let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
+
+        let priced = pricedRows(detail.lineItems.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
+                                                         price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery") },
+                                rateSuffix: { unit in unit.isEmpty || unit == "pc" ? "" : " /\(unit)" })
+        var rows = priced.materials
+        if !priced.delivery.isEmpty {
+            rows.append(.section("Delivery Charges"))
+            rows += priced.delivery
         }
-        let billTo = partyBillTo(projectNumber: detail.projectNumber)
-        let siteLines = partySiteLines(projectNumber: detail.projectNumber)
+        // A subtotal only when something is taken off or added on.
+        if detail.discountAmount > 0 || detail.taxAmount > 0 {
+            rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.subtotal), emphasized: false))
+        }
+        if detail.discountAmount > 0 {
+            rows.append(.summary(label: "Less Discount:", value: "-\(formatMoney(detail.discountAmount))", emphasized: false))
+        }
+        if detail.taxAmount > 0 {
+            let label = (company.pricesIncludeTax ?? false) ? "Tax / VAT included:" : "Tax / VAT (\(formatMoney(detail.taxRatePercent))%):"
+            rows.append(.summary(label: label, value: formatMoney(detail.taxAmount), emphasized: false))
+        }
+        rows.append(.summary(label: "Total Amount:", value: formatMoney(detail.total), emphasized: true))
+        if detail.amountPaid > 0 {
+            rows.append(.summary(label: "Less Amount Paid:", value: "-\(formatMoney(detail.amountPaid))", emphasized: false))
+            rows.append(.summary(label: "Balance Due:", value: formatMoney(detail.balanceDue), emphasized: true))
+        }
 
-        var metaLines: [(String, String)] = [("Project", "\(detail.projectNumber) — \(detail.projectName)")]
-        if let due = detail.dueDate, !due.isEmpty { metaLines.append(("Due Date", formatDateForDisplay(isoFromDay(due) ?? due))) }
-        if let terms = detail.paymentTerms, !terms.isEmpty { metaLines.append(("Payment Terms", terms)) }
+        var payment: [LetterParagraph] = []
+        if let terms = nonBlank(detail.paymentTerms) { payment.append(.text("Payment terms: \(terms)", link: nil)) }
+        if let bank = nonBlank(company.bankDetails) { payment.append(.text(bank, link: nil)) }
+        var sections = remarks(detail.notes)
+        if !payment.isEmpty { sections.append(LetterSection(heading: "Payment Information", paragraphs: payment)) }
 
-        var totals: [(String, String, Bool)] = [("Subtotal", "\(company.currency) \(formatMoney(detail.subtotal))", false)]
-        if detail.discountAmount > 0 { totals.append(("Discount", "-\(company.currency) \(formatMoney(detail.discountAmount))", false)) }
-        if detail.taxAmount > 0 { totals.append(("Tax / VAT", "\(company.currency) \(formatMoney(detail.taxAmount))", false)) }
-        totals.append(("Total", "\(company.currency) \(formatMoney(detail.total))", true))
-        totals.append(("Paid", "\(company.currency) \(formatMoney(detail.amountPaid))", false))
-        totals.append(("Balance Due", "\(company.currency) \(formatMoney(detail.balanceDue))", true))
+        var refRows: [(label: String, value: String)] = [("Invoice No.", detail.invoiceNumber), ("Project No.", detail.projectNumber),
+                                                         ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.invoiceDate))]
+        if let due = nonBlank(detail.dueDate) { refRows.append(("Due Date", letterDate(due))) }
 
-        var paymentInfo: [String]? = nil
-        if let bank = company.bankDetails, !bank.isEmpty { paymentInfo = bank.components(separatedBy: "\n") }
-
-        let spec = PDFDocumentSpec(
-            kind: "INVOICE", number: detail.invoiceNumber, status: detail.status,
-            dateLabel: "Invoice Date", dateValue: formatDateForDisplay(detail.invoiceDate),
-            metaLines: metaLines, billToLines: billTo, siteLines: siteLines, columns: columns, rows: rows,
-            totals: totals, notes: detail.notes, signatureLeftLabel: nil, signatureRightLabel: nil,
-            paymentInfoLines: paymentInfo
+        let letter = LetterDocument(
+            number: detail.invoiceNumber, status: detail.status, title: "INVOICE",
+            clientName: client.name, clientLines: client.lines, refRows: refRows,
+            deliveryMethod: nil, salutation: nil, subject: "Re: \(detail.projectNumber) \(detail.projectName)", intro: nil,
+            currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
+            sections: sections, signatures: [companySignature(company)], closingLine: nil
         )
-
-        exportAndOpenPDF(id: id, mode: mode, spec: spec, company: company, projectNumber: detail.projectNumber, subfolder: "Invoices", documentNumber: detail.invoiceNumber, docTypeTag: "Invoice")
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Invoices",
+                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice") { $0.generate(letter) }
     }
 
     private func handleExportDeliveryNotePDF(id: String, deliveryNoteId: String, mode: PDFMode = .export) {
@@ -5946,36 +6099,42 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
+        let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
         let columns = [
-            PDFColumn(title: "No.", widthFraction: 0.08, alignment: .left),
-            PDFColumn(title: "Description", widthFraction: 0.57, alignment: .left),
-            PDFColumn(title: "Unit", widthFraction: 0.15, alignment: .left),
-            PDFColumn(title: "Qty", widthFraction: 0.20, alignment: .right),
+            LetterColumn(title: "No", width: 29.25, kind: .center),
+            LetterColumn(title: "Item Description", width: 327.75, kind: .left),
+            LetterColumn(title: "Unit", width: 75.0, kind: .center),
+            LetterColumn(title: "Qty", width: 75.0, kind: .center),
         ]
-        let rows = detail.lineItems.enumerated().map { index, item -> [String] in
-            [String(index + 1), item.itemDescription, item.unit, formatQuantity(item.quantity)]
+        let rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
+            .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity)])
         }
-        let billTo = partyBillTo(projectNumber: detail.projectNumber)
-        var siteLines = partySiteLines(projectNumber: detail.projectNumber)
-        // Only printed separately when it differs from the site's own
-        // address (new notes start with the site address filled in).
-        let siteAddress = db.getProjectByNumber(detail.projectNumber).flatMap { db.getSite(id: $0.siteId) }
-            .map { [$0.address, $0.city, $0.postalCode].compactMap { nonBlank($0) }.joined(separator: ", ") } ?? ""
-        if let addr = nonBlank(detail.deliveryAddress), addr != siteAddress { siteLines.append("Deliver to: \(addr)") }
 
-        let metaLines: [(String, String)] = [("Project", "\(detail.projectNumber) — \(detail.projectName)")]
-
-        let spec = PDFDocumentSpec(
-            kind: "DELIVERY NOTE", number: detail.deliveryNoteNumber, status: detail.status,
-            dateLabel: "Delivery Date", dateValue: formatDateForDisplay(detail.deliveryDate),
-            metaLines: metaLines, billToLines: billTo, siteLines: siteLines, columns: columns, rows: rows,
-            totals: [], notes: detail.notes,
-            signatureLeftLabel: "Delivered By: \(detail.deliveredBy ?? "________________")",
-            signatureRightLabel: "Received By: \(detail.receivedBy ?? "________________")",
-            paymentInfoLines: nil
+        let letter = LetterDocument(
+            number: detail.deliveryNoteNumber, status: detail.status, title: "DELIVERY NOTE",
+            clientName: client.name, clientLines: client.lines,
+            refRows: [("D/N No.", detail.deliveryNoteNumber), ("Project No.", detail.projectNumber),
+                      ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.deliveryDate))],
+            deliveryMethod: nil, salutation: nil, subject: "Re: \(detail.projectNumber) \(detail.projectName)",
+            intro: nonBlank(detail.deliveryAddress).map { "Delivery address: \($0)" },
+            currencySymbol: currencySymbol(company), columns: columns, rows: rows,
+            sections: remarks(detail.notes),
+            signatures: [
+                LetterSignature(heading: "Delivered by", lines: [
+                    LetterSignatureLine(text: company.companyName),
+                    LetterSignatureLine(text: "Name", colon: true, value: nonBlank(detail.deliveredBy)),
+                    LetterSignatureLine(text: "Date", colon: true),
+                ]),
+                LetterSignature(heading: "Received in good condition by", lines: [
+                    LetterSignatureLine(text: client.name),
+                    LetterSignatureLine(text: "Name", colon: true, value: nonBlank(detail.receivedBy)),
+                    LetterSignatureLine(text: "Date", colon: true),
+                ]),
+            ],
+            closingLine: nil
         )
-
-        exportAndOpenPDF(id: id, mode: mode, spec: spec, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes", documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote")
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
+                           documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote") { $0.generate(letter) }
     }
 
     private func projectListEntries() -> [ProjectListEntry] {
@@ -6590,12 +6749,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     var storage: FileStorage!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        registerBundledFonts()
         setupDataLayer()
         setupWindow()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    /// EB Garamond — the documents' body font (as on the company's
+    /// quotation) — ships inside the app, in resources/fonts, under the
+    /// SIL Open Font License. Registered for this app only.
+    private func registerBundledFonts() {
+        guard let folder = Bundle.main.resourceURL?.appendingPathComponent("resources/fonts", isDirectory: true),
+              let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
+        for url in files where ["ttf", "otf"].contains(url.pathExtension.lowercased()) {
+            _ = CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
     }
 
     private func setupDataLayer() {
