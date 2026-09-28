@@ -496,6 +496,7 @@ extension Quotation {
         deliveryMethod = try c.decodeIfPresent(String.self, forKey: .deliveryMethod)
         minimumHireMonths = try c.decodeIfPresent(Int.self, forKey: .minimumHireMonths)
         minimumHireEnabled = try c.decodeIfPresent(Bool.self, forKey: .minimumHireEnabled)
+        markupPercent = try c.decodeIfPresent(Double.self, forKey: .markupPercent)
         pdfPath = try c.decodeIfPresent(String.self, forKey: .pdfPath)
     }
 }
@@ -555,6 +556,16 @@ func lineDiscountNote(discountType: String?, discountValue: Double?, currencySym
     case "Amount": return "Less \(currencySymbol) \(formatMoney(value)) discount"
     default: return nil
     }
+}
+
+/// A unit price with a quotation's markup applied, rounded to the nearest
+/// 0.1 (5.50 +30% → 7.20). Unchanged when there's no markup.
+func markedUpPrice(_ price: Double, markupPercent: Double?) -> Double {
+    guard let markup = markupPercent, markup > 0 else { return price }
+    var value = decimalOf(price) * (1 + decimalOf(markup) / 100)
+    var rounded = Decimal()
+    NSDecimalRound(&rounded, &value, 1, .plain)
+    return doubleOf(rounded)
 }
 
 struct MoneyTotals {
@@ -710,6 +721,9 @@ struct Quotation: Codable {
     /// Whether this quotation has a minimum hire period at all. nil =
     /// saved before this option existed, when every rental quotation had one.
     var minimumHireEnabled: Bool?
+    /// Markup on every item's unit price (e.g. 30 = +30%), each marked-up
+    /// price rounded to the nearest 0.1. Delivery charges aren't marked up.
+    var markupPercent: Double?
     /// The last PDF exported for this document (sections 31-32).
     var pdfPath: String?
 }
@@ -789,6 +803,11 @@ struct QuotationDetail: Codable {
     var minimumHireEnabled: Bool
     /// The months used when it does.
     var minimumHireMonths: Int
+    var markupPercent: Double?
+    /// Line id → unit price charged (after the markup).
+    var effectiveUnitPrices: [String: Double]
+    /// Line id → line total (after the markup and the line's discount).
+    var lineTotals: [String: Double]
 }
 
 struct QuotationActionResult: Codable {
@@ -1022,6 +1041,10 @@ struct CompanySettings: Codable {
     var exchangeRates: [String: Double]?
     /// Continue an existing sequence, e.g. ["QT": 194] after Qt26193.
     var numberStarts: [String: Int]?
+    /// Where a quotation's Terms and Conditions start: "WhenLong" (nil —
+    /// on a new page unless the whole quotation fits on one page) or
+    /// "Always" (always on a page of their own, as on Qt26193).
+    var termsNewPage: String?
 }
 
 let defaultQuotationTerms = """
@@ -1126,6 +1149,8 @@ struct LetterSection {
     /// Starts at the top of a new page unless the whole document fits on
     /// one page (the quotation's Terms and Conditions).
     var newPageUnlessSinglePage: Bool = false
+    /// Always starts at the top of a new page.
+    var alwaysNewPage: Bool = false
 }
 
 struct LetterSignatureLine {
@@ -1386,16 +1411,47 @@ let projectSubfolders = ["Drawings", "BOQ", "Quotations", "Invoices", "Delivery 
 final class FileStorage {
     let documentsRoot: URL
     let companyFolderName: String
+    /// Backups live with the database (Application Support/ScaffoldPro/
+    /// Backups, beside data/), not among the business files in Documents.
+    let backupsRoot: URL
 
-    init(documentsRoot: URL, companyFolderName: String) {
+    init(documentsRoot: URL, companyFolderName: String, backupsRoot: URL) {
         self.documentsRoot = documentsRoot
         self.companyFolderName = companyFolderName
+        self.backupsRoot = backupsRoot
     }
 
     var appRoot: URL { documentsRoot.appendingPathComponent(companyFolderName, isDirectory: true) }
     var projectsRoot: URL { appRoot.appendingPathComponent("Projects", isDirectory: true) }
     var administrationRoot: URL { appRoot.appendingPathComponent("Administration", isDirectory: true) }
-    var backupsRoot: URL { appRoot.appendingPathComponent("Backups", isDirectory: true) }
+    /// Where backups were kept before they moved in with the database.
+    var legacyBackupsRoot: URL { appRoot.appendingPathComponent("Backups", isDirectory: true) }
+
+    /// Moves backups made by earlier versions (in Documents/ScaffoldPro/
+    /// Backups) into the database's Backups folder, then removes the old
+    /// folder if nothing else is left in it.
+    func moveLegacyBackups() {
+        let fm = FileManager.default
+        guard legacyBackupsRoot.standardizedFileURL != backupsRoot.standardizedFileURL,
+              let names = try? fm.contentsOfDirectory(atPath: legacyBackupsRoot.path) else { return }
+        try? fm.createDirectory(at: backupsRoot, withIntermediateDirectories: true)
+        for name in names where name.hasPrefix("ScaffoldPro-Backup_") {
+            let source = legacyBackupsRoot.appendingPathComponent(name, isDirectory: true)
+            var destination = backupsRoot.appendingPathComponent(name, isDirectory: true)
+            var n = 2
+            while fm.fileExists(atPath: destination.path) {
+                destination = backupsRoot.appendingPathComponent("\(name)-\(n)", isDirectory: true)
+                n += 1
+            }
+            try? fm.moveItem(at: source, to: destination)
+        }
+        for name in (try? fm.contentsOfDirectory(atPath: legacyBackupsRoot.path)) ?? [] where name == ".DS_Store" || name.hasPrefix(".inprogress-") {
+            try? fm.removeItem(at: legacyBackupsRoot.appendingPathComponent(name))
+        }
+        if ((try? fm.contentsOfDirectory(atPath: legacyBackupsRoot.path)) ?? ["?"]).isEmpty {
+            try? fm.removeItem(at: legacyBackupsRoot)
+        }
+    }
 
     func ensureRootFoldersExist() {
         let folders = [
@@ -2419,11 +2475,19 @@ final class AppDatabase {
         var total: Double
     }
 
+    /// The unit price a quotation line is charged at: its price with the
+    /// quotation's markup (materials only, rounded to 0.1).
+    func effectiveUnitPrice(_ line: QuotationLineItem, _ q: Quotation) -> Double {
+        line.section == "Delivery" ? line.appliedUnitPrice : markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent)
+    }
+
+    func quotationLineTotal(_ line: QuotationLineItem, _ q: Quotation) -> Decimal {
+        netLineAmount(quantity: line.quantity, unitPrice: effectiveUnitPrice(line, q), discountType: line.discountType, discountValue: line.discountValue)
+    }
+
     func quotationMoney(_ q: Quotation, lineItems: [QuotationLineItem]) -> QuotationMoney {
         let months = hireMonths(q)
-        func net(_ line: QuotationLineItem) -> Decimal {
-            netLineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice, discountType: line.discountType, discountValue: line.discountValue)
-        }
+        func net(_ line: QuotationLineItem) -> Decimal { quotationLineTotal(line, q) }
         let materials = lineItems.filter { $0.section != "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
         let delivery = lineItems.filter { $0.section == "Delivery" }.reduce(Decimal(0)) { $0 + net($1) }
         let charge = materials * Decimal(months)
@@ -2581,7 +2645,10 @@ final class AppDatabase {
             hireMonths: hireMonths(q), materialsSubtotal: totals.materialsSubtotal, materialsCharge: totals.materialsCharge,
             deliveryTotal: totals.deliveryTotal, standardDeliveryCharge: getCompanySettings().standardDeliveryCharge,
             minimumHireEnabled: q.pricingMode == "Rental" && (q.minimumHireEnabled ?? true),
-            minimumHireMonths: max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2)
+            minimumHireMonths: max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2),
+            markupPercent: q.markupPercent,
+            effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
+            lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a })
         )
     }
 
@@ -2658,11 +2725,19 @@ final class AppDatabase {
         return nil
     }
 
-    func updateQuotationHeader(id: String, validUntil: String?, paymentTerms: String?, notes: String?, discountType: String, discountValue: Double, taxRatePercent: Double, pricingMode: String) -> String? {
+    /// `markupPercent` (+30 = +30% on every item, rounded to 0.1) and the
+    /// discount ("Percent" 15 = 15% off, "Fixed" 1000 = 1,000 off) come
+    /// from the editor's single "Markup / Discount" box; only one is set.
+    func updateQuotationHeader(id: String, validUntil: String?, paymentTerms: String?, notes: String?, discountType: String, discountValue: Double, taxRatePercent: Double, pricingMode: String, markupPercent: Double?) -> String? {
         var qs = quotationsStore.readAll()
         guard let index = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
         guard qs[index].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
         guard ["Sale", "Rental"].contains(pricingMode) else { return "Invalid pricing mode." }
+        guard ["None", "Percent", "Fixed"].contains(discountType) else { return "Invalid discount." }
+        guard discountValue >= 0, taxRatePercent >= 0 else { return "Enter amounts of zero or more." }
+        if discountType == "Percent" && discountValue > 100 { return "A discount can't be more than 100%." }
+        if let m = markupPercent, m < 0 || m > 1000 { return "Enter a markup between 0% and 1000%." }
+        qs[index].markupPercent = (markupPercent ?? 0) > 0 ? markupPercent : nil
 
         qs[index].validUntil = validUntil
         qs[index].paymentTerms = paymentTerms
@@ -2878,13 +2953,14 @@ final class AppDatabase {
         let charge = isRental ? " — \(invoice.rentalMonths ?? 1) month\((invoice.rentalMonths ?? 1) == 1 ? "" : "s") rental" : ""
         logActivity(projectId: projectId, "Invoice created from \(quotation.quotationNumber)\(charge)", reference: invoice.invoiceNumber)
 
+        // Prices as charged on the quotation (with its markup).
         let sourceItems = quotationLineItems(for: quotation.id).filter { includeDelivery || $0.section != "Delivery" }
         let copied: [InvoiceLineItem] = sourceItems.enumerated().map { index, item in
             InvoiceLineItem(
                 id: makeId("iitem"), invoiceId: invoice.id, sourceKey: item.sourceKey,
                 priceListItemId: item.priceListItemId, itemCode: item.itemCode,
                 itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
-                appliedUnitPrice: item.appliedUnitPrice, section: item.section, sortOrder: index,
+                appliedUnitPrice: effectiveUnitPrice(item, quotation), section: item.section, sortOrder: index,
                 discountType: item.discountType, discountValue: item.discountValue
             )
         }
@@ -3364,6 +3440,7 @@ final class AppDatabase {
         if let v = optionalText("quotationAcceptance") { settings.quotationAcceptance = v }
         if payload.keys.contains("standardDeliveryCharge") { settings.standardDeliveryCharge = payload["standardDeliveryCharge"] as? Double }
         if let v = payload["defaultMinimumHireMonths"] as? Int { settings.defaultMinimumHireMonths = max(1, v) }
+        if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
         if let rates = payload["exchangeRates"] as? [String: Any] {
             var clean: [String: Double] = settings.exchangeRates ?? [:]
             for (k, v) in rates { if let d = v as? Double, d > 0 { clean[k.uppercased()] = d } }
@@ -4499,7 +4576,7 @@ final class PDFGenerator {
         for section in sections {
             var baseline = cursor + (afterTable ? 27.0 : 33.0)
             afterTable = false
-            if section.newPageUnlessSinglePage && documentIsLong {
+            if section.alwaysNewPage || (section.newPageUnlessSinglePage && documentIsLong) {
                 newPage()
                 baseline = continuationBaseline
             }
@@ -4979,9 +5056,10 @@ enum PriceSheetInterpreter {
 // =====================================================================
 // MARK: - Backup & Restore (Phase 14 — section 39)
 //
-// A backup is a plain, self-contained folder in
-// ~/Documents/ScaffoldPro/Backups/ — no zip, no proprietary format, so it
-// can be copied to a USB drive or opened in Finder:
+// A backup is a plain, self-contained folder kept with the database, in
+// ~/Library/Application Support/ScaffoldPro/Backups/ (beside data/) — no
+// zip, no proprietary format, so it can be copied to a USB drive or
+// opened in Finder:
 //
 //   ScaffoldPro-Backup_2026-09-27_143012/
 //   ├── Database/        every *.json store (clients, projects, BOQs, …)
@@ -5934,6 +6012,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let discountValue = (payload["discountValue"] as? Double) ?? 0
         let taxRatePercent = (payload["taxRatePercent"] as? Double) ?? 0
         let pricingMode = (payload["pricingMode"] as? String) ?? "Rental"
+        let markupPercent = payload["markupPercent"] as? Double
 
         if let day = payload["quotationDate"] as? String, !day.isEmpty,
            let error = db.updateQuotationDate(id: qid, day: day) {
@@ -5943,7 +6022,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if let error = db.updateQuotationHeader(
             id: qid, validUntil: validUntil, paymentTerms: paymentTerms, notes: notes,
             discountType: discountType, discountValue: discountValue, taxRatePercent: taxRatePercent,
-            pricingMode: pricingMode
+            pricingMode: pricingMode, markupPercent: markupPercent
         ) {
             respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
         } else {
@@ -6285,8 +6364,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let isRental = detail.pricingMode == "Rental"
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
 
+        // Unit prices as charged: with the quotation's markup, if any.
         let priced = pricedRows(detail.lineItems.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
-                                                         price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
+                                                         price: detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
                                 currency: currencySymbol(company), rateSuffix: { _ in isRental ? " /Month" : "" })
         var rows = priced.materials
@@ -6303,7 +6383,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             rows += priced.delivery
         }
         if detail.discountAmount > 0 {
-            rows.append(.summary(label: "Less Discount:", value: "-\(formatMoney(detail.discountAmount))", emphasized: false))
+            let percent = detail.discountType == "Percent" ? " \(formatMoney(detail.discountValue).replacingOccurrences(of: ".00", with: ""))%" : ""
+            rows.append(.summary(label: "Less\(percent) Discount:", value: "-\(formatMoney(detail.discountAmount))", emphasized: false))
         }
         if detail.taxAmount > 0 {
             let label = (company.pricesIncludeTax ?? false) ? "Tax / VAT included:" : "Tax / VAT (\(formatMoney(detail.taxRatePercent))%):"
@@ -6330,7 +6411,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
             intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
-            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, newPageUnlessSinglePage: true)],
+            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, newPageUnlessSinglePage: true,
+                                                                      alwaysNewPage: company.termsNewPage == "Always")],
             signatures: [
                 companySignature(company),
                 LetterSignature(heading: "For and on Behalf of", lines: [
@@ -7102,8 +7184,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db = AppDatabase(dataDir: dataDir)
 
         let documentsRoot = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        storage = FileStorage(documentsRoot: documentsRoot, companyFolderName: "ScaffoldPro")
+        let backupsRoot = dataDir.deletingLastPathComponent().appendingPathComponent("Backups", isDirectory: true)
+        storage = FileStorage(documentsRoot: documentsRoot, companyFolderName: "ScaffoldPro", backupsRoot: backupsRoot)
         storage.ensureRootFoldersExist()
+        storage.moveLegacyBackups()
 
         seedPriceListsIfNeeded()
         db.fixScafomCurrencyIfNeeded()

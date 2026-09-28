@@ -88,6 +88,12 @@
       <div class="field"><label>Standard delivery charge (HK$ per truck per trip)</label><input type="number" id="standardDeliveryCharge-input" min="0" step="0.01" placeholder="3800" /></div>
       <div class="field"><label>Minimum hire (months) — used when “Minimum Hire” is ticked on a rental quotation</label><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1" /></div>
       <div class="field"><label>EUR → HKD exchange rate (SCAFOM list)</label><input type="number" id="eurRate-input" min="0" step="0.0001" /></div>
+      <div class="field"><label for="termsNewPage-input">Terms &amp; Conditions page</label>
+        <select id="termsNewPage-input">
+          <option value="WhenLong">New page when the quotation runs over one page</option>
+          <option value="Always">Always on a new page</option>
+        </select>
+      </div>
       <div class="field full"><label>Key terms (one per line)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
       <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
     </div>
@@ -105,7 +111,7 @@
     </div>
 
     <h2 style="margin-top:36px;" id="backup">Backup &amp; Restore</h2>
-    <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive.</div>
+    <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive. Backups are kept with the database (Library ▸ Application Support ▸ ScaffoldPro ▸ Backups), away from the business files in Documents.</div>
 
     <div class="backup-actions">
       <button class="primary" id="create-backup-btn">Create Backup</button>

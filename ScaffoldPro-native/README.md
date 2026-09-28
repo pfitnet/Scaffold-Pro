@@ -490,7 +490,8 @@ Settings now has a **Backup & Restore** section (section 39) and a
 **Data Location** section (section 57):
 
 - **Create Backup** copies *everything* into one dated folder in
-  `Documents/ScaffoldPro/Backups/`, laid out exactly as section 39 asks:
+  `Documents/ScaffoldPro/Backups/` (moved in batch 23 to
+  `~/Library/Application Support/ScaffoldPro/Backups/`, with the database), laid out exactly as section 39 asks:
   `Database/`, `Projects/`, `Administration/`, `Configuration/` (a
   manifest plus a plain-English README.txt). It's an ordinary folder —
   you can copy it to a USB drive or another Mac
@@ -655,3 +656,25 @@ under "Letterhead layout".
   uploading, or change it any time in the project's Drawings list. Each BOQ and
   quotation editor has a Drawings panel listing its drawings (Open / Reveal)
   with an Upload Drawing button that links automatically.
+
+## Batch 23 — quotation markup/discount, backups with the database, T&C page option
+- **One "Markup / Discount" box on each quotation** replaces the discount type
+  and value fields:
+  - `+30%` (or `30%`) marks every item's unit price up 30%, each marked-up
+    price rounded to the nearest 0.1. The price you typed stays as it was; the
+    editor shows "Quoted …" under it, and the PDF, line totals and totals use
+    the marked-up price. Delivery charges aren't marked up.
+  - `-15%` takes 15% off: a "Less 15% Discount" row above the total.
+  - `-1000` takes 1,000 off: a "Less Discount" row.
+  - Blank or `0` means neither. An amount without a minus sign (`1000`) is
+    refused, as it's unclear whether it's meant as a markup.
+  - Invoices made from a marked-up quotation copy the marked-up prices.
+- **Backups are kept with the database**, in
+  `~/Library/Application Support/ScaffoldPro/Backups/` (beside `data/`), not in
+  Documents. Backups made by earlier versions are moved there when the app
+  starts, and the old `Documents/ScaffoldPro/Backups` folder is removed if
+  nothing else is in it. "Show Backups Folder" and Data Location show the new
+  place.
+- **Terms and Conditions page option** (Settings → Standard Quotation): "New
+  page when the quotation runs over one page" (the default, as before) or
+  "Always on a new page".
