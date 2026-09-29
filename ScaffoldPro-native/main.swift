@@ -1909,6 +1909,9 @@ final class AppDatabase {
     let workerDocumentsStore: JSONStore<WorkerDocument>
     let adminDocumentsStore: JSONStore<AdminDocument>
     let activityStore: JSONStore<ActivityEntry>
+    let stockMovementsStore: JSONStore<StockMovement>
+    let invoicePaymentsStore: JSONStore<InvoicePayment>
+    let expensesStore: JSONStore<Expense>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -1933,6 +1936,9 @@ final class AppDatabase {
         workerDocumentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("worker_documents.json"))
         adminDocumentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("admin_documents.json"))
         activityStore = JSONStore(fileURL: dataDir.appendingPathComponent("activity.json"))
+        stockMovementsStore = JSONStore(fileURL: dataDir.appendingPathComponent("stock_movements.json"))
+        invoicePaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("invoice_payments.json"))
+        expensesStore = JSONStore(fileURL: dataDir.appendingPathComponent("expenses.json"))
     }
 
     // ---- Document rows (client/site pages, Dashboard, search) ----
@@ -3721,7 +3727,7 @@ final class AppDatabase {
     /// Adds `amount` to the invoice's cumulative amountPaid and updates
     /// status accordingly — Paid once the balance reaches zero,
     /// PartiallyPaid otherwise. Rejected on a cancelled invoice.
-    func recordInvoicePayment(id: String, amount: Double) -> String? {
+    func recordInvoicePayment(id: String, amount: Double, date: String? = nil, method: String? = nil, reference: String? = nil) -> String? {
         guard amount > 0 else { return "Payment amount must be greater than zero." }
         var invs = invoicesStore.readAll()
         guard let index = invs.firstIndex(where: { $0.id == id }) else { return "Invoice not found." }
@@ -3739,6 +3745,10 @@ final class AppDatabase {
         invs[index].status = totals.balanceDue <= 0 ? "Paid" : "PartiallyPaid"
         invs[index].updatedAt = nowISO()
         invoicesStore.writeAll(invs)
+        // Kept for the accounts: when, how much, how.
+        invoicePaymentsStore.insert(InvoicePayment(
+            id: makeId("payment"), invoiceId: id, date: validDay(date) ?? todayYMD(),
+            amount: doubleOf(roundToCents(decimalOf(amount))), method: nonBlank(method), reference: nonBlank(reference), createdAt: nowISO()))
         logActivity(projectId: invs[index].projectId, "Payment recorded: \(getCompanySettings().currency) \(formatMoney(amount))\(totals.balanceDue <= 0 ? " — paid in full" : "")", reference: invs[index].invoiceNumber)
         return nil
     }
@@ -3932,6 +3942,10 @@ final class AppDatabase {
         notesArr[index].status = status
         notesArr[index].updatedAt = nowISO()
         deliveryNotesStore.writeAll(notesArr)
+        // Stock: an issued delivery note books its items out of the yard;
+        // cancelling or reopening it puts them back.
+        if status == "Issued" && previous != "Issued" { recordDeliveryStock(notesArr[index]) }
+        if previous == "Issued" && status != "Issued" { removeDeliveryStock(deliveryNoteId: id) }
         if changed { logActivity(projectId: notesArr[index].projectId, "Delivery note \(status == "Draft" ? "returned to draft" : status.lowercased())", reference: notesArr[index].deliveryNoteNumber) }
         return nil
     }
@@ -5504,6 +5518,365 @@ final class PDFGenerator {
 }
 
 // =====================================================================
+// MARK: - Stock list
+//
+// Every change to the stock is a movement: + into the yard, − out of it.
+//   Opening / Purchase   received into the yard (+)
+//   Delivery             out to a project on hire (−), from an issued delivery note
+//   Sale                 out to a project for good (−), from a delivery note of a sale
+//   Return               back from a project (+)
+//   WriteOff             lost, scrapped or damaged (−)
+//   Adjustment           a stock count's difference (±)
+// In the yard = the sum of all movements. On hire, per project = delivered
+// − returned. Owned = in the yard + on hire.
+// =====================================================================
+
+struct StockMovement: Codable {
+    var id: String
+    /// yyyy-MM-dd
+    var date: String
+    var kind: String
+    /// The price-list item's id, or "code:…" / "name:…" for other items.
+    var itemKey: String
+    var priceListItemId: String?
+    var itemCode: String
+    var itemDescription: String
+    var unit: String
+    var quantity: Double
+    var projectId: String?
+    var deliveryNoteId: String?
+    var reference: String?
+    var notes: String?
+    var createdAt: String
+}
+
+struct ProjectRef: Codable {
+    var id: String
+    var projectNumber: String
+    var name: String
+}
+
+struct StockProjectQuantity: Codable {
+    var projectId: String
+    var projectNumber: String
+    var projectName: String
+    var quantity: Double
+}
+
+struct StockItemRow: Codable {
+    var key: String
+    var priceListItemId: String?
+    var sourceKey: String?
+    var category: String?
+    var itemCode: String
+    var itemName: String
+    var unit: String
+    var weightKg: Double?
+    var inYard: Double
+    var onHire: Double
+    var owned: Double
+    var onHireByProject: [StockProjectQuantity]
+}
+
+struct StockMovementView: Codable {
+    var movement: StockMovement
+    var projectNumber: String?
+    /// Delivery / Sale movements come from delivery notes and can't be deleted here.
+    var automatic: Bool
+}
+
+struct StockData: Codable {
+    var items: [StockItemRow]
+    var movements: [StockMovementView]
+    var projects: [ProjectRef]
+}
+
+// =====================================================================
+// MARK: - Accounts
+//
+// Receivables from invoices (with dated payments), expenses entered by
+// hand, and the figures the Accounts page adds up from them.
+// =====================================================================
+
+struct InvoicePayment: Codable {
+    var id: String
+    var invoiceId: String
+    /// yyyy-MM-dd
+    var date: String
+    var amount: Double
+    var method: String?
+    var reference: String?
+    var createdAt: String
+}
+
+struct Expense: Codable {
+    var id: String
+    /// yyyy-MM-dd
+    var date: String
+    var category: String
+    var supplier: String?
+    var description: String
+    var amount: Double
+    var projectId: String?
+    var reference: String?
+    var createdAt: String
+}
+
+let expenseCategories = ["Materials purchase", "Transport", "Labour / subcontract", "Equipment & repairs",
+                         "Rent & storage", "Office & admin", "Insurance & licences", "Other"]
+
+struct AccountsInvoice: Codable {
+    var id: String
+    var invoiceNumber: String
+    var projectId: String
+    var projectNumber: String
+    var projectName: String
+    var clientName: String?
+    var status: String
+    /// yyyy-MM-dd
+    var invoiceDate: String
+    var dueDate: String?
+    var total: Double
+    var amountPaid: Double
+    var balanceDue: Double
+}
+
+struct AccountsPayment: Codable {
+    var id: String
+    var invoiceId: String
+    var invoiceNumber: String
+    var projectId: String
+    var date: String
+    var amount: Double
+    var method: String?
+    var reference: String?
+    /// Paid before payments were dated (no date on record).
+    var undated: Bool
+}
+
+struct AccountsData: Codable {
+    var currency: String
+    var invoices: [AccountsInvoice]
+    var payments: [AccountsPayment]
+    var expenses: [Expense]
+    var projects: [ProjectRef]
+    var categories: [String]
+}
+
+/// "2026-09-28" from a date field or an ISO timestamp; nil if it isn't one.
+func validDay(_ value: String?) -> String? {
+    guard let v = value?.trimmingCharacters(in: .whitespaces), v.count >= 10 else { return nil }
+    let day = String(v.prefix(10))
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "yyyy-MM-dd"
+    return f.date(from: day) == nil ? nil : day
+}
+
+extension AppDatabase {
+    // ---- Stock ----
+
+    static func stockKey(priceListItemId: String?, itemCode: String, description: String) -> String {
+        if let id = priceListItemId, !id.isEmpty { return id }
+        let code = itemCode.trimmingCharacters(in: .whitespaces).lowercased()
+        return code.isEmpty ? "name:" + description.trimmingCharacters(in: .whitespaces).lowercased() : "code:" + code
+    }
+
+    func projectRefs() -> [ProjectRef] {
+        projectsStore.readAll().map { ProjectRef(id: $0.id, projectNumber: $0.projectNumber, name: $0.name) }
+            .sorted { $0.projectNumber > $1.projectNumber }
+    }
+
+    func stockData() -> StockData {
+        let movements = stockMovementsStore.readAll()
+        let projects = projectRefs()
+        let projectById = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var rows: [String: StockItemRow] = [:]
+        var order: [String] = []
+        for item in priceListItemsStore.readAll() where !item.isArchived {
+            rows[item.id] = StockItemRow(key: item.id, priceListItemId: item.id, sourceKey: item.sourceKey, category: item.category,
+                                         itemCode: item.itemCode, itemName: item.itemName, unit: item.unit, weightKg: item.weightKg,
+                                         inYard: 0, onHire: 0, owned: 0, onHireByProject: [])
+            order.append(item.id)
+        }
+        var hire: [String: [String: Double]] = [:]
+        for m in movements {
+            if rows[m.itemKey] == nil {
+                rows[m.itemKey] = StockItemRow(key: m.itemKey, priceListItemId: m.priceListItemId, sourceKey: nil, category: nil,
+                                               itemCode: m.itemCode, itemName: m.itemDescription, unit: m.unit, weightKg: nil,
+                                               inYard: 0, onHire: 0, owned: 0, onHireByProject: [])
+                order.append(m.itemKey)
+            }
+            rows[m.itemKey]!.inYard += m.quantity
+            if (m.kind == "Delivery" || m.kind == "Return"), let p = m.projectId {
+                hire[m.itemKey, default: [:]][p, default: 0] -= m.quantity
+            }
+        }
+        for (key, byProject) in hire {
+            let list = byProject.filter { abs($0.value) > 0.0001 }.map { entry -> StockProjectQuantity in
+                let p = projectById[entry.key]
+                return StockProjectQuantity(projectId: entry.key, projectNumber: p?.projectNumber ?? "?", projectName: p?.name ?? "", quantity: entry.value)
+            }.sorted { $0.projectNumber < $1.projectNumber }
+            rows[key]!.onHireByProject = list
+            rows[key]!.onHire = list.reduce(0) { $0 + $1.quantity }
+        }
+        for key in order { rows[key]!.owned = rows[key]!.inYard + rows[key]!.onHire }
+        let views = movements.sorted { ($0.date, $0.createdAt) > ($1.date, $1.createdAt) }.map {
+            StockMovementView(movement: $0, projectNumber: $0.projectId.flatMap { projectById[$0]?.projectNumber },
+                              automatic: $0.deliveryNoteId != nil)
+        }
+        return StockData(items: order.compactMap { rows[$0] }, movements: views, projects: projects)
+    }
+
+    /// A movement entered on the Stock page: "Purchase" (received),
+    /// "Return" (from a project), "WriteOff", or "Count" (the counted
+    /// quantity in the yard, recorded as an adjustment).
+    func addStockMovement(_ payload: [String: Any]) -> String? {
+        let kind = (payload["kind"] as? String) ?? ""
+        guard ["Opening", "Purchase", "Return", "WriteOff", "Count"].contains(kind) else { return "Choose what kind of stock change this is." }
+        let plId = nonBlank(payload["priceListItemId"] as? String)
+        var code = ((payload["itemCode"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+        var name = ((payload["itemDescription"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+        var unit = ((payload["unit"] as? String) ?? "pc").trimmingCharacters(in: .whitespaces)
+        if let plId = plId, let pl = priceListItem(id: plId) {
+            code = pl.itemCode; name = pl.itemName; unit = pl.unit
+        }
+        guard !name.isEmpty else { return "Choose the item." }
+        let key = AppDatabase.stockKey(priceListItemId: plId, itemCode: code, description: name)
+        let value = ((payload["quantity"] as? Double) ?? 0).rounded()
+        var quantity: Double
+        switch kind {
+        case "Count":
+            guard value >= 0 else { return "Enter the quantity counted in the yard." }
+            let inYard = stockMovementsStore.readAll().filter { $0.itemKey == key }.reduce(0) { $0 + $1.quantity }
+            quantity = value - inYard
+            guard abs(quantity) > 0.0001 else { return "The count matches the stock already — nothing to change." }
+        case "WriteOff":
+            guard value > 0 else { return "Enter a quantity greater than zero." }
+            quantity = -value
+        default:
+            guard value > 0 else { return "Enter a quantity greater than zero." }
+            quantity = value
+        }
+        let projectId = nonBlank(payload["projectId"] as? String)
+        if kind == "Return" {
+            guard let p = projectId, projectsStore.readAll().contains(where: { $0.id == p }) else { return "Choose the project the items came back from." }
+        }
+        stockMovementsStore.insert(StockMovement(
+            id: makeId("stock"), date: validDay(payload["date"] as? String) ?? todayYMD(), kind: kind == "Count" ? "Adjustment" : kind,
+            itemKey: key, priceListItemId: plId, itemCode: code, itemDescription: name, unit: unit.isEmpty ? "pc" : unit,
+            quantity: quantity, projectId: kind == "Return" ? projectId : nil, deliveryNoteId: nil,
+            reference: nonBlank(payload["reference"] as? String), notes: nonBlank(payload["notes"] as? String), createdAt: nowISO()))
+        return nil
+    }
+
+    func deleteStockMovement(id: String) -> String? {
+        var all = stockMovementsStore.readAll()
+        guard let m = all.first(where: { $0.id == id }) else { return "Stock entry not found." }
+        guard m.deliveryNoteId == nil else { return "This comes from a delivery note. Cancel or reopen the delivery note instead." }
+        all.removeAll { $0.id == id }
+        stockMovementsStore.writeAll(all)
+        return nil
+    }
+
+    /// Books an issued delivery note's items out of the yard: on hire to
+    /// its project, or sold if it's for a sale.
+    func recordDeliveryStock(_ note: DeliveryNote) {
+        removeDeliveryStock(deliveryNoteId: note.id)
+        let sale = note.sourceQuotationId.flatMap { getQuotation(id: $0)?.pricingMode } == "Sale"
+            || note.sourceInvoiceId.flatMap { getInvoice(id: $0)?.pricingMode } == "Sale"
+        let lines = deliveryNoteLineItemsStore.readAll().filter { $0.deliveryNoteId == note.id && $0.quantity > 0 }
+        let movements = lines.map { line in
+            StockMovement(id: makeId("stock"), date: validDay(note.deliveryDate) ?? todayYMD(), kind: sale ? "Sale" : "Delivery",
+                          itemKey: AppDatabase.stockKey(priceListItemId: line.priceListItemId, itemCode: line.itemCode, description: line.itemDescription),
+                          priceListItemId: line.priceListItemId, itemCode: line.itemCode, itemDescription: line.itemDescription, unit: line.unit,
+                          quantity: -line.quantity.rounded(), projectId: note.projectId, deliveryNoteId: note.id,
+                          reference: note.deliveryNoteNumber, notes: nil, createdAt: nowISO())
+        }
+        stockMovementsStore.insertMany(movements)
+    }
+
+    func removeDeliveryStock(deliveryNoteId: String) {
+        var all = stockMovementsStore.readAll()
+        let before = all.count
+        all.removeAll { $0.deliveryNoteId == deliveryNoteId }
+        if all.count != before { stockMovementsStore.writeAll(all) }
+    }
+
+    // ---- Accounts ----
+
+    func accountsData() -> AccountsData {
+        let today = todayYMD()
+        let projects = projectRefs()
+        let projectById = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let allPayments = invoicePaymentsStore.readAll()
+        var invoices: [AccountsInvoice] = []
+        var payments: [AccountsPayment] = []
+        for inv in invoicesStore.readAll() where inv.status != "Draft" && inv.status != "Cancelled" {
+            let totals = invoiceTotals(inv, lineItems: invoiceLineItems(for: inv.id))
+            let project = projectById[inv.projectId]
+            let status = isInvoiceOverdue(inv, balanceDue: totals.balanceDue, today: today) ? "Overdue" : inv.status
+            invoices.append(AccountsInvoice(
+                id: inv.id, invoiceNumber: inv.invoiceNumber, projectId: inv.projectId,
+                projectNumber: project?.projectNumber ?? "", projectName: project?.name ?? "",
+                clientName: project.flatMap { clients[$0.clientId]?.companyName },
+                status: status, invoiceDate: validDay(inv.invoiceDate) ?? String(inv.invoiceDate.prefix(10)), dueDate: validDay(inv.dueDate),
+                total: totals.total, amountPaid: inv.amountPaid, balanceDue: totals.balanceDue))
+            let dated = allPayments.filter { $0.invoiceId == inv.id }
+            for p in dated {
+                payments.append(AccountsPayment(id: p.id, invoiceId: inv.id, invoiceNumber: inv.invoiceNumber, projectId: inv.projectId,
+                                                date: p.date, amount: p.amount, method: p.method, reference: p.reference, undated: false))
+            }
+            // Paid before payments were dated: one undated entry for the rest.
+            let earlier = decimalOf(inv.amountPaid) - dated.reduce(Decimal(0)) { $0 + decimalOf($1.amount) }
+            if earlier > 0.004 {
+                payments.append(AccountsPayment(id: "earlier-\(inv.id)", invoiceId: inv.id, invoiceNumber: inv.invoiceNumber, projectId: inv.projectId,
+                                                date: validDay(inv.updatedAt) ?? today, amount: doubleOf(roundToCents(earlier)),
+                                                method: nil, reference: "Recorded before payments were dated", undated: true))
+            }
+        }
+        return AccountsData(currency: getCompanySettings().currency,
+                            invoices: invoices.sorted { $0.invoiceDate > $1.invoiceDate },
+                            payments: payments.sorted { $0.date > $1.date },
+                            expenses: expensesStore.readAll().sorted { ($0.date, $0.createdAt) > ($1.date, $1.createdAt) },
+                            projects: projects, categories: expenseCategories)
+    }
+
+    /// Adds an expense, or changes one when `id` is given.
+    func saveExpense(_ payload: [String: Any]) -> String? {
+        guard let date = validDay(payload["date"] as? String) else { return "Enter the date." }
+        let description = ((payload["description"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !description.isEmpty else { return "Enter what the expense was for." }
+        let amount = (payload["amount"] as? Double) ?? 0
+        guard amount > 0 else { return "Enter an amount greater than zero." }
+        let category = nonBlank(payload["category"] as? String) ?? "Other"
+        let projectId = nonBlank(payload["projectId"] as? String)
+        var all = expensesStore.readAll()
+        if let id = nonBlank(payload["id"] as? String) {
+            guard let i = all.firstIndex(where: { $0.id == id }) else { return "Expense not found." }
+            all[i].date = date; all[i].category = category; all[i].supplier = nonBlank(payload["supplier"] as? String)
+            all[i].description = description; all[i].amount = doubleOf(roundToCents(decimalOf(amount)))
+            all[i].projectId = projectId; all[i].reference = nonBlank(payload["reference"] as? String)
+            expensesStore.writeAll(all)
+        } else {
+            expensesStore.insert(Expense(id: makeId("expense"), date: date, category: category, supplier: nonBlank(payload["supplier"] as? String),
+                                         description: description, amount: doubleOf(roundToCents(decimalOf(amount))), projectId: projectId,
+                                         reference: nonBlank(payload["reference"] as? String), createdAt: nowISO()))
+        }
+        return nil
+    }
+
+    func deleteExpense(id: String) -> String? {
+        var all = expensesStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Expense not found." }
+        all.removeAll { $0.id == id }
+        expensesStore.writeAll(all)
+        return nil
+    }
+}
+
+// =====================================================================
 // MARK: - BQ sheet ("PROFICIENCY QUOTATION")
 //
 // The bill of quantities as the company's own Google Sheets BQ (e.g.
@@ -6977,7 +7350,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "invoices:recordPayment":
             let invId = (payload["id"] as? String) ?? ""
             let amount = (payload["amount"] as? Double) ?? 0
-            if let error = db.recordInvoicePayment(id: invId, amount: amount) {
+            if let error = db.recordInvoicePayment(id: invId, amount: amount, date: payload["date"] as? String,
+                                                   method: payload["method"] as? String, reference: payload["reference"] as? String) {
                 respond(id: id, encodable: InvoiceActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: InvoiceActionResult(ok: true, error: nil))
@@ -7043,6 +7417,24 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let dnId = (payload["id"] as? String) ?? ""
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: dnId)
 
+        case "stock:data":
+            respond(id: id, encodable: db.stockData())
+        case "stock:addMovement":
+            let error = db.addStockMovement(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "stock:deleteMovement":
+            let error = db.deleteStockMovement(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "accounts:data":
+            respond(id: id, encodable: db.accountsData())
+        case "accounts:saveExpense":
+            let error = db.saveExpense(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "accounts:deleteExpense":
+            let error = db.deleteExpense(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "accounts:saveCSV":
+            handleSaveAccountsCSV(id: id, payload: payload)
         case "boq:updateLineDiscount":
             let error = db.updateBOQLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
                                                  value: payload["discountValue"] as? Double)
@@ -7656,6 +8048,27 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// into the project's own folder under a meaningful filename
     /// (sections 31-32) and opens it. Print: renders the same PDF and
     /// opens the standard macOS print dialog (section 54) — nothing saved.
+    /// Saves a CSV the Accounts or Stock page made into Administration/
+    /// Accounts, and opens it (Numbers or Excel).
+    private func handleSaveAccountsCSV(id: String, payload: [String: Any]) {
+        let name = ((payload["fileName"] as? String) ?? "").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        guard name.hasSuffix(".csv"), !name.hasPrefix("."), let csv = payload["csv"] as? String else {
+            respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved."))
+            return
+        }
+        let folder = storage.administrationCategoryFolder("Accounts")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let destination = folder.appendingPathComponent(name)
+            // With a byte-order mark, so Excel reads the text as UTF-8.
+            try Data(("\u{FEFF}" + csv).utf8).write(to: destination, options: .atomic)
+            NSWorkspace.shared.open(destination)
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+        } catch {
+            respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved: \(error.localizedDescription)"))
+        }
+    }
+
     /// Saves a Word copy built by the page (js/docx-export.js) into the
     /// project's folder next to its PDF, and opens it.
     private func handleSaveWord(id: String, payload: [String: Any]) {
@@ -9081,10 +9494,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         addSubmenu(main, "Edit", edit)
 
-        // Go — ⌘1…⌘7 for the sidebar sections, ⌘[ / ⌘] for back/forward.
+        // Go — ⌘1…⌘9 for the sidebar sections, ⌘[ / ⌘] for back/forward.
         let go = NSMenu(title: "Go")
         let sections: [(String, String)] = [("Dashboard", "index.html"), ("Material List", "price-lists.html"), ("Sites", "sites.html"),
-                                            ("Clients", "clients.html"), ("Projects", "projects.html"), ("Admin", "admin.html"),
+                                            ("Clients", "clients.html"), ("Projects", "projects.html"), ("Stock", "stock.html"),
+                                            ("Accounts", "accounts.html"), ("Admin", "admin.html"),
                                             ("Settings", "settings.html")]
         for (index, entry) in sections.enumerated() {
             let i = item(entry.0, #selector(goToPage(_:)), "\(index + 1)", page: entry.1)

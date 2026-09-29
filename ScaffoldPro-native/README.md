@@ -900,3 +900,28 @@ under "Letterhead layout".
   unit). The BQ sheet prints only the discounted rate and total. The discount
   isn't mentioned anywhere on the document. Quotations made from the BOQ, or
   importing its items, use the discounted rates.
+
+## Batch 36 — Stock list, Accounts, icon discount button
+
+- **Discount button** — the "Discount" text button on quotation, BOQ and
+  invoice lines is now a small percent-tag icon. It turns blue when a discount
+  is set; hover it to see the discount.
+- **Stock** (sidebar, ⌘6) — every material-list item we hold, showing what's
+  **in the yard**, **on hire** (by project) and **owned** in total.
+  - Issuing a delivery note books its items out automatically. Delivery notes
+    from a Sale quotation or invoice count as sold rather than on hire.
+    Changing an issued note back books the items in again.
+  - **Receive Stock**, **Record Return** (from a project), **Stock Count**
+    (sets the yard quantity and records the difference) and **Write Off**.
+  - A Movements tab lists every movement. Manual entries can be deleted.
+  - Both lists export to CSV.
+- **Accounts** (sidebar, ⌘7) — choose a period (this month, last month, this
+  year, last year, all time or custom) to see what was invoiced and received,
+  expenses, net cash, and what's outstanding or overdue today.
+  - Tabs: Receivables, Payments Received, Expenses (add, edit or delete),
+    By Project and By Month.
+  - Each tab exports to CSV in `Administration/Accounts`.
+- **Invoice payments** now record a date, a method (bank transfer, cheque,
+  cash and so on) and a reference, which feed the Accounts page.
+- The Go menu and sidebar shortcuts are now ⌘1–⌘9: Admin is ⌘8 and
+  Settings ⌘9.

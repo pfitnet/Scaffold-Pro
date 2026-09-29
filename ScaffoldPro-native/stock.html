@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Stock — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .stock-table td.num, .stock-table th.num { font-variant-numeric: tabular-nums; }
+    .stock-table tr.item-row { cursor: pointer; }
+    .stock-table tr.item-row:hover td { background: var(--hover, rgba(127,127,127,0.06)); }
+    .stock-table .negative { color: var(--danger); font-weight: 600; }
+    .stock-table .muted { color: var(--text-secondary); }
+    .detail-row td { background: var(--panel); padding: 10px 14px 14px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 18px; }
+    .detail-grid h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .qty-in { color: var(--success, #1e8e3e); }
+    .qty-out { color: var(--danger); }
+  </style>
+</head>
+<body data-page="stock">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Stock</h1>
+    <div class="subtitle">Materials in the yard, out on hire and owned. Issuing a delivery note books its items out; returns, deliveries in, counts and write-offs are recorded here.</div>
+
+    <div class="stat-grid" id="stock-stats"></div>
+
+    <div class="tabs" id="stock-tabs">
+      <button data-tab="items" class="active">Stock List</button>
+      <button data-tab="movements">Movements</button>
+    </div>
+
+    <section id="tab-items">
+      <div class="toolbar">
+        <input type="text" id="search-box" placeholder="Search items" />
+        <select id="list-filter">
+          <option value="">All lists</option>
+          <option value="SP">SP Material &amp; Price List</option>
+          <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
+          <option value="other">Other items</option>
+        </select>
+        <label class="small-note"><input type="checkbox" id="only-held" checked /> Only items we hold</label>
+        <span class="toolbar-spacer"></span>
+        <button class="primary" id="receive-btn" title="Materials bought or received into the yard">Receive Stock…</button>
+        <button id="return-btn" title="Materials back from a project">Record Return…</button>
+        <button id="count-btn" title="Set what's in the yard after counting it">Stock Count…</button>
+        <button id="writeoff-btn" title="Lost, scrapped or damaged">Write Off…</button>
+        <button id="export-items-btn">Export CSV</button>
+      </div>
+      <div id="items-container" class="no-sort"></div>
+    </section>
+
+    <section id="tab-movements" class="hidden">
+      <div class="toolbar">
+        <input type="text" id="movement-search" placeholder="Search item, project or reference" />
+        <select id="movement-kind">
+          <option value="">All movements</option>
+          <option value="Purchase">Received</option>
+          <option value="Opening">Opening stock</option>
+          <option value="Delivery">Delivered (on hire)</option>
+          <option value="Sale">Delivered (sold)</option>
+          <option value="Return">Returned</option>
+          <option value="Adjustment">Stock count</option>
+          <option value="WriteOff">Written off</option>
+        </select>
+        <span class="toolbar-spacer"></span>
+        <button id="export-movements-btn">Export CSV</button>
+      </div>
+      <div id="movements-container"></div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop hidden" id="movement-modal">
+    <div class="modal wide" role="dialog" aria-labelledby="mv-title">
+      <h2 id="mv-title">Receive Stock</h2>
+      <div class="form-grid">
+        <div class="field span-2"><label for="mv-item">Item</label>
+          <input type="text" id="mv-item" list="mv-items" placeholder="Type a code or name from the material list" autocomplete="off" />
+          <datalist id="mv-items"></datalist>
+        </div>
+        <div class="field"><label for="mv-qty" id="mv-qty-label">Quantity</label><input type="number" id="mv-qty" min="0" step="1" /></div>
+        <div class="field"><label for="mv-date">Date</label><input type="date" id="mv-date" /></div>
+        <div class="field span-2" id="mv-project-field"><label for="mv-project">Returned from project</label><select id="mv-project"></select></div>
+        <div class="field"><label for="mv-ref">Reference</label><input type="text" id="mv-ref" placeholder="e.g. supplier invoice or return note no." /></div>
+        <div class="field"><label for="mv-notes">Notes</label><input type="text" id="mv-notes" /></div>
+      </div>
+      <p class="small-note" id="mv-hint"></p>
+      <div class="error-text hidden" id="mv-error"></div>
+      <div class="actions">
+        <button id="mv-cancel">Cancel</button>
+        <button class="primary" id="mv-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/stock.js"></script>
+</body>
+</html>

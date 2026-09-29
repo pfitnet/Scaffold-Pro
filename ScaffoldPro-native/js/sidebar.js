@@ -12,6 +12,8 @@ const ICONS = {
   sites: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>',
   clients: '<rect x="4" y="3" width="12" height="14" rx="1.2"/><path d="M7 6.5h2M11 6.5h2M7 9.5h2M11 9.5h2M8.5 17v-3h3v3"/>',
   projects: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>',
+  stock: '<path d="M3 7.5 10 4l7 3.5v5L10 16l-7-3.5z"/><path d="M3 7.5 10 11l7-3.5M10 11v5"/>',
+  accounts: '<rect x="4" y="2.5" width="12" height="15" rx="1.5"/><rect x="6.5" y="5" width="7" height="3" rx=".5"/><path d="M7 11h.01M10 11h.01M13 11h.01M7 14h.01M10 14h.01M13 14h.01"/>',
   admin: '<circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16c.4-2.8 2.3-4.3 4.7-4.3s4.3 1.5 4.7 4.3"/><circle cx="14" cy="8" r="2"/><path d="M13 11.9c2.2-.2 3.8 1 4.2 3.6"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
@@ -27,8 +29,10 @@ const NAV_ITEMS = [
   { page: 'sites', label: 'Sites', href: 'sites.html', key: '3' },
   { page: 'clients', label: 'Clients', href: 'clients.html', key: '4' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '5' },
-  { page: 'admin', label: 'Admin', href: 'admin.html', key: '6' },
-  { page: 'settings', label: 'Settings', href: 'settings.html', key: '7' },
+  { page: 'stock', label: 'Stock', href: 'stock.html', key: '6' },
+  { page: 'accounts', label: 'Accounts', href: 'accounts.html', key: '7' },
+  { page: 'admin', label: 'Admin', href: 'admin.html', key: '8' },
+  { page: 'settings', label: 'Settings', href: 'settings.html', key: '9' },
 ];
 
 // The app mark (see icon/ScaffoldPro-logo.svg), in its simplified small-size

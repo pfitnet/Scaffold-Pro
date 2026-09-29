@@ -123,7 +123,7 @@ function renderLineItems() {
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isIssued ? 'disabled' : ''} /></td>
       <td class="num">${money(rate)}</td>
-      <td>${isIssued ? '' : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item's rate (only the new rate is printed)">${discountLabel || 'Discount'}</button>`}</td>
+      <td>${isIssued ? '' : window.discountButtonHTML(discountLabel, "Discount this item's rate (only the new rate is printed)")}</td>
       <td class="num">${weight(item.weightKg)}</td>
       <td class="num">${weight(lineWeight)}</td>
       <td class="row-actions">${isIssued ? '' : `

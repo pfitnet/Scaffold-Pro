@@ -31,6 +31,17 @@
     return cents(gross - Math.min(discount, Math.max(gross, 0)));
   };
 
+  // The Discount button: a percent-tag icon, highlighted when a discount is
+  // set; the discount itself shows on hover.
+  const TAG_ICON = '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M10.6 3H16a1 1 0 0 1 1 1v5.4a1 1 0 0 1-.3.7l-6.9 6.9a1 1 0 0 1-1.4 0L3 11.6a1 1 0 0 1 0-1.4l6.9-6.9a1 1 0 0 1 .7-.3z"/>' +
+    '<path d="M7.6 12.4l4.8-4.8"/><circle cx="8.2" cy="8.2" r="0.9"/><circle cx="11.8" cy="11.8" r="0.9"/></svg>';
+
+  window.discountButtonHTML = function discountButtonHTML(label, hint) {
+    const title = label ? `Discount: ${label} — click to change` : (hint || 'Discount this item');
+    return `<button type="button" class="discount-btn icon-btn${label ? ' active' : ''}" title="${title.replace(/"/g, '&quot;')}" aria-label="${title.replace(/"/g, '&quot;')}">${TAG_ICON}</button>`;
+  };
+
   window.lineDiscountLabel = function lineDiscountLabel(line, currencyLabel) {
     const value = Number(line.discountValue) || 0;
     if (line.discountType === 'Percent' && value > 0) return `−${value}%`;
