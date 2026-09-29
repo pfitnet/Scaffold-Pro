@@ -9,6 +9,39 @@ const SETTINGS_FIELDS = [
 const NUMBER_FIELDS = ['numberFormatBOQ', 'numberFormatQuotation', 'numberFormatInvoice', 'numberFormatDeliveryNote'];
 const QUOTE_TEXT_FIELDS = ['signatoryName', 'signatoryTitle', 'termsURL', 'quotationTerms', 'quotationAcceptance'];
 const START_KEYS = ['BOQ', 'QT', 'INV', 'DN'];
+// As on the company's quotations; Settings can change them.
+const DEFAULT_MANPOWER_RATES = [
+  { name: 'Scaffolder CP', rate: 2300, unit: 'md' },
+  { name: 'Scaffolder', rate: 2100, unit: 'md' },
+  { name: 'Rigger', rate: 2000, unit: 'md' },
+  { name: 'General Helper', rate: 1800, unit: 'md' },
+];
+
+function escAttr(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+// Four rows (a blank name leaves that worker out).
+function renderManpowerRates(rates) {
+  const list = (rates && rates.length ? rates : DEFAULT_MANPOWER_RATES).slice(0, 4);
+  while (list.length < 4) list.push({ name: '', rate: '', unit: 'md' });
+  document.getElementById('manpower-rates-body').innerHTML = list.map((r, i) => `
+    <tr>
+      <td><input type="text" id="mr-name-${i}" value="${escAttr(r.name)}" placeholder="Worker" /></td>
+      <td class="num"><input type="number" id="mr-rate-${i}" min="0" step="0.01" value="${escAttr(r.rate)}" /></td>
+      <td><input type="text" id="mr-unit-${i}" value="${escAttr(r.unit || 'md')}" style="width:60px" /></td>
+    </tr>`).join('');
+}
+
+function readManpowerRates() {
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    const name = document.getElementById(`mr-name-${i}`).value.trim();
+    if (!name) continue;
+    out.push({ name, rate: Number(document.getElementById(`mr-rate-${i}`).value) || 0, unit: document.getElementById(`mr-unit-${i}`).value.trim() || 'md' });
+  }
+  return out;
+}
 let currentAppearance = 'System';
 
 async function loadSettings() {
@@ -23,6 +56,7 @@ async function loadSettings() {
   document.getElementById('standardDeliveryCharge-input').value = settings.standardDeliveryCharge ?? '';
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
   document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
+  renderManpowerRates(settings.manpowerRates);
   document.getElementById('eurRate-input').value = (settings.exchangeRates && settings.exchangeRates.EUR) || 8.93;
   for (const k of START_KEYS) {
     document.getElementById(`start-${k}`).value = (settings.numberStarts && settings.numberStarts[k]) || '';
@@ -57,6 +91,7 @@ async function saveSettings() {
   const delivery = document.getElementById('standardDeliveryCharge-input').value;
   payload.standardDeliveryCharge = delivery === '' ? null : Number(delivery);
   payload.termsNewPage = document.getElementById('termsNewPage-input').value;
+  payload.manpowerRates = readManpowerRates();
   payload.defaultMinimumHireMonths = Math.max(1, Math.round(Number(document.getElementById('defaultMinimumHireMonths-input').value) || 2));
   const eur = Number(document.getElementById('eurRate-input').value);
   if (eur > 0) payload.exchangeRates = { EUR: eur };
