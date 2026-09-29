@@ -71,6 +71,8 @@
       createItem: (sourceKey, input) => callNative('priceListItems:create', Object.assign({ sourceKey: sourceKey }, input)),
       archiveItem: (id) => callNative('priceListItems:archive', { id: id }),
       duplicateItem: (id) => callNative('priceListItems:duplicate', { id: id }),
+      // One category's item ids in their new order (dragged in the Material List).
+      reorderItems: (ids) => callNative('priceListItems:reorder', { ids: ids }),
       importPreview: (sourceKey) => callNative('priceLists:importPreview', { sourceKey: sourceKey }),
       importApply: (token) => callNative('priceLists:importApply', { token: token }),
       exportCSV: (sourceKey) => callNative('priceLists:exportCSV', { sourceKey: sourceKey }),

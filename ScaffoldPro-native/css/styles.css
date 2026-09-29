@@ -470,6 +470,15 @@ table.history td { vertical-align: top; }
   font-size: 11px; font-weight: 600; color: var(--text-secondary);
   text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px 2px;
 }
+/* Every category's table has the same columns, so they line up. */
+table.price-table { table-layout: fixed; width: 100%; }
+table.price-table col.c-drag { width: 30px; }
+table.price-table col.c-weight { width: 110px; }
+table.price-table col.c-rental { width: 190px; }
+table.price-table col.c-sale { width: 150px; }
+table.price-table col.c-actions { width: 250px; }
+table.price-table td, table.price-table th { overflow: hidden; text-overflow: ellipsis; }
+table.price-table td.row-actions { white-space: nowrap; text-align: right; }
 .edit-field { width: 100%; padding: 3px 6px; margin-top: 4px; }
 .edit-field:first-child { margin-top: 0; }
 

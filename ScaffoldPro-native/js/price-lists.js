@@ -25,8 +25,17 @@ function weightText(value) {
     : `${Number(value).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kg`;
 }
 
+// Rows can be dragged into order within their category — except while a
+// search is typed in (only some of the items are showing then).
+let canReorder = true;
+
+function handleCell() {
+  return `<td class="drag-col">${canReorder ? window.dragHandleHTML('Drag to move this item (or focus and press ↑ / ↓)') : ''}</td>`;
+}
+
 function renderDisplayRow(tr, item) {
-  tr.innerHTML = `
+  tr.dataset.id = item.id;
+  tr.innerHTML = `${handleCell()}
     <td>${item.itemName}</td>
     <td class="num">${weightText(item.weightKg)}</td>
     <td class="num">${money(item.unitRentalPrice)}</td>
@@ -47,7 +56,7 @@ function renderDisplayRow(tr, item) {
 }
 
 function renderEditRow(tr, item) {
-  tr.innerHTML = `
+  tr.innerHTML = `<td class="drag-col"></td>
     <td>
       <input type="text" class="edit-field edit-name" value="${(item.itemName || '').replace(/"/g, '&quot;')}" placeholder="Item name" />
       <input type="text" class="edit-field edit-category" value="${(item.category || '').replace(/"/g, '&quot;')}" placeholder="Category" />
@@ -99,9 +108,12 @@ function renderTable(items) {
     title.textContent = category;
     section.appendChild(title);
 
+    // The same column widths in every category's table, so they line up.
     const table = document.createElement('table');
+    table.className = 'price-table';
     table.innerHTML = `
-      <thead><tr><th>Item</th><th class="num">Weight</th><th class="num">Rental / Month (${currentCurrency})</th><th class="num">Sale (${currentCurrency})</th><th></th></tr></thead>
+      <colgroup><col class="c-drag" /><col class="c-item" /><col class="c-weight" /><col class="c-rental" /><col class="c-sale" /><col class="c-actions" /></colgroup>
+      <thead><tr><th></th><th>Item</th><th class="num">Weight</th><th class="num">Rental / Month (${currentCurrency})</th><th class="num">Sale (${currentCurrency})</th><th></th></tr></thead>
       <tbody></tbody>`;
     const tbody = table.querySelector('tbody');
 
@@ -113,6 +125,16 @@ function renderTable(items) {
 
     section.appendChild(table);
     container.appendChild(section);
+    if (canReorder && groupItems.length > 1) {
+      window.makeReorderable(tbody, {
+        item: 'tr',
+        onReorder: async (ids) => {
+          const r = await window.api.priceLists.reorderItems(ids);
+          if (r && !r.ok) alert(r.error);
+          await applyFilters();
+        },
+      });
+    }
   }
 }
 
@@ -120,6 +142,7 @@ async function applyFilters() {
   const query = document.getElementById('search-box').value;
   const category = document.getElementById('category-select').value;
   const items = await window.api.priceLists.searchItems({ sourceKey: currentSourceKey, query, category: category || null });
+  canReorder = !query.trim();
   renderTable(items);
 }
 

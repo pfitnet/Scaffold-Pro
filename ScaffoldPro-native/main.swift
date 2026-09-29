@@ -149,6 +149,9 @@ struct PriceListItem: Codable {
     var applicableTypes: [String]
     var notes: String?
     var isArchived: Bool
+    /// Its place in its category, as dragged in the Material List. nil =
+    /// never moved (then it follows the moved ones, by item code).
+    var sortOrder: Int? = nil
 }
 
 struct PriceListItemActionResult: Codable {
@@ -2570,7 +2573,28 @@ final class AppDatabase {
             .filter { $0.sourceKey == sourceKey && !$0.isArchived }
             .filter { category == nil || category == "" || $0.category == category }
             .filter { q.isEmpty || $0.itemName.lowercased().contains(q) || $0.itemCode.lowercased().contains(q) }
-            .sorted { $0.itemCode.localizedStandardCompare($1.itemCode) == .orderedAscending }
+            .sorted { a, b in
+                // The order they were dragged into; the rest by item code.
+                let oa = a.sortOrder ?? Int.max, ob = b.sortOrder ?? Int.max
+                if oa != ob { return oa < ob }
+                return a.itemCode.localizedStandardCompare(b.itemCode) == .orderedAscending
+            }
+    }
+
+    /// The items of one category in their new order (dragged in the
+    /// Material List).
+    func reorderPriceListItems(ids: [String]) -> String? {
+        var items = priceListItemsStore.readAll()
+        let place = Dictionary(ids.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: { a, _ in a })
+        var changed = false
+        for i in items.indices {
+            if let p = place[items[i].id], items[i].sortOrder != p {
+                items[i].sortOrder = p
+                changed = true
+            }
+        }
+        if changed { priceListItemsStore.writeAll(items) }
+        return nil
     }
 
     private func uniqueItemCode(sourceKey: String, preferred: String?) -> String {
@@ -2615,7 +2639,16 @@ final class AppDatabase {
         copy.itemCode = uniqueItemCode(sourceKey: original.sourceKey, preferred: original.itemCode)
         copy.itemName = original.itemName + " (copy)"
         copy.isArchived = false
-        priceListItemsStore.insert(copy)
+        var items = priceListItemsStore.readAll()
+        // Right after the original, if the list has been put in order.
+        if let order = original.sortOrder {
+            for i in items.indices where items[i].sourceKey == original.sourceKey && items[i].category == original.category {
+                if let o = items[i].sortOrder, o > order { items[i].sortOrder = o + 1 }
+            }
+            copy.sortOrder = order + 1
+        }
+        items.append(copy)
+        priceListItemsStore.writeAll(items)
         return .success(copy)
     }
 
@@ -8507,6 +8540,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "priceListItems:archive":
             let error = db.archivePriceListItem(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "priceListItems:reorder":
+            let error = db.reorderPriceListItems(ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "priceListItems:duplicate":
             switch db.duplicatePriceListItem(id: (payload["id"] as? String) ?? "") {

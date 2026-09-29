@@ -1225,3 +1225,17 @@ under "Letterhead layout".
   control ScaffoldPro.
 - Install ScaffoldPro (the Desktop file) still uses Terminal. It's for
   installing the first time.
+
+## Batch 51 — Material List: drag to reorder, aligned columns
+
+- Items in the Material List can be dragged into order within their
+  category using the ⋮⋮ handle. With the handle focused, ↑ / ↓ also move an
+  item.
+  - The order is saved (PriceListItem.sortOrder) and used wherever
+    materials are listed, e.g. the BOQ and quotation item pickers. Items
+    never moved follow, by item code.
+  - A duplicate goes right after its original.
+  - Dragging is paused while a search is typed in, since only some of the
+    items are showing then.
+- Every category's table now has the same fixed column widths, so the
+  Weight, Rental and Sale columns line up down the whole list.
