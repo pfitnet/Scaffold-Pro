@@ -37,7 +37,10 @@
     'Show in Finder': 'folder', 'Show Folder': 'folder', 'Show Folder in Finder': 'folder', 'Show Backups Folder': 'folder',
     'Archive': 'archive',
     'Rename': 'rename', 'Rename…': 'rename',
+    '⧉': 'duplicate',
   };
+  // Symbols used as labels, and the word that goes with them.
+  const WORDS = { '⧉': 'Duplicate' };
 
   function iconize(button) {
     if (button.dataset.noIcon !== undefined || button.closest('[data-no-icon]')) return;
@@ -50,8 +53,8 @@
     }
     if (button.querySelector('.btn-icon') && button.dataset.iconLabel === label) return;
     button.dataset.iconLabel = label;
-    if (!button.title) button.title = label;
-    button.setAttribute('aria-label', label);
+    if (!button.title) button.title = WORDS[label] || label;
+    button.setAttribute('aria-label', WORDS[label] || label);
     button.innerHTML = ICONS[name];
     button.classList.add('icon-btn');
     if (name === 'trash') button.classList.add('icon-danger');
