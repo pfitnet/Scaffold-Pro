@@ -346,6 +346,8 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
   white-space: nowrap;
 }
 .status-pill.pill-danger, .pill-danger { background: var(--danger-soft); color: var(--danger); }
+.status-pill.pill-warning, .pill-warning { background: var(--warning-soft); color: var(--warning); }
+.status-pill.pill-success, .pill-success { background: rgba(42, 122, 59, 0.12); color: var(--success); }
 
 .small-note { font-size: 12px; color: var(--text-secondary); }
 .muted { color: var(--text-secondary); }
@@ -543,3 +545,8 @@ table.history td { vertical-align: top; }
 /* Drawings panel in the BOQ and quotation editors */
 .linked-drawings-panel { margin-top: 24px; }
 .linked-drawings-panel .section-toolbar h2 { font-size: 14px; }
+
+/* Discount button (percent-tag icon) on BOQ, quotation and invoice lines */
+.discount-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; color: var(--text-secondary); }
+.discount-btn:hover { color: var(--text); }
+.discount-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }

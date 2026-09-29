@@ -174,7 +174,7 @@
       updateLineDiscount: (id, discountType, discountValue) => callNative('invoices:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
       updateHeader: (id, header) => callNative('invoices:updateHeader', Object.assign({ id: id }, header)),
       updateStatus: (id, status) => callNative('invoices:updateStatus', { id: id, status: status }),
-      recordPayment: (id, amount) => callNative('invoices:recordPayment', { id: id, amount: amount }),
+      recordPayment: (id, amount, details) => callNative('invoices:recordPayment', Object.assign({ id: id, amount: amount }, details || {})),
       remove: (id) => callNative('invoices:delete', { id: id }),
       exportPDF: (id) => callNative('invoices:exportPDF', { id: id }),
       exportWord: (id) => callNative('invoices:exportWord', { id: id }),
@@ -206,6 +206,19 @@
     // Word copies built by js/docx-export.js, saved next to the PDFs.
     files: {
       saveWord: (input) => callNative('files:saveWord', input),
+    },
+    // Stock list: what's in the yard, on hire and owned; movements.
+    stock: {
+      data: () => callNative('stock:data'),
+      addMovement: (movement) => callNative('stock:addMovement', movement),
+      deleteMovement: (id) => callNative('stock:deleteMovement', { id: id }),
+    },
+    // Accounts: receivables, payments and expenses.
+    accounts: {
+      data: () => callNative('accounts:data'),
+      saveExpense: (expense) => callNative('accounts:saveExpense', expense),
+      deleteExpense: (id) => callNative('accounts:deleteExpense', { id: id }),
+      saveCSV: (fileName, csv) => callNative('accounts:saveCSV', { fileName: fileName, csv: csv }),
     },
     // Automatic backup into the shared iCloud folder (Proficiency › William's Work).
     cloudBackup: {

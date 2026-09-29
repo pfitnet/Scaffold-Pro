@@ -167,7 +167,7 @@ function renderLineItems() {
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td class="num"><input type="number" class="price-input${overridden ? ' override' : ''}" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
-      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item">${discountLabel || 'Discount'}</button>`}</td>
+      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
       <td class="num">${money(lineTotal)}</td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 

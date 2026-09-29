@@ -21,8 +21,6 @@
     .payment-row input { width: 100px; }
       .source-note { font-size: 12px; color: var(--text-secondary); }
     .source-note a { color: var(--accent); }
-    .discount-btn { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
-    .discount-btn.active { color: var(--accent); border-color: var(--accent); }
     .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
   </style>
 </head>
@@ -108,7 +106,12 @@
 
           <div class="payment-row hidden" id="payment-row">
             <label style="font-size:12px; color:var(--text-secondary);">Record payment</label>
-            <input type="number" id="payment-amount-input" min="0" step="0.01" />
+            <input type="number" id="payment-amount-input" min="0" step="0.01" placeholder="Amount" />
+            <input type="date" id="payment-date-input" title="Date received" />
+            <select id="payment-method-select" title="How it was paid">
+              <option value="">Method…</option><option>Bank transfer</option><option>Cheque</option><option>FPS</option><option>Cash</option><option>Other</option>
+            </select>
+            <input type="text" id="payment-ref-input" placeholder="Ref. (cheque no.)" style="width:120px" />
             <button id="record-payment-btn">Add Payment</button>
           </div>
 

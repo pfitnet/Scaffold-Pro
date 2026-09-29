@@ -162,7 +162,7 @@ function renderLineItems() {
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td class="num"><input type="number" class="price-input" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} /></td>
-      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item">${discountLabel || 'Discount'}</button>`}</td>
+      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
       <td class="num">${money(lineTotal)}</td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 
@@ -237,9 +237,14 @@ async function saveHeader() {
 async function recordPayment() {
   const input = document.getElementById('payment-amount-input');
   const amount = parseFloat(input.value) || 0;
-  const result = await window.api.invoices.recordPayment(invoiceId, amount);
+  const result = await window.api.invoices.recordPayment(invoiceId, amount, {
+    date: document.getElementById('payment-date-input').value || null,
+    method: document.getElementById('payment-method-select').value || null,
+    reference: document.getElementById('payment-ref-input').value || null,
+  });
   if (!result.ok) { alert(result.error); return; }
   input.value = '';
+  document.getElementById('payment-ref-input').value = '';
   await loadDetail();
 }
 
