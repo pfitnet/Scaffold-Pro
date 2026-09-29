@@ -715,6 +715,8 @@ struct BOQSummary: Codable {
     var grandTotal: Double
     var totalWeightKg: Double
     var createdAt: String
+    /// What the scaffold is for, e.g. "Access platform for louvres".
+    var structure: String? = nil
 }
 
 struct BOQDetail: Codable {
@@ -866,6 +868,11 @@ struct QuotationSummary: Codable {
     var createdAt: String
     /// The client's signed copy has been added.
     var signed = false
+    /// The BOQ it refers to (if any), and that BOQ's structure.
+    var boqNumber: String? = nil
+    var structure: String? = nil
+    /// Its "Re:" subject line.
+    var subject: String? = nil
 }
 
 struct QuotationDetail: Codable {
@@ -2879,11 +2886,13 @@ final class AppDatabase {
                 let items = lineItems(for: boq.id)
                 // The total amount, with any charges after the subtotal.
                 let total = doubleOf(decimalOf(boqMoneyTotal(items)) + decimalOf(boqChargesTotal(boq.charges)))
-                return BOQSummary(
+                var summary = BOQSummary(
                     id: boq.id, boqNumber: boq.boqNumber, status: boq.status,
                     pricingMode: boq.pricingMode, itemCount: items.count,
                     grandTotal: total, totalWeightKg: totalWeight(for: items), createdAt: boq.createdAt
                 )
+                summary.structure = nonBlank(boq.structure)
+                return summary
             }
     }
 
@@ -3291,6 +3300,10 @@ final class AppDatabase {
                 let totals = quotationMoney(q, lineItems: items)
                 var summary = QuotationSummary(id: q.id, quotationNumber: q.quotationNumber, status: q.status, itemCount: items.count, total: totals.total, createdAt: q.createdAt)
                 summary.signed = q.signedCopyPath.map { fileIsPresent($0) } ?? false
+                let boq = q.sourceBOQId.flatMap { getBOQ(id: $0) }
+                summary.boqNumber = boq?.boqNumber
+                summary.structure = nonBlank(boq?.structure)
+                summary.subject = nonBlank(q.subject)
                 return summary
             }
     }
@@ -8889,6 +8902,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .print)
         case "quotations:print":
             handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .print)
+        case "quotations:combinePDF":
+            handleCombineQuotations(id: id, ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
         case "team:status":
             respond(id: id, encodable: teamStatus())
         case "team:start":
@@ -9899,6 +9914,20 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
+        let letter = quotationLetter(detail, company: company)
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
+                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
+                           attachments: mode == .word ? [] : quotationAttachments(detail))
+    }
+
+    /// Everything added after a quotation's own pages: the BOQ it follows,
+    /// then its image and PDF drawings.
+    private func quotationAttachments(_ detail: QuotationDetail) -> [URL] {
+        [followedBOQFile(detail)].compactMap { $0 } + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
+    }
+
+    /// A quotation laid out on the letterhead (as Qt26193).
+    private func quotationLetter(_ detail: QuotationDetail, company: CompanySettings) -> LetterDocument {
         let isRental = detail.pricingMode == "Rental"
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
 
@@ -9948,7 +9977,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         terms += formattedParagraphs(nonBlank(detail.keyTerms) ?? detail.standardKeyTerms)
         terms.append(.text(company.quotationAcceptance ?? defaultQuotationAcceptance, link: nil))
 
-        let letter = LetterDocument(
+        return LetterDocument(
             number: detail.quotationNumber, status: detail.status, title: "QUOTATION",
             clientName: client.name, clientLines: client.lines,
             refRows: [("Our Ref. No.", detail.quotationNumber), ("Your Ref. No.", detail.clientRef ?? ""),
@@ -9969,9 +9998,47 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             ],
             closingLine: "-[Remainder of this page is intentionally left blank]-"
         )
-        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
-                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
-                           attachments: (mode == .word ? [] : [followedBOQFile(detail)].compactMap { $0 }) + db.appendedDrawingFiles(kind: "Quotation", id: detail.id))
+    }
+
+    /// Several quotations of a project in one PDF, in the order given —
+    /// each with its drawings (and the BOQ it follows) after it, if asked.
+    /// Saved in the project's Quotations folder and opened.
+    private func handleCombineQuotations(id: String, ids: [String], includeDrawings: Bool) {
+        let details = ids.compactMap { db.getQuotationDetail(id: $0) }
+        guard let first = details.first else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Choose at least one quotation.", path: nil))
+            return
+        }
+        let company = db.getCompanySettings()
+        let paper = company.paperSize ?? "A4"
+        let paperSize = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
+        let combined = PDFDocument()
+        for detail in details {
+            guard let generator = PDFGenerator(paperSize: paper) else { continue }
+            var data = generator.generate(quotationLetter(detail, company: company))
+            if includeDrawings { data = PDFAttachments.append(quotationAttachments(detail), to: data, paperSize: paperSize) }
+            guard let part = PDFDocument(data: data) else { continue }
+            for i in 0..<part.pageCount {
+                if let page = part.page(at: i)?.copy() as? PDFPage { combined.insert(page, at: combined.pageCount) }
+            }
+        }
+        guard combined.pageCount > 0, let data = combined.dataRepresentation() else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be made.", path: nil))
+            return
+        }
+        let numbers = details.map { $0.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") }
+        let name = numbers.count <= 4 ? numbers.joined(separator: "+") : "\(numbers.count) quotations \(letterDate(nowISO()).replacingOccurrences(of: "/", with: "-"))"
+        let filename = "\(first.projectNumber)_Quotations_\(name)\(includeDrawings ? "_with drawings" : "").pdf"
+        do {
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: "Quotations", meaningfulFilename: filename)
+            NSWorkspace.shared.open(destination)
+            if let project = db.getProjectByNumber(first.projectNumber) {
+                db.logActivity(projectId: project.id, "Quotations combined into one PDF", reference: destination.lastPathComponent)
+            }
+            respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
+        } catch {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved to the project folder. Please check there's free disk space and try again.", path: nil))
+        }
     }
 
     private func handleExportInvoicePDF(id: String, invoiceId: String, mode: PDFMode = .export) {

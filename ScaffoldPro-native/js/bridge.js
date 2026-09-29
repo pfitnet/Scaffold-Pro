@@ -169,6 +169,8 @@
       exportPDF: (id) => callNative('quotations:exportPDF', { id: id }),
       exportWord: (id) => callNative('quotations:exportWord', { id: id }),
       print: (id) => callNative('quotations:print', { id: id }),
+      // Several quotations in one PDF (in the order given), optionally each with its drawings.
+      combinePDF: (ids, includeDrawings) => callNative('quotations:combinePDF', { ids: ids, includeDrawings: !!includeDrawings }),
       // The client's signed copy (PDF or photo/scan), kept in the project's Quotations folder.
       uploadSigned: (id) => callNative('quotations:uploadSigned', { id: id }),
       saveSignedFile: (id, fileName, base64) => callNative('quotations:saveSignedFile', { id: id, fileName: fileName, base64: base64 }),
