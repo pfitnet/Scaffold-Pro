@@ -985,3 +985,37 @@ under "Letterhead layout".
   place.
 - Handles appear only on drafts with at least two lines or sections; issued
   documents can't be reordered.
+
+## Batch 40 — Locate File, BOQ mark-up on the rates, rounding, project code, delete
+
+- **Locate File** shows a file in Finder. It appears on every uploaded file,
+  drawing, company or worker document and backup, replacing "Reveal".
+  - It's also on every BOQ, quotation, invoice and delivery note: in each
+    editor's toolbar and on each row of the project's lists.
+  - For these it shows the PDF last exported, else the newest PDF or Word
+    copy with the document's number, else the folder it will be saved in.
+  - A missing file's "Locate File…" is now **Find Moved File…**.
+- **BOQ mark-up** no longer changes the stored unit prices. Lines keep their
+  list prices, and the mark-up is applied to the rates shown and printed,
+  each rounded to 0.1, as on a quotation.
+  - A quotation made from the BOQ, or with its items imported, takes the
+    mark-up as its own **markup %**. Its lines keep the list prices, and a
+    BOQ line's discount becomes the same discount on the quotation line.
+  - A mark-down is priced into the lines instead.
+  - Draft BOQs made before this change are converted when the app starts.
+    Issued ones are left as printed until they're set back to Draft.
+- **Rounding**: Settings › Standard Quotation › "Marked-up unit prices"
+  chooses between rounding off to the nearest 0.1 (4.83 → 4.80) and rounding
+  up to the next 0.1 (4.83 → 4.90). It applies to quotations and BOQs.
+- **Project Code** can be changed in Edit Project Details.
+  - The project's folder (Documents › ScaffoldPro › Projects) is renamed
+    and every file kept in it is re-pointed.
+  - Draft documents numbered with the old code get the new one. Issued
+    documents keep the numbers they were sent with.
+- **Delete…** for BOQs, quotations, invoices and delivery notes, in the
+  editor and on the project's lists.
+  - A draft asks once. An issued document asks again and you type its
+    number to confirm.
+  - Deleting an invoice removes its payments from Accounts. Deleting a
+    delivery note puts its items back in stock. Linked drawings stay with
+    the project, and exported PDF and Word files stay in the folder.

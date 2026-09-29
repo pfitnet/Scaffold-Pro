@@ -203,6 +203,10 @@ async function populateCategories() {
 }
 
 async function init() {
+  window.setupDocumentActions('DeliveryNote', () => ({
+    id: deliveryNoteId, number: currentDetail ? currentDetail.deliveryNoteNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
+    projectNumber: currentDetail ? currentDetail.projectNumber : '',
+  }));
   deliveryNoteId = getIdFromURL();
   if (!deliveryNoteId) {
     document.getElementById('not-found').classList.remove('hidden');

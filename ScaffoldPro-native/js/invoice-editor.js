@@ -304,6 +304,10 @@ async function populateCategories() {
 }
 
 async function init() {
+  window.setupDocumentActions('Invoice', () => ({
+    id: invoiceId, number: currentDetail ? currentDetail.invoiceNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
+    projectNumber: currentDetail ? currentDetail.projectNumber : '',
+  }));
   window.attachParagraphFormatting(document.getElementById('payment-terms-input'));
   invoiceId = getInvoiceIdFromURL();
   if (!invoiceId) {

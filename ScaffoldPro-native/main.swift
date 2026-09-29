@@ -562,13 +562,14 @@ func lineDiscountNote(discountType: String?, discountValue: Double?, currencySym
     }
 }
 
-/// A unit price with a quotation's markup applied, rounded to the nearest
-/// 0.1 (5.50 +30% → 7.20). Unchanged when there's no markup.
-func markedUpPrice(_ price: Double, markupPercent: Double?) -> Double {
-    guard let markup = markupPercent, markup > 0 else { return price }
-    var value = decimalOf(price) * (1 + decimalOf(markup) / 100)
+/// A unit price with a markup (or, below 0, a mark-down) applied, rounded
+/// off to the nearest 0.1 (5.50 +30% → 7.20) or, with `roundUp`, up to the
+/// next 0.1 (4.20 +15% = 4.83 → 4.90). Unchanged when there's no markup.
+func markedUpPrice(_ price: Double, markupPercent: Double?, roundUp: Bool = false) -> Double {
+    guard let markup = markupPercent, markup != 0, markup > -100 else { return price }
+    var value = roundToCents(decimalOf(price) * (1 + decimalOf(markup) / 100))
     var rounded = Decimal()
-    NSDecimalRound(&rounded, &value, 1, .plain)
+    NSDecimalRound(&rounded, &value, 1, roundUp ? .up : .plain)
     return doubleOf(rounded)
 }
 
@@ -635,6 +636,10 @@ struct BillOfQuantities: Codable {
     /// Amounts added after the subtotal on the BQ sheet (e.g. D1 Delivery,
     /// D2 Design Fees): not priced by unit, but added to the total.
     var charges: [BOQCharge]? = nil
+    /// true: lines keep their list prices and the mark-up is applied to the
+    /// rates shown and printed (rounded to 0.1, like a quotation's). nil:
+    /// an older BOQ whose stored prices already include its mark-up.
+    var markupOnRates: Bool? = nil
 }
 
 struct BOQCharge: Codable {
@@ -716,6 +721,10 @@ struct BOQDetail: Codable {
     var charges: [BOQCharge]?
     var chargesTotal: Double
     var totalAmount: Double
+    /// The mark-up is applied to the rates (not built into the prices).
+    var markupOnRates = false
+    /// Marked-up rates round up to the next 0.1 (else off to the nearest).
+    var markupRoundUp = false
 }
 
 struct BOQActionResult: Codable {
@@ -872,6 +881,8 @@ struct QuotationDetail: Codable {
     /// The months used when it does.
     var minimumHireMonths: Int
     var markupPercent: Double?
+    /// Marked-up prices round up to the next 0.1 (else off to the nearest).
+    var markupRoundUp = false
     /// Line id → unit price charged (after the markup).
     var effectiveUnitPrices: [String: Double]
     /// Line id → line total (after the markup and the line's discount).
@@ -1135,6 +1146,9 @@ struct CompanySettings: Codable {
     /// The standard manpower rates filled into a quotation's rates section
     /// by "Standard Rates". nil = `defaultManpowerRates`.
     var manpowerRates: [ManpowerRate]?
+    /// Marked-up unit prices (quotation and BOQ markup %) are rounded up to
+    /// the next 0.1 (true) or off to the nearest 0.1 (nil / false).
+    var markupRoundUp: Bool? = nil
 }
 
 /// A worker type and its day rate, e.g. "Scaffolder CP", 2,300 per "md".
@@ -2296,6 +2310,10 @@ final class AppDatabase {
     func listProjectsRaw() -> [Project] {
         projectsStore.readAll().sorted { $0.projectNumber > $1.projectNumber }
     }
+    func getProject(id: String) -> Project? {
+        projectsStore.readAll().first { $0.id == id }
+    }
+
     func getProjectByNumber(_ number: String) -> Project? {
         projectsStore.readAll().first { $0.projectNumber == number }
     }
@@ -2335,6 +2353,40 @@ final class AppDatabase {
         projectsStore.writeAll(items)
         if logChange { logActivity(projectId: id, "Project details edited") }
         return nil
+    }
+
+    /// A new project code (number). Draft documents numbered with the old
+    /// code are renumbered with the new one; issued documents keep the
+    /// numbers they were sent with. (The project's folder is renamed and
+    /// file paths re-pointed by the caller.)
+    func setProjectNumber(id: String, to newNumber: String) {
+        var items = projectsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
+        let old = items[i].projectNumber
+        items[i].projectNumber = newNumber
+        projectsStore.writeAll(items)
+        // The old code where it stands on its own among the digits
+        // ("BQ26210-001", "26210-BOQ-001"), not inside another number.
+        let pattern = "(?<![0-9])" + NSRegularExpression.escapedPattern(for: old) + "(?![0-9])"
+        let regex = try? NSRegularExpression(pattern: pattern)
+        let renumber: (String) -> String = { number in
+            guard let regex = regex else { return number }
+            return regex.stringByReplacingMatches(in: number, range: NSRange(number.startIndex..., in: number),
+                                                  withTemplate: NSRegularExpression.escapedTemplate(for: newNumber))
+        }
+        var boqs = boqsStore.readAll()
+        for j in boqs.indices where boqs[j].projectId == id && boqs[j].status == "Draft" { boqs[j].boqNumber = renumber(boqs[j].boqNumber) }
+        boqsStore.writeAll(boqs)
+        var qs = quotationsStore.readAll()
+        for j in qs.indices where qs[j].projectId == id && qs[j].status == "Draft" { qs[j].quotationNumber = renumber(qs[j].quotationNumber) }
+        quotationsStore.writeAll(qs)
+        var invs = invoicesStore.readAll()
+        for j in invs.indices where invs[j].projectId == id && invs[j].status == "Draft" { invs[j].invoiceNumber = renumber(invs[j].invoiceNumber) }
+        invoicesStore.writeAll(invs)
+        var dns = deliveryNotesStore.readAll()
+        for j in dns.indices where dns[j].projectId == id && dns[j].status == "Draft" { dns[j].deliveryNoteNumber = renumber(dns[j].deliveryNoteNumber) }
+        deliveryNotesStore.writeAll(dns)
+        logActivity(projectId: id, "Project code changed to \(newNumber)", reference: "was \(old)")
     }
 
     func updateProjectStatus(id: String, status: String) {
@@ -2596,18 +2648,33 @@ final class AppDatabase {
     }
 
     private func boqMoneyTotal(_ items: [BOQLineItem]) -> Double {
-        doubleOf(items.reduce(Decimal(0)) { $0 + lineAmount(quantity: $1.quantity, unitPrice: boqEffectiveRate($1)) })
+        let boqs = Dictionary(boqsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let up = markupRoundsUp
+        return doubleOf(items.reduce(Decimal(0)) { $0 + lineAmount(quantity: $1.quantity, unitPrice: boqEffectiveRate($1, boq: boqs[$1.boqId], roundUp: up)) })
     }
 
-    /// A BOQ line's unit rate after its discount (to the cent).
-    func boqEffectiveRate(_ line: BOQLineItem) -> Double {
-        let rate = decimalOf(line.appliedUnitPrice)
+    /// Marked-up prices round up (Settings › Standard Quotation) or off.
+    var markupRoundsUp: Bool { getCompanySettings().markupRoundUp == true }
+
+    /// A BOQ line's rate before its discount: its price with the BOQ's
+    /// mark-up, rounded to 0.1 as on a quotation.
+    func boqMarkedUpRate(_ line: BOQLineItem, boq: BillOfQuantities?, roundUp: Bool? = nil) -> Double {
+        guard let boq = boq, boq.markupOnRates == true else { return line.appliedUnitPrice }
+        return markedUpPrice(line.appliedUnitPrice, markupPercent: boq.markupPercent, roundUp: roundUp ?? markupRoundsUp)
+    }
+
+    /// A BOQ line's unit rate as charged: with the BOQ's mark-up, then its
+    /// discount (to the cent).
+    func boqEffectiveRate(_ line: BOQLineItem, boq: BillOfQuantities? = nil, roundUp: Bool? = nil) -> Double {
+        let owner = boq ?? getBOQ(id: line.boqId)
+        let marked = boqMarkedUpRate(line, boq: owner, roundUp: roundUp)
+        let rate = decimalOf(marked)
         let value = decimalOf(max(0, line.discountValue ?? 0))
         let discounted: Decimal
         switch line.discountType {
         case "Percent": discounted = rate - rate * min(value, 100) / 100
         case "Amount": discounted = rate - value
-        default: return line.appliedUnitPrice
+        default: return marked
         }
         return doubleOf(roundToCents(max(0, discounted)))
     }
@@ -2627,7 +2694,7 @@ final class AppDatabase {
             let v = value ?? 0
             guard v > 0 else { return "Enter a discount greater than zero." }
             if kind == "Percent", v > 100 { return "A percentage discount can't be more than 100%." }
-            if kind == "Amount", v > items[i].appliedUnitPrice { return "The discount can't be more than the unit rate." }
+            if kind == "Amount", v > boqMarkedUpRate(items[i], boq: boq) { return "The discount can't be more than the unit rate." }
             items[i].discountType = kind
             items[i].discountValue = doubleOf(roundToCents(decimalOf(v)))
         }
@@ -2702,7 +2769,8 @@ final class AppDatabase {
             status: "Draft",
             notes: nil,
             createdAt: nowISO(),
-            updatedAt: nowISO()
+            updatedAt: nowISO(),
+            markupOnRates: true
         )
         boqsStore.insert(boq)
         logActivity(projectId: projectId, "BOQ created (\(boq.pricingMode))", reference: boq.boqNumber)
@@ -2718,6 +2786,7 @@ final class AppDatabase {
         guard let project = projectsStore.readAll().first(where: { $0.id == boq.projectId }) else { return nil }
         let items = lineItems(for: boq.id)
         let total = boqMoneyTotal(items)
+        let roundUp = markupRoundsUp
         return BOQDetail(
             id: boq.id, boqNumber: boq.boqNumber, status: boq.status, pricingMode: boq.pricingMode,
             notes: boq.notes, createdAt: boq.createdAt, updatedAt: boq.updatedAt,
@@ -2725,10 +2794,11 @@ final class AppDatabase {
             lineItems: items, grandTotal: total, totalWeightKg: totalWeight(for: items),
             markupPercent: boq.markupPercent ?? 0, structure: boq.structure,
             orientation: boq.orientation == "Portrait" ? "Portrait" : "Landscape",
-            effectiveRates: Dictionary(items.map { ($0.id, boqEffectiveRate($0)) }, uniquingKeysWith: { a, _ in a }),
+            effectiveRates: Dictionary(items.map { ($0.id, boqEffectiveRate($0, boq: boq, roundUp: roundUp)) }, uniquingKeysWith: { a, _ in a }),
             ratesSection: boq.ratesSection,
             charges: boq.charges, chargesTotal: boqChargesTotal(boq.charges),
-            totalAmount: doubleOf(decimalOf(total) + decimalOf(boqChargesTotal(boq.charges)))
+            totalAmount: doubleOf(decimalOf(total) + decimalOf(boqChargesTotal(boq.charges))),
+            markupOnRates: boq.markupOnRates == true, markupRoundUp: roundUp
         )
     }
 
@@ -2796,6 +2866,10 @@ final class AppDatabase {
         var boqs = boqsStore.readAll()
         guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
         guard boqs[i].status == "Draft" else { return "This BOQ is issued. Set it back to Draft to change its details." }
+        if boqs[i].markupOnRates != true {
+            moveBOQMarkupOntoRates(id)
+            boqs = boqsStore.readAll()
+        }
         let oldMode = boqs[i].pricingMode
         let oldMarkup = boqs[i].markupPercent ?? 0
         let newMode = (pricingMode == "Sale" || pricingMode == "Rental") ? pricingMode! : oldMode
@@ -2810,7 +2884,12 @@ final class AppDatabase {
         boqs[i].updatedAt = nowISO()
         boqsStore.writeAll(boqs)
 
-        if newMode != oldMode || newMarkup != oldMarkup {
+        // The mark-up is applied to the rates as they're shown and printed;
+        // only a Sale ↔ Rental change re-prices the lines.
+        if newMarkup != oldMarkup {
+            logActivity(projectId: boqs[i].projectId, "BOQ mark-up \(formatMoney(newMarkup))%", reference: boqs[i].boqNumber)
+        }
+        if newMode != oldMode {
             let rates = conversionRates()
             let priceItems = Dictionary(priceListItemsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             var lines = boqLineItemsStore.readAll()
@@ -2818,15 +2897,12 @@ final class AppDatabase {
             for li in lines.indices where lines[li].boqId == id {
                 guard let plId = lines[li].priceListItemId, let pl = priceItems[plId] else { continue }
                 let wasManual = lines[li].priceListUnitPrice.map { abs($0 - lines[li].appliedUnitPrice) > 0.004 } ?? false
-                guard let newPrice = boqPrice(for: pl, mode: newMode, markupPercent: newMarkup, rates: rates) else { continue }
+                guard let newPrice = boqPrice(for: pl, mode: newMode, markupPercent: 0, rates: rates) else { continue }
                 lines[li].priceListUnitPrice = newPrice
                 if wasManual { kept += 1 } else { lines[li].appliedUnitPrice = newPrice; repriced += 1 }
             }
             boqLineItemsStore.writeAll(lines)
-            var what: [String] = []
-            if newMode != oldMode { what.append("changed to \(newMode)") }
-            if newMarkup != oldMarkup { what.append("mark-up \(formatMoney(newMarkup))%") }
-            logActivity(projectId: boqs[i].projectId, "BOQ \(what.joined(separator: ", ")) — \(repriced) line(s) re-priced\(kept > 0 ? ", \(kept) hand-typed price(s) kept" : "")", reference: boqs[i].boqNumber)
+            logActivity(projectId: boqs[i].projectId, "BOQ changed to \(newMode) — \(repriced) line(s) re-priced\(kept > 0 ? ", \(kept) hand-typed price(s) kept" : "")", reference: boqs[i].boqNumber)
         }
         return nil
     }
@@ -2919,7 +2995,40 @@ final class AppDatabase {
         boqs[index].updatedAt = nowISO()
         boqsStore.writeAll(boqs)
         if changed { logActivity(projectId: boqs[index].projectId, "BOQ \(status == "Issued" ? "issued" : "returned to draft")", reference: boqs[index].boqNumber) }
+        if status == "Draft" { moveBOQMarkupOntoRates(id) }
         return nil
+    }
+
+    /// Every draft BOQ from before the mark-up moved onto the rates (issued
+    /// ones are left as printed until they're set back to Draft).
+    func moveBOQMarkupsOntoRates() {
+        for boq in boqsStore.readAll() where boq.status == "Draft" && boq.markupOnRates != true { moveBOQMarkupOntoRates(boq.id) }
+    }
+
+    /// An older BOQ stored its prices with the mark-up in them. Its lines
+    /// go back to list prices (a price typed by hand loses the mark-up) and
+    /// the mark-up is applied to the rates instead, rounded to 0.1.
+    func moveBOQMarkupOntoRates(_ id: String) {
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }), boqs[i].markupOnRates != true, boqs[i].status == "Draft" else { return }
+        let markup = boqs[i].markupPercent ?? 0
+        if markup != 0, markup > -100 {
+            let factor = 1 + decimalOf(markup) / 100
+            let rates = conversionRates()
+            let priceItems = Dictionary(priceListItemsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            var lines = boqLineItemsStore.readAll()
+            for li in lines.indices where lines[li].boqId == id {
+                let handTyped = lines[li].priceListUnitPrice.map { abs($0 - lines[li].appliedUnitPrice) > 0.004 } ?? true
+                let listPrice = lines[li].priceListItemId.flatMap { priceItems[$0] }.flatMap { basePrice($0, mode: boqs[i].pricingMode, rates: rates) }
+                    ?? lines[li].priceListUnitPrice.map { doubleOf(roundToCents(decimalOf($0) / factor)) }
+                lines[li].priceListUnitPrice = listPrice
+                lines[li].appliedUnitPrice = !handTyped && listPrice != nil ? listPrice!
+                    : doubleOf(roundToCents(decimalOf(lines[li].appliedUnitPrice) / factor))
+            }
+            boqLineItemsStore.writeAll(lines)
+        }
+        boqs[i].markupOnRates = true
+        boqsStore.writeAll(boqs)
     }
 
     func updateBOQNotes(id: String, notes: String?) {
@@ -2932,13 +3041,16 @@ final class AppDatabase {
 
     /// Draft BOQs only — issued ones are never deleted, per section 25
     /// ("prefer cancellation/archive over deletion" for formal documents).
-    func deleteBOQ(id: String) -> String? {
+    /// Deletes a BOQ and its lines. An issued one only when `includingIssued`
+    /// (the page asks twice). Its exported PDF stays in the project folder.
+    func deleteBOQ(id: String, includingIssued: Bool = false) -> String? {
         guard let boq = getBOQ(id: id) else { return "BOQ not found." }
-        guard boq.status == "Draft" else { return "Only draft BOQs can be deleted." }
+        guard boq.status == "Draft" || includingIssued else { return "Only draft BOQs can be deleted." }
         var boqs = boqsStore.readAll()
         boqs.removeAll { $0.id == id }
         boqsStore.writeAll(boqs)
-        logActivity(projectId: boq.projectId, "Draft BOQ deleted", reference: boq.boqNumber)
+        unlinkDrawings(kind: "BOQ", id: id)
+        logActivity(projectId: boq.projectId, "\(boq.status == "Draft" ? "Draft" : boq.status) BOQ deleted", reference: boq.boqNumber)
         var items = boqLineItemsStore.readAll()
         items.removeAll { $0.boqId == id }
         boqLineItemsStore.writeAll(items)
@@ -2992,7 +3104,7 @@ final class AppDatabase {
     /// The unit price a quotation line is charged at: its price with the
     /// quotation's markup (materials only, rounded to 0.1).
     func effectiveUnitPrice(_ line: QuotationLineItem, _ q: Quotation) -> Double {
-        isMaterialLine(line) ? markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent) : line.appliedUnitPrice
+        isMaterialLine(line) ? markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent, roundUp: markupRoundsUp) : line.appliedUnitPrice
     }
 
     /// A material (or custom item) — not a delivery charge, and not a row
@@ -3075,22 +3187,62 @@ final class AppDatabase {
         quotationsStore.insert(quotation)
         logActivity(projectId: projectId, sourceBOQId == nil ? "Quotation created (\(resolvedPricingMode))" : "Quotation created from BOQ", reference: quotation.quotationNumber)
 
-        if let boqId = sourceBOQId {
+        if let boqId = sourceBOQId, let boq = getBOQ(id: boqId) {
             let sourceItems = boqLineItemsStore.readAll()
                 .filter { $0.boqId == boqId }
                 .sorted { $0.sortOrder < $1.sortOrder }
             let copied: [QuotationLineItem] = sourceItems.enumerated().map { index, item in
-                QuotationLineItem(
+                let priced = quotationPricing(of: item, boq: boq)
+                var line = QuotationLineItem(
                     id: makeId("qitem"), quotationId: quotation.id, sourceKey: item.sourceKey,
                     priceListItemId: item.priceListItemId, itemCode: item.itemCode,
                     itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
-                    appliedUnitPrice: boqEffectiveRate(item), section: item.section, sortOrder: index,
-                    priceListUnitPrice: item.priceListUnitPrice
+                    appliedUnitPrice: priced.price, section: item.section, sortOrder: index,
+                    priceListUnitPrice: priced.listPrice
                 )
+                line.discountType = priced.discountType
+                line.discountValue = priced.discountValue
+                return line
             }
             quotationLineItemsStore.insertMany(copied)
+            // The BOQ's mark-up becomes the quotation's markup %.
+            if let markup = carriedMarkup(boq) {
+                var qs = quotationsStore.readAll()
+                if let qi = qs.firstIndex(where: { $0.id == quotation.id }) {
+                    qs[qi].markupPercent = markup
+                    quotationsStore.writeAll(qs)
+                    quotation.markupPercent = markup
+                }
+            }
         }
         return quotation
+    }
+
+    /// The markup % a BOQ passes on to a quotation: its mark-up, if the
+    /// BOQ keeps list prices (a mark-down is priced into the lines instead).
+    func carriedMarkup(_ boq: BillOfQuantities) -> Double? {
+        guard boq.markupOnRates == true, let m = boq.markupPercent, m > 0 else { return nil }
+        return m
+    }
+
+    /// A BOQ line as a quotation line. With the BOQ's mark-up carried to the
+    /// quotation, it keeps its list price, and its discount on the unit rate
+    /// becomes the same discount on the quotation line (a per-unit amount ×
+    /// quantity), so it's charged the same. Otherwise the rate as charged.
+    func quotationPricing(of item: BOQLineItem, boq: BillOfQuantities) -> (price: Double, listPrice: Double?, discountType: String?, discountValue: Double?) {
+        guard carriedMarkup(boq) != nil else {
+            // No mark-up, a mark-down, or an older BOQ: the rate as charged.
+            let rate = boqEffectiveRate(item, boq: boq)
+            let list = boq.markupOnRates == true ? item.priceListUnitPrice.map { markedUpPrice($0, markupPercent: boq.markupPercent, roundUp: markupRoundsUp) } : item.priceListUnitPrice
+            return (rate, list, nil, nil)
+        }
+        let value = max(0, item.discountValue ?? 0)
+        switch item.discountType {
+        case "Percent" where value > 0: return (item.appliedUnitPrice, item.priceListUnitPrice, "Percent", min(value, 100))
+        case "Amount" where value > 0:
+            return (item.appliedUnitPrice, item.priceListUnitPrice, "Amount", doubleOf(roundToCents(decimalOf(value) * decimalOf(item.quantity.rounded()))))
+        default: return (item.appliedUnitPrice, item.priceListUnitPrice, nil, nil)
+        }
     }
 
     func getQuotation(id: String) -> Quotation? {
@@ -3124,24 +3276,33 @@ final class AppDatabase {
         let priceItems = priceListItemsStore.readAll()
         let pricingMode = qs[qIndex].pricingMode
         let rates = conversionRates()
+        let carried = carriedMarkup(boq)
         let imported: [QuotationLineItem] = boqItems.enumerated().map { index, item in
-            // Same mode: keep the BOQ's own price (its mark-up and any
-            // hand-typed price). Different mode: re-price in HKD with the
-            // BOQ's mark-up.
-            var price = boqEffectiveRate(item)
-            var listPrice = item.priceListUnitPrice
+            // Same mode: keep the BOQ's own price (any hand-typed price and
+            // discount). Different mode: re-price at the list price in HKD.
+            let priced = quotationPricing(of: item, boq: boq)
+            var price = priced.price
+            var listPrice = priced.listPrice
             if boq.pricingMode != pricingMode, let plId = item.priceListItemId, let pl = priceItems.first(where: { $0.id == plId }),
-               let p = boqPrice(for: pl, mode: pricingMode, markupPercent: boq.markupPercent ?? 0, rates: rates) {
-                price = p
-                listPrice = p
+               let p = boqPrice(for: pl, mode: pricingMode, markupPercent: carried == nil && boq.markupOnRates != true ? (boq.markupPercent ?? 0) : 0, rates: rates) {
+                price = carried == nil && boq.markupOnRates == true ? markedUpPrice(p, markupPercent: boq.markupPercent, roundUp: markupRoundsUp) : p
+                listPrice = price
             }
-            return QuotationLineItem(
+            var line = QuotationLineItem(
                 id: makeId("qitem"), quotationId: quotationId, sourceKey: item.sourceKey,
                 priceListItemId: item.priceListItemId, itemCode: item.itemCode,
                 itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
                 appliedUnitPrice: price, section: item.section, sortOrder: startOrder + index,
                 priceListUnitPrice: listPrice
             )
+            line.discountType = priced.discountType
+            line.discountValue = priced.discountValue
+            return line
+        }
+        // The BOQ's mark-up becomes the quotation's markup % (replacing the
+        // lines, or when the quotation has no markup of its own yet).
+        if let markup = carried, replaceExisting || (qs[qIndex].markupPercent ?? 0) <= 0 {
+            qs[qIndex].markupPercent = markup
         }
         allQuotationItems.append(contentsOf: imported)
         quotationLineItemsStore.writeAll(allQuotationItems)
@@ -3175,7 +3336,7 @@ final class AppDatabase {
             deliveryTotal: totals.deliveryTotal, standardDeliveryCharge: getCompanySettings().standardDeliveryCharge,
             minimumHireEnabled: q.pricingMode == "Rental" && (q.minimumHireEnabled ?? true),
             minimumHireMonths: max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2),
-            markupPercent: q.markupPercent,
+            markupPercent: q.markupPercent, markupRoundUp: markupRoundsUp,
             effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
             lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a }),
             blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal,
@@ -3453,7 +3614,9 @@ final class AppDatabase {
     /// BOQ it came from, if any). Prices typed in by hand are kept.
     private func repriceQuotationLines(_ q: Quotation, from oldMode: String) {
         let rates = conversionRates()
-        let markup = q.sourceBOQId.flatMap { getBOQ(id: $0)?.markupPercent } ?? 0
+        // An older BOQ's mark-up was built into its prices; now it's the
+        // quotation's own markup %, applied when the prices are charged.
+        let markup = q.sourceBOQId.flatMap { getBOQ(id: $0) }.flatMap { $0.markupOnRates == true ? 0 : $0.markupPercent } ?? 0
         let priceItems = Dictionary(priceListItemsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var lines = quotationLineItemsStore.readAll()
         var repriced = 0, kept = 0
@@ -3543,13 +3706,14 @@ final class AppDatabase {
 
     /// Draft only — an issued quotation is cancelled, never deleted
     /// (section 25 again).
-    func deleteQuotation(id: String) -> String? {
+    func deleteQuotation(id: String, includingIssued: Bool = false) -> String? {
         guard let q = getQuotation(id: id) else { return "Quotation not found." }
-        guard q.status == "Draft" else { return "Only draft quotations can be deleted." }
+        guard q.status == "Draft" || includingIssued else { return "Only draft quotations can be deleted." }
         var qs = quotationsStore.readAll()
         qs.removeAll { $0.id == id }
         quotationsStore.writeAll(qs)
-        logActivity(projectId: q.projectId, "Draft quotation deleted", reference: q.quotationNumber)
+        unlinkDrawings(kind: "Quotation", id: id)
+        logActivity(projectId: q.projectId, "\(q.status == "Draft" ? "Draft" : q.status) quotation deleted", reference: q.quotationNumber)
         var items = quotationLineItemsStore.readAll()
         items.removeAll { $0.quotationId == id }
         quotationLineItemsStore.writeAll(items)
@@ -3858,13 +4022,17 @@ final class AppDatabase {
     /// Draft only — an issued invoice is cancelled, never deleted
     /// (section 22: "issued financial documents should not be casually
     /// deleted; prefer cancellation/archive mechanisms").
-    func deleteInvoice(id: String) -> String? {
+    func deleteInvoice(id: String, includingIssued: Bool = false) -> String? {
         guard let inv = getInvoice(id: id) else { return "Invoice not found." }
-        guard inv.status == "Draft" else { return "Only draft invoices can be deleted — cancel it instead." }
+        guard inv.status == "Draft" || includingIssued else { return "Only draft invoices can be deleted — cancel it instead." }
         var invs = invoicesStore.readAll()
         invs.removeAll { $0.id == id }
         invoicesStore.writeAll(invs)
-        logActivity(projectId: inv.projectId, "Draft invoice deleted", reference: inv.invoiceNumber)
+        // Its payments go from Accounts too.
+        var payments = invoicePaymentsStore.readAll()
+        payments.removeAll { $0.invoiceId == id }
+        invoicePaymentsStore.writeAll(payments)
+        logActivity(projectId: inv.projectId, "\(inv.status == "Draft" ? "Draft" : inv.status) invoice deleted", reference: inv.invoiceNumber)
         var items = invoiceLineItemsStore.readAll()
         items.removeAll { $0.invoiceId == id }
         invoiceLineItemsStore.writeAll(items)
@@ -4060,13 +4228,15 @@ final class AppDatabase {
 
     /// Draft only — same "don't casually delete a formal document" rule
     /// as BOQs/Quotations/Invoices (section 25).
-    func deleteDeliveryNote(id: String) -> String? {
+    func deleteDeliveryNote(id: String, includingIssued: Bool = false) -> String? {
         guard let dn = getDeliveryNote(id: id) else { return "Delivery note not found." }
-        guard dn.status == "Draft" else { return "Only draft delivery notes can be deleted." }
+        guard dn.status == "Draft" || includingIssued else { return "Only draft delivery notes can be deleted." }
         var notesArr = deliveryNotesStore.readAll()
         notesArr.removeAll { $0.id == id }
         deliveryNotesStore.writeAll(notesArr)
-        logActivity(projectId: dn.projectId, "Draft delivery note deleted", reference: dn.deliveryNoteNumber)
+        // Its items go back into the stock list.
+        removeDeliveryStock(deliveryNoteId: id)
+        logActivity(projectId: dn.projectId, "\(dn.status == "Draft" ? "Draft" : dn.status) delivery note deleted", reference: dn.deliveryNoteNumber)
         var items = deliveryNoteLineItemsStore.readAll()
         items.removeAll { $0.deliveryNoteId == id }
         deliveryNoteLineItemsStore.writeAll(items)
@@ -4167,6 +4337,7 @@ final class AppDatabase {
         if payload.keys.contains("standardDeliveryCharge") { settings.standardDeliveryCharge = payload["standardDeliveryCharge"] as? Double }
         if let v = payload["defaultMinimumHireMonths"] as? Int { settings.defaultMinimumHireMonths = max(1, v) }
         if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
+        if let v = payload["markupRounding"] as? String, ["Nearest", "Up"].contains(v) { settings.markupRoundUp = v == "Up" ? true : nil }
         if let list = payload["manpowerRates"] as? [[String: Any]] {
             settings.manpowerRates = list.compactMap { item in
                 guard let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
@@ -4213,6 +4384,18 @@ final class AppDatabase {
     }
 
     /// The drawings linked to one BOQ or quotation.
+    /// Drawings that belonged to a deleted BOQ or quotation stay with the project.
+    func unlinkDrawings(kind: String, id: String) {
+        var items = drawingsStore.readAll()
+        var changed = false
+        for i in items.indices where items[i].linkedKind == kind && items[i].linkedId == id {
+            items[i].linkedKind = nil
+            items[i].linkedId = nil
+            changed = true
+        }
+        if changed { drawingsStore.writeAll(items) }
+    }
+
     func listDrawings(linkedKind: String, linkedId: String) -> [ProjectDrawingSummary] {
         drawingSummaries(drawingsStore.readAll().filter { !$0.isArchived && $0.linkedKind == linkedKind && $0.linkedId == linkedId })
     }
@@ -7497,6 +7680,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleCreateProject(id: id, payload: payload)
         case "projects:get":
             handleGetProject(id: id, payload: payload)
+        case "projects:changeNumber":
+            handleChangeProjectNumber(id: id, projectId: (payload["id"] as? String) ?? "", newNumber: (payload["projectNumber"] as? String) ?? "")
         case "projects:update":
             let error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -7565,7 +7750,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respondNull(id: id)
         case "boq:delete":
             let boqId = (payload["id"] as? String) ?? ""
-            if let error = db.deleteBOQ(id: boqId) {
+            if let error = db.deleteBOQ(id: boqId, includingIssued: (payload["force"] as? Bool) ?? false) {
                 respond(id: id, encodable: BOQActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
@@ -7656,7 +7841,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "quotations:delete":
             let qid = (payload["id"] as? String) ?? ""
-            if let error = db.deleteQuotation(id: qid) {
+            if let error = db.deleteQuotation(id: qid, includingIssued: (payload["force"] as? Bool) ?? false) {
                 respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
@@ -7721,7 +7906,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "invoices:delete":
             let invId = (payload["id"] as? String) ?? ""
-            if let error = db.deleteInvoice(id: invId) {
+            if let error = db.deleteInvoice(id: invId, includingIssued: (payload["force"] as? Bool) ?? false) {
                 respond(id: id, encodable: InvoiceActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: InvoiceActionResult(ok: true, error: nil))
@@ -7771,7 +7956,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "deliveryNotes:delete":
             let dnId = (payload["id"] as? String) ?? ""
-            if let error = db.deleteDeliveryNote(id: dnId) {
+            if let error = db.deleteDeliveryNote(id: dnId, includingIssued: (payload["force"] as? Bool) ?? false) {
                 respond(id: id, encodable: DeliveryNoteActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: DeliveryNoteActionResult(ok: true, error: nil))
@@ -7864,6 +8049,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: (payload["id"] as? String) ?? "", mode: .word)
         case "files:saveWord":
             handleSaveWord(id: id, payload: payload)
+        case "files:locateDocument":
+            handleLocateDocument(id: id, kind: (payload["kind"] as? String) ?? "", documentId: (payload["id"] as? String) ?? "")
         case "boq:print":
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .print)
         case "quotations:print":
@@ -8173,7 +8360,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // Items picked from the Material List are priced here, consistently:
         // this BOQ's Sale/Rental mode, its mark-up, converted to HKD.
         if let plId = priceListItemId, let pl = db.priceListItem(id: plId), let boq = db.getBOQ(id: boqId),
-           let price = db.boqPrice(for: pl, mode: boq.pricingMode, markupPercent: boq.markupPercent ?? 0, rates: db.conversionRates()) {
+           let price = db.boqPrice(for: pl, mode: boq.pricingMode, markupPercent: boq.markupOnRates == true ? 0 : (boq.markupPercent ?? 0), rates: db.conversionRates()) {
             priceListUnitPriceFinal = price
             appliedUnitPriceFinal = price
             if weightKg == nil { weightKg = pl.weightKg }
@@ -8549,6 +8736,57 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         } catch {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved to the project folder. Please check there's free disk space and try again.", path: nil))
         }
+    }
+
+    /// "Locate File": shows a document's file in Finder — the PDF last
+    /// exported, else the newest PDF or Word copy with its number in its
+    /// project folder, else just that folder.
+    private func handleLocateDocument(id: String, kind: String, documentId: String) {
+        struct LocateResult: Encodable { var ok: Bool; var error: String?; var note: String? }
+        var number = "", projectId = "", pdfPath: String?, subfolder = ""
+        switch kind {
+        case "BOQ":
+            guard let d = db.getBOQ(id: documentId) else { break }
+            (number, projectId, pdfPath, subfolder) = (d.boqNumber, d.projectId, d.pdfPath, "BOQ")
+        case "Quotation":
+            guard let d = db.getQuotation(id: documentId) else { break }
+            (number, projectId, pdfPath, subfolder) = (d.quotationNumber, d.projectId, d.pdfPath, "Quotations")
+        case "Invoice":
+            guard let d = db.getInvoice(id: documentId) else { break }
+            (number, projectId, pdfPath, subfolder) = (d.invoiceNumber, d.projectId, d.pdfPath, "Invoices")
+        case "DeliveryNote":
+            guard let d = db.getDeliveryNote(id: documentId) else { break }
+            (number, projectId, pdfPath, subfolder) = (d.deliveryNoteNumber, d.projectId, d.pdfPath, "Delivery Notes")
+        default: break
+        }
+        guard !number.isEmpty, let project = db.getProject(id: projectId) else {
+            respond(id: id, encodable: LocateResult(ok: false, error: "Document not found.", note: nil))
+            return
+        }
+        let fm = FileManager.default
+        if let path = pdfPath, fm.fileExists(atPath: path) {
+            storage.revealInFinder(URL(fileURLWithPath: path))
+            respond(id: id, encodable: LocateResult(ok: true, error: nil, note: nil))
+            return
+        }
+        let folder = storage.projectFolder(project.projectNumber).appendingPathComponent(subfolder, isDirectory: true)
+        let safeNumber = number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let files = ((try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [])
+            .filter { $0.lastPathComponent.contains(safeNumber) && ["pdf", "docx"].contains($0.pathExtension.lowercased()) }
+        let newest = files.max { a, b in
+            let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let dbb = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return da < dbb
+        }
+        if let file = newest {
+            storage.revealInFinder(file)
+            respond(id: id, encodable: LocateResult(ok: true, error: nil, note: nil))
+            return
+        }
+        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        storage.revealInFinder(folder)
+        respond(id: id, encodable: LocateResult(ok: true, error: nil,
+                                               note: "\(number) hasn't been exported as a PDF or Word file yet, so Finder shows the folder it will be saved in."))
     }
 
     // MARK: Documents in the letterhead layout (from Qt26193)
@@ -8984,6 +9222,45 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         letter.receiptRows = [("Received By", "Date"), ("Full Name", "Contact No.")]
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
                            documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote", letter: letter)
+    }
+
+    /// Edit Project Details › Project Code: renames the project's folder
+    /// (Documents/ScaffoldPro/Projects/<code>), re-points every file kept in
+    /// it, and renumbers its draft documents.
+    private func handleChangeProjectNumber(id: String, projectId: String, newNumber raw: String) {
+        let newNumber = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        func fail(_ message: String) { respond(id: id, encodable: SimpleResult(ok: false, error: message)) }
+        guard let project = db.getProject(id: projectId) else { return fail("Project not found.") }
+        guard !newNumber.isEmpty else { return fail("Enter a project code.") }
+        guard newNumber.rangeOfCharacter(from: CharacterSet(charactersIn: "/:\\")) == nil, !newNumber.hasPrefix(".") else {
+            return fail("A project code can't contain / : or \\ or start with a dot.")
+        }
+        let old = project.projectNumber
+        guard newNumber != old else { return respond(id: id, encodable: SimpleResult(ok: true, error: nil)) }
+        guard !db.allProjectNumbers().contains(where: { $0.caseInsensitiveCompare(newNumber) == .orderedSame }) else {
+            return fail("Another project already has the code \(newNumber).")
+        }
+        let fm = FileManager.default
+        let oldFolder = storage.projectFolder(old)
+        let newFolder = storage.projectFolder(newNumber)
+        if fm.fileExists(atPath: oldFolder.path) {
+            if fm.fileExists(atPath: newFolder.path) {
+                // An empty leftover folder can go; anything else is kept.
+                let contents = ((try? fm.contentsOfDirectory(atPath: newFolder.path)) ?? []).filter { $0 != ".DS_Store" }
+                guard contents.isEmpty else {
+                    return fail("There's already a folder called \(newNumber) in ScaffoldPro/Projects. Rename or move it in Finder first.")
+                }
+                try? fm.removeItem(at: newFolder)
+            }
+            do {
+                try fm.moveItem(at: oldFolder, to: newFolder)
+            } catch {
+                return fail("The project folder couldn't be renamed (\(error.localizedDescription)). Close any of its files that are open and try again.")
+            }
+            db.rebaseFilePaths(from: oldFolder.path, to: newFolder.path)
+        }
+        db.setProjectNumber(id: project.id, to: newNumber)
+        respond(id: id, encodable: SimpleResult(ok: true, error: nil))
     }
 
     private func projectListEntries() -> [ProjectListEntry] {
@@ -9675,6 +9952,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db.fixScafomCurrencyIfNeeded()
         db.applyDeliveryChargeUpdateIfNeeded()
         db.movePaymentTermsIntoKeyTermsIfNeeded()
+        db.moveBOQMarkupsOntoRates()
     }
 
     private func seedPriceListsIfNeeded() {

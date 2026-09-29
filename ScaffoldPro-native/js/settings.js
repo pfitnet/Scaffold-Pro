@@ -56,6 +56,7 @@ async function loadSettings() {
   document.getElementById('standardDeliveryCharge-input').value = settings.standardDeliveryCharge ?? '';
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
   document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
+  document.getElementById('markupRounding-input').value = settings.markupRoundUp ? 'Up' : 'Nearest';
   renderManpowerRates(settings.manpowerRates);
   document.getElementById('eurRate-input').value = (settings.exchangeRates && settings.exchangeRates.EUR) || 8.93;
   for (const k of START_KEYS) {
@@ -91,6 +92,7 @@ async function saveSettings() {
   const delivery = document.getElementById('standardDeliveryCharge-input').value;
   payload.standardDeliveryCharge = delivery === '' ? null : Number(delivery);
   payload.termsNewPage = document.getElementById('termsNewPage-input').value;
+  payload.markupRounding = document.getElementById('markupRounding-input').value;
   payload.manpowerRates = readManpowerRates();
   payload.defaultMinimumHireMonths = Math.max(1, Math.round(Number(document.getElementById('defaultMinimumHireMonths-input').value) || 2));
   const eur = Number(document.getElementById('eurRate-input').value);
@@ -209,7 +211,7 @@ async function refreshBackups() {
       <td class="num">${Number(b.projectCount).toLocaleString('en-US')}</td>
       <td class="num">${Number(b.fileCount).toLocaleString('en-US')}</td>
       <td class="num">${formatBytes(b.totalBytes)}</td>
-      <td><button class="reveal-btn">Show</button> <button class="restore-btn">Restore</button></td>`;
+      <td><button class="reveal-btn" title="Show this backup in Finder">Locate File</button> <button class="restore-btn">Restore</button></td>`;
     tr.querySelector('.reveal-btn').addEventListener('click', () => window.api.backup.reveal(b.path));
     tr.querySelector('.restore-btn').addEventListener('click', () => restoreBackup(b));
     tbody.appendChild(tr);

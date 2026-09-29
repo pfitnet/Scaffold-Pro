@@ -30,7 +30,7 @@
           <td>${esc(d.storedFilename || d.originalName)}${d.fileExists ? '' : ' <span class="status-pill pill-danger">File unavailable</span>'}
             ${d.description ? `<div class="sub">${esc(d.description)}</div>` : ''}</td>
           <td class="muted">${esc(d.fileType)}</td>
-          <td class="row-actions">${d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}">Reveal</button>` : ''}</td>
+          <td class="row-actions">${d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}</td>
         </tr>`).join('')}</tbody></table>`;
       for (const b of container.querySelectorAll('[data-open]')) {
         b.addEventListener('click', async () => {

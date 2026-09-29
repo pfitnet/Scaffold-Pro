@@ -565,3 +565,7 @@ body.reordering, body.reordering * { cursor: grabbing !important; user-select: n
 tr.dragging > td { background: var(--panel); box-shadow: inset 0 0 0 999px var(--accent-soft); }
 tr.dragging { box-shadow: var(--shadow-menu); }
 div.dragging { box-shadow: var(--shadow-menu); }
+
+/* Delete buttons (documents) */
+button.danger-btn { color: var(--danger); }
+button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-soft); }
