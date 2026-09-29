@@ -217,7 +217,7 @@ function renderTotals() {
   }
   if (d.taxAmount > 0) rows.push(['Tax / VAT', money(d.taxAmount)]);
   const markupNote = d.markupPercent > 0
-    ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded to the nearest 0.1. Delivery charges aren't marked up.</p>`
+    ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1 (Settings › Standard Quotation). Delivery charges aren't marked up.</p>`
     : '';
   box.innerHTML = markupNote + rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('') +
     `<div class="row grand"><span>Total Amount</span><span>${currencyLabel} ${money(d.total)}</span></div>`;
@@ -550,6 +550,10 @@ async function importFromBOQ() {
 }
 
 async function init() {
+  window.setupDocumentActions('Quotation', () => ({
+    id: quotationId, number: currentDetail ? currentDetail.quotationNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
+    projectNumber: currentDetail ? currentDetail.projectNumber : '',
+  }));
   // The sections after the items: drag a section by its handle to move it.
   window.makeReorderable(document.getElementById('extra-sections'), {
     item: '.extra-section',

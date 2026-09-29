@@ -65,7 +65,7 @@ async function refreshExpiring() {
 
 // Used for both worker documents and company documents: name, category,
 // type, size, an editable expiry date, an editable description, and the
-// same Open / Reveal / Archive — or, for a missing file, Locate File… /
+// same Open / Locate File / Archive — or, for a missing file, Find Moved File… /
 // Remove Reference — actions as project drawings and documents.
 function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
   if (docs.length === 0) {
@@ -102,7 +102,7 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
 
     const actions = tr.querySelector('.file-actions');
     if (doc.fileExists) {
-      actions.innerHTML = '<button class="open-btn">Open</button> <button class="reveal-btn">Reveal</button> <button class="archive-btn">Archive</button>';
+      actions.innerHTML = '<button class="open-btn">Open</button> <button class="reveal-btn" title="Show this file in Finder">Locate File</button> <button class="archive-btn">Archive</button>';
       actions.querySelector('.open-btn').addEventListener('click', async () => {
         const r = await api.open(doc.id);
         if (!r.ok) alert(r.error);
@@ -118,7 +118,7 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
         await refreshExpiring();
       });
     } else {
-      actions.innerHTML = '<button class="locate-btn">Locate File…</button> <button class="remove-ref-btn">Remove Reference</button>';
+      actions.innerHTML = '<button class="locate-btn" title="The file has moved: choose where it is now">Find Moved File…</button> <button class="remove-ref-btn">Remove Reference</button>';
       actions.querySelector('.locate-btn').addEventListener('click', async () => {
         const r = await api.relink(doc.id);
         if (r && !r.ok) alert(r.error);

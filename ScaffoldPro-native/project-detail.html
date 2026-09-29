@@ -131,7 +131,8 @@
     <div class="modal wide">
       <h2>Edit Project Details</h2>
       <div class="form-grid">
-        <div class="field span-2"><label>Project Name</label><input type="text" id="e-name" /></div>
+        <div class="field"><label for="e-projectNumber">Project Code</label><input type="text" id="e-projectNumber" autocomplete="off" /></div>
+        <div class="field"><label>Project Name</label><input type="text" id="e-name" /></div>
         <div class="field"><label>Client</label><select id="e-clientId"></select></div>
         <div class="field"><label>Site</label><select id="e-siteId"></select></div>
         <div class="field"><label>Start Date</label><input type="date" id="e-startDate" /></div>
@@ -140,7 +141,7 @@
         <div class="field span-2"><label>Description</label><textarea id="e-projectDescription" rows="3"></textarea></div>
         <div class="field span-2"><label>Internal Notes</label><textarea id="e-internalNotes" rows="3"></textarea></div>
       </div>
-      <div class="small-note">The project number never changes.</div>
+      <div class="small-note">Changing the project code renames the project’s folder in Documents › ScaffoldPro › Projects. Draft documents numbered with the old code get the new one; issued documents keep the numbers they were sent with.</div>
       <div class="error-text hidden" id="e-error"></div>
       <div class="actions">
         <button id="e-cancel-btn">Cancel</button>
@@ -174,6 +175,7 @@
   </div>
 
   <script src="js/sidebar.js"></script>
+  <script src="js/document-actions.js"></script>
   <script src="js/project-detail.js"></script>
 </body>
 </html>

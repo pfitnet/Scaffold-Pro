@@ -46,7 +46,7 @@ async function refreshBOQList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Pricing</th><th>Status</th><th>Items</th><th class="num">Total Weight (kg)</th></tr></thead>
+    <thead><tr><th>Number</th><th>Pricing</th><th>Status</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const b of currentBOQs) {
@@ -59,6 +59,7 @@ async function refreshBOQList() {
       <td><span class="status-pill">${b.status}</span></td>
       <td>${b.itemCount}</td>
       <td class="num">${money(b.totalWeightKg)}</td>`;
+    tr.appendChild(window.documentRowActions('BOQ', { id: b.id, number: b.boqNumber, status: b.status }, refreshBOQList));
     tbody.appendChild(tr);
   }
   container.innerHTML = '';
@@ -81,7 +82,7 @@ async function refreshQuotationList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Status</th><th>Items</th><th class="num">Total</th></tr></thead>
+    <thead><tr><th>Number</th><th>Status</th><th>Items</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const q of currentQuotations) {
@@ -93,6 +94,7 @@ async function refreshQuotationList() {
       <td><span class="status-pill">${q.status}</span></td>
       <td>${q.itemCount}</td>
       <td class="num">${money(q.total)}</td>`;
+    tr.appendChild(window.documentRowActions('Quotation', { id: q.id, number: q.quotationNumber, status: q.status }, refreshQuotationList));
     tbody.appendChild(tr);
   }
   container.innerHTML = '';
@@ -115,7 +117,7 @@ async function refreshInvoiceList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Paid</th></tr></thead>
+    <thead><tr><th>Number</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Paid</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const inv of currentInvoices) {
@@ -128,6 +130,7 @@ async function refreshInvoiceList() {
       <td>${inv.dueDate || '—'}</td>
       <td class="num">${money(inv.total)}</td>
       <td class="num">${money(inv.amountPaid)}</td>`;
+    tr.appendChild(window.documentRowActions('Invoice', { id: inv.id, number: inv.invoiceNumber, status: inv.status }, refreshInvoiceList));
     tbody.appendChild(tr);
   }
   container.innerHTML = '';
@@ -150,7 +153,7 @@ async function refreshDeliveryNoteList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Status</th><th>Date</th><th>Items</th></tr></thead>
+    <thead><tr><th>Number</th><th>Status</th><th>Date</th><th>Items</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const dn of currentDeliveryNotes) {
@@ -162,6 +165,7 @@ async function refreshDeliveryNoteList() {
       <td><span class="status-pill">${dn.status}</span></td>
       <td>${(dn.deliveryDate || '').slice(0, 10)}</td>
       <td>${dn.itemCount}</td>`;
+    tr.appendChild(window.documentRowActions('DeliveryNote', { id: dn.id, number: dn.deliveryNoteNumber, status: dn.status }, refreshDeliveryNoteList));
     tbody.appendChild(tr);
   }
   container.innerHTML = '';
@@ -171,8 +175,8 @@ async function refreshDeliveryNoteList() {
 /// Shared renderer for both the Drawings list and the Documents list —
 /// same shape (name/type/size/uploaded/description + actions), differing
 /// only in whether a Category column shows and which API namespace the
-/// row actions call. A missing file (section 38) swaps Open/Reveal/
-/// Rename/Archive for Locate File…/Remove Reference.
+/// row actions call. A missing file (section 38) swaps Open/Locate File/
+/// Rename/Archive for Find Moved File…/Remove Reference.
 function renderFileList(containerId, items, api, opts) {
   const container = document.getElementById(containerId);
   if (items.length === 0) {
@@ -226,7 +230,7 @@ function renderFileList(containerId, items, api, opts) {
       window.showContextMenu(e, buttons.map((b) => ({ label: b.textContent.trim(), action: () => b.click(), danger: /archive|remove/i.test(b.textContent) })));
     });
     if (item.fileExists) {
-      actionsCell.innerHTML = `<button class="open-btn">Open</button> <button class="reveal-btn">Reveal</button> <button class="rename-btn">Rename</button> <button class="replace-btn">Replace…</button> <button class="archive-btn">Archive</button>`;
+      actionsCell.innerHTML = `<button class="open-btn">Open</button> <button class="reveal-btn" title="Show this file in Finder">Locate File</button> <button class="rename-btn">Rename</button> <button class="replace-btn">Replace…</button> <button class="archive-btn">Archive</button>`;
       actionsCell.querySelector('.replace-btn').addEventListener('click', async () => {
         const result = await api.replace(item.id);
         if (result && !result.ok) alert(result.error);
@@ -254,7 +258,7 @@ function renderFileList(containerId, items, api, opts) {
         await opts.refresh();
       });
     } else {
-      actionsCell.innerHTML = `<button class="locate-btn">Locate File…</button> <button class="remove-ref-btn">Remove Reference</button>`;
+      actionsCell.innerHTML = `<button class="locate-btn" title="The file has moved: choose where it is now">Find Moved File…</button> <button class="remove-ref-btn">Remove Reference</button>`;
       actionsCell.querySelector('.locate-btn').addEventListener('click', async () => {
         const result = await api.relink(item.id);
         if (result && !result.ok) alert(result.error);
@@ -548,6 +552,7 @@ function setupEditSheet() {
     $('e-siteId').innerHTML = sites.map((s) =>
       `<option value="${s.id}" ${p.site && p.site.id === s.id ? 'selected' : ''}>${esc(s.name)}${s.isArchived ? ' (archived)' : ''}</option>`).join('');
     for (const f of fields) $(`e-${f}`).value = p[f] ? String(p[f]).slice(0, f.endsWith('Date') ? 10 : undefined) : '';
+    $('e-projectNumber').value = p.projectNumber;
     $('e-error').classList.add('hidden');
     $('edit-modal').classList.remove('hidden');
     $('e-name').focus();
@@ -555,12 +560,22 @@ function setupEditSheet() {
 
   $('e-cancel-btn').addEventListener('click', () => $('edit-modal').classList.add('hidden'));
   $('e-save-btn').addEventListener('click', async () => {
+    const showError = (message) => {
+      $('e-error').textContent = message;
+      $('e-error').classList.remove('hidden');
+    };
     const payload = { clientId: $('e-clientId').value, siteId: $('e-siteId').value };
     for (const f of fields) payload[f] = $(`e-${f}`).value;
     const result = await window.api.projects.update(currentProject.id, payload);
-    if (!result.ok) {
-      $('e-error').textContent = result.error;
-      $('e-error').classList.remove('hidden');
+    if (!result.ok) return showError(result.error);
+    // A new project code: its folder is renamed, so the page reloads under it.
+    const oldCode = currentProject.projectNumber;
+    const newCode = $('e-projectNumber').value.trim();
+    if (newCode && newCode !== oldCode) {
+      if (!confirm(`Change the project code from ${oldCode} to ${newCode}?\n\nIts folder is renamed to Projects/${newCode}, and draft documents numbered with ${oldCode} are renumbered. Issued documents keep their numbers.`)) return;
+      const changed = await window.api.projects.changeNumber(currentProject.id, newCode);
+      if (!changed.ok) return showError(changed.error);
+      location.href = `project-detail.html?number=${encodeURIComponent(newCode)}`;
       return;
     }
     $('edit-modal').classList.add('hidden');

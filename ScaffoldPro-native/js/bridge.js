@@ -81,6 +81,8 @@
       create: (input) => callNative('projects:create', input),
       get: (projectNumber) => callNative('projects:get', { projectNumber: projectNumber }),
       update: (id, input) => callNative('projects:update', Object.assign({ id: id }, input)),
+      // A new project code: renames its folder and renumbers its draft documents.
+      changeNumber: (id, projectNumber) => callNative('projects:changeNumber', { id: id, projectNumber: projectNumber }),
       updateStatus: (id, status) => callNative('projects:updateStatus', { id: id, status: status }),
       revealFolder: (projectNumber) => callNative('projects:revealFolder', { projectNumber: projectNumber }),
       uploadDrawing: (projectNumber, link) => callNative('projects:uploadDrawing', Object.assign({ projectNumber: projectNumber }, link || {})),
@@ -127,7 +129,8 @@
       removeLineItem: (id) => callNative('boq:removeLineItem', { id: id }),
       updateStatus: (id, status) => callNative('boq:updateStatus', { id: id, status: status }),
       updateNotes: (id, notes) => callNative('boq:updateNotes', { id: id, notes: notes }),
-      remove: (id) => callNative('boq:delete', { id: id }),
+      // force: also an issued one (after the page has asked twice).
+      remove: (id, force) => callNative('boq:delete', { id: id, force: !!force }),
       exportPDF: (id) => callNative('boq:exportPDF', { id: id }),
       exportWord: (id) => callNative('boq:exportWord', { id: id }),
       updateDetails: (id, changes) => callNative('boq:updateDetails', Object.assign({ id: id }, changes)),
@@ -161,7 +164,8 @@
       importFromBOQ: (quotationId, boqId, replaceExisting) =>
         callNative('quotations:importFromBOQ', { quotationId: quotationId, boqId: boqId, replaceExisting: !!replaceExisting }),
       updateStatus: (id, status) => callNative('quotations:updateStatus', { id: id, status: status }),
-      remove: (id) => callNative('quotations:delete', { id: id }),
+      // force: also an issued one (after the page has asked twice).
+      remove: (id, force) => callNative('quotations:delete', { id: id, force: !!force }),
       exportPDF: (id) => callNative('quotations:exportPDF', { id: id }),
       exportWord: (id) => callNative('quotations:exportWord', { id: id }),
       print: (id) => callNative('quotations:print', { id: id }),
@@ -179,7 +183,8 @@
       updateHeader: (id, header) => callNative('invoices:updateHeader', Object.assign({ id: id }, header)),
       updateStatus: (id, status) => callNative('invoices:updateStatus', { id: id, status: status }),
       recordPayment: (id, amount, details) => callNative('invoices:recordPayment', Object.assign({ id: id, amount: amount }, details || {})),
-      remove: (id) => callNative('invoices:delete', { id: id }),
+      // force: also an issued one (after the page has asked twice).
+      remove: (id, force) => callNative('invoices:delete', { id: id, force: !!force }),
       exportPDF: (id) => callNative('invoices:exportPDF', { id: id }),
       exportWord: (id) => callNative('invoices:exportWord', { id: id }),
       print: (id) => callNative('invoices:print', { id: id }),
@@ -194,7 +199,8 @@
       removeLineItem: (id) => callNative('deliveryNotes:removeLineItem', { id: id }),
       updateHeader: (id, header) => callNative('deliveryNotes:updateHeader', Object.assign({ id: id }, header)),
       updateStatus: (id, status) => callNative('deliveryNotes:updateStatus', { id: id, status: status }),
-      remove: (id) => callNative('deliveryNotes:delete', { id: id }),
+      // force: also an issued one (after the page has asked twice).
+      remove: (id, force) => callNative('deliveryNotes:delete', { id: id, force: !!force }),
       exportPDF: (id) => callNative('deliveryNotes:exportPDF', { id: id }),
       exportWord: (id) => callNative('deliveryNotes:exportWord', { id: id }),
       print: (id) => callNative('deliveryNotes:print', { id: id }),
@@ -210,6 +216,9 @@
     // Word copies built by js/docx-export.js, saved next to the PDFs.
     files: {
       saveWord: (input) => callNative('files:saveWord', input),
+      // Shows a BOQ / quotation / invoice / delivery note's file in Finder.
+      // kind: 'BOQ', 'Quotation', 'Invoice' or 'DeliveryNote'.
+      locateDocument: (kind, id) => callNative('files:locateDocument', { kind: kind, id: id }),
     },
     // Stock list: what's in the yard, on hire and owned; movements.
     stock: {

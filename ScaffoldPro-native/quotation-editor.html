@@ -70,6 +70,8 @@
           <button id="export-pdf-btn">Export PDF</button>
           <button id="export-word-btn" title="A Word copy laid out like the PDF, saved next to it">Export Word</button>
           <button id="print-btn">Print…</button>
+          <button id="locate-file-btn" title="Show this document’s PDF or Word file in Finder">Locate File</button>
+          <button id="delete-doc-btn" class="danger-btn">Delete…</button>
         </div>
         <a id="back-link" href="#">&larr; Back to project</a>
       </div>
@@ -104,7 +106,7 @@
           </select>
         </div>
         <div class="field"><label>Valid Until</label><input type="date" id="valid-until-input" /></div>
-        <div class="field"><label for="adjustment-input">Markup / Discount</label><input type="text" id="adjustment-input" placeholder="e.g. +30%, -15% or -1000" title="+30% marks every item up 30% (unit prices rounded to the nearest 0.1); -15% takes 15% off; -1000 takes 1,000 off. Leave blank for none." /></div>
+        <div class="field"><label for="adjustment-input">Markup / Discount</label><input type="text" id="adjustment-input" placeholder="e.g. +30%, -15% or -1000" title="+30% marks every item up 30% (unit prices rounded to 0.1, up or off as set in Settings); -15% takes 15% off; -1000 takes 1,000 off. Leave blank for none." /></div>
         <div class="field"><label>Tax / VAT Rate (%)</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
         <div class="field full"><label for="key-terms-input">Key Terms</label>
           <div class="key-terms-actions">
@@ -173,6 +175,7 @@
   </main>
 
   <script src="js/sidebar.js"></script>
+  <script src="js/document-actions.js"></script>
   <script src="js/line-discount.js"></script>
   <script src="js/drag-reorder.js"></script>
   <script src="js/linked-drawings.js"></script>

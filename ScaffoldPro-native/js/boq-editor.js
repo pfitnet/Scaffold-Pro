@@ -54,6 +54,14 @@ function render() {
   const markup = document.getElementById('boq-markup-input');
   if (document.activeElement !== markup) markup.value = d.markupPercent || 0;
   markup.disabled = locked;
+  // The mark-up is applied to the rates shown (list prices stay as they
+  // are) and becomes the markup % of a quotation made from this BOQ.
+  const markupNote = document.getElementById('boq-markup-note');
+  const m = Number(d.markupPercent) || 0;
+  markupNote.classList.toggle('hidden', !m || !d.markupOnRates);
+  markupNote.textContent = !m ? '' : m > 0
+    ? `Unit rates include the ${m}% mark-up, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1. A quotation made from this BOQ takes ${m}% as its markup.`
+    : `Unit rates include the ${-m}% mark-down, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1.`;
   const structure = document.getElementById('boq-structure-input');
   if (document.activeElement !== structure) structure.value = d.structure || '';
   structure.disabled = locked;
@@ -402,6 +410,10 @@ async function populateCategories() {
 }
 
 async function init() {
+  window.setupDocumentActions('BOQ', () => ({
+    id: boqId, number: currentDetail ? currentDetail.boqNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
+    projectNumber: currentDetail ? currentDetail.projectNumber : '',
+  }));
   boqId = getBOQIdFromURL();
   if (!boqId) {
     document.getElementById('not-found').classList.remove('hidden');
