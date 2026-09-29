@@ -245,6 +245,9 @@ struct ProjectDrawingSummary: Codable {
     var fromBOQNumber: String? = nil
     /// Image or PDF: added after the document's own pages in its PDF.
     var appended: Bool = false
+    /// Set on the row for the BOQ itself, which a quotation that follows
+    /// it carries as its first drawing (built fresh as a PDF).
+    var boqId: String? = nil
 }
 
 /// Drawing files: PDF and images, plus AutoCAD DWG / DXF.
@@ -1145,8 +1148,9 @@ struct CompanySettings: Codable {
     /// Continue an existing sequence, e.g. ["QT": 194] after Qt26193.
     var numberStarts: [String: Int]?
     /// Where a quotation's Terms and Conditions start: "WhenLong" (nil —
-    /// on a new page unless the whole quotation fits on one page) or
-    /// "Always" (always on a page of their own, as on Qt26193).
+    /// right after the rest if they fit on that page, else on a new page;
+    /// the signatures move on by themselves if they don't fit) or "Always"
+    /// (always on a page of their own, as on Qt26193).
     var termsNewPage: String?
     /// The standard manpower rates filled into a quotation's rates section
     /// by "Standard Rates". nil = `defaultManpowerRates`.
@@ -1524,9 +1528,9 @@ struct LetterSection {
     /// Bold and underlined, e.g. "Terms and Conditions".
     var heading: String?
     var paragraphs: [LetterParagraph]
-    /// Starts at the top of a new page unless the whole document fits on
-    /// one page (the quotation's Terms and Conditions).
-    var newPageUnlessSinglePage: Bool = false
+    /// Kept on one page (the quotation's Terms and Conditions): it follows
+    /// on in the space left, and starts a new page only if it won't fit.
+    var keepTogether: Bool = false
     /// Always starts at the top of a new page.
     var alwaysNewPage: Bool = false
 }
@@ -4405,7 +4409,16 @@ final class AppDatabase {
     /// then its own; each oldest first.
     func listDrawings(linkedKind: String, linkedId: String) -> [ProjectDrawingSummary] {
         let boq = linkedKind == "Quotation" ? getQuotation(id: linkedId)?.sourceBOQId.flatMap { getBOQ(id: $0) } : nil
-        return documentDrawings(kind: linkedKind, id: linkedId).map { d in
+        // The BOQ itself comes first, as a PDF of its own pages.
+        var boqRow: [ProjectDrawingSummary] = []
+        if let boq = boq, !lineItems(for: boq.id).isEmpty {
+            boqRow = [ProjectDrawingSummary(
+                id: "boq:\(boq.id)", originalName: "\(boq.boqNumber) (the BOQ)", storedFilename: "\(boq.boqNumber) — Bill of Quantities",
+                fileType: "PDF", fileSizeBytes: 0, description: "Its latest version, made fresh each time the quotation is exported or printed.",
+                uploadedAt: boq.updatedAt, fileExists: true, linkedKind: "BOQ", linkedId: boq.id, linkedNumber: boq.boqNumber,
+                fromBOQNumber: boq.boqNumber, appended: true, boqId: boq.id)]
+        }
+        return boqRow + documentDrawings(kind: linkedKind, id: linkedId).map { d in
             var summary = drawingSummaries([d])[0]
             if let boq = boq, d.linkedKind == "BOQ", d.linkedId == boq.id { summary.fromBOQNumber = boq.boqNumber }
             summary.appended = PDFAttachments.canAppend(URL(fileURLWithPath: d.filePath)) && summary.fileExists
@@ -5738,16 +5751,34 @@ final class PDFGenerator {
         return baseline
     }
 
-    /// Set by `generate` after a trial layout: the document needs more
-    /// than one page.
-    private var documentIsLong = false
+    /// Set by `generate` after a trial layout: the sections (by index) that
+    /// are kept together but ran over a page there, so start a new page.
+    private var sectionsOnNewPage: Set<Int> = []
+    /// Recorded while laying out: kept-together sections that ran over a page.
+    private(set) var sectionsThatSplit: Set<Int> = []
+
+    /// Which kept-together sections have to start a new page: laid out on
+    /// trial (again, if moving one moves another) until none runs over.
+    private func keptTogetherBreaks(_ doc: LetterDocument) -> Set<Int> {
+        guard doc.sections.contains(where: { $0.keepTogether }) else { return [] }
+        var breaks: Set<Int> = []
+        for _ in 0..<3 {
+            guard let trial = PDFGenerator(paperSize: paperSize) else { break }
+            trial.sectionsOnNewPage = breaks
+            _ = trial.layOut(doc)
+            let more = trial.sectionsThatSplit.subtracting(breaks)
+            if more.isEmpty { break }
+            breaks.formUnion(more)
+        }
+        return breaks
+    }
 
     private func drawSections(_ sections: [LetterSection]) {
         var afterTable = true
-        for section in sections {
+        for (sectionIndex, section) in sections.enumerated() {
             var baseline = cursor + (afterTable ? 27.0 : 33.0)
             afterTable = false
-            if section.alwaysNewPage || (section.newPageUnlessSinglePage && documentIsLong) {
+            if section.alwaysNewPage || sectionsOnNewPage.contains(sectionIndex) {
                 newPage()
                 baseline = continuationBaseline
             }
@@ -5764,6 +5795,8 @@ final class PDFGenerator {
                 newPage()
                 baseline = continuationBaseline
             }
+            let startPage = pageNumber
+            defer { if section.keepTogether && pageNumber != startPage { sectionsThatSplit.insert(sectionIndex) } }
             var previousWasTerm = false
             for (index, paragraph) in section.paragraphs.enumerated() {
                 switch paragraph {
@@ -5865,11 +5898,10 @@ final class PDFGenerator {
     }
 
     private func drawClosingLine(_ line: String) {
-        var baseline = cursor + 69.0
-        if baseline > contentBottom {
-            newPage()
-            baseline = continuationBaseline
-        }
+        let baseline = cursor + 69.0
+        // "Remainder of this page is intentionally left blank": not worth a
+        // page of its own when the page is already full.
+        guard baseline <= contentBottom else { return }
         text(line, x: pageWidth / 2, baseline: baseline, font: times(10.5, italic: true), align: .center)
         cursor = baseline
     }
@@ -5877,12 +5909,9 @@ final class PDFGenerator {
     // MARK: entry point
 
     func generate(_ doc: LetterDocument) -> Data {
-        // Trial layout (discarded) to find out whether everything fits on
-        // one page; if not, sections marked for it start on a new page.
-        if doc.sections.contains(where: { $0.newPageUnlessSinglePage }), let trial = PDFGenerator(paperSize: paperSize) {
-            _ = trial.layOut(doc)
-            documentIsLong = trial.pageNumber > 1
-        }
+        // Trial layouts (discarded) find which kept-together sections won't
+        // fit where they fall; those start a new page.
+        sectionsOnNewPage = keptTogetherBreaks(doc)
         return layOut(doc)
     }
 
@@ -5896,11 +5925,7 @@ final class PDFGenerator {
             _ = trial.layOut(doc)
             receiptNewPage = trial.receiptOnNewPage
         }
-        var long = false
-        if doc.sections.contains(where: { $0.newPageUnlessSinglePage }), let trial = PDFGenerator(paperSize: paperSize) {
-            _ = trial.layOut(doc)
-            long = trial.pageNumber > 1
-        }
+        let breaks = keptTogetherBreaks(doc)
         let font = body(11)
         let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
         func lines(_ cells: [String]) -> [[String]] {
@@ -5919,7 +5944,7 @@ final class PDFGenerator {
             case .note(let note): return WordRow(type: "note", height: h, text: note)
             }
         }
-        let sections: [WordSection] = doc.sections.map { section in
+        let sections: [WordSection] = doc.sections.enumerated().map { sectionIndex, section in
             let paragraphs: [WordParagraph] = section.paragraphs.map { p in
                 switch p {
                 case .text(let string, let link):
@@ -5932,7 +5957,7 @@ final class PDFGenerator {
                 }
             }
             return WordSection(heading: section.heading, paragraphs: paragraphs,
-                               pageBreakBefore: section.alwaysNewPage || (section.newPageUnlessSinglePage && long))
+                               pageBreakBefore: section.alwaysNewPage || breaks.contains(sectionIndex))
         }
         return WordLayout(
             paperSize: paperSize, pageWidth: Double(pageWidth), pageHeight: Double(pageHeight),
@@ -5957,6 +5982,7 @@ final class PDFGenerator {
     private func layOut(_ doc: LetterDocument) -> Data {
         configure(for: doc)
         receiptOnNewPage = false
+        sectionsThatSplit = []
         pageNumber = 0
         beginPage()
         drawOpening(doc)
@@ -8997,28 +9023,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             exportBOQOnLetterhead(id: id, detail: detail, mode: mode)
             return
         }
-        let company = db.getCompanySettings()
-        let project = db.getProjectByNumber(detail.projectNumber)
-        let client = project.flatMap { db.getClient(id: $0.clientId) }
-        let site = project.flatMap { db.getSite(id: $0.siteId) }
-        // Job site: its reference and name, e.g. "1635 Kwu Tung Station".
-        var jobSite = site.map { $0.name } ?? ""
-        if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
-        let clientName = nonBlank(client?.clientReference) ?? client?.companyName ?? ""
-        // "26210 - Project Name - Rental - CRBC"
-        let projectCode = [detail.projectNumber, detail.projectName, detail.pricingMode, clientName]
-            .compactMap { nonBlank($0) }.joined(separator: " - ")
-        // Printed at their discounted rates; the discount itself isn't shown.
-        let lines = detail.lineItems.map { line -> BOQLineItem in
-            var copy = line
-            copy.appliedUnitPrice = detail.effectiveRates[line.id] ?? line.appliedUnitPrice
-            return copy
-        }
-        var layout = BQSheet.layout(
-            landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
-            info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
-            lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
-            ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes)
+        var layout = boqSheetLayout(detail)
         let safeNumber = detail.boqNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
 
         if mode == .word {
@@ -9038,9 +9043,60 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                    attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
     }
 
+    /// The landscape BQ sheet ("PROFICIENCY QUOTATION") for a BOQ.
+    private func boqSheetLayout(_ detail: BOQDetail) -> SheetLayout {
+        let company = db.getCompanySettings()
+        let project = db.getProjectByNumber(detail.projectNumber)
+        let client = project.flatMap { db.getClient(id: $0.clientId) }
+        let site = project.flatMap { db.getSite(id: $0.siteId) }
+        // Job site: its reference and name, e.g. "1635 Kwu Tung Station".
+        var jobSite = site.map { $0.name } ?? ""
+        if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
+        let clientName = nonBlank(client?.clientReference) ?? client?.companyName ?? ""
+        // "26210 - Project Name - Rental - CRBC"
+        let projectCode = [detail.projectNumber, detail.projectName, detail.pricingMode, clientName]
+            .compactMap { nonBlank($0) }.joined(separator: " - ")
+        // Printed at their discounted rates; the discount itself isn't shown.
+        let lines = detail.lineItems.map { line -> BOQLineItem in
+            var copy = line
+            copy.appliedUnitPrice = detail.effectiveRates[line.id] ?? line.appliedUnitPrice
+            return copy
+        }
+        return BQSheet.layout(
+            landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
+            info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
+            lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
+            ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes)
+    }
+
+    /// A BOQ's own pages as a PDF (landscape sheet or portrait letterhead,
+    /// as the BOQ is set), without its drawings: for the quotation that
+    /// follows it.
+    private func boqPDFData(_ detail: BOQDetail) -> Data? {
+        if detail.orientation == "Portrait" {
+            return PDFGenerator(paperSize: db.getCompanySettings().paperSize ?? "A4")?.generate(boqLetter(detail))
+        }
+        return BQSheetRenderer.pdf(boqSheetLayout(detail))
+    }
+
+    /// The BOQ a quotation follows, written to a temporary PDF so it can be
+    /// added after the quotation's pages like a drawing.
+    private func followedBOQFile(_ quotation: QuotationDetail) -> URL? {
+        guard let boqId = db.getQuotation(id: quotation.id)?.sourceBOQId, let boq = db.getBOQDetail(id: boqId),
+              !boq.lineItems.isEmpty, let data = boqPDFData(boq) else { return nil }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-\(boq.id).pdf")
+        return (try? data.write(to: url)) != nil ? url : nil
+    }
+
     /// The portrait BOQ: the letterhead layout (from Qt26193) with each
     /// item's unit, quantity and weights, and the total weight.
     private func exportBOQOnLetterhead(id: String, detail: BOQDetail, mode: PDFMode) {
+        deliverRenderedPDF(id: id, mode: mode, company: db.getCompanySettings(), projectNumber: detail.projectNumber, subfolder: "BOQ",
+                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: boqLetter(detail),
+                           attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
+    }
+
+    private func boqLetter(_ detail: BOQDetail) -> LetterDocument {
         let company = db.getCompanySettings()
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: nil)
         let columns = [
@@ -9058,7 +9114,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         rows.append(.summary(label: "Total Weight:", value: "\(formatMoney(detail.totalWeightKg)) kg", emphasized: true))
 
-        let letter = LetterDocument(
+        return LetterDocument(
             number: detail.boqNumber, status: detail.status, title: "BILL OF QUANTITIES",
             clientName: client.name, clientLines: client.lines,
             refRows: [("BOQ No.", detail.boqNumber), ("Project No.", detail.projectNumber),
@@ -9069,9 +9125,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             currencySymbol: currencySymbol(company), columns: columns, rows: rows,
             sections: remarks(detail.notes), signatures: [], closingLine: nil
         )
-        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ",
-                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: letter,
-                           attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
     }
 
     private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
@@ -9138,7 +9191,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
             intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
-            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, newPageUnlessSinglePage: true,
+            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
                                                                       alwaysNewPage: company.termsNewPage == "Always")],
             signatures: [
                 companySignature(company),
@@ -9152,7 +9205,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
                            documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
-                           attachments: db.appendedDrawingFiles(kind: "Quotation", id: detail.id))
+                           attachments: (mode == .word ? [] : [followedBOQFile(detail)].compactMap { $0 }) + db.appendedDrawingFiles(kind: "Quotation", id: detail.id))
     }
 
     private func handleExportInvoicePDF(id: String, invoiceId: String, mode: PDFMode = .export) {

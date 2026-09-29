@@ -39,12 +39,24 @@
             ${d.appended && appended !== drawings.length ? ' <span class="status-pill">PDF page</span>' : ''}
             ${d.description ? `<div class="sub">${esc(d.description)}</div>` : ''}</td>
           <td class="muted">${esc(d.fileType)}</td>
-          <td class="row-actions">${d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}</td>
+          <td class="row-actions">${d.boqId
+            ? `<button data-open-boq="${d.boqId}">Open BOQ</button> <button data-locate-boq="${d.boqId}" title="Show the BOQ's exported PDF in Finder">Locate File</button>`
+            : d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}</td>
         </tr>`).join('')}</tbody></table>`;
       for (const b of container.querySelectorAll('[data-open]')) {
         b.addEventListener('click', async () => {
           const r = await window.api.drawings.open(b.dataset.open);
           if (!r.ok) alert(r.error);
+        });
+      }
+      for (const b of container.querySelectorAll('[data-open-boq]')) {
+        b.addEventListener('click', () => { location.href = `boq-editor.html?id=${encodeURIComponent(b.dataset.openBoq)}`; });
+      }
+      for (const b of container.querySelectorAll('[data-locate-boq]')) {
+        b.addEventListener('click', async () => {
+          const r = await window.api.files.locateDocument('BOQ', b.dataset.locateBoq);
+          if (!r || !r.ok) alert((r && r.error) || 'The file couldn’t be shown in Finder.');
+          else if (r.note) alert(r.note);
         });
       }
       for (const b of container.querySelectorAll('[data-reveal]')) {

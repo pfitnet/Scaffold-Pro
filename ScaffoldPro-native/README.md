@@ -1055,3 +1055,24 @@ under "Letterhead layout".
   - DWG / DXF drawings, and files that are missing or password-protected,
     are left out.
 - The Word copy is unchanged: it holds only the document itself.
+
+## Batch 43 — Terms follow on when they fit; the BOQ goes with its quotation
+
+- **Terms and Conditions** now follow straight after the quotation's total
+  when the whole section fits in the space left on that page. If it doesn't
+  fit, it starts a new page.
+  - The signatures are placed separately. If the Terms fit but the
+    signatures don't, the Terms stay and the signatures start the next page.
+  - "-[Remainder of this page is intentionally left blank]-" is left out
+    when there's no room for it, instead of taking a page of its own.
+  - Settings › Standard Quotation › "Terms & Conditions page": "Follow on
+    the same page when they fit" is the default. "Always on a new page"
+    still works as before.
+  - The Word copy breaks pages in the same places.
+- **The BOQ a quotation follows** is added to the quotation's PDF (export and
+  print) as its first drawing: the quotation's pages, then the BOQ, then
+  the other drawings.
+  - The BOQ is made fresh each time, as it's set up: the landscape BQ sheet
+    with prices, or the portrait letterhead.
+  - It's listed first in the quotation's Drawings panel, with **Open BOQ**
+    and **Locate File** buttons.

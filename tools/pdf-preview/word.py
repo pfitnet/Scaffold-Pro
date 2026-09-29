@@ -35,9 +35,7 @@ def layout(doc):
     receipt_new_page = False
     if doc.get('receiptRows'):
         t = Gen(); t.layOut(doc); receipt_new_page = t.receiptOnNewPage
-    long = False
-    if any(s.get('newPageUnlessSinglePage') for s in doc['sections']):
-        t = Gen(); t.layOut(doc); long = t.pageNumber > 1
+    breaks = Gen.breaks(doc)
     rows = []
     for r in doc['rows']:
         h = g.rowHeight(r, doc)
@@ -48,7 +46,7 @@ def layout(doc):
         elif r[0] == 'partial': rows.append(dict(type='partial', height=h, cells=[g.cellLines(c, doc['columns'][i], f, cw) for i, c in enumerate(r[1])], text=r[2]))
         elif r[0] == 'note': rows.append(dict(type='note', height=h, text=r[1]))
     sections = []
-    for s in doc['sections']:
+    for si, s in enumerate(doc['sections']):
         paras = []
         for p in s['paragraphs']:
             if p[0] == 'text': paras.append(dict(type='text', text=p[1], link=p[2]))
@@ -56,7 +54,7 @@ def layout(doc):
             else:
                 _, marker, lines, left, indent, colon = p
                 paras.append(dict(type='hanging', marker=marker, lines=lines, left=left, textX=text_x(marker, left, indent, colon), colon=colon))
-        sections.append(dict(heading=s.get('heading'), paragraphs=paras, pageBreakBefore=bool(s.get('newPageUnlessSinglePage') and long)))
+        sections.append(dict(heading=s.get('heading'), paragraphs=paras, pageBreakBefore=bool(s.get('alwaysNewPage') or si in breaks)))
     fonts = [dict(style=st, data=base64.b64encode(open(os.path.join(APP, 'resources', 'fonts', fn), 'rb').read()).decode())
              for st, fn in [('regular', 'EBGaramond-Regular.ttf'), ('bold', 'EBGaramond-Bold.ttf'), ('italic', 'EBGaramond-Italic.ttf'), ('boldItalic', 'EBGaramond-BoldItalic.ttf')]]
     return dict(ok=True, paperSize='A4', pageWidth=W, pageHeight=H, textLeft=Gen.textLeft, textRight=Gen.textRight, contentBottom=Gen.contentBottom,
