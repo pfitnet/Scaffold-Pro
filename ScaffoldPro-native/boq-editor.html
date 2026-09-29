@@ -31,6 +31,11 @@
             <option value="Draft">Draft</option>
             <option value="Issued">Issued</option>
           </select>
+          <label style="font-size:12px; color:var(--text-secondary);" for="orientation-select">Page</label>
+          <select id="orientation-select" title="How the BQ sheet is printed">
+            <option value="Landscape">Landscape — with prices</option>
+            <option value="Portrait">Portrait — no prices</option>
+          </select>
           <button id="export-pdf-btn">Export PDF</button>
           <button id="export-word-btn" title="A Word copy laid out like the PDF, saved next to it">Export Word</button>
           <button id="print-btn">Print…</button>

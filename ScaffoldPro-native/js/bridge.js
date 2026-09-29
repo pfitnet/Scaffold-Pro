@@ -112,6 +112,7 @@
     },
     boq: {
       listForProject: (projectId) => callNative('boq:listForProject', { projectId: projectId }),
+      setOrientation: (id, orientation) => callNative('boq:setOrientation', { id: id, orientation: orientation }),
       create: (projectId, projectNumber, pricingMode) =>
         callNative('boq:create', { projectId: projectId, projectNumber: projectNumber, pricingMode: pricingMode }),
       get: (id) => callNative('boq:get', { id: id }),

@@ -44,6 +44,8 @@
     if (o.bold) s += '<w:b/><w:bCs/>';
     if (o.italic) s += '<w:i/><w:iCs/>';
     if (o.color) s += `<w:color w:val="${o.color}"/>`;
+    // Pair kerning, as the PDF (and Google Sheets) have it; Word only kerns when asked.
+    s += '<w:kern w:val="2"/>';
     if (o.size) s += `<w:sz w:val="${HP(o.size)}"/><w:szCs w:val="${HP(o.size)}"/>`;
     if (o.underline) s += '<w:u w:val="single"/>';
     return s ? `<w:rPr>${s}</w:rPr>` : '';
@@ -586,10 +588,106 @@
     return zip(files);
   }
 
+  // ---------- BQ sheet ("PROFICIENCY QUOTATION") ----------
+  //
+  // The native side sends the sheet's rows and cells with their exact
+  // positions (main.swift, BQSheet.layout). Here they become one Word table:
+  // its grid is every cell edge, rows have their exact heights and fills,
+  // text sits 2.625pt in from the rules with its baseline where the PDF has
+  // it, and the banner, info and heading rows repeat on every page.
+
+  const CALIBRI_SPACE = 0.2261; // a space, as a fraction of the size (Calibri / Carlito)
+  // Line height for sheet text (a little over Calibri's own 1.22, so large
+  // text isn't pushed down), and where its baseline falls in the line.
+  const SHEET_LINE = 1.25;
+  let SHEET_BASELINE_AT = BASELINE_AT;
+  // Text inside a cell starts half a rule (0.375pt) in from the rule's centre.
+  const HALF_RULE = 0.375;
+  // Text ends this much further in on the right than it starts on the left.
+  const RIGHT_EXTRA = 0.9;
+
+  function buildSheetDocx(d) {
+    const edges = [...new Set(d.rows.flatMap((r) => r.cells.flatMap((c) => [c.x0, c.x1])).map((x) => Math.round(x * 1000) / 1000))]
+      .sort((a, b) => a - b);
+    const widths = edges.slice(1).map((x, i) => x - edges[i]);
+    const at = (x) => edges.findIndex((e) => Math.abs(e - x) < 0.01);
+    const rows = d.rows.map((row) => {
+      const cells = row.cells.map((c) => {
+        const span = at(c.x1) - at(c.x0);
+        const line = c.size * SHEET_LINE;
+        const font = c.font === 'title' ? 'Arial' : 'Calibri';
+        const style = { font, size: c.size, bold: c.font === 'title' };
+        const figure = c.align === 'right' || c.align === 'money';
+        const inner = c.x1 - c.x0 - (2.625 - HALF_RULE) * 2 - RIGHT_EXTRA - (figure ? c.size * CALIBRI_SPACE : 0);
+        let runs;
+        // Placed with space before the paragraph (cell top margins are
+        // shared across a row in some Word-compatible apps), so the
+        // baseline is where the PDF has it.
+        const before = Math.max(0, row.height - c.baselineUp - line * SHEET_BASELINE_AT - 2 * HALF_RULE);
+        let opts = { line, before, align: { center: 'center', right: 'right' }[c.align] || 'left' };
+        if (c.align === 'money' && c.text) {
+          runs = run(`$\t${c.text}`, style);
+          opts = { line, before, align: 'left', tabs: [{ val: 'right', pos: inner }] };
+        } else {
+          runs = run(c.text, style);
+        }
+        const shade = row.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${row.fill}"/>` : '';
+        // Centred text needs no side padding (and so never wraps).
+        const side = c.align === 'center' ? 0 : 2.625 - HALF_RULE;
+        const pr = `<w:tcW w:w="${TW(c.x1 - c.x0)}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${shade}<w:noWrap/>` +
+          `<w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="${TW(side)}" w:type="dxa"/>` +
+          '<w:bottom w:w="0" w:type="dxa"/>' +
+          `<w:right w:w="${TW(side + RIGHT_EXTRA + (figure ? c.size * CALIBRI_SPACE : 0))}" w:type="dxa"/></w:tcMar><w:vAlign w:val="top"/>`;
+        return `<w:tc><w:tcPr>${pr}</w:tcPr>${para(runs, opts)}</w:tc>`;
+      });
+      return `<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="${TW(row.height)}" w:hRule="exact"/>${row.repeats ? '<w:tblHeader/>' : ''}</w:trPr>${cells.join('')}</w:tr>`;
+    });
+    const sides = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'];
+    const table = `<w:tbl><w:tblPr><w:tblW w:w="${TW(d.right - d.left)}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/>` +
+      `<w:tblBorders>${sides.map((side) => border(side, 0.75)).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/>` +
+      '<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>' +
+      '<w:tblLook w:val="0000" w:firstRow="0" w:lastRow="0" w:firstColumn="0" w:lastColumn="0" w:noHBand="1" w:noVBand="1"/></w:tblPr>' +
+      `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${TW(w)}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`;
+    const sect = `<w:sectPr><w:pgSz w:w="${TW(d.pageWidth)}" w:h="${TW(d.pageHeight)}"${d.landscape ? ' w:orient="landscape"' : ''}/>` +
+      `<w:pgMar w:top="${TW(d.top)}" w:right="${TW(Math.max(0, d.pageWidth - d.right))}" w:bottom="${TW(d.pageHeight - d.bottomLimit)}" ` +
+      `w:left="${TW(d.left)}" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>`;
+    const documentXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${table}` +
+      `${para('', { line: 1 })}${sect}</w:body></w:document>`;
+    const rels = (items) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${items.join('')}</Relationships>`;
+    const created = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    return zip([
+      { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+        '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+        '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>' +
+        '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+        '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+        '</Types>' },
+      { name: '_rels/.rels', data: rels([
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>',
+        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>',
+        '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>',
+      ]) },
+      { name: 'docProps/core.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+        `<dc:title>${xml(`${d.title} ${d.number}`)}</dc:title><dc:creator>ScaffoldPro</dc:creator>` +
+        `<dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified></cp:coreProperties>` },
+      { name: 'docProps/app.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>ScaffoldPro</Application></Properties>' },
+      { name: 'word/document.xml', data: documentXML },
+      { name: 'word/_rels/document.xml.rels', data: rels([
+        '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>',
+        '<Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>',
+      ]) },
+      { name: 'word/styles.xml', data: stylesXML().replace(new RegExp(BODY_FONT, 'g'), 'Calibri') },
+      { name: 'word/settings.xml', data: settingsXML().replace('<w:embedTrueTypeFonts/>', '') },
+    ]);
+  }
+
   async function exportWord(fetchLayout) {
     const layout = await fetchLayout();
     if (!layout || !layout.ok) return { ok: false, error: (layout && layout.error) || 'The Word document couldn\u2019t be prepared.' };
-    const bytes = buildLetterDocx(layout);
+    const bytes = layout.kind === 'sheet' ? buildSheetDocx(layout) : buildLetterDocx(layout);
     return root.api.files.saveWord({
       projectNumber: layout.projectNumber, subfolder: layout.subfolder, fileName: layout.fileName,
       reference: layout.number, data: toBase64(bytes),
@@ -597,5 +695,7 @@
   }
 
   root.buildLetterDocx = buildLetterDocx;
+  root.buildSheetDocx = buildSheetDocx;
+  root.__setSheetBaseline = (v) => { SHEET_BASELINE_AT = v; };
   root.exportWord = exportWord;
 })(typeof window !== 'undefined' ? window : globalThis);
