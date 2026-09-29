@@ -1173,3 +1173,15 @@ under "Letterhead layout".
   - If there's a newer version, **Update Now** runs Install ScaffoldPro and
     closes the app. The new build opens when it's done.
   - install.sh now closes an open ScaffoldPro before replacing it.
+
+## Batch 48 — Tab to the next quantity; Delete stays on the page
+
+- In the BOQ, quotation, invoice and delivery note editors, **Tab** (or
+  Enter) in an item's quantity saves it and goes to the next item's
+  quantity. **Shift-Tab** goes to the previous one.
+  - The number is selected, ready to type over.
+  - The place is kept when the table redraws after saving, including
+    anything already typed (js/qty-tab.js).
+- The **Delete** key no longer goes back to the previous page when the
+  cursor isn't in a text box (a web view's built-in behaviour). ⌘[ still
+  goes back.
