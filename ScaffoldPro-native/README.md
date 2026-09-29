@@ -1239,3 +1239,18 @@ under "Letterhead layout".
     items are showing then.
 - Every category's table now has the same fixed column widths, so the
   Weight, Rental and Sale columns line up down the whole list.
+
+## Batch 52 — Automatic local backups at 12:00 a.m. and 12:00 p.m.
+
+- ScaffoldPro makes a full local backup by itself every day at 12:00 a.m. and
+  12:00 p.m. It's the same as Create Backup: the database, every project
+  folder and the Administration documents, in Application Support ›
+  ScaffoldPro › Backups, named "…_Auto".
+  - Checked every minute and soon after opening. If the Mac was asleep or
+    ScaffoldPro was closed at 12:00, the missed backup is made then.
+  - After each one, automatic backups more than 7 days old are deleted.
+    Manual and before-restore backups are never deleted.
+  - Settings › Backup & Restore lists them as "Automatic (12:00)". The
+    Dashboard's backup reminder now counts them too.
+  - On APFS the copies are clones, so unchanged files take no extra disk
+    space.
