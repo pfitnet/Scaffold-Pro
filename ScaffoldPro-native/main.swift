@@ -1097,7 +1097,25 @@ struct CompanySettings: Codable {
     /// on a new page unless the whole quotation fits on one page) or
     /// "Always" (always on a page of their own, as on Qt26193).
     var termsNewPage: String?
+    /// The standard manpower rates filled into a quotation's rates section
+    /// by "Standard Rates". nil = `defaultManpowerRates`.
+    var manpowerRates: [ManpowerRate]?
 }
+
+/// A worker type and its day rate, e.g. "Scaffolder CP", 2,300 per "md".
+struct ManpowerRate: Codable {
+    var name: String
+    var rate: Double
+    var unit: String
+}
+
+/// As on the company's quotations (e.g. Qt26179).
+let defaultManpowerRates = [
+    ManpowerRate(name: "Scaffolder CP", rate: 2300, unit: "md"),
+    ManpowerRate(name: "Scaffolder", rate: 2100, unit: "md"),
+    ManpowerRate(name: "Rigger", rate: 2000, unit: "md"),
+    ManpowerRate(name: "General Helper", rate: 1800, unit: "md"),
+]
 
 let defaultQuotationTerms = """
 (i) Payment : First two month's rental is to be paid upon order confirmation.
@@ -3095,6 +3113,32 @@ final class AppDatabase {
         return nil
     }
 
+    /// "Standard Rates": the standard manpower rates (Settings) as rows of a
+    /// rates section — `blockId`'s, or a new "Erection & Dismantle Manpower
+    /// Rates" section. Workers already in the section aren't added twice.
+    func addStandardManpowerRates(quotationId: String, blockId: String?) -> String? {
+        var target: QuotationBlock
+        if let blockId = blockId, !blockId.isEmpty {
+            guard let block = quotationBlocksStore.readAll().first(where: { $0.id == blockId && $0.quotationId == quotationId }) else { return "Section not found." }
+            guard block.kind == "Rates" else { return "Standard rates go in a rates section." }
+            target = block
+        } else {
+            switch addQuotationBlock(quotationId: quotationId, kind: "Rates") {
+            case .success(let block): target = block
+            case .failure(let e): return e.message
+            }
+        }
+        let existing = Set(quotationLineItemsStore.readAll().filter { $0.blockId == target.id }
+            .map { $0.itemDescription.lowercased().trimmingCharacters(in: .whitespaces) })
+        for rate in getCompanySettings().manpowerRates ?? defaultManpowerRates
+            where !existing.contains(rate.name.lowercased().trimmingCharacters(in: .whitespaces)) {
+            if let error = addQuotationBlockLine(blockId: target.id, description: rate.name, unit: rate.unit, quantity: 1, price: rate.rate) {
+                return error
+            }
+        }
+        return nil
+    }
+
     /// A row of a priced or rates section: description, unit, quantity
     /// (always 1 for a rate) and unit price / rate.
     func addQuotationBlockLine(blockId: String, description: String, unit: String, quantity: Double, price: Double) -> String? {
@@ -3935,6 +3979,13 @@ final class AppDatabase {
         if payload.keys.contains("standardDeliveryCharge") { settings.standardDeliveryCharge = payload["standardDeliveryCharge"] as? Double }
         if let v = payload["defaultMinimumHireMonths"] as? Int { settings.defaultMinimumHireMonths = max(1, v) }
         if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
+        if let list = payload["manpowerRates"] as? [[String: Any]] {
+            settings.manpowerRates = list.compactMap { item in
+                guard let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+                let unit = ((item["unit"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                return ManpowerRate(name: name, rate: max(0, (item["rate"] as? Double) ?? 0), unit: unit.isEmpty ? "md" : unit)
+            }
+        }
         if let rates = payload["exchangeRates"] as? [String: Any] {
             var clean: [String: Double] = settings.exchangeRates ?? [:]
             for (k, v) in rates { if let d = v as? Double, d > 0 { clean[k.uppercased()] = d } }
@@ -6723,6 +6774,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:removeBlock":
             let error = db.removeQuotationBlock(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:addStandardRates":
+            let error = db.addStandardManpowerRates(quotationId: (payload["quotationId"] as? String) ?? "", blockId: payload["blockId"] as? String)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:addBlockLine":
             let error = db.addQuotationBlockLine(

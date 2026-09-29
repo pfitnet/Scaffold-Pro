@@ -145,6 +145,8 @@
       moveBlock: (id, up) => callNative('quotations:moveBlock', { id: id, up: !!up }),
       removeBlock: (id) => callNative('quotations:removeBlock', { id: id }),
       addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
+      // The standard manpower rates (Settings), into a rates section — or a new one if blockId is null.
+      addStandardRates: (quotationId, blockId) => callNative('quotations:addStandardRates', { quotationId: quotationId, blockId: blockId || null }),
       updateHeader: (id, header) => callNative('quotations:updateHeader', Object.assign({ id: id }, header)),
       updateLetterFields: (id, changes) => callNative('quotations:updateLetterFields', Object.assign({ id: id }, changes)),
       importFromBOQ: (quotationId, boqId, replaceExisting) =>

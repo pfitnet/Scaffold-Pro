@@ -242,7 +242,7 @@ function renderBlocks() {
   const container = document.getElementById('extra-sections');
   const locked = d.status !== 'Draft';
   container.innerHTML = '';
-  for (const btn of ['add-priced-btn', 'add-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
+  for (const btn of ['add-priced-btn', 'add-rates-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
 
   d.blocks.forEach((block, index) => {
     const lines = d.lineItems.filter((i) => i.blockId === block.id).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -283,6 +283,7 @@ function renderBlocks() {
           <input type="number" class="add-price" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" />
           <input type="text" class="add-unit" value="${rates ? 'md' : ''}" placeholder="Unit" title="Unit${rates ? ', e.g. md (man-day)' : ' (optional), e.g. lot'}" />
           <button class="add-row">Add Row</button>
+          ${rates ? '<button class="fill-standard" title="Add the standard rates for Scaffolder CP, Scaffolder, Rigger and General Helper (Settings › Standard Quotation); workers already listed are skipped">Fill Standard Rates</button>' : ''}
         </div>`}`;
     }
 
@@ -326,6 +327,8 @@ function renderBlocks() {
       const rm = tr.querySelector('.row-remove');
       if (rm) rm.addEventListener('click', () => removeLine(lineId));
     }
+    const fillBtn = q('.fill-standard');
+    if (fillBtn) fillBtn.addEventListener('click', () => blockCall(window.api.quotations.addStandardRates(quotationId, block.id)));
     const addBtn = q('.add-row');
     if (addBtn) {
       const add = () => {
@@ -643,6 +646,8 @@ async function init() {
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
+  document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
+    blockCall(window.api.quotations.addStandardRates(quotationId, null)));
   for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-rates-btn', 'Rates'], ['add-note-btn', 'Note']]) {
     document.getElementById(btn).addEventListener('click', () => blockCall(window.api.quotations.addBlock(quotationId, kind)));
   }

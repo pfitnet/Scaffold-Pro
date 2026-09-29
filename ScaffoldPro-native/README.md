@@ -861,3 +861,20 @@ under "Letterhead layout".
   QUOTATION") with prices.
 - The BOQ editor's Page menu reads "Landscape — with prices" and "Portrait —
   letterhead, no prices".
+
+## Batch 34 — standard manpower rates in one click
+- **+ Standard Manpower Rates** (under a quotation's line items) adds the
+  "Erection & Dismantle Manpower Rates" section, already filled in as on
+  Qt26179:
+  - R1 Scaffolder CP HK$ 2,300.00 / md
+  - R2 Scaffolder HK$ 2,100.00 / md
+  - R3 Rigger HK$ 2,000.00 / md
+  - R4 General Helper HK$ 1,800.00 / md
+
+  All four are "(Rate Only)", with the usual note about overtime and Sunday /
+  public holiday rates.
+- **Fill Standard Rates** in any rates section adds the standard rates to it,
+  skipping workers already listed.
+- The four workers, rates and units ("md") can be changed in **Settings →
+  Standard Quotation → Standard manpower rates**. Leave a name blank to drop
+  that worker. Each row can still be edited on the quotation afterwards.
