@@ -31,6 +31,9 @@ struct Client: Codable {
     var country: String?
     var vatNumber: String?
     var billingInfo: String?
+    /// `address` is line 1; these are the address's further lines.
+    var addressLine2: String? = nil
+    var addressLine3: String? = nil
 }
 
 struct Site: Codable {
@@ -2094,6 +2097,8 @@ final class AppDatabase {
         items[i].country = text(payload, "country")
         items[i].vatNumber = text(payload, "vatNumber")
         items[i].billingInfo = text(payload, "billingInfo")
+        items[i].addressLine2 = text(payload, "addressLine2")
+        items[i].addressLine3 = text(payload, "addressLine3")
         clientsStore.writeAll(items)
         return nil
     }
@@ -2109,7 +2114,7 @@ final class AppDatabase {
         clientsStore.readAll().first { $0.id == id }
     }
     func createClient(_ payload: [String: Any]) -> Client {
-        let client = Client(
+        var client = Client(
             id: makeId("client"),
             // Blank form fields are stored as nil, not "" — otherwise PDFs
             // print empty "Attn:" / address lines for new clients.
@@ -2125,6 +2130,8 @@ final class AppDatabase {
             postalCode: text(payload, "postalCode"), country: text(payload, "country"),
             vatNumber: text(payload, "vatNumber"), billingInfo: text(payload, "billingInfo")
         )
+        client.addressLine2 = text(payload, "addressLine2")
+        client.addressLine3 = text(payload, "addressLine3")
         clientsStore.insert(client)
         return client
     }
@@ -4803,17 +4810,44 @@ final class PDFGenerator {
     static let titlePadding: CGFloat = 6.0
     private var titlePadding: CGFloat { PDFGenerator.titlePadding }
 
+    /// The client's name (bold) and address, as printed: each address line
+    /// kept to 260pt, a long one broken after its commas where it can be
+    /// ("38th Floor, Dorset House, Taikoo Place," / "979 King's Road, …").
+    private func clientBlockLines(_ doc: LetterDocument) -> [(text: String, bold: Bool)] {
+        var lines = wrap(doc.clientName, body(12, bold: true), 300).map { (text: $0, bold: true) }
+        for line in doc.clientLines {
+            lines += wrapAddress(line, body(12), 260).map { (text: $0, bold: false) }
+        }
+        return lines
+    }
+
+    private func wrapAddress(_ line: String, _ font: NSFont, _ width: CGFloat) -> [String] {
+        let fits: (String) -> Bool = { self.lineWidth(self.makeLine($0, font, .black)) <= width }
+        let parts = line.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        var out: [String] = []
+        var current = ""
+        for (i, part) in parts.enumerated() {
+            let piece = i < parts.count - 1 ? part + "," : part
+            let candidate = current.isEmpty ? piece : current + " " + piece
+            if current.isEmpty || fits(candidate) {
+                current = candidate
+            } else {
+                out.append(current)
+                current = piece
+            }
+        }
+        if !current.isEmpty { out.append(current) }
+        return out.flatMap { fits($0) ? [$0] : wrap($0, font, width) }
+    }
+
     private func drawOpening(_ doc: LetterDocument) {
         let blockLeft = 47.75 + dx
         let firstBaseline: CGFloat = 104.25
         let pitch: CGFloat = 15.75
 
-        var left: [(String, NSFont)] = wrap(doc.clientName, body(12, bold: true), 345).map { ($0, body(12, bold: true)) }
-        for line in doc.clientLines {
-            left += wrap(line, body(12), 345).map { ($0, body(12)) }
-        }
+        let left = clientBlockLines(doc)
         for (i, item) in left.enumerated() {
-            text(item.0, x: blockLeft, baseline: firstBaseline + CGFloat(i) * pitch, font: item.1)
+            text(item.text, x: blockLeft, baseline: firstBaseline + CGFloat(i) * pitch, font: body(12, bold: item.bold))
         }
 
         // Reference block: label, colon, value right-aligned; a value too
@@ -5308,7 +5342,9 @@ final class PDFGenerator {
         return WordLayout(
             paperSize: paperSize, pageWidth: Double(pageWidth), pageHeight: Double(pageHeight),
             textLeft: Double(textLeft), textRight: Double(textRight), contentBottom: Double(contentBottom),
-            number: doc.number, status: doc.status, title: doc.title, clientName: doc.clientName, clientLines: doc.clientLines,
+            number: doc.number, status: doc.status, title: doc.title,
+            clientName: clientBlockLines(doc).filter { $0.bold }.map { $0.text }.joined(separator: "\n"),
+            clientLines: clientBlockLines(doc).filter { !$0.bold }.map { $0.text },
             refRows: doc.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: wrap($0.value, font, 66).count > 1) },
             deliveryMethod: nonBlank(doc.deliveryMethod), salutation: nonBlank(doc.salutation), subject: nonBlank(doc.subject),
             intro: nonBlank(doc.intro), currencySymbol: doc.currencySymbol,
@@ -7259,7 +7295,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if let billing = nonBlank(c.billingInfo) {
             lines = billing.components(separatedBy: "\n").compactMap { nonBlank($0) }
         } else {
-            if let v = nonBlank(c.address) { lines.append(v) }
+            for line in [c.address, c.addressLine2, c.addressLine3] {
+                if let v = nonBlank(line) { lines.append(v) }
+            }
             let cityLine = [c.city, c.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
             if !cityLine.isEmpty { lines.append(cityLine) }
             if let v = nonBlank(c.country) { lines.append(v) }

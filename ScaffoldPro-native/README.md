@@ -807,3 +807,14 @@ under "Letterhead layout".
   share not accepted), the status says so and it tries again later. It creates
   "William's Work" inside Proficiency if needed, but never creates a separate
   "Proficiency" folder, because that wouldn't be the shared one.
+
+## Batch 31 — client addresses: Address Line 1, 2, 3; no more over-wide lines
+- The client form has **Address Line 1**, **Address Line 2** and **Address Line
+  3** instead of one Address box. On documents each is its own line, followed
+  by City / Postal Code and Country.
+- **Long address lines are kept narrow** on quotations, invoices, delivery
+  notes and BOQs (PDF and Word): at most 260pt wide, and broken after a comma
+  where possible. For example, an address typed on one line prints as
+  "38th Floor, Dorset House, Taikoo Place," / "979 King's Road, Quarry Bay,
+  Hong Kong". Existing clients print this way without re-typing. The client's
+  name wraps at 300pt.
