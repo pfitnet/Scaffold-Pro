@@ -849,3 +849,15 @@ under "Letterhead layout".
   the original. Built with LibreOffice, every piece of text lands within 0.2pt
   of the original sheet. The Word export now kerns the letterhead documents'
   text too, as their PDFs do.
+
+## Batch 33 — portrait BOQ back on the letterhead
+- **Portrait** BOQs print as before batch 32: on the company letterhead, with
+  "BILL OF QUANTITIES", the client and reference block (BOQ No., Project No.,
+  Site Ref., Date), "Re:" and Structure lines, and the table No / Item
+  Description / Unit / Qty / Unit Wt (kg) / Total Wt (kg), ending in
+  **Total Weight**. There are no prices. PDF, Print and Word copies are all
+  this layout.
+- **Landscape** BOQs are unchanged: the company's BQ sheet ("PROFICIENCY
+  QUOTATION") with prices.
+- The BOQ editor's Page menu reads "Landscape — with prices" and "Portrait —
+  letterhead, no prices".
