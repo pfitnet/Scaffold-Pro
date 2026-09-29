@@ -1117,3 +1117,14 @@ under "Letterhead layout".
   - Files iCloud has moved off a Mac to save space are downloaded when opened.
   - Restore is turned off while sharing, since it would replace everyone's
     data.
+
+## Batch 45 — Install ScaffoldPro pulls through GitHub Desktop
+
+- **Install ScaffoldPro** first tries to pull the latest version from
+  Terminal. If Terminal can't sign in to GitHub (e.g. a GitHub account that
+  uses Google sign-in), it opens GitHub Desktop on the Scaffold-Pro folder
+  and asks you to press **Fetch origin**, then **Pull origin**.
+  - After you press Return, it checks that nothing is still waiting to be
+    pulled. Type S to install the version you have.
+- A copy of the Install file kept elsewhere (e.g. on the Desktop) now
+  updates itself from the one in Scaffold-Pro.
