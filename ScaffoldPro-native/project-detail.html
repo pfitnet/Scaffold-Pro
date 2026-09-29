@@ -79,7 +79,10 @@
       <section class="tab-panel" data-panel="quotations">
         <div class="section-toolbar">
           <h2>Quotations</h2>
-          <button class="primary" id="new-quotation-btn">+ New Quotation</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button id="combine-quotations-btn" disabled title="Tick the quotations to put into one PDF">Combine into PDF…</button>
+            <button class="primary" id="new-quotation-btn">+ New Quotation</button>
+          </div>
         </div>
         <div id="quotation-list"></div>
       </section>
@@ -151,6 +154,19 @@
   </div>
 
   <!-- New invoice: always based on one of the project's quotations -->
+  <div class="modal-backdrop hidden" id="combine-modal">
+    <div class="modal">
+      <h2>Combine Quotations into One PDF</h2>
+      <p class="small-note" id="combine-summary"></p>
+      <label class="inline-check"><input type="checkbox" id="combine-drawings" /> Include each quotation's drawings (and the BOQ it follows) after it</label>
+      <p class="small-note">The PDF is saved in the project's Quotations folder and opened.</p>
+      <div class="actions">
+        <button id="combine-cancel">Cancel</button>
+        <button class="primary" id="combine-go">Make PDF</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop hidden" id="invoice-modal">
     <div class="modal">
       <h2>New Invoice</h2>

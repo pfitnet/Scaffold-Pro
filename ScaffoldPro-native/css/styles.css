@@ -613,3 +613,7 @@ button.link-btn {
   color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline;
 }
 button.link-btn:hover { color: var(--accent); opacity: 0.8; }
+
+/* Project totals under the BOQ and quotation lists. */
+tr.project-total td { font-weight: 600; border-top: 2px solid var(--border); background: var(--panel); }
+th.check-col, td.check-col { width: 28px; text-align: center; padding-left: 8px; padding-right: 0; }

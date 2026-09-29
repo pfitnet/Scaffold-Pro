@@ -44,17 +44,22 @@ async function refreshBOQList() {
     return;
   }
 
+  // Project total weight: every BOQ except cancelled ones.
+  const counted = currentBOQs.filter((b) => b.status !== 'Cancelled');
+  const totalWeight = counted.reduce((sum, b) => sum + (Number(b.totalWeightKg) || 0), 0);
   const table = document.createElement('table');
   table.innerHTML = `
     <thead><tr><th>Number</th><th>Pricing</th><th>Status</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
-    <tbody></tbody>`;
+    <tbody></tbody>
+    <tfoot><tr class="project-total"><td colspan="4">Project total weight${counted.length < currentBOQs.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
+      <td class="num">${money(totalWeight)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
   for (const b of currentBOQs) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `boq-editor.html?id=${b.id}`; };
     tr.innerHTML = `
-      <td>${b.boqNumber}</td>
+      <td>${esc(b.boqNumber)}${b.structure ? `<div class="sub">${esc(b.structure)}</div>` : ''}</td>
       <td>${b.pricingMode}</td>
       <td><span class="status-pill">${b.status}</span></td>
       <td>${b.itemCount}</td>
@@ -80,17 +85,26 @@ async function refreshQuotationList() {
     return;
   }
 
+  // Project total: every quotation except cancelled ones.
+  const counted = currentQuotations.filter((q) => q.status !== 'Cancelled');
+  const total = counted.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Status</th><th>Items</th><th class="num">Total</th><th></th></tr></thead>
-    <tbody></tbody>`;
+    <thead><tr><th class="check-col"><input type="checkbox" id="quotation-select-all" title="Select all" /></th><th>Number</th><th>BOQ</th><th>Status</th><th>Items</th><th class="num">Total</th><th></th></tr></thead>
+    <tbody></tbody>
+    <tfoot><tr class="project-total"><td></td><td colspan="4">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
+      <td class="num">${money(total)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
   for (const q of currentQuotations) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `quotation-editor.html?id=${q.id}`; };
+    // Under the number: the structure of the BOQ it follows, else its subject line.
+    const sub = q.structure || q.subject;
     tr.innerHTML = `
-      <td>${q.quotationNumber}</td>
+      <td class="check-col"><input type="checkbox" class="quotation-select" data-id="${esc(q.id)}" ${selectedQuotations.has(q.id) ? 'checked' : ''} /></td>
+      <td>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</td>
+      <td>${q.boqNumber ? esc(q.boqNumber) : '<span class="muted">—</span>'}</td>
       <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
       <td>${q.itemCount}</td>
       <td class="num">${money(q.total)}</td>`;
@@ -99,6 +113,65 @@ async function refreshQuotationList() {
   }
   container.innerHTML = '';
   container.appendChild(table);
+  // Ticking a quotation chooses it for "Combine into PDF…" (it doesn't open it).
+  for (const box of table.querySelectorAll('.check-col')) box.addEventListener('click', (e) => e.stopPropagation());
+  for (const box of table.querySelectorAll('input.quotation-select')) {
+    box.addEventListener('change', () => {
+      if (box.checked) selectedQuotations.add(box.dataset.id); else selectedQuotations.delete(box.dataset.id);
+      updateCombineButton();
+    });
+  }
+  document.getElementById('quotation-select-all').addEventListener('change', (e) => {
+    for (const box of table.querySelectorAll('input.quotation-select')) {
+      box.checked = e.target.checked;
+      if (box.checked) selectedQuotations.add(box.dataset.id); else selectedQuotations.delete(box.dataset.id);
+    }
+    updateCombineButton();
+  });
+  updateCombineButton();
+}
+
+// ---- Several quotations in one PDF ----
+
+const selectedQuotations = new Set();
+
+function updateCombineButton() {
+  // Only quotations still in the list count.
+  const ids = new Set(currentQuotations.map((q) => q.id));
+  for (const id of [...selectedQuotations]) if (!ids.has(id)) selectedQuotations.delete(id);
+  const n = selectedQuotations.size;
+  const button = document.getElementById('combine-quotations-btn');
+  button.disabled = n === 0;
+  button.textContent = n > 0 ? `Combine ${n} into PDF…` : 'Combine into PDF…';
+  const all = document.getElementById('quotation-select-all');
+  if (all) {
+    all.checked = n > 0 && n === currentQuotations.length;
+    all.indeterminate = n > 0 && n < currentQuotations.length;
+  }
+}
+
+function setupCombineQuotations() {
+  const modal = document.getElementById('combine-modal');
+  document.getElementById('combine-quotations-btn').addEventListener('click', () => {
+    // In the list's order (newest first).
+    const chosen = currentQuotations.filter((q) => selectedQuotations.has(q.id));
+    if (chosen.length === 0) return;
+    document.getElementById('combine-summary').textContent =
+      `${chosen.map((q) => q.quotationNumber).join(', ')} — ${chosen.length} quotation${chosen.length === 1 ? '' : 's'}, one after another.`;
+    modal.classList.remove('hidden');
+  });
+  document.getElementById('combine-cancel').addEventListener('click', () => modal.classList.add('hidden'));
+  document.getElementById('combine-go').addEventListener('click', async () => {
+    const ids = currentQuotations.filter((q) => selectedQuotations.has(q.id)).map((q) => q.id);
+    const go = document.getElementById('combine-go');
+    go.disabled = true;
+    go.textContent = 'Making PDF…';
+    const r = await window.api.quotations.combinePDF(ids, document.getElementById('combine-drawings').checked);
+    go.disabled = false;
+    go.textContent = 'Make PDF';
+    modal.classList.add('hidden');
+    if (!r || !r.ok) alert((r && r.error) || 'The PDF couldn’t be made.');
+  });
 }
 
 async function refreshInvoiceList() {
@@ -651,6 +724,7 @@ async function init() {
 
   document.getElementById('new-boq-btn').addEventListener('click', createNewBOQ);
   document.getElementById('new-quotation-btn').addEventListener('click', createNewQuotation);
+  setupCombineQuotations();
   document.getElementById('new-invoice-btn').addEventListener('click', createNewInvoice);
   document.getElementById('new-delivery-note-btn').addEventListener('click', createNewDeliveryNote);
 

@@ -1185,3 +1185,20 @@ under "Letterhead layout".
 - The **Delete** key no longer goes back to the previous page when the
   cursor isn't in a text box (a web view's built-in behaviour). ⌘[ still
   goes back.
+
+## Batch 49 — Quotations into one PDF; structures and project totals
+
+- **Combine into PDF…** (project › Quotations): tick the quotations you want
+  (or all of them with the tick box in the header), then press the button.
+  - Choose whether to include each quotation's drawings. The BOQ it follows
+    is added first, then the other drawings, right after that quotation.
+  - The quotations are built fresh, one after another, into a single PDF.
+    It's saved in the project's Quotations folder (e.g.
+    "26017_Quotations_Qt26195+Qt26194_with drawings.pdf") and opened.
+- The **BOQ list** shows each BOQ's structure under its number.
+- The **quotation list** shows the structure of the BOQ each quotation
+  follows, or else its subject line, and a BOQ column.
+- **Project totals**:
+  - the BOQ tab gives the project total weight;
+  - the Quotations tab gives the project total of the quotations;
+  - cancelled ones aren't counted.
