@@ -1254,3 +1254,22 @@ under "Letterhead layout".
     Dashboard's backup reminder now counts them too.
   - On APFS the copies are clones, so unchanged files take no extra disk
     space.
+
+## Batch 53 — Fix: the update could hang on "Installing…"
+
+- The in-app update relied on install.sh closing the running app from
+  outside, and it could hang there. Now:
+  1. install.sh only builds (SCAFFOLDPRO_BUILD_ONLY=1, which stops after
+     signing with "✅ Built.").
+  2. The app starts a small helper that runs on after the app has closed,
+     then closes itself (a forced exit after 3 seconds if quitting is held
+     up).
+  3. The helper waits for it to close (force-quitting it after 15
+     seconds), copies the new build next to the old one, moves the old
+     one aside, moves the new one in, deletes the old one, and opens
+     ScaffoldPro.
+- If macOS doesn't allow the swap (e.g. System Settings › Privacy &
+  Security › App Management), the old copy is kept and reopened. The next
+  launch says why the update couldn't be installed.
+- If building takes more than 8 minutes, the loading screen offers Show Log
+  and Stop, so it can never sit there with no way out.

@@ -84,9 +84,15 @@ xattr -cr "$BUILD"
 echo "🔏 Ad-hoc signing..."
 codesign --force --deep --sign - "$BUILD"
 
+# When ScaffoldPro updates itself it only needs the build: it then closes
+# itself and a small helper puts the new copy in place and opens it.
+if [ -n "$SCAFFOLDPRO_BUILD_ONLY" ]; then
+    echo "✅ Built."
+    exit 0
+fi
+
 # A copy that's still open would otherwise stay open (and `open` below
-# would just bring it to the front instead of starting the new one). When
-# the app updates itself, this is the moment its loading screen closes.
+# would just bring it to the front instead of starting the new one).
 # (A signal, not AppleScript: no "allow control of ScaffoldPro" prompt.)
 if pgrep -xq ScaffoldPro; then
     echo "👋 Closing the open ScaffoldPro..."
