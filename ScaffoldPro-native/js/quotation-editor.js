@@ -244,11 +244,12 @@ function renderBlocks() {
   container.innerHTML = '';
   for (const btn of ['add-priced-btn', 'add-rates-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
 
-  d.blocks.forEach((block, index) => {
+  d.blocks.forEach((block) => {
     const lines = d.lineItems.filter((i) => i.blockId === block.id).sort((a, b) => a.sortOrder - b.sortOrder);
     const rates = block.kind === 'Rates';
     const card = document.createElement('div');
     card.className = 'extra-section';
+    card.dataset.id = block.id;
 
     let body = '';
     if (block.kind !== 'Note') {
@@ -289,10 +290,8 @@ function renderBlocks() {
 
     card.innerHTML = `
       <div class="extra-head">
-        <span class="line-tag">${BLOCK_KINDS[block.kind] || block.kind}</span>
+        <span class="extra-kind">${locked || d.blocks.length < 2 ? '' : window.dragHandleHTML('Drag to move this section (or focus and press ↑ / ↓)')}<span class="line-tag">${BLOCK_KINDS[block.kind] || block.kind}</span></span>
         ${locked ? '' : `<span class="controls">
-          <button data-move="up" ${index === 0 ? 'disabled' : ''} title="Move up">↑</button>
-          <button data-move="down" ${index === d.blocks.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
           <button class="block-remove">Remove</button>
         </span>`}
       </div>
@@ -306,9 +305,6 @@ function renderBlocks() {
     if (prefix) prefix.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { prefix: prefix.value })));
     const note = q('.block-note');
     note.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { note: note.value })));
-    for (const b of card.querySelectorAll('[data-move]')) {
-      b.addEventListener('click', () => blockCall(window.api.quotations.moveBlock(block.id, b.dataset.move === 'up')));
-    }
     const remove = q('.block-remove');
     if (remove) remove.addEventListener('click', () => {
       const what = block.kind === 'Note' ? 'this note' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;
@@ -554,6 +550,11 @@ async function importFromBOQ() {
 }
 
 async function init() {
+  // The sections after the items: drag a section by its handle to move it.
+  window.makeReorderable(document.getElementById('extra-sections'), {
+    item: '.extra-section',
+    onReorder: (ids) => blockCall(window.api.quotations.reorderBlocks(quotationId, ids)),
+  });
   const keyTermsInput = document.getElementById('key-terms-input');
   window.attachParagraphFormatting(keyTermsInput, { fallback: () => (currentDetail ? currentDetail.standardKeyTerms : '') });
   keyTermsInput.addEventListener('change', () => saveLetterField('keyTerms', keyTermsInput.value));

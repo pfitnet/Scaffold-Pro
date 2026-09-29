@@ -132,6 +132,8 @@
       exportWord: (id) => callNative('boq:exportWord', { id: id }),
       updateDetails: (id, changes) => callNative('boq:updateDetails', Object.assign({ id: id }, changes)),
       moveLineItem: (id, direction) => callNative('boq:moveLineItem', { id: id, direction: direction }),
+      // The BOQ's line ids in their new order (dragged in the editor).
+      reorderLineItems: (boqId, ids) => callNative('boq:reorderLineItems', { boqId: boqId, ids: ids }),
       duplicateLineItem: (id) => callNative('boq:duplicateLineItem', { id: id }),
       updateLineNotes: (id, notes) => callNative('boq:updateLineNotes', { id: id, notes: notes }),
       print: (id) => callNative('boq:print', { id: id }),
@@ -149,6 +151,7 @@
       addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
       updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),
       moveBlock: (id, up) => callNative('quotations:moveBlock', { id: id, up: !!up }),
+      reorderBlocks: (quotationId, ids) => callNative('quotations:reorderBlocks', { quotationId: quotationId, ids: ids }),
       removeBlock: (id) => callNative('quotations:removeBlock', { id: id }),
       addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
       // The standard manpower rates (Settings), into a rates section — or a new one if blockId is null.

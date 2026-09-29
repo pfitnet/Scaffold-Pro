@@ -973,3 +973,15 @@ under "Letterhead layout".
 - **Addresses**: an address line typed with a comma at the end keeps it
   ("38th Floor, Dorset House,").
 - The Word copy has the same layout.
+
+## Batch 39 — Drag and drop to reorder
+
+- **BOQ lines** and the **quotation's extra sections** (priced rows, rates,
+  notes) are reordered by dragging instead of ↑ / ↓ buttons. Grab a line or
+  section by its handle (⋮⋮) at the left and drag it up or down. The others
+  slide out of the way; let go to save the new order.
+- The page scrolls when you drag near its top or bottom edge.
+- From the keyboard, focus a handle (Tab) and press ↑ / ↓ to move it one
+  place.
+- Handles appear only on drafts with at least two lines or sections; issued
+  documents can't be reordered.
