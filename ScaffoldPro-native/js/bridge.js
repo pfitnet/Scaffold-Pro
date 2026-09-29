@@ -113,6 +113,11 @@
     boq: {
       listForProject: (projectId) => callNative('boq:listForProject', { projectId: projectId }),
       setOrientation: (id, orientation) => callNative('boq:setOrientation', { id: id, orientation: orientation }),
+      // A discount on an item's unit rate: 'None' | 'Percent' | 'Amount' (off each unit).
+      updateLineDiscount: (id, discountType, discountValue) => callNative('boq:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
+      // Rates listed after the total ({ title, rates: [{ name, rate, unit }], note }), or null to remove.
+      setRatesSection: (id, section) => callNative('boq:setRatesSection', { id: id, section: section }),
+      standardRates: () => callNative('boq:standardRates'),
       create: (projectId, projectNumber, pricingMode) =>
         callNative('boq:create', { projectId: projectId, projectNumber: projectNumber, pricingMode: pricingMode }),
       get: (id) => callNative('boq:get', { id: id }),

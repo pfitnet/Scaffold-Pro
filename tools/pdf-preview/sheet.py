@@ -30,7 +30,7 @@ def kg(v): return f'{v:.1f} kg'
 def money(v): return f'{v:,.2f}'
 def qty(v): return f'{round(v):,}'
 
-def layout(landscape, pricing, currency, info, lines):
+def layout(landscape, pricing, currency, info, lines, rates=None):
     pw, ph = (842.88, 595.92) if landscape else (595.92, 842.88)
     left, top = 85.875, 53.625
     widths = [68.25, 174.75, 43.5, 51.75, 130.5, 128.25, 72.0] if landscape else [68.25, 186.54, 43.5, 51.75, 72.0]
@@ -57,11 +57,19 @@ def layout(landscape, pricing, currency, info, lines):
         rows.append(dict(kind='item', height=18, fill=None, repeats=False, cells=[cell(edges[j], edges[j + 1], t, 12, a, 4.875) for j, (t, a) in enumerate(texts)]))
     n = len(widths)
     if landscape:
-        totals = [cell(edges[0], edges[n - 2], 'Total Amount :', 28.99, 'center', 8.625), cell(edges[n - 2], edges[n - 1], money(total_money), 12, 'money', 15.375)]
+        label = 'Subtotal :' if rates else 'Total Amount :'
+        totals = [cell(edges[0], edges[n - 2], label, 28.99, 'center', 8.625), cell(edges[n - 2], edges[n - 1], money(total_money), 12, 'money', 15.375)]
     else:
         totals = [cell(edges[0], edges[n - 1], 'Total Weight :', 28.99, 'center', 8.625)]
     totals.append(cell(edges[n - 1], edges[n], kg(total_kg), 12, 'right', 15.375))
     rows.append(dict(kind='total', height=38.25, fill=None, repeats=False, cells=totals))
+    if landscape and rates:
+        title, items, note = rates
+        rows.append(dict(kind='ratesTitle', height=19.5, fill='B4C6E7', repeats=False, cells=[cell(left, right, title, 13, 'center', 4.875)]))
+        for i, (nm, rate, unit) in enumerate(items):
+            texts = [(f'R{i + 1}', 'center'), (nm, 'left'), ('', 'right'), ('', 'center'), (f'{money(rate)} / {unit}', 'money'), ('(Rate Only)', 'center'), ('', 'right')]
+            rows.append(dict(kind='rate', height=18, fill=None, repeats=False, cells=[cell(edges[j], edges[j + 1], t, 12, a, 4.875) for j, (t, a) in enumerate(texts)]))
+        if note: rows.append(dict(kind='note', height=15.75, fill=None, repeats=False, cells=[cell(left, right, note, 10, 'left', 4.125)]))
     return dict(ok=True, kind='sheet', landscape=landscape, pageWidth=pw, pageHeight=ph, left=left, right=right, top=top,
                 bottomLimit=ph - 53.25, rows=rows, number='BQ', title='PROFICIENCY QUOTATION')
 

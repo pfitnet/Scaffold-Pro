@@ -3,7 +3,9 @@
 // Per-line discount for quotations and invoices: no discount (the
 // default), a percentage, or an amount off the line total.
 //
-//   window.openLineDiscount(line, currencyLabel, save)
+//   window.openLineDiscount(line, currencyLabel, save, { perUnit })
+//     perUnit: the discount comes off the unit rate (BOQ items) rather than
+//     the line total
 //     save(discountType, discountValue) → Promise<{ ok, error }>
 //   window.lineDiscountLabel(line, currencyLabel) → "", "−10%", "−HK$ 20.00"
 //   window.lineNetTotal(line) → the line total after its discount
@@ -76,11 +78,20 @@
 
   let current = null;
   let currency = '';
+  let perUnit = false;
+
+  function rateAfter(type, value) {
+    const rate = current.appliedUnitPrice;
+    let out = rate;
+    if (type === 'Percent') out = rate - rate * Math.min(value, 100) / 100;
+    else if (type === 'Amount') out = rate - value;
+    return cents(Math.max(0, out));
+  }
 
   function updateFields() {
     const type = sheet.querySelector('#ld-type').value;
     sheet.querySelector('#ld-value-field').classList.toggle('hidden', type === 'None');
-    sheet.querySelector('#ld-value-label').textContent = type === 'Amount' ? `Amount (${currency})` : 'Percentage (%)';
+    sheet.querySelector('#ld-value-label').textContent = type === 'Amount' ? `Amount${perUnit ? ' off each unit' : ''} (${currency})` : 'Percentage (%)';
     updatePreview();
   }
 
@@ -88,6 +99,12 @@
     const type = sheet.querySelector('#ld-type').value;
     const value = Number(sheet.querySelector('#ld-value').value) || 0;
     const preview = Object.assign({}, current, { discountType: type, discountValue: value });
+    if (perUnit) {
+      sheet.querySelector('#ld-preview').textContent = type === 'None'
+        ? `Unit rate ${currency} ${money(current.appliedUnitPrice)}`
+        : `Unit rate ${currency} ${money(current.appliedUnitPrice)} → ${currency} ${money(rateAfter(type, value))} (only the new rate is printed)`;
+      return;
+    }
     const gross = cents(Math.round(current.quantity) * current.appliedUnitPrice);
     sheet.querySelector('#ld-preview').textContent = type === 'None'
       ? `Line total ${currency} ${money(gross)}`
@@ -113,10 +130,14 @@
     close();
   }
 
-  window.openLineDiscount = function openLineDiscount(line, currencyLabel, handler) {
+  window.openLineDiscount = function openLineDiscount(line, currencyLabel, handler, options) {
     if (!sheet) build();
     current = line;
     currency = currencyLabel;
+    perUnit = !!(options && options.perUnit);
+    const typeSelect = sheet.querySelector('#ld-type');
+    typeSelect.options[1].textContent = perUnit ? 'Percentage off the unit rate' : 'Percentage of the line total';
+    typeSelect.options[2].textContent = perUnit ? 'Amount off each unit' : 'Amount off the line total';
     saveHandler = handler;
     sheet.querySelector('#ld-item').textContent = line.itemDescription.replace(/\n/g, ' ');
     sheet.querySelector('#ld-type').value = line.discountType || 'None';

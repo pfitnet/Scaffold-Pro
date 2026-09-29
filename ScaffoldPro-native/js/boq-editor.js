@@ -2,6 +2,8 @@
 
 let boqId = null;
 let currentDetail = null;
+// "HK$" for HKD (from Settings), as on the documents.
+let currencyLabel = 'HK$';
 
 function getBOQIdFromURL() {
   const params = new URLSearchParams(location.search);
@@ -65,6 +67,7 @@ function render() {
 
   const isIssued = d.status === 'Issued';
   renderLineItems();
+  renderRates();
 
   const notesBox = document.getElementById('notes-box');
   if (document.activeElement !== notesBox) {
@@ -96,13 +99,18 @@ function renderLineItems() {
   const table = document.createElement('table');
   table.innerHTML = `
     <thead>
-      <tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Wt (kg)</th><th class="num">Total Wt (kg)</th><th></th></tr>
+      <tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Rate</th><th></th><th class="num">Unit Wt (kg)</th><th class="num">Total Wt (kg)</th><th></th></tr>
     </thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
   for (const [index, item] of items.entries()) {
     const hasWeight = item.weightKg !== null && item.weightKg !== undefined;
+    // The rate after any discount; the discount itself isn't printed.
+    const rate = currentDetail.effectiveRates[item.id] ?? item.appliedUnitPrice;
+    const dv = Number(item.discountValue) || 0;
+    const discountLabel = item.discountType === 'Percent' && dv > 0 ? `−${dv}%`
+      : item.discountType === 'Amount' && dv > 0 ? `−${money(dv)}` : '';
     const lineWeight = hasWeight ? item.weightKg * item.quantity : null;
 
     const tr = document.createElement('tr');
@@ -114,6 +122,8 @@ function renderLineItems() {
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isIssued ? 'disabled' : ''} /></td>
+      <td class="num">${money(rate)}</td>
+      <td>${isIssued ? '' : `<button class="discount-btn${discountLabel ? ' active' : ''}" title="Discount this item's rate (only the new rate is printed)">${discountLabel || 'Discount'}</button>`}</td>
       <td class="num">${weight(item.weightKg)}</td>
       <td class="num">${weight(lineWeight)}</td>
       <td class="row-actions">${isIssued ? '' : `
@@ -137,6 +147,14 @@ function renderLineItems() {
     if (down) down.addEventListener('click', () => lineAction(() => window.api.boq.moveLineItem(item.id, 1)));
     const dup = tr.querySelector('.dup-btn');
     if (dup) dup.addEventListener('click', () => lineAction(() => window.api.boq.duplicateLineItem(item.id)));
+    const discountBtn = tr.querySelector('.discount-btn');
+    if (discountBtn) discountBtn.addEventListener('click', () => {
+      window.openLineDiscount(item, currencyLabel, async (type, value) => {
+        const r = await window.api.boq.updateLineDiscount(item.id, type, value);
+        if (r.ok) await loadDetail();
+        return r;
+      }, { perUnit: true });
+    });
     const note = tr.querySelector('.line-note-input');
     if (note) note.addEventListener('change', async () => {
       const r = await window.api.boq.updateLineNotes(item.id, note.value);
@@ -148,8 +166,101 @@ function renderLineItems() {
 
   container.innerHTML = '';
   container.appendChild(table);
-  document.getElementById('grand-total').textContent = `Total Weight: ${weight(currentDetail.totalWeightKg)} kg`;
+  document.getElementById('grand-total').textContent =
+    `${currentDetail.ratesSection ? 'Subtotal' : 'Total'}: ${currencyLabel} ${money(currentDetail.grandTotal)} · Total Weight: ${weight(currentDetail.totalWeightKg)} kg`;
 }
+
+// ---------- Rates after the total (landscape BQ sheet) ----------
+
+function escAttr(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+async function saveRates(section) {
+  const r = await window.api.boq.setRatesSection(boqId, section);
+  if (!r.ok) alert(r.error);
+  await loadDetail();
+}
+
+function renderRates() {
+  const box = document.getElementById('boq-rates');
+  const d = currentDetail;
+  const locked = d.status !== 'Draft';
+  const s = d.ratesSection;
+  if (!s) {
+    box.innerHTML = `<h3>Rates after the total</h3>
+      <p class="small-note">For the landscape BQ: rates listed after the total, which then reads “Subtotal”.</p>
+      ${locked ? '' : `<div class="actions-row">
+        <button id="rates-standard-btn">+ Standard Manpower Rates</button>
+        <button id="rates-empty-btn">+ Rates Section</button>
+      </div>`}`;
+    if (!locked) {
+      box.querySelector('#rates-standard-btn').addEventListener('click', async () => {
+        const standard = await window.api.boq.standardRates();
+        saveRates({ title: 'Erection & Dismantle Manpower Rates', rates: standard, note: STANDARD_RATES_NOTE });
+      });
+      box.querySelector('#rates-empty-btn').addEventListener('click', () =>
+        saveRates({ title: 'Erection & Dismantle Manpower Rates', rates: [], note: STANDARD_RATES_NOTE }));
+    }
+    return;
+  }
+  const dis = locked ? 'disabled' : '';
+  box.innerHTML = `<h3>Rates after the total</h3>
+    <input type="text" id="rates-title" value="${escAttr(s.title)}" placeholder="Title, e.g. Erection & Dismantle Manpower Rates" ${dis} style="width:100%; box-sizing:border-box; font-weight:600" />
+    <table class="compact" style="margin-top:8px">
+      <thead><tr><th class="num row-no">No.</th><th>Worker / item</th><th class="num">Rate (${currencyLabel})</th><th>Per</th><th></th></tr></thead>
+      <tbody>${s.rates.map((r, i) => `
+        <tr data-i="${i}">
+          <td class="num row-no">R${i + 1}</td>
+          <td><input type="text" class="r-name" value="${escAttr(r.name)}" ${dis} /></td>
+          <td class="num"><input type="number" class="r-rate narrow" min="0" step="0.01" value="${r.rate}" ${dis} /></td>
+          <td><input type="text" class="r-unit narrow" value="${escAttr(r.unit)}" ${dis} /></td>
+          <td>${locked ? '' : '<button class="r-remove">Remove</button>'}</td>
+        </tr>`).join('')}</tbody>
+    </table>
+    <textarea id="rates-note" rows="2" placeholder="Note under the rates (optional)" ${dis}>${escAttr(s.note || '')}</textarea>
+    ${locked ? '' : `<div class="actions-row">
+      <button id="rates-add-btn">Add Row</button>
+      <button id="rates-fill-btn" title="Add the standard rates (Settings › Standard Quotation); workers already listed are skipped">Fill Standard Rates</button>
+      <button id="rates-remove-btn">Remove Section</button>
+    </div>`}`;
+  if (locked) return;
+  const read = () => ({
+    title: box.querySelector('#rates-title').value,
+    note: box.querySelector('#rates-note').value,
+    rates: [...box.querySelectorAll('tr[data-i]')].map((tr) => ({
+      name: tr.querySelector('.r-name').value,
+      rate: Number(tr.querySelector('.r-rate').value) || 0,
+      unit: tr.querySelector('.r-unit').value || 'md',
+    })),
+  });
+  for (const el of box.querySelectorAll('input, textarea')) el.addEventListener('change', () => saveRates(read()));
+  for (const b of box.querySelectorAll('.r-remove')) {
+    b.addEventListener('click', () => {
+      const section = read();
+      section.rates.splice(Number(b.closest('tr').dataset.i), 1);
+      saveRates(section);
+    });
+  }
+  box.querySelector('#rates-add-btn').addEventListener('click', () => {
+    const section = read();
+    section.rates.push({ name: '', rate: 0, unit: 'md' });
+    saveRates(section);
+  });
+  box.querySelector('#rates-fill-btn').addEventListener('click', async () => {
+    const section = read();
+    const have = new Set(section.rates.map((r) => r.name.trim().toLowerCase()));
+    for (const r of await window.api.boq.standardRates()) {
+      if (!have.has(r.name.trim().toLowerCase())) section.rates.push(r);
+    }
+    saveRates(section);
+  });
+  box.querySelector('#rates-remove-btn').addEventListener('click', () => {
+    if (confirm('Remove the rates section? The total will read “Total Amount” again.')) saveRates(null);
+  });
+}
+
+const STANDARD_RATES_NOTE = '* Please note that labour rates are subject to a price increase for over-time works and works on sundays / public holidays';
 
 async function updateLine(lineId, changes) {
   const result = await window.api.boq.updateLineItem(lineId, changes);
@@ -226,6 +337,8 @@ async function init() {
     document.getElementById('not-found').classList.remove('hidden');
     return;
   }
+  const settings = await window.api.settings.get();
+  currencyLabel = settings.currency === 'HKD' ? 'HK$' : settings.currency;
 
   await loadDetail();
   if (!currentDetail) return;

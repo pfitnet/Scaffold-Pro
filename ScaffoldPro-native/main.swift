@@ -629,6 +629,15 @@ struct BillOfQuantities: Codable {
     /// The BQ sheet's page: "Landscape" (with prices, the default) or
     /// "Portrait" (no prices).
     var orientation: String? = nil
+    /// Rates listed after the total on the BQ sheet (e.g. manpower rates);
+    /// the "Total Amount :" row then reads "Subtotal :".
+    var ratesSection: BOQRatesSection? = nil
+}
+
+struct BOQRatesSection: Codable {
+    var title: String
+    var rates: [ManpowerRate]
+    var note: String?
 }
 
 struct BOQLineItem: Codable {
@@ -653,6 +662,10 @@ struct BOQLineItem: Codable {
     var section: String?
     var sortOrder: Int
     var notes: String?
+    /// A discount on this item's unit rate: nil/"None", "Percent" (0-100)
+    /// or "Amount" (off each unit). Only the discounted rate is printed.
+    var discountType: String? = nil
+    var discountValue: Double? = nil
 }
 
 /// Lightweight row for the project's BOQ list — avoids shipping every
@@ -685,6 +698,9 @@ struct BOQDetail: Codable {
     var structure: String?
     /// "Landscape" (with prices) or "Portrait" (no prices).
     var orientation: String
+    /// Line id → unit rate after its discount.
+    var effectiveRates: [String: Double]
+    var ratesSection: BOQRatesSection?
 }
 
 struct BOQActionResult: Codable {
@@ -2519,7 +2535,55 @@ final class AppDatabase {
     }
 
     private func boqMoneyTotal(_ items: [BOQLineItem]) -> Double {
-        doubleOf(items.reduce(Decimal(0)) { $0 + lineAmount(quantity: $1.quantity, unitPrice: $1.appliedUnitPrice) })
+        doubleOf(items.reduce(Decimal(0)) { $0 + lineAmount(quantity: $1.quantity, unitPrice: boqEffectiveRate($1)) })
+    }
+
+    /// A BOQ line's unit rate after its discount (to the cent).
+    func boqEffectiveRate(_ line: BOQLineItem) -> Double {
+        let rate = decimalOf(line.appliedUnitPrice)
+        let value = decimalOf(max(0, line.discountValue ?? 0))
+        let discounted: Decimal
+        switch line.discountType {
+        case "Percent": discounted = rate - rate * min(value, 100) / 100
+        case "Amount": discounted = rate - value
+        default: return line.appliedUnitPrice
+        }
+        return doubleOf(roundToCents(max(0, discounted)))
+    }
+
+    /// Discount on a BOQ line's unit rate (Draft only).
+    func updateBOQLineDiscount(id: String, type: String?, value: Double?) -> String? {
+        var items = boqLineItemsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+        guard let boq = getBOQ(id: items[i].boqId) else { return "BOQ not found." }
+        guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        let kind = type ?? "None"
+        guard ["None", "Percent", "Amount"].contains(kind) else { return "Invalid discount type." }
+        if kind == "None" {
+            items[i].discountType = nil
+            items[i].discountValue = nil
+        } else {
+            let v = value ?? 0
+            guard v > 0 else { return "Enter a discount greater than zero." }
+            if kind == "Percent", v > 100 { return "A percentage discount can't be more than 100%." }
+            if kind == "Amount", v > items[i].appliedUnitPrice { return "The discount can't be more than the unit rate." }
+            items[i].discountType = kind
+            items[i].discountValue = doubleOf(roundToCents(decimalOf(v)))
+        }
+        boqLineItemsStore.writeAll(items)
+        touchBOQ(boq.id)
+        return nil
+    }
+
+    /// The rates listed after the BQ sheet's total (nil removes them).
+    func setBOQRatesSection(id: String, section: BOQRatesSection?) -> String? {
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
+        guard boqs[i].status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        boqs[i].ratesSection = section
+        boqs[i].updatedAt = nowISO()
+        boqsStore.writeAll(boqs)
+        return nil
     }
 
     private func totalWeight(for items: [BOQLineItem]) -> Double {
@@ -2582,7 +2646,9 @@ final class AppDatabase {
             projectNumber: project.projectNumber, projectName: project.name,
             lineItems: items, grandTotal: total, totalWeightKg: totalWeight(for: items),
             markupPercent: boq.markupPercent ?? 0, structure: boq.structure,
-            orientation: boq.orientation == "Portrait" ? "Portrait" : "Landscape"
+            orientation: boq.orientation == "Portrait" ? "Portrait" : "Landscape",
+            effectiveRates: Dictionary(items.map { ($0.id, boqEffectiveRate($0)) }, uniquingKeysWith: { a, _ in a }),
+            ratesSection: boq.ratesSection
         )
     }
 
@@ -2923,7 +2989,7 @@ final class AppDatabase {
                     id: makeId("qitem"), quotationId: quotation.id, sourceKey: item.sourceKey,
                     priceListItemId: item.priceListItemId, itemCode: item.itemCode,
                     itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
-                    appliedUnitPrice: item.appliedUnitPrice, section: item.section, sortOrder: index,
+                    appliedUnitPrice: boqEffectiveRate(item), section: item.section, sortOrder: index,
                     priceListUnitPrice: item.priceListUnitPrice
                 )
             }
@@ -2967,7 +3033,7 @@ final class AppDatabase {
             // Same mode: keep the BOQ's own price (its mark-up and any
             // hand-typed price). Different mode: re-price in HKD with the
             // BOQ's mark-up.
-            var price = item.appliedUnitPrice
+            var price = boqEffectiveRate(item)
             var listPrice = item.priceListUnitPrice
             if boq.pricingMode != pricingMode, let plId = item.priceListItemId, let pl = priceItems.first(where: { $0.id == plId }),
                let p = boqPrice(for: pl, mode: pricingMode, markupPercent: boq.markupPercent ?? 0, rates: rates) {
@@ -5510,7 +5576,8 @@ enum BQSheet {
     /// Builds the sheet. `info` is (project code, client, job site, structure).
     static func layout(landscape: Bool, pricingMode: String, currencyCode: String,
                        info: (projectCode: String, client: String, jobSite: String, structure: String),
-                       lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double) -> SheetLayout {
+                       lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double,
+                       ratesSection: BOQRatesSection? = nil) -> SheetLayout {
         let pageWidth: Double = landscape ? 842.88 : 595.92
         let pageHeight: Double = landscape ? 595.92 : 842.88
         let left = 85.875
@@ -5568,14 +5635,40 @@ enum BQSheet {
         // "Total Amount :" across the columns before the totals.
         let n = widths.count
         var totals: [SheetCell] = []
+        // With rates listed after it, the total is a subtotal.
+        let rates = landscape ? (ratesSection?.rates.filter { !$0.name.isEmpty } ?? []) : []
+        let hasRates = landscape && ratesSection != nil && (!rates.isEmpty || nonBlank(ratesSection?.title) != nil)
         if landscape {
-            totals.append(cell(edges[0], edges[n - 2], "Total Amount :", 28.99, "center", 8.625))
+            totals.append(cell(edges[0], edges[n - 2], hasRates ? "Subtotal :" : "Total Amount :", 28.99, "center", 8.625))
             totals.append(cell(edges[n - 2], edges[n - 1], formatMoney(grandTotal), 12, "money", 15.375))
         } else {
             totals.append(cell(edges[0], edges[n - 1], "Total Weight :", 28.99, "center", 8.625))
         }
         totals.append(cell(edges[n - 1], edges[n], kg(totalWeightKg), 12, "right", 15.375))
         rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
+
+        // Rates after the total (e.g. Erection & Dismantle Manpower Rates):
+        // a blue title row, then R1, R2… with "(Rate Only)", then the note.
+        if hasRates, let section = ratesSection {
+            if let title = nonBlank(section.title) {
+                rows.append(SheetRow(kind: "ratesTitle", height: 19.5, fill: blue,
+                                     cells: [cell(left, right, title, 13, "center", 4.875)], repeats: false))
+            }
+            for (i, rate) in rates.enumerated() {
+                let unit = rate.unit.trimmingCharacters(in: .whitespaces)
+                let texts: [(String, String)] = [
+                    ("R\(i + 1)", "center"), (rate.name, "left"), ("", "right"), ("", "center"),
+                    (formatMoney(rate.rate) + (unit.isEmpty ? "" : " / \(unit)"), "money"), ("(Rate Only)", "center"), ("", "right"),
+                ]
+                rows.append(SheetRow(kind: "rate", height: 18, fill: nil,
+                                     cells: texts.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element.0, 12, $0.element.1, 4.875) },
+                                     repeats: false))
+            }
+            if let note = nonBlank(section.note) {
+                rows.append(SheetRow(kind: "note", height: 15.75, fill: nil,
+                                     cells: [cell(left, right, note, 10, "left", 4.125)], repeats: false))
+            }
+        }
 
         return SheetLayout(landscape: landscape, pageWidth: pageWidth, pageHeight: pageHeight,
                            left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows)
@@ -6292,7 +6385,7 @@ final class BackupManager {
 // by default iCloud Drive/Proficiency/William's Work — so the work is off
 // this Mac and shared with Proficiency:
 //
-//   William's Work/ScaffoldPro Backup/
+//   William's Work/        (the copy goes straight in here)
 //   ├── Database/          the *.json stores, always current
 //   ├── Projects/          project folders (drawings, PDFs, Word copies)
 //   ├── Administration/    worker and company documents
@@ -6308,7 +6401,7 @@ final class BackupManager {
 
 struct CloudBackupStatus: Codable {
     var enabled: Bool
-    /// The "William's Work" folder (the copy goes in "ScaffoldPro Backup" inside it).
+    /// The "William's Work" folder, which the copy goes straight into.
     var folder: String
     /// e.g. "iCloud Drive › Proficiency › William's Work"
     var folderDisplay: String
@@ -6322,6 +6415,7 @@ struct CloudBackupStatus: Codable {
 final class CloudBackupManager {
     /// Posted by every database save.
     static let dataSaved = Notification.Name("ScaffoldPro.dataSaved")
+    /// Where copies went before they went straight into the folder.
     static let backupFolderName = "ScaffoldPro Backup"
     static let historyDays = 30
 
@@ -6448,8 +6542,22 @@ final class CloudBackupManager {
             }
             try fm.createDirectory(at: target, withIntermediateDirectories: true)
         }
-        let root = target.appendingPathComponent(CloudBackupManager.backupFolderName, isDirectory: true)
-        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        // The copy goes straight into the chosen folder (William's Work).
+        let root = target
+        // Backups made before this went into a "ScaffoldPro Backup" folder
+        // inside it: move those up once, so nothing is copied twice.
+        let older = target.appendingPathComponent(CloudBackupManager.backupFolderName, isDirectory: true)
+        if fm.fileExists(atPath: older.path) {
+            for name in (try? fm.contentsOfDirectory(atPath: older.path)) ?? [] where !name.hasPrefix(".") {
+                let destination = root.appendingPathComponent(name)
+                if !fm.fileExists(atPath: destination.path) {
+                    try? fm.moveItem(at: older.appendingPathComponent(name), to: destination)
+                }
+            }
+            if ((try? fm.contentsOfDirectory(atPath: older.path)) ?? ["?"]).filter({ !$0.hasPrefix(".") }).isEmpty {
+                try? fm.removeItem(at: older)
+            }
+        }
 
         var totals = (copied: 0, files: 0, bytes: Int64(0), failed: [String]())
         func mirror(_ source: URL, _ name: String) {
@@ -6484,7 +6592,7 @@ final class CloudBackupManager {
           Database History/  the database as it was each day (last \(CloudBackupManager.historyDays) days)
 
         To restore it: ScaffoldPro → Settings → Backup & Restore →
-        "Restore from Folder…" and choose this "\(CloudBackupManager.backupFolderName)" folder.
+        "Restore from Folder…" and choose this folder ("\(root.lastPathComponent)").
         Files deleted in the app are kept here; nothing is removed from this copy.
         """
         try Data(readme.utf8).write(to: config.appendingPathComponent("README.txt"), options: .atomic)
@@ -6935,6 +7043,25 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let dnId = (payload["id"] as? String) ?? ""
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: dnId)
 
+        case "boq:updateLineDiscount":
+            let error = db.updateBOQLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
+                                                 value: payload["discountValue"] as? Double)
+            respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "boq:setRatesSection":
+            var section: BOQRatesSection? = nil
+            if let s = payload["section"] as? [String: Any] {
+                let rates = ((s["rates"] as? [[String: Any]]) ?? []).map { r in
+                    ManpowerRate(name: ((r["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                                 rate: max(0, (r["rate"] as? Double) ?? 0),
+                                 unit: ((r["unit"] as? String) ?? "md").trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+                section = BOQRatesSection(title: ((s["title"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                                          rates: rates, note: nonBlank(s["note"] as? String))
+            }
+            let error = db.setBOQRatesSection(id: (payload["id"] as? String) ?? "", section: section)
+            respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "boq:standardRates":
+            respond(id: id, encodable: db.getCompanySettings().manpowerRates ?? defaultManpowerRates)
         case "boq:setOrientation":
             let error = db.setBOQOrientation(id: (payload["id"] as? String) ?? "", orientation: (payload["orientation"] as? String) ?? "")
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
@@ -7178,9 +7305,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "cloudBackup:chooseFolder":
             handleChooseCloudFolder(id: id)
         case "cloudBackup:reveal":
-            let copy = cloudBackup.folder.appendingPathComponent(CloudBackupManager.backupFolderName, isDirectory: true)
             let fm = FileManager.default
-            let target = [copy, cloudBackup.folder, CloudBackupManager.iCloudDrive].first { fm.fileExists(atPath: $0.path) }
+            let target = [cloudBackup.folder, CloudBackupManager.iCloudDrive].first { fm.fileExists(atPath: $0.path) }
             if let target = target { storage.revealInFinder(target) }
             respond(id: id, encodable: SimpleResult(ok: target != nil, error: target == nil ? "iCloud Drive wasn't found on this Mac." : nil))
         case "backup:create":
@@ -7765,11 +7891,21 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // Job site: its reference and name, e.g. "1635 Kwu Tung Station".
         var jobSite = site.map { $0.name } ?? ""
         if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
+        let clientName = nonBlank(client?.clientReference) ?? client?.companyName ?? ""
+        // "26210 - Project Name - Rental - CRBC"
+        let projectCode = [detail.projectNumber, detail.projectName, detail.pricingMode, clientName]
+            .compactMap { nonBlank($0) }.joined(separator: " - ")
+        // Printed at their discounted rates; the discount itself isn't shown.
+        let lines = detail.lineItems.map { line -> BOQLineItem in
+            var copy = line
+            copy.appliedUnitPrice = detail.effectiveRates[line.id] ?? line.appliedUnitPrice
+            return copy
+        }
         var layout = BQSheet.layout(
             landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
-            info: (projectCode: detail.projectNumber, client: nonBlank(client?.clientReference) ?? client?.companyName ?? "",
-                   jobSite: jobSite, structure: detail.structure ?? ""),
-            lines: detail.lineItems, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg)
+            info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
+            lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
+            ratesSection: detail.ratesSection)
         let safeNumber = detail.boqNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
 
         if mode == .word {
