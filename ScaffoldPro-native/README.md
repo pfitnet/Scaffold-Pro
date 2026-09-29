@@ -878,3 +878,25 @@ under "Letterhead layout".
 - The four workers, rates and units ("md") can be changed in **Settings →
   Standard Quotation → Standard manpower rates**. Leave a name blank to drop
   that worker. Each row can still be edited on the quotation afterwards.
+
+## Batch 35 — BQ rates section, rate discounts, fuller project code; backup straight into William's Work
+- **iCloud backup** goes straight into **Proficiency › William's Work**
+  (Database, Projects, Administration, Configuration, Database History), with
+  no "ScaffoldPro Backup" folder. An existing "ScaffoldPro Backup" folder's
+  contents are moved up once, the next time it backs up. To restore, choose
+  William's Work in **Restore from Folder…**.
+- **Project Code** on the BQ sheet reads "project number - project name -
+  Sale/Rental - client", e.g. "26210 - Working Platform for Perimeter Wall -
+  Rental - CRBC".
+- **Rates after the total** (landscape BQ): in the BOQ editor, **+ Standard
+  Manpower Rates** or **+ Rates Section** adds a section below the items. It
+  has a title, rows (worker/item, rate, per), a note, **Add Row**, **Fill
+  Standard Rates** and **Remove Section**. On the sheet, "Total Amount :"
+  becomes "Subtotal :", followed by a blue title row, R1, R2… rows with
+  "$ 2,300.00 / md" and "(Rate Only)", and the note. The portrait
+  (letterhead) BOQ has no prices, so it doesn't list them.
+- **Discount on an item's rate:** each BOQ item now shows its unit rate with
+  a **Discount** button (a percentage off the rate, or an amount off each
+  unit). The BQ sheet prints only the discounted rate and total. The discount
+  isn't mentioned anywhere on the document. Quotations made from the BOQ, or
+  importing its items, use the discounted rates.

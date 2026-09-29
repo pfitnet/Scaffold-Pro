@@ -124,7 +124,7 @@ function timeAgo(iso) {
 function renderCloud(s) {
   if (!s) return;
   document.getElementById('cloud-enabled').checked = s.enabled;
-  document.getElementById('cloud-folder').textContent = `${s.folderDisplay} › ScaffoldPro Backup`;
+  document.getElementById('cloud-folder').textContent = s.folderDisplay;
   document.getElementById('cloud-default-btn').classList.toggle('hidden', s.usingDefault);
   document.getElementById('cloud-now-btn').disabled = !s.enabled || s.running;
   const status = document.getElementById('cloud-status');

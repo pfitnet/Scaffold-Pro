@@ -12,7 +12,15 @@
     .section-header td { background: #f0f2f6; font-weight: 600; font-size: 12px; color: var(--text-secondary); }
     .grand-total { font-size: 20px; font-weight: 700; text-align: right; margin-top: 12px; }
     .picker-results { max-height: 360px; overflow-y: auto; }
-  </style>
+      .discount-btn { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
+    .discount-btn.active { color: var(--accent); border-color: var(--accent); }
+    .boq-rates { margin-top: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+    .boq-rates h3 { margin: 0 0 6px; font-size: 14px; }
+    .boq-rates table input { width: 100%; box-sizing: border-box; padding: 3px 6px; }
+    .boq-rates .narrow { width: 70px; }
+    .boq-rates .actions-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .boq-rates textarea { width: 100%; box-sizing: border-box; margin-top: 8px; }
+</style>
 </head>
 <body data-page="project-detail">
   <nav id="sidebar"></nav>
@@ -87,6 +95,9 @@
           </details>
           <div class="grand-total" id="grand-total"></div>
 
+          <!-- Rates listed after the total on the landscape BQ sheet -->
+          <div class="boq-rates" id="boq-rates"></div>
+
           <div style="margin-top: 20px;">
             <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
             <textarea id="notes-box" rows="3"></textarea>
@@ -103,6 +114,7 @@
   </main>
 
   <script src="js/sidebar.js"></script>
+  <script src="js/line-discount.js"></script>
   <script src="js/linked-drawings.js"></script>
   <script src="js/docx-export.js"></script>
   <script src="js/boq-editor.js"></script>
