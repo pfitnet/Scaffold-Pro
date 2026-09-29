@@ -56,6 +56,9 @@ function render() {
   if (document.activeElement !== structure) structure.value = d.structure || '';
   structure.disabled = locked;
 
+  // Landscape (with prices) or portrait (no prices) — can be changed any time.
+  document.getElementById('orientation-select').value = d.orientation || 'Landscape';
+
   const statusSelect = document.getElementById('status-select');
   statusSelect.value = d.status;
   document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
@@ -264,6 +267,12 @@ async function init() {
   document.getElementById('boq-structure-input').addEventListener('change', async (e) => {
     const r = await window.api.boq.updateDetails(boqId, { structure: e.target.value });
     if (!r.ok) alert(r.error);
+    await loadDetail();
+  });
+
+  document.getElementById('orientation-select').addEventListener('change', async (e) => {
+    const result = await window.api.boq.setOrientation(boqId, e.target.value);
+    if (!result.ok) alert(result.error);
     await loadDetail();
   });
 

@@ -818,3 +818,34 @@ under "Letterhead layout".
   "38th Floor, Dorset House, Taikoo Place," / "979 King's Road, Quarry Bay,
   Hong Kong". Existing clients print this way without re-typing. The client's
   name wraps at 300pt.
+
+## Batch 32 — BOQ as the company's BQ sheet, landscape (with prices) or portrait (no prices)
+- BOQ PDFs, prints and Word copies are laid out exactly like the company's
+  Google Sheets BQ ("CRBC 1635 - 80m Concrete Wall", in `docs/reference`), with
+  every position, size and colour measured from it:
+  - an orange banner with **PROFICIENCY QUOTATION** (Arial Bold 20);
+  - two cream rows: **Project Code** (the project number), **Client** (the
+    client reference, or the name), **Job Site** (the site's reference and
+    name) and **Structure** (the BOQ's structure);
+  - a blue heading row, then items 18pt high (Calibri 12): No., Item Name,
+    Weight, Quantity, Unit / Total Rental Rate (HKD) with "$" at the left,
+    and Total Weight;
+  - a **Total Amount :** row with the total price and total weight.
+- Choose the page in the BOQ editor's toolbar:
+  - **Landscape — with prices** (the default, as on the sheet);
+  - **Portrait — no prices**: No., Item Name, Weight, Quantity, Total Weight,
+    with **Total Weight :** at the bottom.
+  It's saved with the BOQ and can be changed after the BOQ is issued. Sale
+  BOQs show "Unit / Total Sale Price".
+- A BOQ too long for one page continues on the next, under the banner, info
+  and heading rows. An item name too long for its cell is set slightly
+  smaller rather than wrapped, as a spreadsheet would.
+- **Fonts:** Calibri is used if it's installed on the Mac. Otherwise the app
+  uses its bundled **Carlito** (SIL Open Font Licence), which has exactly
+  Calibri's letter widths, so the layout is identical. The title uses Arial,
+  which every Mac has.
+- **Word copy:** one table with exact row heights, fills and 0.75pt rules. The
+  banner, info and heading rows repeat on each page, and text is kerned like
+  the original. Built with LibreOffice, every piece of text lands within 0.2pt
+  of the original sheet. The Word export now kerns the letterhead documents'
+  text too, as their PDFs do.

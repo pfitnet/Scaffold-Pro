@@ -26,3 +26,16 @@ python3 word.py      # sample documents → out/word_*.docx, rendered to out/wor
 `word.py` turns the sample documents into the layout the app sends to
 `js/docx-export.js`, builds the .docx files with it (node), and renders them
 with LibreOffice so they can be compared with `docs.py`'s PDF pages.
+
+## BQ sheet check
+
+```bash
+python3 sheet.py ../../docs/reference/BQ-CRBC-1635.pdf
+```
+
+`sheet.py` is a Python copy of `BQSheet.layout` and `BQSheetRenderer`. It
+rebuilds the sample BQ (landscape, and the portrait version without prices),
+compares it with the original pixel by pixel (`out/sheet_diff.png`), and
+builds and renders the Word copies (`out/word_sheet_*`). Carlito, the app's
+bundled stand-in for Calibri, must be installed for LibreOffice to render the
+Word copies like Word does (for example `~/.local/share/fonts`).

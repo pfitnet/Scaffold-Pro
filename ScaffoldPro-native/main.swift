@@ -626,6 +626,9 @@ struct BillOfQuantities: Codable {
     var structure: String?
     /// The last PDF exported for this document (sections 31-32).
     var pdfPath: String?
+    /// The BQ sheet's page: "Landscape" (with prices, the default) or
+    /// "Portrait" (no prices).
+    var orientation: String? = nil
 }
 
 struct BOQLineItem: Codable {
@@ -680,6 +683,8 @@ struct BOQDetail: Codable {
     var totalWeightKg: Double
     var markupPercent: Double
     var structure: String?
+    /// "Landscape" (with prices) or "Portrait" (no prices).
+    var orientation: String
 }
 
 struct BOQActionResult: Codable {
@@ -2558,8 +2563,20 @@ final class AppDatabase {
             notes: boq.notes, createdAt: boq.createdAt, updatedAt: boq.updatedAt,
             projectNumber: project.projectNumber, projectName: project.name,
             lineItems: items, grandTotal: total, totalWeightKg: totalWeight(for: items),
-            markupPercent: boq.markupPercent ?? 0, structure: boq.structure
+            markupPercent: boq.markupPercent ?? 0, structure: boq.structure,
+            orientation: boq.orientation == "Portrait" ? "Portrait" : "Landscape"
         )
+    }
+
+    /// How the BQ sheet is printed; allowed on issued BOQs too, as it
+    /// changes only the page, not the content.
+    func setBOQOrientation(id: String, orientation: String) -> String? {
+        guard ["Landscape", "Portrait"].contains(orientation) else { return "Choose Landscape or Portrait." }
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
+        boqs[i].orientation = orientation
+        boqsStore.writeAll(boqs)
+        return nil
     }
 
     private func touchBOQ(_ id: String) {
@@ -5370,6 +5387,285 @@ final class PDFGenerator {
 }
 
 // =====================================================================
+// MARK: - BQ sheet ("PROFICIENCY QUOTATION")
+//
+// The bill of quantities as the company's own Google Sheets BQ (e.g.
+// "CRBC 1635 - 80m Concrete Wall"): an orange title banner, two light
+// yellow rows for project code / client / job site / structure, a blue
+// heading row, 18pt item rows and a "Total Amount :" row. Every position,
+// size and colour is measured from that sheet (A4 landscape, 842.88 ×
+// 595.92pt, table 85.875–754.875pt across, from 53.625pt down).
+//
+//   Landscape: No. | Item Name | Weight | Quantity | Unit … Rate | Total … Rate | Total Weight
+//   Portrait:  No. | Item Name | Weight | Quantity | Total Weight   (no prices)
+//
+// One layout (`SheetLayout`) is drawn by `BQSheetRenderer` for the PDF and
+// by js/docx-export.js for the Word copy, so the two look the same.
+// =====================================================================
+
+struct SheetCell: Encodable {
+    var x0: Double
+    var x1: Double
+    var text: String
+    /// "title" (Arial Bold) or "body" (Calibri)
+    var font: String
+    var size: Double
+    /// "left", "center", "right" or "money" ("$" at the left, the amount at the right)
+    var align: String
+    /// Baseline height above the row's bottom line.
+    var baselineUp: Double
+}
+
+struct SheetRow: Encodable {
+    /// "banner", "info", "header", "item" or "total"
+    var kind: String
+    var height: Double
+    /// Hex fill, e.g. "ED7D31"; nil = white.
+    var fill: String?
+    var cells: [SheetCell]
+    /// Repeated at the top of every page (banner, info rows, heading row).
+    var repeats: Bool
+}
+
+struct SheetLayout: Encodable {
+    var ok = true
+    var kind = "sheet"
+    var landscape: Bool
+    var pageWidth: Double
+    var pageHeight: Double
+    /// Outer rule positions (line centres).
+    var left: Double
+    var right: Double
+    var top: Double
+    /// Rows stop above this; the rest go on the next page.
+    var bottomLimit: Double
+    var rows: [SheetRow]
+    // Filled in for a Word copy:
+    var number = ""
+    var title = "PROFICIENCY QUOTATION"
+    var projectNumber = ""
+    var subfolder = ""
+    var fileName = ""
+}
+
+enum BQSheet {
+    static let orange = "ED7D31"
+    static let cream = "FDF9DF"
+    static let blue = "B4C6E7"
+
+    /// Builds the sheet. `info` is (project code, client, job site, structure).
+    static func layout(landscape: Bool, pricingMode: String, currencyCode: String,
+                       info: (projectCode: String, client: String, jobSite: String, structure: String),
+                       lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double) -> SheetLayout {
+        let pageWidth: Double = landscape ? 842.88 : 595.92
+        let pageHeight: Double = landscape ? 595.92 : 842.88
+        let left = 85.875
+        let top = 53.625
+        // Column widths as on the sheet; in portrait (no prices) Item Name
+        // takes the room so the table keeps the same side margins.
+        let widths: [Double] = landscape
+            ? [68.25, 174.75, 43.5, 51.75, 130.5, 128.25, 72.0]
+            : [68.25, 186.54, 43.5, 51.75, 72.0]
+        var edges = [left]
+        for w in widths { edges.append(edges.last! + w) }
+        let right = edges.last!
+        // Info rows: label | value | label | value.
+        let infoEdges: [Double] = landscape
+            ? [left, 154.125, 424.125, 492.375, right]
+            : [left, 154.125, 263.625, 331.875, right]
+
+        func cell(_ x0: Double, _ x1: Double, _ text: String, _ size: Double, _ align: String, _ up: Double, font: String = "body") -> SheetCell {
+            SheetCell(x0: x0, x1: x1, text: text, font: font, size: size, align: align, baselineUp: up)
+        }
+        var rows: [SheetRow] = []
+        rows.append(SheetRow(kind: "banner", height: 27.75, fill: orange,
+                             cells: [cell(left, right, "PROFICIENCY QUOTATION", 19.99, "center", 6.375, font: "title")], repeats: true))
+        let infoRows = [("Project Code  :", info.projectCode, "Job Site          :", info.jobSite),
+                        ("Client             :", info.client, "Structure        :", info.structure)]
+        for r in infoRows {
+            rows.append(SheetRow(kind: "info", height: 15.75, fill: cream, cells: [
+                cell(infoEdges[0], infoEdges[1], r.0, 10, "left", 4.125), cell(infoEdges[1], infoEdges[2], r.1, 10, "left", 4.125),
+                cell(infoEdges[2], infoEdges[3], r.2, 10, "left", 4.125), cell(infoEdges[3], infoEdges[4], r.3, 10, "left", 4.125),
+            ], repeats: true))
+        }
+        let rateWord = pricingMode == "Sale" ? "Sale Price" : "Rental Rate"
+        let titles = landscape
+            ? ["No.", "Item Name", "Weight", "Quantity", "Unit \(rateWord) (\(currencyCode))", "Total \(rateWord) (\(currencyCode))", "Total Weight"]
+            : ["No.", "Item Name", "Weight", "Quantity", "Total Weight"]
+        rows.append(SheetRow(kind: "header", height: 19.5, fill: blue,
+                             cells: titles.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element, 13, "center", 4.875) },
+                             repeats: true))
+        let kg: (Double) -> String = { String(format: "%.1f kg", $0) }
+        for (i, line) in lines.enumerated() {
+            let qty = line.quantity.rounded()
+            let name = line.itemDescription.replacingOccurrences(of: "\n", with: " ")
+            let weight = line.weightKg.map(kg) ?? ""
+            let totalWeight = line.weightKg.map { kg($0 * qty) } ?? ""
+            var texts: [(String, String)] = [(String(i + 1), "center"), (name, "left"), (weight, "right"), (formatQuantity(qty), "center")]
+            if landscape {
+                texts.append((formatMoney(line.appliedUnitPrice), "money"))
+                texts.append((formatMoney(doubleOf(lineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice))), "money"))
+            }
+            texts.append((totalWeight, "right"))
+            rows.append(SheetRow(kind: "item", height: 18, fill: nil,
+                                 cells: texts.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element.0, 12, $0.element.1, 4.875) },
+                                 repeats: false))
+        }
+        // "Total Amount :" across the columns before the totals.
+        let n = widths.count
+        var totals: [SheetCell] = []
+        if landscape {
+            totals.append(cell(edges[0], edges[n - 2], "Total Amount :", 28.99, "center", 8.625))
+            totals.append(cell(edges[n - 2], edges[n - 1], formatMoney(grandTotal), 12, "money", 15.375))
+        } else {
+            totals.append(cell(edges[0], edges[n - 1], "Total Weight :", 28.99, "center", 8.625))
+        }
+        totals.append(cell(edges[n - 1], edges[n], kg(totalWeightKg), 12, "right", 15.375))
+        rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
+
+        return SheetLayout(landscape: landscape, pageWidth: pageWidth, pageHeight: pageHeight,
+                           left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows)
+    }
+}
+
+/// Draws a `SheetLayout` as a PDF: fills first, then 0.75pt black rules,
+/// then text — as Google Sheets does. Rows that don't fit go on the next
+/// page, under the repeated banner, info and heading rows.
+final class BQSheetRenderer {
+    private let layout: SheetLayout
+    private let data = NSMutableData()
+    private var context: CGContext!
+    private let rule = 0.75
+
+    private init(_ layout: SheetLayout) { self.layout = layout }
+
+    static func pdf(_ layout: SheetLayout) -> Data? {
+        let renderer = BQSheetRenderer(layout)
+        var box = CGRect(x: 0, y: 0, width: layout.pageWidth, height: layout.pageHeight)
+        guard let consumer = CGDataConsumer(data: renderer.data as CFMutableData),
+              let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return nil }
+        renderer.context = ctx
+        renderer.draw()
+        ctx.closePDF()
+        return renderer.data as Data
+    }
+
+    /// Calibri if it's installed, otherwise Carlito (bundled; same letter
+    /// widths as Calibri, SIL Open Font Licence).
+    private func font(_ cell: SheetCell) -> NSFont {
+        let names = cell.font == "title" ? ["Arial-BoldMT", "Arial Bold", "Helvetica-Bold"] : ["Calibri", "Carlito-Regular", "Carlito", "Helvetica"]
+        for name in names { if let f = NSFont(name: name, size: CGFloat(cell.size)) { return f } }
+        return NSFont.systemFont(ofSize: CGFloat(cell.size))
+    }
+
+    private func pages() -> [[SheetRow]] {
+        let repeating = layout.rows.filter { $0.repeats }
+        let body = layout.rows.filter { !$0.repeats }
+        let headHeight = repeating.reduce(0) { $0 + $1.height }
+        var pages: [[SheetRow]] = []
+        var current = repeating
+        var y = layout.top + headHeight
+        for row in body {
+            if y + row.height > layout.bottomLimit && current.count > repeating.count {
+                pages.append(current)
+                current = repeating
+                y = layout.top + headHeight
+            }
+            current.append(row)
+            y += row.height
+        }
+        pages.append(current)
+        return pages
+    }
+
+    private func draw() {
+        let h = layout.pageHeight
+        let half = rule / 2
+        for rows in pages() {
+            context.beginPDFPage(nil)
+            // Fills
+            var y = layout.top
+            for row in rows {
+                if let hex = row.fill {
+                    context.setFillColor(color(hex))
+                    context.fill(CGRect(x: layout.left - half, y: h - (y + row.height + half), width: layout.right - layout.left + rule, height: row.height + rule))
+                }
+                y += row.height
+            }
+            // Rules: along every row edge, and down each cell edge.
+            context.setFillColor(NSColor.black.cgColor)
+            y = layout.top
+            hLine(y)
+            for row in rows {
+                for cell in row.cells where cell.x0 > layout.left + 0.01 {
+                    context.fill(CGRect(x: cell.x0 - half, y: h - (y + row.height + half), width: rule, height: row.height + rule))
+                }
+                y += row.height
+                hLine(y)
+            }
+            context.fill(CGRect(x: layout.left - half, y: h - (y + half), width: rule, height: y - layout.top + rule))
+            context.fill(CGRect(x: layout.right - half, y: h - (y + half), width: rule, height: y - layout.top + rule))
+            // Text
+            y = layout.top
+            for row in rows {
+                for cell in row.cells { drawText(cell, rowBottom: y + row.height) }
+                y += row.height
+            }
+            context.endPDFPage()
+        }
+    }
+
+    private func hLine(_ y: Double) {
+        context.fill(CGRect(x: layout.left - rule / 2, y: layout.pageHeight - (y + rule / 2), width: layout.right - layout.left + rule, height: rule))
+    }
+
+    private func color(_ hex: String) -> CGColor {
+        let v = Int(hex, radix: 16) ?? 0
+        return CGColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+    }
+
+    private func line(_ text: String, _ font: NSFont) -> CTLine {
+        CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [
+            .font: font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor]))
+    }
+
+    private func width(_ l: CTLine) -> Double { Double(CTLineGetTypographicBounds(l, nil, nil, nil)) }
+
+    private func put(_ l: CTLine, x: Double, baseline: Double) {
+        context.saveGState()
+        context.textMatrix = .identity
+        context.textPosition = CGPoint(x: x, y: layout.pageHeight - baseline)
+        CTLineDraw(l, context)
+        context.restoreGState()
+    }
+
+    /// Text is 2.625pt in from the cell's rules; right-aligned figures
+    /// keep a space's width before the rule, as the sheet's number formats do.
+    private func drawText(_ cell: SheetCell, rowBottom: Double) {
+        guard !cell.text.isEmpty else { return }
+        var f = font(cell)
+        let pad = 2.625
+        let space = width(line(" ", f))
+        let room = cell.x1 - cell.x0 - 2 * pad - (cell.align == "right" || cell.align == "money" ? space : 0)
+        var l = line(cell.text, f)
+        // Too long for its cell: a slightly smaller size, never wrapped.
+        if width(l) > room, room > 0 {
+            f = NSFont(descriptor: f.fontDescriptor, size: max(f.pointSize * CGFloat(room / width(l)), f.pointSize * 0.6)) ?? f
+            l = line(cell.text, f)
+        }
+        let baseline = rowBottom - cell.baselineUp
+        switch cell.align {
+        case "center": put(l, x: (cell.x0 + cell.x1) / 2 - width(l) / 2, baseline: baseline)
+        case "right": put(l, x: cell.x1 - pad - space - width(l), baseline: baseline)
+        case "money":
+            put(line("$", f), x: cell.x0 + pad, baseline: baseline)
+            put(l, x: cell.x1 - pad - space - width(l), baseline: baseline)
+        default: put(l, x: cell.x0 + pad, baseline: baseline)
+        }
+    }
+}
+
+// =====================================================================
 // MARK: - Price-list import (sections 8, 49)
 //
 // Reads .xlsx (via macOS's built-in /usr/bin/unzip + XMLParser — no extra
@@ -6582,6 +6878,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let dnId = (payload["id"] as? String) ?? ""
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: dnId)
 
+        case "boq:setOrientation":
+            let error = db.setBOQOrientation(id: (payload["id"] as? String) ?? "", orientation: (payload["orientation"] as? String) ?? "")
+            respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
         case "boq:updateDetails":
             let error = db.updateBOQDetails(id: (payload["id"] as? String) ?? "", pricingMode: payload["pricingMode"] as? String,
                                             markupPercent: payload["markupPercent"] as? Double,
@@ -7230,14 +7529,23 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let data = generator.generate(letter)
+        deliverPDF(id: id, mode: mode, data: data,
+                   paperSize: paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89),
+                   projectNumber: projectNumber, subfolder: subfolder, documentNumber: documentNumber, docTypeTag: docTypeTag)
+    }
 
+    /// Prints a finished PDF (standard print dialog), or saves it into the
+    /// project's folder and opens it.
+    private func deliverPDF(id: String, mode: PDFMode, data: Data, paperSize: NSSize, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String) {
+        let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         if mode == .print {
             guard let document = PDFDocument(data: data), let window = window else {
                 respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document for printing.", path: nil))
                 return
             }
             let info = (NSPrintInfo.shared.copy() as? NSPrintInfo) ?? NSPrintInfo.shared
-            info.paperSize = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
+            info.paperSize = paperSize
+            info.orientation = paperSize.width > paperSize.height ? .landscape : .portrait
             info.topMargin = 0; info.bottomMargin = 0; info.leftMargin = 0; info.rightMargin = 0
             info.jobDisposition = .spool
             if let op = document.printOperation(for: info, scalingMode: .pageScaleNone, autoRotate: false) {
@@ -7381,41 +7689,41 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         LetterColumn(title: "Total Price", width: 108.75, kind: .money),
     ]
 
+    /// The BOQ as the company's BQ sheet ("PROFICIENCY QUOTATION"):
+    /// landscape with prices, or portrait without.
     private func handleExportBOQPDF(id: String, boqId: String, mode: PDFMode = .export) {
         guard let detail = db.getBOQDetail(id: boqId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "BOQ not found.", path: nil))
             return
         }
         let company = db.getCompanySettings()
-        let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: nil)
-        let columns = [
-            LetterColumn(title: "No", width: 29.25, kind: .center),
-            LetterColumn(title: "Item Description", width: 219.75, kind: .left),
-            LetterColumn(title: "Unit", width: 50.0, kind: .center),
-            LetterColumn(title: "Qty", width: 50.0, kind: .center),
-            LetterColumn(title: "Unit Wt (kg)", width: 75.0, kind: .right),
-            LetterColumn(title: "Total Wt (kg)", width: 83.0, kind: .right),
-        ]
-        var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
-            .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity),
-                   item.weightKg.map { formatMoney($0) } ?? "—",
-                   item.weightKg.map { formatMoney($0 * item.quantity.rounded()) } ?? "—"])
-        }
-        rows.append(.summary(label: "Total Weight:", value: "\(formatMoney(detail.totalWeightKg)) kg", emphasized: true))
+        let project = db.getProjectByNumber(detail.projectNumber)
+        let client = project.flatMap { db.getClient(id: $0.clientId) }
+        let site = project.flatMap { db.getSite(id: $0.siteId) }
+        // Job site: its reference and name, e.g. "1635 Kwu Tung Station".
+        var jobSite = site.map { $0.name } ?? ""
+        if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
+        var layout = BQSheet.layout(
+            landscape: detail.orientation != "Portrait", pricingMode: detail.pricingMode, currencyCode: company.currency,
+            info: (projectCode: detail.projectNumber, client: nonBlank(client?.clientReference) ?? client?.companyName ?? "",
+                   jobSite: jobSite, structure: detail.structure ?? ""),
+            lines: detail.lineItems, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg)
+        let safeNumber = detail.boqNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
 
-        let letter = LetterDocument(
-            number: detail.boqNumber, status: detail.status, title: "BILL OF QUANTITIES",
-            clientName: client.name, clientLines: client.lines,
-            refRows: [("BOQ No.", detail.boqNumber), ("Project No.", detail.projectNumber),
-                      ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.createdAt))],
-            deliveryMethod: nil, salutation: nil,
-            subject: "Re: \(detail.projectNumber) \(detail.projectName) - \(detail.pricingMode)",
-            intro: detail.structure.flatMap { nonBlank($0) }.map { "Structure: \($0)" },
-            currencySymbol: currencySymbol(company), columns: columns, rows: rows,
-            sections: remarks(detail.notes), signatures: [], closingLine: nil
-        )
-        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ",
-                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: letter)
+        if mode == .word {
+            layout.number = detail.boqNumber
+            layout.projectNumber = detail.projectNumber
+            layout.subfolder = "BOQ"
+            layout.fileName = "\(detail.projectNumber)_BOQ_\(safeNumber).docx"
+            respond(id: id, encodable: layout)
+            return
+        }
+        guard let data = BQSheetRenderer.pdf(layout) else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document.", path: nil))
+            return
+        }
+        deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
+                   projectNumber: detail.projectNumber, subfolder: "BOQ", documentNumber: detail.boqNumber, docTypeTag: "BOQ")
     }
 
     private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
