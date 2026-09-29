@@ -302,6 +302,20 @@
     },
   };
 
+  // ---- The Delete key never leaves the page ----
+  //
+  // In a web view, Delete (Backspace) pressed outside a text box goes back
+  // to the previous page — easily done by accident, e.g. right after a
+  // table is redrawn and the cursor has left the box. Only text boxes
+  // get it.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Backspace') return;
+    const t = e.target;
+    const editable = t && (t.isContentEditable || t.tagName === 'TEXTAREA' ||
+      (t.tagName === 'INPUT' && !t.readOnly && !['button', 'checkbox', 'radio', 'submit', 'reset', 'file', 'image', 'range', 'color'].includes(t.type)));
+    if (!editable) e.preventDefault();
+  }, true);
+
   // ---- Changes from other Macs (team sharing) ----
   //
   // main.swift calls window.__sharedDataChanged({ stores, names }) when
