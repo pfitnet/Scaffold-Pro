@@ -77,7 +77,7 @@ def quotation(status='Issued'):
     return dict(number='Qt26193',status=status,title='QUOTATION',clientName=client[0],clientLines=client[1],refRows=[('Our Ref. No.','Qt26193'),('Your Ref. No.',''),('Site Ref.','MTR 1601'),('Date','22 Sep 2026')],
         deliveryMethod='BY EMAIL ONLY',salutation='Dear Sir / Madam,',subject='Re: 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez',
         intro='We thank you for your inquiry related to the item above, the following is our quotation on the job.',cur='HK$',columns=PRICED,rows=rows,
-        sections=[{'heading':'Terms and Conditions','paragraphs':terms,'newPageUnlessSinglePage':True}],
+        sections=[{'heading':'Terms and Conditions','paragraphs':terms,'keepTogether':True}],
         signatures=[companySig(),{'heading':'For and on Behalf of','lines':[(client[0],False,None),('Position',True,None),('Date',True,None)]}],
         closing='-[Remainder of this page is intentionally left blank]-')
 def invoice():
@@ -188,7 +188,21 @@ def quotation_payment():
 Deposit: HK$ 10,000.00, refundable on return of all materials in good condition."""
     doc['sections'][0]['paragraphs']=[doc['sections'][0]['paragraphs'][0]]+parseTerms(TERMS,pt)+[('text',ACCEPT,None)]
     doc.update(number='Qt26203'); return doc
-for name,fn in [('quotation_keyterms',quotation_keyterms),('quotation_payment',quotation_payment),('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('invoice',invoice),('dn',dn),('dn_short',dn_short),('boq',boq)]:
+def quotation_long(n=19):
+    # As in the company's screenshot: the items fill page 1, delivery and the
+    # total go on page 2, and the Terms follow on page 2 where they fit.
+    many=[(items[i % len(items)][0],items[i % len(items)][1],items[i % len(items)][2]) for i in range(n)]
+    rows=[('item',[str(i+1),d,f'{money(p)} /Month',str(q),money(p*q)]) for i,(d,p,q) in enumerate(many)]
+    sub=sum(p*q for _,p,q in many)
+    rows+=[('summary','Subtotal of Monthly Rental Charge:',money(sub),False),('section','Delivery Charges'),
+           ('item',['D1','Delivery of materials\n(from yard to site and from site to yard)',f'{money(3800)} /truck/trip','2',money(7600)]),('summary','Total Amount:',money(sub+7600),True)]
+    doc=quotation(); doc.update(number='Qt26210',rows=rows); return doc
+def quotation_sig_moves():
+    # The Terms fit on page 2 but the signatures don't: they go to page 3.
+    doc=quotation_long(19)
+    doc['rows']=doc['rows'][:-1]+[('note','Rental is charged for each month or part of a month the materials are on site.')]*8+doc['rows'][-1:]
+    return doc
+for name,fn in [('quotation_keyterms',quotation_keyterms),('quotation_payment',quotation_payment),('quotation',quotation),('quotation_short',quotation_short),('quotation_sections',quotation_sections),('quotation_long',quotation_long),('quotation_sig_moves',quotation_sig_moves),('invoice',invoice),('dn',dn),('dn_short',dn_short),('boq',boq)]:
     pages=Gen().generate(fn())
     for i,p in enumerate(pages): p.save(os.path.join(OUT,f'{name}_{i+1}.png'))
     print(name,len(pages),'pages')

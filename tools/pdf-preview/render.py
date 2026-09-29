@@ -26,7 +26,7 @@ def times(size,bold=False,italic=False): return font('t',size,bold,italic)
 def width(s,f): return f.getlength(s)/S
 
 class Gen:
-    def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0; s.documentIsLong=False; s.headH=24.1; s.below=5.2; s.receiptOnNewPage=False
+    def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0; s.onNewPage=set(); s.split=set(); s.headH=24.1; s.below=5.2; s.receiptOnNewPage=False
     def configure(s,doc):
         compact=doc.get('compactTable',False)
         s.rowH=21.1 if compact else 24.1; s.headH=23.0 if compact else 24.1; s.below=4.1 if compact else 5.2
@@ -237,12 +237,13 @@ class Gen:
         return base
     def sections(s,secs):
         after=True
-        for sec in secs:
+        for si,sec in enumerate(secs):
             base=s.cursor+(27.0 if after else 33.0); after=False
-            if sec.get('newPageUnlessSinglePage') and s.documentIsLong: s.newPage(); base=s.contBase
+            if sec.get('alwaysNewPage') or si in s.onNewPage: s.newPage(); base=s.contBase
             if sec.get('heading'):
                 if base+26.25>s.contentBottom: s.newPage(); base=s.contBase
                 s.text(sec['heading'],s.textLeft,base,body(11,True),underline=True); s.cursor=base; base+=26.25
+            start=s.pageNumber
             prevTerm=False
             for i,p in enumerate(sec['paragraphs']):
                 if p[0]=='text':
@@ -253,6 +254,7 @@ class Gen:
                     if i>0: base=s.cursor+(16.5 if prevTerm else 26.25)
                     if base>s.contentBottom: s.newPage(); base=s.contBase
                     s.cursor=s.hanging(*p[1:],base) if p[0]=='hanging' else s.term(p[1],p[2],base); prevTerm=True
+            if sec.get('keepTogether') and s.pageNumber!=start: s.split.add(si)
     def signatures(s,sigs,afterTable):
         if not sigs: return
         base=s.cursor+(30.0 if afterTable else 32.25)
@@ -283,11 +285,20 @@ class Gen:
             s.cursor=y+6.3
     def closing(s,line):
         base=s.cursor+69.0
-        if base>s.contentBottom: s.newPage(); base=s.contBase
+        if base>s.contentBottom: return  # not worth a page of its own
         s.text(line,W/2,base,times(10.5,italic=True),align='center'); s.cursor=base
+    @staticmethod
+    def breaks(doc):
+        """Kept-together sections that run over a page start a new one (as keptTogetherBreaks in main.swift)."""
+        b=set()
+        if not any(sec.get('keepTogether') for sec in doc['sections']): return b
+        for _ in range(3):
+            t=Gen(); t.onNewPage=set(b); t.layOut(doc); more=t.split-b
+            if not more: break
+            b|=more
+        return b
     def generate(s,doc):
-        if any(sec.get('newPageUnlessSinglePage') for sec in doc['sections']):
-            trial=Gen(); trial.layOut(doc); s.documentIsLong=trial.pageNumber>1
+        s.onNewPage=Gen.breaks(doc)
         return s.layOut(doc)
     def layOut(s,doc):
         s.configure(doc)
