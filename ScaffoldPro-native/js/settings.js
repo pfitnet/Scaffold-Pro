@@ -203,8 +203,8 @@ async function refreshBackups() {
   const tbody = table.querySelector('tbody');
   for (const b of backups) {
     const tr = document.createElement('tr');
-    const kind = b.kind === 'Before Restore'
-      ? '<span class="kind-safety">Automatic (before restore)</span>' : 'Manual';
+    const kind = b.kind === 'Before Restore' ? '<span class="kind-safety">Automatic (before restore)</span>'
+      : b.kind === 'Scheduled' ? '<span class="kind-safety">Automatic (12:00)</span>' : 'Manual';
     tr.innerHTML = `
       <td>${formatWhen(b.createdAt)}</td>
       <td>${kind}</td>

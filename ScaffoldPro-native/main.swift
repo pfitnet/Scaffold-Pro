@@ -429,7 +429,8 @@ struct BackupManifest: Codable {
     var app: String
     var formatVersion: Int
     var createdAt: String
-    /// "Manual" or "Before Restore"
+    /// "Manual", "Scheduled" (made by itself at 12:00 a.m. / p.m.) or
+    /// "Before Restore"
     var kind: String
     /// ~/Documents/ScaffoldPro at the time of backup — used to re-point
     /// file paths if restored somewhere else.
@@ -7494,7 +7495,7 @@ final class BackupManager {
 
     func createBackup(kind: String) throws -> BackupSummary {
         try fm.createDirectory(at: storage.backupsRoot, withIntermediateDirectories: true)
-        let suffix = kind == "Before Restore" ? "_BeforeRestore" : ""
+        let suffix = kind == "Before Restore" ? "_BeforeRestore" : kind == "Scheduled" ? "_Auto" : ""
         var finalFolder = storage.backupsRoot.appendingPathComponent("ScaffoldPro-Backup_\(timestamp())\(suffix)", isDirectory: true)
         var n = 2
         while fm.fileExists(atPath: finalFolder.path) {
@@ -7550,6 +7551,19 @@ final class BackupManager {
             try? fm.removeItem(at: working)
             throw BackupError(message: "The backup could not be completed: \(error.localizedDescription)")
         }
+    }
+
+    /// Deletes the scheduled backups older than `days` days. Manual and
+    /// before-restore backups are kept. Returns how many were deleted.
+    @discardableResult
+    func deleteOldScheduledBackups(olderThanDays days: Int = 7) -> Int {
+        let cutoff = Date().addingTimeInterval(-Double(days) * 86400)
+        var deleted = 0
+        for b in listBackups() where b.kind == "Scheduled" {
+            guard let made = isoFormatter.date(from: b.createdAt) ?? ISO8601DateFormatter().date(from: b.createdAt), made < cutoff else { continue }
+            if (try? fm.removeItem(at: URL(fileURLWithPath: b.path, isDirectory: true))) != nil { deleted += 1 }
+        }
+        return deleted
     }
 
     func listBackups() -> [BackupSummary] {
@@ -10704,6 +10718,51 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
     }
 
+    // MARK: Scheduled backups — every day at 12:00 a.m. and 12:00 p.m.
+    //
+    // Checked every minute (and soon after opening): if the latest 12:00
+    // that has passed has no scheduled backup yet — e.g. the Mac was asleep
+    // or ScaffoldPro was closed then — one is made now. Afterwards the
+    // scheduled backups older than a week are deleted. On APFS the copies
+    // are clones, so unchanged files take no extra disk space.
+
+    private var scheduleTimer: Timer?
+    private var attemptedSlot: Date?
+    private static let lastScheduledKey = "backup.scheduled.lastSlot"
+
+    func startScheduledBackups() {
+        scheduleTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.runScheduledBackupIfDue() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.runScheduledBackupIfDue() }
+    }
+
+    /// The latest 12:00 a.m. or 12:00 p.m. that has passed.
+    static func latestBackupSlot(_ now: Date = Date()) -> Date {
+        let cal = Calendar.current
+        let midnight = cal.startOfDay(for: now)
+        let noon = cal.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? midnight.addingTimeInterval(12 * 3600)
+        return now >= noon ? noon : midnight
+    }
+
+    private func runScheduledBackupIfDue() {
+        let slot = NativeBridge.latestBackupSlot()
+        let done = UserDefaults.standard.double(forKey: NativeBridge.lastScheduledKey)
+        guard done < slot.timeIntervalSince1970, attemptedSlot != slot, !backupInProgress else { return }
+        attemptedSlot = slot
+        backupInProgress = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            let made = (try? self.backups.createBackup(kind: "Scheduled")) != nil
+            if made { self.backups.deleteOldScheduledBackups(olderThanDays: 7) }
+            DispatchQueue.main.async {
+                self.backupInProgress = false
+                if made {
+                    UserDefaults.standard.set(slot.timeIntervalSince1970, forKey: NativeBridge.lastScheduledKey)
+                    self.db.logActivity(projectId: nil, "Automatic backup made")
+                }
+            }
+        }
+    }
+
     private func handleCreateBackup(id: String) {
         guard !backupInProgress else {
             respond(id: id, encodable: BackupResult(ok: false, error: "A backup or restore is already running.", backup: nil, safetyBackup: nil))
@@ -11477,6 +11536,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         }
         // Keep the shared iCloud copy up to date from now on.
         bridge.cloudBackup.start()
+        // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept a week).
+        bridge.startScheduledBackups()
         // Is there a newer version on GitHub?
         checkForUpdates(manual: false)
     }

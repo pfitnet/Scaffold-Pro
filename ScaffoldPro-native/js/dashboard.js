@@ -174,9 +174,10 @@ async function loadDashboard() {
     ], '');
   }
 
-  // Backup reminder: none yet, or the last manual one is a week old.
+  // Backup reminder: none yet, or the newest one (of any kind — they're
+  // also made by themselves at 12:00 a.m. and p.m.) is a week old.
   const backups = await window.api.backup.list();
-  const manual = backups.find((b) => b.kind === 'Manual') || backups[0];
+  const manual = backups[0];
   const daysSince = manual ? Math.floor((Date.now() - new Date(manual.createdAt).getTime()) / 86400000) : null;
   if (projects.length > 0 && (daysSince === null || daysSince >= 7)) {
     const box = document.getElementById('backup-reminder');
