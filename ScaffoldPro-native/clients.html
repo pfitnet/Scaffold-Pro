@@ -30,7 +30,9 @@
         <div class="field"><label>Contact Person</label><input type="text" id="f-contactPerson" /></div>
         <div class="field"><label>Phone</label><input type="text" id="f-phone" /></div>
         <div class="field"><label>Email</label><input type="text" id="f-email" /></div>
-        <div class="field span-2"><label>Address</label><input type="text" id="f-address" /></div>
+        <div class="field span-2"><label>Address Line 1</label><input type="text" id="f-address" placeholder="e.g. 38th Floor, Dorset House, Taikoo Place" /></div>
+        <div class="field span-2"><label>Address Line 2</label><input type="text" id="f-addressLine2" placeholder="e.g. 979 King's Road, Quarry Bay" /></div>
+        <div class="field span-2"><label>Address Line 3</label><input type="text" id="f-addressLine3" /></div>
         <div class="field"><label>City</label><input type="text" id="f-city" /></div>
         <div class="field"><label>Postal Code</label><input type="text" id="f-postalCode" /></div>
         <div class="field"><label>Country</label><input type="text" id="f-country" /></div>
@@ -53,7 +55,7 @@
   <script>
     initPartyPage({
       api: window.api.clients,
-      fields: ['companyName', 'clientReference', 'contactPerson', 'phone', 'email', 'address', 'city', 'postalCode', 'country', 'vatNumber', 'billingInfo', 'notes'],
+      fields: ['companyName', 'clientReference', 'contactPerson', 'phone', 'email', 'address', 'addressLine2', 'addressLine3', 'city', 'postalCode', 'country', 'vatNumber', 'billingInfo', 'notes'],
       newTitle: 'New Client',
       newLabel: '+ New Client',
       titleOf: (c) => c.companyName,

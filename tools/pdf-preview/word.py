@@ -57,7 +57,7 @@ def layout(doc):
     fonts = [dict(style=st, data=base64.b64encode(open(os.path.join(APP, 'resources', 'fonts', fn), 'rb').read()).decode())
              for st, fn in [('regular', 'EBGaramond-Regular.ttf'), ('bold', 'EBGaramond-Bold.ttf'), ('italic', 'EBGaramond-Italic.ttf'), ('boldItalic', 'EBGaramond-BoldItalic.ttf')]]
     return dict(ok=True, paperSize='A4', pageWidth=W, pageHeight=H, textLeft=Gen.textLeft, textRight=Gen.textRight, contentBottom=Gen.contentBottom,
-                number=doc['number'], status=doc['status'], title=doc['title'], clientName=doc['clientName'], clientLines=doc['clientLines'],
+                number=doc['number'], status=doc['status'], title=doc['title'], clientName='\n'.join(l for l, fnt in g.clientBlock(doc) if fnt == body(12, True)), clientLines=[l for l, fnt in g.clientBlock(doc) if fnt != body(12, True)],
                 refRows=[dict(label=a, value=b, wraps=len(g.wrap(b, f, 66)) > 1) for a, b in doc['refRows']],
                 deliveryMethod=doc.get('deliveryMethod'), salutation=doc.get('salutation'), subject=doc.get('subject'), intro=doc.get('intro'),
                 currencySymbol=doc['cur'], columns=[dict(title=c[0], width=c[1], kind=c[2]) for c in doc['columns']], rows=rows, sections=sections,

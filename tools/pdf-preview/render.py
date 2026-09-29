@@ -74,9 +74,22 @@ class Gen:
         s.img=Image.new('RGB',(round(W*S),round(H*S)),'white'); s.d=ImageDraw.Draw(s.img); s.pageNumber+=1; s.letterhead()
     def end(s): s.footer(); s.pages.append(s.img)
     def newPage(s): s.end(); s.begin()
+    # Client name (bold, 300pt) and address lines kept to 260pt, a long
+    # line broken after its commas where it can be (as in main.swift).
+    def wrapAddress(s,line,f,wd):
+        parts=[p.strip() for p in line.split(',') if p.strip()]; out=[]; cur=''
+        for i,p in enumerate(parts):
+            piece=p+(',' if i<len(parts)-1 else ''); cand=piece if not cur else cur+' '+piece
+            if not cur or width(cand,f)<=wd: cur=cand
+            else: out.append(cur); cur=piece
+        if cur: out.append(cur)
+        return [x for l in out for x in ([l] if width(l,f)<=wd else s.wrap(l,f,wd))]
+    def clientBlock(s,doc):
+        left=[(l,body(12,True)) for l in s.wrap(doc['clientName'],body(12,True),300)]
+        for l in doc['clientLines']: left+=[(x,body(12)) for x in s.wrapAddress(l,body(12),260)]
+        return left
     def opening(s,doc):
-        left=[(l,body(12,True)) for l in s.wrap(doc['clientName'],body(12,True),345)]
-        for l in doc['clientLines']: left+=[(x,body(12)) for x in s.wrap(l,body(12),345)]
+        left=s.clientBlock(doc)
         for i,(l,f) in enumerate(left): s.text(l,47.75,104.25+i*15.75,f)
         n=0
         for lab,val in doc['refRows']:
