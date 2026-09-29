@@ -76,15 +76,63 @@ if ! xcrun --find swiftc >/dev/null 2>&1; then
     finish 1
 fi
 
-# Latest version, if this is a git copy (skipped quietly if it can't update).
+# Latest version, if this is a git copy. Terminal tries to pull it by itself
+# first; if it can't sign in to GitHub (e.g. a GitHub account that uses
+# Google sign-in), GitHub Desktop is opened on the folder to pull it there.
 REPO_DIR="$(git -C "$APP_DIR" rev-parse --show-toplevel 2>/dev/null)"
+
+# How many changes GitHub has that this copy hasn't pulled yet (as far as
+# the last fetch knows).
+behind_count() { git -C "$REPO_DIR" rev-list --count "HEAD..@{u}" 2>/dev/null || echo 0; }
+
+pull_with_github_desktop() {
+    open -a "GitHub Desktop" "$REPO_DIR" 2>/dev/null || return 1
+    echo "GitHub Desktop is now open on Scaffold-Pro. In it:"
+    echo "  1. Press “Fetch origin” (in the bar along the top)."
+    echo "  2. If the button then says “Pull origin”, press it."
+    echo "Then come back to this window."
+    echo ""
+    while true; do
+        read -r -p "Press Return when that's done (or type S then Return to skip): " answer
+        case "$answer" in [sS]*) echo ""; return 0 ;; esac
+        local n
+        n="$(behind_count)"
+        if [ "${n:-0}" -gt 0 ]; then
+            echo "There's still a newer version waiting ($n change(s)): press “Pull origin” in GitHub Desktop."
+        else
+            echo "✅ Up to date."
+            echo ""
+            return 0
+        fi
+    done
+}
+
 if [ -n "$REPO_DIR" ]; then
     echo "⬇️  Getting the latest version..."
-    if git -C "$REPO_DIR" pull --ff-only --quiet 2>/dev/null; then
+    if GIT_TERMINAL_PROMPT=0 git -C "$REPO_DIR" -c credential.interactive=never pull --ff-only --quiet 2>/dev/null; then
+        echo "✅ Up to date."
         echo ""
+    elif open -Ra "GitHub Desktop" 2>/dev/null; then
+        echo "Terminal couldn't get it from GitHub by itself, so let's use GitHub Desktop."
+        echo ""
+        pull_with_github_desktop
     else
         echo "⚠️  Couldn't update (no internet, or files changed on this Mac). Installing the version you have."
         echo ""
+    fi
+
+    # A copy of this file kept elsewhere (e.g. on the Desktop) updates
+    # itself from the one in Scaffold-Pro. Moved into place, not written
+    # over, so this run carries on unaffected; the new one runs next time.
+    REPO_COPY="$REPO_DIR/Install ScaffoldPro.command"
+    SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    if [ -f "$REPO_COPY" ] && [ "$SELF" != "$REPO_COPY" ] && ! cmp -s "$REPO_COPY" "$SELF"; then
+        if cp "$REPO_COPY" "$SELF.new.$$" && chmod +x "$SELF.new.$$" && mv -f "$SELF.new.$$" "$SELF"; then
+            echo "🔄 This installer file was updated too (the new one runs next time)."
+            echo ""
+        else
+            rm -f "$SELF.new.$$"
+        fi
     fi
 fi
 
