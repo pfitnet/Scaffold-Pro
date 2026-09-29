@@ -28,6 +28,17 @@
     .cloud-row { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; font-size: 13px; }
     .cloud-label { width: 56px; color: var(--text-secondary); font-size: 12px; }
     #cloud-status.error { color: var(--danger, #c0392b); }
+    .team-box { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); max-width: 780px; }
+    .team-box ol { margin: 6px 0 10px 18px; padding: 0; font-size: 13px; }
+    .team-box ol li { margin: 3px 0; }
+    .team-members { margin: 8px 0 4px; font-size: 13px; }
+    .team-members div { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+    .team-members .muted { font-size: 12px; }
+    .team-name-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; }
+    .team-name-row input { width: 220px; }
+    .team-warning { color: var(--warning); }
+    .changed-elsewhere { display: flex; gap: 10px; align-items: center; margin: 10px 0 0; padding: 8px 12px; font-size: 13px;
+      border: 1px solid var(--border); border-left: 3px solid var(--warning); border-radius: var(--radius); background: var(--warning-soft); }
     .location-grid { display:grid; grid-template-columns: 130px 1fr; gap: 6px 12px; max-width: 780px; font-size: 13px; }
     .location-label { color: var(--text-secondary); }
     .location-path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
@@ -125,6 +136,44 @@
     <div class="save-row">
       <button class="primary" id="save-btn">Save Settings</button>
       <span class="saved-note hidden" id="saved-note">Saved.</span>
+    </div>
+
+    <div class="changed-elsewhere hidden" id="settings-changed-elsewhere">
+      <span>These settings were just changed on another Mac. Save yours to keep what you've entered here, or reload to see theirs.</span>
+      <button id="settings-reload-btn">Reload</button>
+    </div>
+
+    <h2 style="margin-top:36px;" id="team">Share with Other Macs</h2>
+    <div class="subtitle">Several people can work on the same projects, quotations and documents, each on their own Mac, with no server: the data lives in a folder you all share in iCloud Drive (free with every Apple ID). When someone saves a change, it appears on the other Macs by itself — usually within a few seconds, as soon as iCloud has carried it across.</div>
+    <div class="team-box" id="team-box">
+      <div id="team-off">
+        <p class="small-note" style="margin-top:0;">To set it up:</p>
+        <ol>
+          <li>On this Mac, press <b>Share My Data…</b> and choose a folder in iCloud Drive (for example your shared <b>Proficiency</b> folder). ScaffoldPro makes a <b>ScaffoldPro Team</b> folder there and copies in your data and project files.</li>
+          <li>In Finder, share that folder with the others if it isn't shared already: Control-click it › <b>Share</b> › <b>Share Folder…</b>, add them, and set <b>Permission</b> to <b>Can make changes</b>.</li>
+          <li>On each of their Macs: install ScaffoldPro, accept the invitation, then in Settings press <b>Join a Shared Folder…</b> and choose the ScaffoldPro Team folder.</li>
+        </ol>
+        <p class="small-note">Joining leaves that Mac's own data untouched — it comes back if sharing is turned off there.</p>
+        <div class="backup-actions">
+          <button class="primary" id="team-start-btn">Share My Data…</button>
+          <button id="team-join-btn">Join a Shared Folder…</button>
+          <span class="backup-status" id="team-busy"></span>
+        </div>
+      </div>
+      <div id="team-on" class="hidden">
+        <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="team-folder">—</span></div>
+        <div class="cloud-row"><span class="cloud-label">Status</span><span id="team-status">—</span></div>
+        <div class="team-members" id="team-members"></div>
+        <div class="team-name-row">
+          <label for="team-name-input">Your name (shown to the others, and in each project's history)</label>
+          <input type="text" id="team-name-input" />
+        </div>
+        <p class="small-note">If two people change the same thing at the same moment, the later change is kept. Document numbers are worked out on each Mac, so if two people create, say, a quotation for the same project within a few seconds of each other, check the numbers.</p>
+        <div class="backup-actions">
+          <button id="team-reveal-btn">Show Folder in Finder</button>
+          <button id="team-leave-btn">Stop Sharing on This Mac…</button>
+        </div>
+      </div>
     </div>
 
     <h2 style="margin-top:36px;" id="backup">Backup &amp; Restore</h2>

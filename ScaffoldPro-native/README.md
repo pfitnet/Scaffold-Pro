@@ -1076,3 +1076,44 @@ under "Letterhead layout".
     with prices, or the portrait letterhead.
   - It's listed first in the quotation's Drawings panel, with **Open BOQ**
     and **Locate File** buttons.
+
+## Batch 44 — Signed quotations; sharing with other Macs
+
+- **Signed quotations to upload** (Dashboard): issued quotations with no
+  signed copy from the client yet. Quotations already invoiced (going ahead
+  without a signed copy on file) come first.
+  - Each row has **Upload Signed Copy…** (a PDF, or a JPEG, PNG, HEIC or TIFF
+    photo or scan). You can also drop the file onto the row.
+  - **Not Needed** takes a quotation off the list.
+  - The copy is saved as "<number> - Signed.pdf" in the project's Quotations
+    folder. It shows as a "Signed" pill in the project's quotation list.
+  - The quotation editor shows a bar once the quotation is issued, with
+    Open, Locate File, Replace… and Remove (the file stays in the folder).
+    The bar also takes a dropped file.
+- **Share with Other Macs** (Settings): several people work on the same data,
+  each on their own Mac, through a folder shared in iCloud Drive. No server
+  is needed.
+  - **Share My Data…** makes a "ScaffoldPro Team" folder in the chosen iCloud
+    Drive folder and copies in the projects, documents and database.
+  - Share that folder in Finder, then the others press **Join a Shared
+    Folder…**. Joining leaves a Mac's own data untouched; it comes back after
+    **Stop Sharing on This Mac…**.
+  - Each Mac writes only its own change log in the folder
+    (Database/<Mac>/<store>.json), so iCloud never has two versions of one
+    file to choose between. The newest change to each record wins, and
+    deletions carry across.
+  - Paths to files in the folder are kept relative, as the folder is at a
+    different place on each Mac.
+  - The other Macs' logs are checked every 2 seconds. Their changes appear by
+    themselves, usually within seconds, as soon as iCloud has carried them
+    across.
+  - The page refreshes when you're not typing in a field or using a dialog,
+    and shows "Updated with changes from …".
+  - The sidebar shows who the data is shared with. Each project's history
+    shows who did what.
+  - Settings lists the Macs using the folder and warns when one runs an older
+    version of ScaffoldPro. install.sh now records the version in
+    version.txt.
+  - Files iCloud has moved off a Mac to save space are downloaded when opened.
+  - Restore is turned off while sharing, since it would replace everyone's
+    data.

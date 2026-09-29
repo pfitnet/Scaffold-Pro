@@ -278,12 +278,128 @@ function setAppearanceButtons(value) {
   }
 }
 
+// ---------- Sharing with other Macs (team) ----------
+
+// Unsaved edits in the settings form (so a change from another Mac doesn't
+// replace what's being typed).
+let settingsDirty = false;
+
+function whenSeen(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const minutes = Math.round((Date.now() - d.getTime()) / 60000);
+  if (minutes < 10) return 'active now';
+  return `last seen ${timeAgo(iso)}`;
+}
+
+function renderTeam(s) {
+  if (!s) return;
+  document.getElementById('team-off').classList.toggle('hidden', s.enabled);
+  document.getElementById('team-on').classList.toggle('hidden', !s.enabled);
+  const busy = document.getElementById('team-busy');
+  if (!s.enabled) {
+    busy.textContent = s.folderMissing
+      ? `Sharing is set up with “${s.folderDisplay}”, but that folder can’t be found, so this Mac’s own data is open. Join it again, or check iCloud Drive.`
+      : '';
+    busy.classList.toggle('team-warning', !!s.folderMissing);
+    return;
+  }
+  document.getElementById('team-folder').textContent = s.folderDisplay;
+  document.getElementById('team-status').textContent = s.lastChangeAt
+    ? `Up to date — last change from ${s.lastChangeBy || 'another Mac'} ${timeAgo(s.lastChangeAt)}`
+    : 'Up to date — watching for changes from the other Macs';
+  const nameInput = document.getElementById('team-name-input');
+  if (document.activeElement !== nameInput) nameInput.value = s.memberName;
+  const status = document.getElementById('team-status');
+  status.classList.toggle('team-warning', !!s.thisMacOutdated);
+  if (s.thisMacOutdated) status.textContent = 'Another Mac has a newer version of ScaffoldPro. Update this one (double-click Install ScaffoldPro) so nothing it saves leaves out details the newer version keeps.';
+  const members = document.getElementById('team-members');
+  members.innerHTML = '';
+  for (const m of s.members) {
+    const row = document.createElement('div');
+    row.innerHTML = '<span class="status-pill"></span><span></span><span class="muted"></span>';
+    row.children[0].textContent = m.isThisMac ? 'This Mac' : whenSeen(m.lastSeen);
+    row.children[0].classList.toggle('pill-success', !!m.isThisMac || whenSeen(m.lastSeen) === 'active now');
+    row.children[1].textContent = m.name;
+    row.children[2].textContent = m.computer + (m.outdated ? ' — older version of ScaffoldPro: update it with Install ScaffoldPro' : '');
+    if (m.outdated) row.children[2].classList.add('team-warning');
+    members.appendChild(row);
+  }
+}
+
+async function refreshTeam() {
+  renderTeam(await window.api.team.status());
+}
+
+function restartForTeam(message) {
+  alert(message);
+  window.api.app.relaunch();
+}
+
+function setupTeam() {
+  document.getElementById('team-start-btn').addEventListener('click', async () => {
+    if (!confirm('Share this Mac’s data?\n\nYou’ll choose a folder in iCloud Drive. ScaffoldPro copies in your projects, drawings, documents and database, then restarts and works from there. Your files in Documents › ScaffoldPro stay where they are as they are now.')) return;
+    const busy = document.getElementById('team-busy');
+    busy.textContent = 'Copying your data into the shared folder…';
+    const buttons = document.querySelectorAll('#team-off button');
+    for (const b of buttons) b.disabled = true;
+    const r = await window.api.team.start();
+    for (const b of buttons) b.disabled = false;
+    busy.textContent = '';
+    if (r === null) return;
+    if (!r.ok) { alert(r.error); return; }
+    restartForTeam('Your data is in the shared folder.\n\nScaffoldPro restarts now and works from there. Next, share the folder with the others in Finder (Control-click it › Share › Share Folder…), and have them press “Join a Shared Folder…” on their Macs.');
+  });
+  document.getElementById('team-join-btn').addEventListener('click', async () => {
+    const r = await window.api.team.join();
+    if (r === null) return;
+    if (!r.ok) { alert(r.error); return; }
+    restartForTeam('ScaffoldPro restarts now and opens the shared data.\n\nThis Mac’s own data is kept as it is; it comes back if you stop sharing.');
+  });
+  document.getElementById('team-leave-btn').addEventListener('click', () => {
+    if (!confirm('Stop sharing on this Mac?\n\nScaffoldPro restarts with this Mac’s own data as it was before sharing. The shared folder and everyone else’s work in it stay as they are, and you can join again later.')) return;
+    window.api.team.leave().then(() => window.api.app.relaunch());
+  });
+  document.getElementById('team-reveal-btn').addEventListener('click', async () => {
+    const r = await window.api.team.reveal();
+    if (r && !r.ok) alert(r.error);
+  });
+  document.getElementById('team-name-input').addEventListener('change', async (e) => {
+    renderTeam(await window.api.team.setName(e.target.value));
+  });
+  document.getElementById('settings-reload-btn').addEventListener('click', () => location.reload());
+  refreshTeam();
+  setInterval(refreshTeam, 10000);
+}
+
+// Another Mac changed something: refresh the parts shown here, and the
+// form itself unless it has unsaved edits.
+window.onSharedDataChanged = async (change) => {
+  refreshTeam();
+  if ((change.stores || []).includes('settings.json')) {
+    if (settingsDirty) {
+      document.getElementById('settings-changed-elsewhere').classList.remove('hidden');
+    } else {
+      await loadSettings();
+      for (const id of ['defaultPaymentTerms-input', 'quotationTerms-input']) window.refreshParagraphPreview(document.getElementById(id));
+    }
+  }
+};
+
 async function init() {
   const formatted = ['defaultPaymentTerms-input', 'quotationTerms-input'].map((id) => document.getElementById(id));
   for (const ta of formatted) window.attachParagraphFormatting(ta);
   await loadSettings();
   for (const ta of formatted) window.refreshParagraphPreview(ta);
-  document.getElementById('save-btn').addEventListener('click', saveSettings);
+  document.getElementById('save-btn').addEventListener('click', async () => {
+    await saveSettings();
+    settingsDirty = false;
+    document.getElementById('settings-changed-elsewhere').classList.add('hidden');
+  });
+  // Typing in the form (not the sharing or backup controls further down).
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions')) settingsDirty = true; };
+  document.getElementById('content').addEventListener('input', markDirty);
+  document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {
     document.getElementById(`${f}-input`).addEventListener('input', () => updateNumberExample(f));
   }
@@ -294,8 +410,8 @@ async function init() {
       await window.api.settings.update({ appearance: b.dataset.value });
     });
   }
-  if (location.hash === '#backup') {
-    document.getElementById('backup').scrollIntoView();
+  if (location.hash === '#backup' || location.hash === '#team') {
+    document.getElementById(location.hash.slice(1)).scrollIntoView();
   }
 
   document.getElementById('create-backup-btn').addEventListener('click', createBackup);
@@ -304,6 +420,7 @@ async function init() {
   document.getElementById('show-data-folder-btn').addEventListener('click', () => window.api.backup.revealDataFolder());
 
   setupCloudBackup();
+  setupTeam();
   await refreshBackups();
   await loadLocations();
 }

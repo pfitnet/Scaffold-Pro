@@ -127,6 +127,76 @@ function render() {
   renderLineItems();
   renderBlocks();
   renderTotals();
+  renderSignedBar();
+}
+
+// The client's signed copy: shown once the quotation is issued. A file
+// can also be dropped onto the bar.
+function renderSignedBar() {
+  const d = currentDetail;
+  const bar = document.getElementById('signed-bar');
+  const hasCopy = !!d.signedCopyName;
+  bar.classList.toggle('hidden', d.status === 'Draft' && !hasCopy);
+  if (d.status === 'Draft' && !hasCopy) return;
+  const on = (d.signedCopyAt ? new Date(d.signedCopyAt) : null);
+  const onText = on && !isNaN(on) ? on.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  bar.classList.toggle('signed-done', hasCopy && d.signedCopyExists);
+  if (hasCopy && d.signedCopyExists) {
+    bar.innerHTML = `
+      <span class="signed-text"><span class="status-pill pill-success">Signed</span>
+        Signed copy added${onText ? ` ${esc(onText)}` : ''}: <strong>${esc(d.signedCopyName)}</strong></span>
+      <span class="signed-actions">
+        <button data-act="open">Open</button>
+        <button data-act="reveal">Locate File</button>
+        <button data-act="upload">Replace…</button>
+        <button data-act="remove">Remove</button>
+      </span>`;
+  } else if (hasCopy) {
+    bar.innerHTML = `
+      <span class="signed-text"><span class="status-pill pill-danger">Missing</span>
+        The signed copy (${esc(d.signedCopyName)}) is no longer in the project folder.</span>
+      <span class="signed-actions">
+        <button class="primary" data-act="upload">Upload Signed Copy…</button>
+        <button data-act="remove">Remove</button>
+      </span>`;
+  } else if (d.signedCopyNotNeeded) {
+    bar.innerHTML = `
+      <span class="signed-text">No signed copy needed for this quotation (it isn’t on the Dashboard’s reminder).</span>
+      <span class="signed-actions">
+        <button data-act="upload">Upload Signed Copy…</button>
+        <button data-act="needed">Remind Me Again</button>
+      </span>`;
+  } else if (d.status === 'Cancelled') {
+    bar.innerHTML = `
+      <span class="signed-text">Cancelled — no signed copy.</span>
+      <span class="signed-actions"><button data-act="upload">Upload Signed Copy…</button></span>`;
+  } else {
+    bar.innerHTML = `
+      <span class="signed-text"><span class="status-pill pill-warning">Waiting</span>
+        Waiting for the client’s signed copy. Upload it, or drop the PDF or photo here.</span>
+      <span class="signed-actions">
+        <button class="primary" data-act="upload">Upload Signed Copy…</button>
+        <button data-act="not-needed" title="Take it off the Dashboard’s reminder">Not Needed</button>
+      </span>`;
+  }
+}
+
+function setupSignedBar() {
+  const bar = document.getElementById('signed-bar');
+  window.signedCopy.dropTarget(bar, quotationId, loadDetail);
+  bar.addEventListener('click', async (e) => {
+    const button = e.target.closest('button[data-act]');
+    if (!button) return;
+    const act = button.dataset.act;
+    let changed = false;
+    if (act === 'open') await window.signedCopy.open(quotationId);
+    else if (act === 'reveal') await window.signedCopy.reveal(quotationId);
+    else if (act === 'upload') changed = await window.signedCopy.upload(quotationId);
+    else if (act === 'remove') changed = await window.signedCopy.remove(quotationId, currentDetail.quotationNumber);
+    else if (act === 'not-needed') changed = await window.signedCopy.setNotNeeded(quotationId, true);
+    else if (act === 'needed') changed = await window.signedCopy.setNotNeeded(quotationId, false);
+    if (changed) await loadDetail();
+  });
 }
 
 function renderLineItems() {
@@ -582,6 +652,7 @@ async function init() {
 
   await loadDetail();
   if (!currentDetail) return;
+  setupSignedBar();
   window.setupLinkedDrawings({ kind: 'Quotation', id: quotationId, projectNumber: currentDetail.projectNumber });
 
   document.getElementById('status-select').addEventListener('change', async (e) => {

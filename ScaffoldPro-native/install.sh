@@ -54,6 +54,9 @@ done
 cp -R "$SCRIPT_DIR/css"       "$BUILD/Contents/Resources/css"
 cp -R "$SCRIPT_DIR/js"        "$BUILD/Contents/Resources/js"
 cp -R "$SCRIPT_DIR/resources" "$BUILD/Contents/Resources/resources"
+# Which version this is (the date of its latest change). Macs sharing a
+# folder compare it, so a copy that needs updating can be spotted.
+git -C "$SCRIPT_DIR" log -1 --format=%cI 2>/dev/null > "$BUILD/Contents/Resources/version.txt" || true
 
 printf 'APPL????' > "$BUILD/Contents/PkgInfo"
 

@@ -48,6 +48,45 @@ function table(container, rows, columns, emptyText) {
 
 let projectsCache = [];
 
+// Issued quotations still waiting for the client's signed copy: upload it
+// (or drop it onto the row), or mark it as not needed.
+function renderSignedCopies(summary) {
+  const block = document.getElementById('signed-block');
+  const rows = summary.awaitingSignedCopy || [];
+  block.classList.toggle('hidden', rows.length === 0);
+  if (rows.length === 0) return;
+  const total = summary.awaitingSignedCopyCount || rows.length;
+  document.getElementById('signed-title').textContent =
+    `Signed Quotations to Upload (${total})`;
+  const list = document.getElementById('signed-list');
+  list.innerHTML = `<table class="compact signed-table"><tbody>${rows.map((r) => `
+    <tr class="link-row signed-row" data-id="${esc(r.id)}" data-url="${esc(r.url)}">
+      <td><strong>${esc(r.number)}</strong><div class="sub">${esc([r.clientName, r.projectNumber].filter(Boolean).join(' · '))}</div></td>
+      <td>${r.status === 'Invoiced'
+        ? '<span class="status-pill pill-warning" title="Already invoiced — going ahead without a signed copy on file">Invoiced, not signed</span>'
+        : `<span class="muted">Issued ${day(r.date)}</span>`}</td>
+      <td class="num">${summary.currency} ${money(r.amount)}</td>
+      <td class="row-actions">
+        <button class="primary upload-signed-btn">Upload Signed Copy…</button>
+        <button class="not-needed-btn" title="Take it off this list — e.g. the client accepted by email, or won't go ahead">Not Needed</button>
+      </td>
+    </tr>`).join('')}</tbody></table>
+    ${total > rows.length ? `<div class="small-note" style="padding:6px 4px 0;">and ${total - rows.length} more — they appear here as these are done.</div>` : ''}`;
+  const refresh = async () => renderSignedCopies(await window.api.dashboard.summary());
+  for (const tr of list.querySelectorAll('tr.signed-row')) {
+    const id = tr.dataset.id;
+    tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+    tr.querySelector('.row-actions').addEventListener('click', (e) => e.stopPropagation());
+    tr.querySelector('.upload-signed-btn').addEventListener('click', async () => {
+      if (await window.signedCopy.upload(id)) await refresh();
+    });
+    tr.querySelector('.not-needed-btn').addEventListener('click', async () => {
+      if (await window.signedCopy.setNotNeeded(id, true)) await refresh();
+    });
+    window.signedCopy.dropTarget(tr, id, refresh);
+  }
+}
+
 // "New Quotation / Invoice / Delivery Note" from the Dashboard: pick the
 // project, then land on that tab of the project page.
 function pickProjectThen(title, tab) {
@@ -118,9 +157,11 @@ async function loadDashboard() {
 
   const activity = summary.recentActivity.map((a) => Object.assign({ url: a.projectNumber ? `project-detail.html?number=${a.projectNumber}&tab=history` : 'index.html' }, a));
   table('activity-list', activity, [
-    { value: (a) => `${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference].filter(Boolean).join(' · '))}</div>` },
+    { value: (a) => `${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference, a.by].filter(Boolean).join(' · '))}</div>` },
     { cls: 'muted num', value: (a) => when(a.createdAt) },
   ], 'Nothing recorded yet.');
+
+  renderSignedCopies(summary);
 
   // Expired / expiring worker and company documents (sections 42-43).
   const expiring = await window.api.adminDocuments.expiring(30);
