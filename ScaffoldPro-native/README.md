@@ -948,3 +948,28 @@ under "Letterhead layout".
   The Word copy matches.
 - The amounts aren't copied when a quotation is made from the BOQ. Add them
   to the quotation's own priced section.
+
+## Batch 38 — Delivery notes laid out like the company's own (DN26038a)
+
+- **Header**: Our Ref. No., Site Ref. and Date on the right, **BY HAND ONLY**
+  under them, then the title **Delivery Note**.
+- **Details under the title**: Delivery Address, Site Reference (the site's
+  reference and name), Project (Sale/Rental and the project name) and
+  **Contact Person** (in bold), each as a bold label followed by ": value".
+  Rows with nothing to show are left out.
+- **Table**: No | Item Description | Unit Weight | Qty | Total Weight, with
+  "kg" set at the right of each weight and a **Total Weight:** row. Unit
+  weights come from the material list. Rows are shorter, as on the company's
+  note, so 21 items fit on page 1.
+- **Receipt lines**: "Received By : ____ Date : ____" and "Full Name : ____
+  Contact No. : ____" replace the two signature boxes. They follow the table.
+  If they don't fit on the page, they start a new page headed "Ref.: <DN no.>".
+- **Contact Person** is a new field in the delivery-note editor. It starts
+  with the site's contact person.
+- **Letterheads (all documents)**: "BY EMAIL ONLY" / "BY HAND ONLY" now sit
+  under the reference block even when the client's address runs to more
+  lines, as on the company's Qt26179 and DN26038a. The title follows below
+  both.
+- **Addresses**: an address line typed with a comma at the end keeps it
+  ("38th Floor, Dorset House,").
+- The Word copy has the same layout.

@@ -141,9 +141,18 @@
       const text = `${o.currency}\t${lines[0]}${lines.slice(1).map((l) => `\n\t${l}`).join('')}`;
       return para(run(text, style), { line: CELL_LINE, tabs: [{ val: 'right', pos: inner }] });
     }
+    if (column.kind === 'weight') {
+      // The figure, then "kg" at the right of the cell (as drawWeight on the PDF).
+      if (!lines.length || !lines[0]) return para('', { line: CELL_LINE });
+      const suffix = KG_WIDTH * size / 11 + 8.4;
+      const text = `\t${lines[0]}\tkg${lines.slice(1).map((l) => `\n\t${l}`).join('')}`;
+      return para(run(text, style), { line: CELL_LINE, tabs: [{ val: 'right', pos: inner - suffix }, { val: 'right', pos: inner }] });
+    }
     const align = { center: 'center', right: 'right', left: 'left' }[column.kind] || 'left';
     return para(run(lines.join('\n'), style), { line: CELL_LINE, align });
   }
+  // "kg" in 11pt EB Garamond.
+  const KG_WIDTH = 9.94;
 
   function mainTable(d) {
     const cols = d.columns;
@@ -152,7 +161,7 @@
     const sum = (from, to) => widths.slice(from, to).reduce((a, b) => a + b, 0);
     const rows = [];
     rows.push(tr(cols.map((c, i) => tc(widths[i], para(run(c.title, { bold: true }), { line: CELL_LINE, align: 'center' }))),
-      { height: 24.1, header: true }));
+      { height: d.headerHeight || 24.1, header: true }));
     for (const r of d.rows) {
       if (r.type === 'item') {
         rows.push(tr(cols.map((c, i) => tc(widths[i], cellParagraph(r.cells[i] || [], c, widths[i], { currency: d.currencySymbol }))),
@@ -198,6 +207,17 @@
       }
       return para(run(`${r.label}\t:\t${r.value}`), { line: pitch, tabs: [{ pos: colon }, { val: 'right', pos: 550.5 - 401.25 }] });
     });
+    // "BY EMAIL ONLY" goes under the references (beside the client's last
+    // line when the address is longer), the title under both.
+    const clientCount = String(d.clientName).split('\n').length + d.clientLines.length;
+    const refCount = d.refRows.reduce((a, r) => a + (r.wraps ? 2 : 1), 0);
+    const clientLast = (Math.max(clientCount, 1) - 1) * pitch;
+    const refLast = (Math.max(refCount, 1) - 1) * pitch;
+    const methodAt = refLast + 19.5;
+    if (d.deliveryMethod) {
+      right.push(para(run(d.deliveryMethod, { bold: true, size: 13, underline: true }),
+        { line: 19.5, before: gapBefore(19.5, pitch, 19.5), align: 'right', tabs: [] }));
+    }
     out.push(tbl([leftCol, rightCol], [tr([
       tc(leftCol, left.join(''), { vAlign: 'top', mar: { left: 5 } }),
       tc(rightCol, right.join('') || para(''), { vAlign: 'top', mar: { left: 5, right: L.textRight - 550.5 } }),
@@ -209,10 +229,10 @@
     const TITLE_PADDING = 6.0;
     let titleGap = 40.5 + TITLE_PADDING;
     if (d.deliveryMethod) {
-      out.push(para(run(d.deliveryMethod, { bold: true, size: 13, underline: true }),
-        { line: 19.5, before: gapBefore(19.5, prevLine, 19.5), align: 'right', tabs: [] }));
-      prevLine = 19.5;
-      titleGap = 21.0 + TITLE_PADDING;
+      // Measured from the lower of the two columns' last lines.
+      const blockLast = Math.max(clientLast, methodAt);
+      if (methodAt >= clientLast) prevLine = 19.5;
+      titleGap = Math.max(methodAt + 21.0, clientLast + 24.0) + TITLE_PADDING - blockLast;
     }
     const center = L.pageWidth / 2 - L.textLeft;
     const titleRuns = run('\t') + run(d.title, { bold: true, size: 15, underline: true }) +
@@ -230,8 +250,25 @@
     if (d.salutation) add(run(d.salutation));
     if (d.subject) add(run(d.subject, { bold: true, underline: true }));
     if (d.intro) add(run(d.intro));
-    // The table starts 15pt below the last line: a spacer paragraph.
-    const spacer = 15 - prevLine * (1 - BASELINE_AT);
+    // Labelled lines (the delivery note): bold label, ": value" at 100.5pt,
+    // 17.35pt apart; the first 24pt (plus padding) under the title.
+    const infoRows = d.infoRows || [];
+    if (infoRows.length) {
+      if (prevLine === 18) gap = 24.0 + TITLE_PADDING;
+      else gap = 17.35;
+      const colonAt = 100.5, valueAt = colonAt + COLON_SPACE;
+      for (const r of infoRows) {
+        const runs = run(r.label, { bold: true }) + run('\t: ') +
+          run((r.lines || []).join('\n'), { bold: r.bold });
+        out.push(para(runs, { line: bodyLine, before: gapBefore(gap, prevLine, bodyLine), indLeft: valueAt, hanging: valueAt - 1.5,
+          tabs: [{ pos: colonAt }] }));
+        prevLine = bodyLine;
+        gap = 17.35;
+      }
+    }
+    // The table starts 15pt below the last line (17.6pt under labelled
+    // lines): a spacer paragraph.
+    const spacer = (infoRows.length ? 17.6 : 15) - prevLine * (1 - BASELINE_AT);
     if (spacer > 0.5) out.push(para('', { line: spacer }));
     return { xml: out.join(''), blockLines };
   }
@@ -323,6 +360,40 @@
     return lead + tbl(colW, rows, { indent });
   }
 
+  // "Received By : ____  Date : ____": bold labels, a line to write on
+  // 6.68pt under the baseline, rows 34.5pt apart; on a page of its own
+  // (under "Ref.: <number>") when the PDF has it there.
+  const COLON_SPACE = 4.92; // ": " in 11pt EB Garamond
+  function receipt(d, L) {
+    const rows = d.receiptRows || [];
+    if (!rows.length) return '';
+    const out = [];
+    const RULE_BELOW = 6.68, ROW = 34.5;
+    const rowTop = ROW - RULE_BELOW; // from a row's top to its baseline
+    let spacer;
+    if (d.receiptNewPage) {
+      out.push(para(run(`Ref.: ${d.number}`), { line: 16.5, pageBreakBefore: true, keepNext: true }));
+      spacer = 32.9 - 16.5 * (1 - BASELINE_AT) - rowTop;
+    } else {
+      // 33pt under the table, or under the last line of text above.
+      spacer = d.sections.length || d.signatures.length ? 33 - 16.5 * (1 - BASELINE_AT) - rowTop : 33 - rowTop;
+    }
+    out.push(para('', { line: Math.max(1, spacer), keepNext: true }));
+    const width = L.textRight + 1 - L.textLeft;
+    const widths = [81.65, 5.85, 168.0, 81.15, 5.85, width - 342.5];
+    const style = { bold: true };
+    const textCell = (w, text, left, keep) => tc(w, para(run(text, style), { line: 13.5, keepNext: keep }),
+      { vAlign: 'bottom', mar: { left, bottom: RULE_BELOW - 13.5 * (1 - BASELINE_AT) } });
+    const ruleCell = (w, keep) => tc(w, para('', { line: 1, keepNext: keep }), { vAlign: 'bottom', borders: border('bottom', 0.75) });
+    const trs = rows.map((r, i) => {
+      const keep = i < rows.length - 1;
+      return tr([textCell(widths[0], r[0], 9.65, keep), textCell(widths[1], ':', 0, keep), ruleCell(widths[2], keep),
+        textCell(widths[3], r[1], 9.15, keep), textCell(widths[4], ':', 0, keep), ruleCell(widths[5], keep)], { height: ROW, exact: true });
+    });
+    out.push(tbl(widths, trs, { indent: 0 }));
+    return out.join('');
+  }
+
   function closing(d) {
     if (!d.closingLine) return '';
     return para(run(d.closingLine, { font: SIGN_FONT, italic: true, size: 10.5 }),
@@ -340,6 +411,7 @@
     if (d.columns.length) body.push(mainTable(d));
     body.push(sections(d));
     body.push(signatures(d, L));
+    body.push(receipt(d, L));
     body.push(closing(d));
     body.push(para('', { line: 1 })); // Word expects the body to end with a paragraph
     const letter = d.paperSize === 'Letter';

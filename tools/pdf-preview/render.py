@@ -26,7 +26,10 @@ def times(size,bold=False,italic=False): return font('t',size,bold,italic)
 def width(s,f): return f.getlength(s)/S
 
 class Gen:
-    def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0; s.documentIsLong=False
+    def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0; s.documentIsLong=False; s.headH=24.1; s.below=5.2; s.receiptOnNewPage=False
+    def configure(s,doc):
+        compact=doc.get('compactTable',False)
+        s.rowH=21.1 if compact else 24.1; s.headH=23.0 if compact else 24.1; s.below=4.1 if compact else 5.2
     textLeft=42.75; textRight=552.0; contentBottom=781.5; contBase=95.25; contTable=88.0; pitch=16.5; rule=0.75; rowH=24.1; cellPitch=14.25
     def fill(s,x,y,w,h,c):
         x0,y0=round(x*S),round(y*S); s.d.rectangle([x0,y0,max(x0,round((x+w)*S)-1),max(y0,round((y+h)*S)-1)],fill=c)
@@ -79,7 +82,7 @@ class Gen:
     def wrapAddress(s,line,f,wd):
         parts=[p.strip() for p in line.split(',') if p.strip()]; out=[]; cur=''
         for i,p in enumerate(parts):
-            piece=p+(',' if i<len(parts)-1 else ''); cand=piece if not cur else cur+' '+piece
+            piece=p+(',' if i<len(parts)-1 or line.strip().endswith(',') else ''); cand=piece if not cur else cur+' '+piece
             if not cur or width(cand,f)<=wd: cur=cand
             else: out.append(cur); cur=piece
         if cur: out.append(cur)
@@ -99,10 +102,11 @@ class Gen:
             else:
                 for j,l in enumerate(vl): s.text(l,484.5,104.25+(n+j)*15.75,body(11))
                 n+=len(vl)
-        base=104.25+(max(len(left),n,1)-1)*15.75
+        clientLast=104.25+(max(len(left),1)-1)*15.75; refLast=104.25+(max(n,1)-1)*15.75
         if doc.get('deliveryMethod'):
-            base+=19.5; s.text(doc['deliveryMethod'],550.5,base,body(13,True),align='right',underline=True); base+=21.0+6.0
-        else: base+=40.5+6.0  # + title padding
+            mb=refLast+19.5; s.text(doc['deliveryMethod'],550.5,mb,body(13,True),align='right',underline=True)
+            base=max(mb+21.0,clientLast+24.0)+6.0
+        else: base=max(clientLast,refLast)+40.5+6.0  # + title padding
         s.text(doc['title'],W/2,base,body(15,True),align='center',underline=True)
         if doc['status']!='Issued': s.text(doc['status'].upper(),s.textRight,base,body(11,True),GREY,align='right')
         last=base; nxt=base+18+6.0
@@ -112,8 +116,20 @@ class Gen:
         if doc.get('intro'):
             for l in s.wrap(doc['intro'],body(11),s.textRight-s.textLeft): s.text(l,s.textLeft,nxt,body(11)); last=nxt; nxt+=16.5
         s.cursor=last+15
-    def cellBase(s,top,h,n,j): return top+h/2+5.2-(n-1)*s.cellPitch/2+j*s.cellPitch
-    def cellLines(s,v,col,f,cw): return s.wrap(v,f,col[1]-10.5-(cw+4 if col[2]=='money' else 0))
+        info=doc.get('infoRows') or []
+        if not info: return
+        nxt=base+24.0+6.0 if last==base else last+17.35
+        for label,value,bold in info:
+            lines=s.infoLines(value,bold)
+            s.text(label,s.textLeft+1.5,nxt,body(11,True)); s.text(':',s.textLeft+100.5,nxt,body(11))
+            for j,l in enumerate(lines): s.text(l,s.infoValueX(),nxt+j*16.5,body(11,bold))
+            last=nxt+(max(len(lines),1)-1)*16.5; nxt=last+17.35
+        s.cursor=last+17.6
+    def infoValueX(s): return s.textLeft+100.5+width(': ',body(11))
+    def infoLines(s,value,bold): return s.wrap(value,body(11,bold),s.textRight-s.infoValueX())
+    def kgRoom(s,f): return width('kg',f)+8.4
+    def cellBase(s,top,h,n,j): return top+h/2+s.below-(n-1)*s.cellPitch/2+j*s.cellPitch
+    def cellLines(s,v,col,f,cw): return s.wrap(v,f,col[1]-10.5-(cw+4 if col[2]=='money' else 0)-(s.kgRoom(f) if col[2]=='weight' else 0))
     def rowHeight(s,row,doc):
         if row[0]=='item':
             f=body(11); cw=width(doc['cur'],f); n=1
@@ -132,13 +148,17 @@ class Gen:
             b=s.cellBase(top,h,n,j); k=col[2]
             if k=='center': s.text(line,(l+r+s.rule)/2,b,f,align='center')
             elif k=='left': s.text(line,l+5.0,b,f)
+            elif k=='weight':
+                if not line: continue
+                s.text(line,r-3.4-s.kgRoom(f),b,f,align='right')
+                if j==0: s.text('kg',r-3.4,b,f,align='right')
             else: s.text(line,r-3.4,b,f,align='right')
         if col[2]=='money' and lines and lines[0]: s.text(cur,l+5.25,s.cellBase(top,h,1,0),f)
     def header(s,cols,e):
-        t=s.cursor; s.hr(e,t); s.hr(e,t+s.rowH)
-        for x in e: s.vr(x,t,s.rowH)
-        for i,c in enumerate(cols): s.text(c[0],(e[i]+e[i+1]+s.rule)/2,s.cellBase(t,s.rowH,1,0),body(11,True),align='center')
-        s.cursor+=s.rowH
+        t=s.cursor; s.hr(e,t); s.hr(e,t+s.headH)
+        for x in e: s.vr(x,t,s.headH)
+        for i,c in enumerate(cols): s.text(c[0],(e[i]+e[i+1]+s.rule)/2,s.cellBase(t,s.headH,1,0),body(11,True),align='center')
+        s.cursor+=s.headH
     def table(s,doc):
         cols=doc['columns']; e=[42.0]
         for c in cols: e.append(e[-1]+c[1])
@@ -248,6 +268,19 @@ class Gen:
                     if val: s.text(val,cx+8,lb,f)
                 low=max(low,lb)
         s.cursor=low
+    def receipt(s,doc):
+        rows=doc.get('receiptRows') or []
+        if not rows: return
+        base=s.cursor+33.0
+        if base+(len(rows)-1)*34.5+8>s.contentBottom:
+            s.newPage(); s.receiptOnNewPage=True
+            s.text(f"Ref.: {doc['number']}",s.textLeft,s.contBase,body(11)); base=s.contBase+32.9
+        f=body(11,True)
+        for i,(a,b) in enumerate(rows):
+            y=base+i*34.5
+            for lab,x,end in [(a,0,255.5),(b,255.0,s.textRight+1-s.textLeft)]:
+                s.text(lab,s.textLeft+x+9.65,y,f); s.text(':',s.textLeft+x+81.65,y,f); s.fill(s.textLeft+x+87.5,y+6.3,end-(x+87.5),0.75,BLACK)
+            s.cursor=y+6.3
     def closing(s,line):
         base=s.cursor+69.0
         if base>s.contentBottom: s.newPage(); base=s.contBase
@@ -257,6 +290,7 @@ class Gen:
             trial=Gen(); trial.layOut(doc); s.documentIsLong=trial.pageNumber>1
         return s.layOut(doc)
     def layOut(s,doc):
-        s.begin(); s.opening(doc); s.table(doc); s.sections(doc['sections']); s.signatures(doc['signatures'],not doc['sections'])
+        s.configure(doc)
+        s.begin(); s.opening(doc); s.table(doc); s.sections(doc['sections']); s.signatures(doc['signatures'],not doc['sections']); s.receipt(doc)
         if doc.get('closing'): s.closing(doc['closing'])
         s.end(); return s.pages

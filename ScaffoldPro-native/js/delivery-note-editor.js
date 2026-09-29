@@ -68,6 +68,10 @@ function render() {
   if (document.activeElement !== addressInput) addressInput.value = d.deliveryAddress || '';
   addressInput.disabled = isLocked;
 
+  const contactInput = document.getElementById('contact-person-input');
+  if (document.activeElement !== contactInput) contactInput.value = d.contactPerson || '';
+  contactInput.disabled = isLocked;
+
   const deliveredByInput = document.getElementById('delivered-by-input');
   if (document.activeElement !== deliveredByInput) deliveredByInput.value = d.deliveredBy || '';
   deliveredByInput.disabled = isLocked;
@@ -136,6 +140,7 @@ async function saveHeader() {
   const header = {
     deliveryDate: document.getElementById('doc-date-input').value || null,
     deliveryAddress: document.getElementById('delivery-address-input').value || null,
+    contactPerson: document.getElementById('contact-person-input').value || null,
     deliveredBy: document.getElementById('delivered-by-input').value || null,
     receivedBy: document.getElementById('received-by-input').value || null,
     notes: document.getElementById('notes-box').value || null,
@@ -217,7 +222,7 @@ async function init() {
     await loadDetail();
   });
 
-  for (const fieldId of ['doc-date-input', 'delivery-address-input', 'delivered-by-input', 'received-by-input', 'notes-box']) {
+  for (const fieldId of ['doc-date-input', 'delivery-address-input', 'contact-person-input', 'delivered-by-input', 'received-by-input', 'notes-box']) {
     document.getElementById(fieldId).addEventListener('change', saveHeader);
   }
 

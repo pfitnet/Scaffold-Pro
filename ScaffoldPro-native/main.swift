@@ -1022,6 +1022,9 @@ struct DeliveryNote: Codable {
     var updatedAt: String
     /// The last PDF exported for this document (sections 31-32).
     var pdfPath: String?
+    /// Who to contact on site ("Contact Person" on the note); the site's
+    /// contact person when the note is made.
+    var contactPerson: String? = nil
 }
 
 /// No pricing fields on purpose — section 23 lists delivery notes as
@@ -1065,6 +1068,7 @@ struct DeliveryNoteDetail: Codable {
     var clientName: String?
     var siteName: String?
     var lineItems: [DeliveryNoteLineItem]
+    var contactPerson: String? = nil
 }
 
 struct DeliveryNoteActionResult: Codable {
@@ -1211,6 +1215,9 @@ enum PDFMode {
 
 struct WordColumn: Encodable { var title: String; var width: Double; var kind: String }
 
+/// "Delivery Address : …": the value wrapped as on the PDF.
+struct WordInfoRow: Encodable { var label: String; var lines: [String]; var bold: Bool }
+
 struct WordRow: Encodable {
     /// "item", "section", "summary", "partial" or "note"
     var type: String
@@ -1273,6 +1280,12 @@ struct WordLayout: Encodable {
     var sections: [WordSection]
     var signatures: [WordSignature]
     var closingLine: String?
+    var infoRows: [WordInfoRow] = []
+    /// Heading row height (23pt on a compact table, else 24.1pt).
+    var headerHeight = 24.1
+    var receiptRows: [[String]] = []
+    /// The receipt lines start a new page (with "Ref.: <number>").
+    var receiptNewPage = false
     // Filled in by the bridge:
     var projectNumber = ""
     var subfolder = ""
@@ -1292,6 +1305,9 @@ enum LetterColumnKind {
     case right
     /// "HK$" at the left of the cell, the amount at the right
     case money
+    /// A weight with "kg" at the right of the cell, the figure before it
+    /// (the delivery note's "3.8   kg")
+    case weight
 }
 
 struct LetterColumn {
@@ -1535,6 +1551,21 @@ struct LetterDocument {
     /// Left, then right.
     var signatures: [LetterSignature]
     var closingLine: String?
+    /// Labelled lines under the title, e.g. the delivery note's "Delivery
+    /// Address : …", "Contact Person : …" (bold value).
+    var infoRows: [LetterInfoRow] = []
+    /// Shorter rows (23pt heading, 21.1pt items), as on the delivery note.
+    var compactTable = false
+    /// Lines to write on after everything else, two to a row, e.g.
+    /// ("Received By", "Date"), ("Full Name", "Contact No."). If they go
+    /// on a page of their own it starts "Ref.: <number>".
+    var receiptRows: [(String, String)] = []
+}
+
+struct LetterInfoRow {
+    var label: String
+    var value: String
+    var boldValue = false
 }
 
 struct PDFExportResult: Codable {
@@ -3838,11 +3869,14 @@ final class AppDatabase {
             let parts = [site.address, site.city, site.postalCode].compactMap { nonBlank($0) }
             return parts.isEmpty ? nil : parts.joined(separator: ", ")
         }
+        let siteContact = projectsStore.readAll().first(where: { $0.id == projectId })
+            .flatMap { project in sitesStore.readAll().first(where: { $0.id == project.siteId }) }
+            .flatMap { nonBlank($0.contactPerson) }
         let note = DeliveryNote(
             id: makeId("dn"), projectId: projectId, sourceQuotationId: sourceQuotationId, sourceInvoiceId: sourceInvoiceId,
             deliveryNoteNumber: nextDeliveryNoteNumber(projectNumber: projectNumber, projectId: projectId),
             status: "Draft", deliveryDate: nowISO(), deliveryAddress: siteAddress, deliveredBy: nil, receivedBy: nil,
-            notes: nil, createdAt: nowISO(), updatedAt: nowISO()
+            notes: nil, createdAt: nowISO(), updatedAt: nowISO(), contactPerson: siteContact
         )
         deliveryNotesStore.insert(note)
         logActivity(projectId: projectId, "Delivery note created", reference: note.deliveryNoteNumber)
@@ -3889,7 +3923,8 @@ final class AppDatabase {
             deliveryAddress: dn.deliveryAddress, deliveredBy: dn.deliveredBy, receivedBy: dn.receivedBy,
             notes: dn.notes, createdAt: dn.createdAt, updatedAt: dn.updatedAt,
             projectNumber: project.projectNumber, projectName: project.name,
-            clientName: client?.companyName, siteName: site?.name, lineItems: items
+            clientName: client?.companyName, siteName: site?.name, lineItems: items,
+            contactPerson: dn.contactPerson
         )
     }
 
@@ -3939,11 +3974,13 @@ final class AppDatabase {
         return nil
     }
 
-    func updateDeliveryNoteHeader(id: String, deliveryAddress: String?, deliveredBy: String?, receivedBy: String?, notes: String?) -> String? {
+    func updateDeliveryNoteHeader(id: String, deliveryAddress: String?, deliveredBy: String?, receivedBy: String?, notes: String?,
+                                  contactPerson: String?? = nil) -> String? {
         var notesArr = deliveryNotesStore.readAll()
         guard let index = notesArr.firstIndex(where: { $0.id == id }) else { return "Delivery note not found." }
         guard notesArr[index].status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
 
+        if let contact = contactPerson { notesArr[index].contactPerson = contact }
         notesArr[index].deliveryAddress = deliveryAddress
         notesArr[index].deliveredBy = deliveredBy
         notesArr[index].receivedBy = receivedBy
@@ -4735,8 +4772,18 @@ final class PDFGenerator {
     /// Table rules are 0.75pt black; a one-line row is 24.1pt tall and
     /// each further line of text adds 14.9pt, with lines 14.25pt apart.
     private let rule: CGFloat = 0.75
-    private let rowHeight: CGFloat = 24.1
+    private var rowHeight: CGFloat = 24.1
     private let cellPitch: CGFloat = 14.25
+    /// Heading row height, and where one line of text sits below a
+    /// row's middle (compact tables: 23pt, 21.1pt rows, 4.1pt).
+    private var headerHeight: CGFloat = 24.1
+    private var baselineBelowMiddle: CGFloat = 5.2
+
+    private func configure(for doc: LetterDocument) {
+        rowHeight = doc.compactTable ? 21.1 : 24.1
+        headerHeight = doc.compactTable ? 23.0 : 24.1
+        baselineBelowMiddle = doc.compactTable ? 4.1 : 5.2
+    }
 
     /// "A4" (595.28 × 841.89 pt) or "Letter" (612 × 792 pt) — sections 27, 54.
     init?(paperSize: String = "A4") {
@@ -5006,10 +5053,12 @@ final class PDFGenerator {
     private func wrapAddress(_ line: String, _ font: NSFont, _ width: CGFloat) -> [String] {
         let fits: (String) -> Bool = { self.lineWidth(self.makeLine($0, font, .black)) <= width }
         let parts = line.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        // A line typed with a comma at the end keeps it ("38th Floor, Dorset House,").
+        let endsWithComma = line.trimmingCharacters(in: .whitespaces).hasSuffix(",")
         var out: [String] = []
         var current = ""
         for (i, part) in parts.enumerated() {
-            let piece = i < parts.count - 1 ? part + "," : part
+            let piece = i < parts.count - 1 || endsWithComma ? part + "," : part
             let candidate = current.isEmpty ? piece : current + " " + piece
             if current.isEmpty || fits(candidate) {
                 current = candidate
@@ -5052,13 +5101,17 @@ final class PDFGenerator {
             }
         }
 
-        var baseline = firstBaseline + CGFloat(max(left.count, refLine, 1) - 1) * pitch
+        // "BY EMAIL ONLY" goes under the references (beside the client's
+        // last line if the address is longer), the title under both.
+        let clientLast = firstBaseline + CGFloat(max(left.count, 1) - 1) * pitch
+        let refLast = firstBaseline + CGFloat(max(refLine, 1) - 1) * pitch
+        var baseline: CGFloat
         if let method = doc.deliveryMethod, !method.isEmpty {
-            baseline += 19.5
-            text(method, x: 550.5 + dx, baseline: baseline, font: body(13, bold: true), align: .right, underline: true)
-            baseline += 21.0 + titlePadding
+            let methodBaseline = refLast + 19.5
+            text(method, x: 550.5 + dx, baseline: methodBaseline, font: body(13, bold: true), align: .right, underline: true)
+            baseline = max(methodBaseline + 21.0, clientLast + 24.0) + titlePadding
         } else {
-            baseline += 40.5 + titlePadding
+            baseline = max(clientLast, refLast) + 40.5 + titlePadding
         }
 
         text(doc.title, x: pageWidth / 2, baseline: baseline, font: body(15, bold: true), align: .center, underline: true)
@@ -5088,6 +5141,28 @@ final class PDFGenerator {
         }
         // The table starts 15pt below the last line (243 → 258 on the original).
         cursor = last + 15.0
+        guard !doc.infoRows.isEmpty else { return }
+        // Labelled lines (the delivery note): bold labels, ": value" at
+        // 100.5pt, 17.35pt apart, the first 24pt (plus the title padding)
+        // under the title; the table 17.6pt under the last.
+        next = last == baseline ? baseline + 24.0 + titlePadding : last + 17.35
+        for row in doc.infoRows {
+            let lines = infoValueLines(row)
+            text(row.label, x: textLeft + 1.5, baseline: next, font: body(11, bold: true))
+            text(":", x: infoColonX, baseline: next, font: body(11))
+            for (j, line) in lines.enumerated() {
+                text(line, x: infoValueX, baseline: next + CGFloat(j) * bodyPitch, font: body(11, bold: row.boldValue))
+            }
+            last = next + CGFloat(max(lines.count, 1) - 1) * bodyPitch
+            next = last + 17.35
+        }
+        cursor = last + 17.6
+    }
+
+    private var infoColonX: CGFloat { textLeft + 100.5 }
+    private var infoValueX: CGFloat { infoColonX + lineWidth(makeLine(": ", body(11), .black)) }
+    private func infoValueLines(_ row: LetterInfoRow) -> [String] {
+        wrap(row.value, body(11, bold: row.boldValue), textRight - infoValueX)
     }
 
     // MARK: table
@@ -5109,11 +5184,12 @@ final class PDFGenerator {
 
     /// Text is centred vertically in its cell, as on the original.
     private func cellBaseline(top: CGFloat, height: CGFloat, lines: Int, line: Int) -> CGFloat {
-        top + height / 2 + 5.2 - CGFloat(lines - 1) * cellPitch / 2 + CGFloat(line) * cellPitch
+        top + height / 2 + baselineBelowMiddle - CGFloat(lines - 1) * cellPitch / 2 + CGFloat(line) * cellPitch
     }
 
     private func cellLines(_ value: String, column: LetterColumn, font: NSFont, currencyWidth: CGFloat) -> [String] {
         let available = column.width - 10.5 - (column.kind == .money ? currencyWidth + 4 : 0)
+            - (column.kind == .weight ? weightSuffixRoom(font) : 0)
         return wrap(value, font, available)
     }
 
@@ -5154,6 +5230,10 @@ final class PDFGenerator {
             case .center: text(line, x: (left + right + rule) / 2, baseline: baseline, font: font, align: .center)
             case .left: text(line, x: left + 5.0, baseline: baseline, font: font)
             case .right, .money: text(line, x: right - 3.4, baseline: baseline, font: font, align: .right)
+            case .weight:
+                guard !line.isEmpty else { continue }
+                text(line, x: right - 3.4 - weightSuffixRoom(font), baseline: baseline, font: font, align: .right)
+                if j == 0 { text("kg", x: right - 3.4, baseline: baseline, font: font, align: .right) }
             }
         }
         if column.kind == .money, let first = lines.first, !first.isEmpty {
@@ -5161,17 +5241,22 @@ final class PDFGenerator {
         }
     }
 
+    /// "kg" and the space before it, at the right of a weight cell.
+    private func weightSuffixRoom(_ font: NSFont) -> CGFloat {
+        lineWidth(makeLine("kg", font, .black)) + 8.4
+    }
+
     private func drawHeaderRow(_ columns: [LetterColumn], _ edges: [CGFloat]) {
         let top = cursor
         hRule(edges, top)
-        hRule(edges, top + rowHeight)
-        for x in edges { vRule(x, top, rowHeight) }
+        hRule(edges, top + headerHeight)
+        for x in edges { vRule(x, top, headerHeight) }
         let font = body(11, bold: true)
         for (i, column) in columns.enumerated() {
             text(column.title, x: (edges[i] + edges[i + 1] + rule) / 2,
-                 baseline: cellBaseline(top: top, height: rowHeight, lines: 1, line: 0), font: font, align: .center)
+                 baseline: cellBaseline(top: top, height: headerHeight, lines: 1, line: 0), font: font, align: .center)
         }
-        cursor += rowHeight
+        cursor += headerHeight
     }
 
     /// Draws the table, repeating the column titles at the top of every
@@ -5457,6 +5542,34 @@ final class PDFGenerator {
         cursor = lowest
     }
 
+    /// Set while laying out: the receipt lines went onto a page of their own.
+    private(set) var receiptOnNewPage = false
+
+    /// "Received By : ____  Date : ____" — bold labels, the colon at
+    /// 81.65pt, a line to write on 6.3pt under the baseline, rows 34.5pt
+    /// apart. Moved to a new page if they don't fit, under "Ref.: <number>".
+    private func drawReceipt(_ doc: LetterDocument) {
+        guard !doc.receiptRows.isEmpty else { return }
+        let pitch: CGFloat = 34.5
+        var baseline = cursor + 33.0
+        if baseline + CGFloat(doc.receiptRows.count - 1) * pitch + 8 > contentBottom {
+            newPage()
+            receiptOnNewPage = true
+            text("Ref.: \(doc.number)", x: textLeft, baseline: continuationBaseline, font: body(11))
+            baseline = continuationBaseline + 32.9
+        }
+        let font = body(11, bold: true)
+        for (i, row) in doc.receiptRows.enumerated() {
+            let b = baseline + CGFloat(i) * pitch
+            for (label, x, ruleEnd) in [(row.0, CGFloat(0), CGFloat(255.5)), (row.1, CGFloat(255.0), textRight + 1 - textLeft)] {
+                text(label, x: textLeft + x + 9.65, baseline: b, font: font)
+                text(":", x: textLeft + x + 81.65, baseline: b, font: font)
+                fill(textLeft + x + 87.5, b + 6.3, ruleEnd - (x + 87.5), rule, .black)
+            }
+            cursor = b + 6.3
+        }
+    }
+
     private func drawClosingLine(_ line: String) {
         var baseline = cursor + 69.0
         if baseline > contentBottom {
@@ -5483,6 +5596,12 @@ final class PDFGenerator {
     /// as here, row heights, where hanging text starts, and which sections
     /// start a new page — so Word lays it out like the PDF.
     func wordLayout(_ doc: LetterDocument) -> WordLayout {
+        configure(for: doc)
+        var receiptNewPage = false
+        if !doc.receiptRows.isEmpty, let trial = PDFGenerator(paperSize: paperSize) {
+            _ = trial.layOut(doc)
+            receiptNewPage = trial.receiptOnNewPage
+        }
         var long = false
         if doc.sections.contains(where: { $0.newPageUnlessSinglePage }), let trial = PDFGenerator(paperSize: paperSize) {
             _ = trial.layOut(doc)
@@ -5533,17 +5652,24 @@ final class PDFGenerator {
             columns: doc.columns.map { WordColumn(title: $0.title, width: Double($0.width), kind: "\($0.kind)") },
             rows: rows, sections: sections,
             signatures: doc.signatures.map { WordSignature(heading: $0.heading, lines: $0.lines.map { WordSignatureLine(text: $0.text, colon: $0.colon, value: $0.value) }) },
-            closingLine: nonBlank(doc.closingLine)
+            closingLine: nonBlank(doc.closingLine),
+            infoRows: doc.infoRows.map { WordInfoRow(label: $0.label, lines: infoValueLines($0), bold: $0.boldValue) },
+            headerHeight: Double(headerHeight),
+            receiptRows: doc.receiptRows.map { [$0.0, $0.1] },
+            receiptNewPage: receiptNewPage
         )
     }
 
     private func layOut(_ doc: LetterDocument) -> Data {
+        configure(for: doc)
+        receiptOnNewPage = false
         pageNumber = 0
         beginPage()
         drawOpening(doc)
         drawTable(doc)
         drawSections(doc.sections)
         drawSignatures(doc.signatures, afterTable: doc.sections.isEmpty)
+        drawReceipt(doc)
         if let closing = doc.closingLine { drawClosingLine(closing) }
         endPage()
         context.closePDF()
@@ -5813,12 +5939,32 @@ extension AppDatabase {
         return nil
     }
 
+    /// Whether a delivery note is for a sale (its quotation or invoice is).
+    func deliveryNoteIsSale(_ note: DeliveryNote) -> Bool {
+        note.sourceQuotationId.flatMap { getQuotation(id: $0)?.pricingMode } == "Sale"
+            || note.sourceInvoiceId.flatMap { getInvoice(id: $0)?.pricingMode } == "Sale"
+    }
+
+    /// A delivery-note line's weight per unit, from the material list: by
+    /// the item it was picked from, else the same code in the same list,
+    /// else the same name.
+    func deliveryNoteWeight(_ line: DeliveryNoteLineItem, in items: [PriceListItem]) -> Double? {
+        if let id = line.priceListItemId, let item = items.first(where: { $0.id == id }), let kg = item.weightKg { return kg }
+        let code = line.itemCode.trimmingCharacters(in: .whitespaces)
+        if !code.isEmpty, let item = items.first(where: { $0.itemCode == code && (line.sourceKey == nil || $0.sourceKey == line.sourceKey) && $0.weightKg != nil }) {
+            return item.weightKg
+        }
+        let name = line.itemDescription.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return items.first(where: { $0.itemName.trimmingCharacters(in: .whitespaces).lowercased() == name && $0.weightKg != nil })?.weightKg
+    }
+
+    func allPriceListItems() -> [PriceListItem] { priceListItemsStore.readAll() }
+
     /// Books an issued delivery note's items out of the yard: on hire to
     /// its project, or sold if it's for a sale.
     func recordDeliveryStock(_ note: DeliveryNote) {
         removeDeliveryStock(deliveryNoteId: note.id)
-        let sale = note.sourceQuotationId.flatMap { getQuotation(id: $0)?.pricingMode } == "Sale"
-            || note.sourceInvoiceId.flatMap { getInvoice(id: $0)?.pricingMode } == "Sale"
+        let sale = deliveryNoteIsSale(note)
         let lines = deliveryNoteLineItemsStore.readAll().filter { $0.deliveryNoteId == note.id && $0.quantity > 0 }
         let movements = lines.map { line in
             StockMovement(id: makeId("stock"), date: validDay(note.deliveryDate) ?? todayYMD(), kind: sale ? "Sale" : "Delivery",
@@ -8223,7 +8369,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: DeliveryNoteActionResult(ok: false, error: error))
             return
         }
-        if let error = db.updateDeliveryNoteHeader(id: dnId, deliveryAddress: deliveryAddress, deliveredBy: deliveredBy, receivedBy: receivedBy, notes: notes) {
+        // Only changed when the page sends it.
+        let contactPerson: String?? = payload.keys.contains("contactPerson") ? .some(nonBlank(payload["contactPerson"] as? String)) : .none
+        if let error = db.updateDeliveryNoteHeader(id: dnId, deliveryAddress: deliveryAddress, deliveredBy: deliveredBy, receivedBy: receivedBy, notes: notes,
+                                                   contactPerson: contactPerson) {
             respond(id: id, encodable: DeliveryNoteActionResult(ok: false, error: error))
         } else {
             respond(id: id, encodable: DeliveryNoteActionResult(ok: true, error: nil))
@@ -8726,46 +8875,70 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                            documentNumber: detail.invoiceNumber, docTypeTag: "Invoice", letter: letter)
     }
 
+    /// The delivery note as the company's own (e.g. DN26038a): Our Ref. No.,
+    /// Site Ref. and Date, "BY HAND ONLY", "Delivery Note", then Delivery
+    /// Address / Site Reference / Project / Contact Person, the materials
+    /// with their weights and the total weight, and lines for the person
+    /// receiving them to fill in.
     private func handleExportDeliveryNotePDF(id: String, deliveryNoteId: String, mode: PDFMode = .export) {
-        guard let detail = db.getDeliveryNoteDetail(id: deliveryNoteId) else {
+        guard let detail = db.getDeliveryNoteDetail(id: deliveryNoteId), let note = db.getDeliveryNote(id: deliveryNoteId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Delivery note not found.", path: nil))
             return
         }
         let company = db.getCompanySettings()
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
+        let project = db.getProjectByNumber(detail.projectNumber)
+        let site = project.flatMap { db.getSite(id: $0.siteId) }
+        let siteRef = nonBlank(site?.siteReference)
+        // "MTR 1635 Kwu Tung Station": the site's reference and name.
+        var siteLine = site.map { $0.name } ?? ""
+        if let ref = siteRef, !siteLine.contains(ref) { siteLine = siteLine.isEmpty ? ref : "\(ref) \(siteLine)" }
+        let pricingMode = note.sourceQuotationId.flatMap { db.getQuotation(id: $0)?.pricingMode }
+            ?? note.sourceInvoiceId.flatMap { db.getInvoice(id: $0)?.pricingMode }
+        let projectLine = [pricingMode, detail.projectName].compactMap { nonBlank($0) }.joined(separator: " - ")
+        var info: [LetterInfoRow] = []
+        if let address = nonBlank(detail.deliveryAddress) { info.append(LetterInfoRow(label: "Delivery Address", value: address)) }
+        if !siteLine.isEmpty { info.append(LetterInfoRow(label: "Site Reference", value: siteLine)) }
+        if !projectLine.isEmpty { info.append(LetterInfoRow(label: "Project", value: projectLine)) }
+        if let contact = nonBlank(detail.contactPerson) { info.append(LetterInfoRow(label: "Contact Person", value: contact, boldValue: true)) }
+
         let columns = [
             LetterColumn(title: "No", width: 29.25, kind: .center),
-            LetterColumn(title: "Item Description", width: 327.75, kind: .left),
-            LetterColumn(title: "Unit", width: 75.0, kind: .center),
-            LetterColumn(title: "Qty", width: 75.0, kind: .center),
+            LetterColumn(title: "Item Description", width: 290.75, kind: .left),
+            LetterColumn(title: "Unit Weight", width: 75.0, kind: .weight),
+            LetterColumn(title: "Qty", width: 39.0, kind: .center),
+            LetterColumn(title: "Total Weight", width: 76.0, kind: .weight),
         ]
-        let rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
-            .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity)])
+        let priceItems = db.allPriceListItems()
+        var totalKg = Decimal(0)
+        var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
+            let qty = item.quantity.rounded()
+            let kg = db.deliveryNoteWeight(item, in: priceItems)
+            if let kg = kg { totalKg += decimalOf(kg) * decimalOf(qty) }
+            return .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes),
+                          kg.map { String(format: "%.1f", $0) } ?? "", formatQuantity(qty),
+                          kg.map { String(format: "%.1f", $0 * qty) } ?? ""])
+        }
+        if !rows.isEmpty {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.minimumFractionDigits = 1
+            formatter.maximumFractionDigits = 1
+            let total = formatter.string(from: NSDecimalNumber(decimal: totalKg)) ?? String(format: "%.1f", doubleOf(totalKg))
+            rows.append(.summary(label: "Total Weight:", value: total, emphasized: false))
         }
 
-        let letter = LetterDocument(
-            number: detail.deliveryNoteNumber, status: detail.status, title: "DELIVERY NOTE",
+        var letter = LetterDocument(
+            number: detail.deliveryNoteNumber, status: detail.status, title: "Delivery Note",
             clientName: client.name, clientLines: client.lines,
-            refRows: [("D/N No.", detail.deliveryNoteNumber), ("Project No.", detail.projectNumber),
-                      ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.deliveryDate))],
-            deliveryMethod: nil, salutation: nil, subject: "Re: \(detail.projectNumber) \(detail.projectName)",
-            intro: nonBlank(detail.deliveryAddress).map { "Delivery address: \($0)" },
+            refRows: [("Our Ref. No.", detail.deliveryNoteNumber), ("Site Ref.", siteRef ?? "N/a"), ("Date", letterDate(detail.deliveryDate))],
+            deliveryMethod: "BY HAND ONLY", salutation: nil, subject: nil, intro: nil,
             currencySymbol: currencySymbol(company), columns: columns, rows: rows,
-            sections: remarks(detail.notes),
-            signatures: [
-                LetterSignature(heading: "Delivered by", lines: [
-                    LetterSignatureLine(text: company.companyName),
-                    LetterSignatureLine(text: "Name", colon: true, value: nonBlank(detail.deliveredBy)),
-                    LetterSignatureLine(text: "Date", colon: true),
-                ]),
-                LetterSignature(heading: "Received in good condition by", lines: [
-                    LetterSignatureLine(text: client.name),
-                    LetterSignatureLine(text: "Name", colon: true, value: nonBlank(detail.receivedBy)),
-                    LetterSignatureLine(text: "Date", colon: true),
-                ]),
-            ],
-            closingLine: nil
+            sections: remarks(detail.notes), signatures: [], closingLine: nil
         )
+        letter.infoRows = info
+        letter.compactTable = true
+        letter.receiptRows = [("Received By", "Date"), ("Full Name", "Contact No.")]
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
                            documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote", letter: letter)
     }
