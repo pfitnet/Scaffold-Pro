@@ -6,6 +6,9 @@
 # builds the Word copy with js/docx-export.js and renders it with
 # LibreOffice.
 #
+# The app prints only the landscape sheet; a portrait BOQ goes on the
+# letterhead (docs.py's "boq"). The portrait sheet here is kept for reference.
+#
 #   pip install pillow pymupdf
 #   python3 sheet.py [path/to/original.pdf] [calibri.ttf] [arial-bold.ttf]
 #

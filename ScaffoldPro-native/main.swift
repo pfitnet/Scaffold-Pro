@@ -5396,8 +5396,11 @@ final class PDFGenerator {
 // size and colour is measured from that sheet (A4 landscape, 842.88 ×
 // 595.92pt, table 85.875–754.875pt across, from 53.625pt down).
 //
-//   Landscape: No. | Item Name | Weight | Quantity | Unit … Rate | Total … Rate | Total Weight
-//   Portrait:  No. | Item Name | Weight | Quantity | Total Weight   (no prices)
+//   No. | Item Name | Weight | Quantity | Unit … Rate | Total … Rate | Total Weight
+//
+// This is the landscape BOQ. A portrait BOQ is printed on the letterhead
+// instead (no prices). BQSheet.layout can also lay out a portrait sheet
+// without prices, which isn't used at present.
 //
 // One layout (`SheetLayout`) is drawn by `BQSheetRenderer` for the PDF and
 // by js/docx-export.js for the Word copy, so the two look the same.
@@ -7689,11 +7692,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         LetterColumn(title: "Total Price", width: 108.75, kind: .money),
     ]
 
-    /// The BOQ as the company's BQ sheet ("PROFICIENCY QUOTATION"):
-    /// landscape with prices, or portrait without.
+    /// Landscape: the BOQ as the company's BQ sheet ("PROFICIENCY
+    /// QUOTATION"), with prices. Portrait: on the letterhead, with weights
+    /// and no prices (`exportBOQOnLetterhead`).
     private func handleExportBOQPDF(id: String, boqId: String, mode: PDFMode = .export) {
         guard let detail = db.getBOQDetail(id: boqId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "BOQ not found.", path: nil))
+            return
+        }
+        if detail.orientation == "Portrait" {
+            exportBOQOnLetterhead(id: id, detail: detail, mode: mode)
             return
         }
         let company = db.getCompanySettings()
@@ -7704,7 +7712,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         var jobSite = site.map { $0.name } ?? ""
         if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
         var layout = BQSheet.layout(
-            landscape: detail.orientation != "Portrait", pricingMode: detail.pricingMode, currencyCode: company.currency,
+            landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
             info: (projectCode: detail.projectNumber, client: nonBlank(client?.clientReference) ?? client?.companyName ?? "",
                    jobSite: jobSite, structure: detail.structure ?? ""),
             lines: detail.lineItems, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg)
@@ -7724,6 +7732,41 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
                    projectNumber: detail.projectNumber, subfolder: "BOQ", documentNumber: detail.boqNumber, docTypeTag: "BOQ")
+    }
+
+    /// The portrait BOQ: the letterhead layout (from Qt26193) with each
+    /// item's unit, quantity and weights, and the total weight.
+    private func exportBOQOnLetterhead(id: String, detail: BOQDetail, mode: PDFMode) {
+        let company = db.getCompanySettings()
+        let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: nil)
+        let columns = [
+            LetterColumn(title: "No", width: 29.25, kind: .center),
+            LetterColumn(title: "Item Description", width: 219.75, kind: .left),
+            LetterColumn(title: "Unit", width: 50.0, kind: .center),
+            LetterColumn(title: "Qty", width: 50.0, kind: .center),
+            LetterColumn(title: "Unit Wt (kg)", width: 75.0, kind: .right),
+            LetterColumn(title: "Total Wt (kg)", width: 83.0, kind: .right),
+        ]
+        var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
+            .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity),
+                   item.weightKg.map { formatMoney($0) } ?? "—",
+                   item.weightKg.map { formatMoney($0 * item.quantity.rounded()) } ?? "—"])
+        }
+        rows.append(.summary(label: "Total Weight:", value: "\(formatMoney(detail.totalWeightKg)) kg", emphasized: true))
+
+        let letter = LetterDocument(
+            number: detail.boqNumber, status: detail.status, title: "BILL OF QUANTITIES",
+            clientName: client.name, clientLines: client.lines,
+            refRows: [("BOQ No.", detail.boqNumber), ("Project No.", detail.projectNumber),
+                      ("Site Ref.", siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.createdAt))],
+            deliveryMethod: nil, salutation: nil,
+            subject: "Re: \(detail.projectNumber) \(detail.projectName) - \(detail.pricingMode)",
+            intro: detail.structure.flatMap { nonBlank($0) }.map { "Structure: \($0)" },
+            currencySymbol: currencySymbol(company), columns: columns, rows: rows,
+            sections: remarks(detail.notes), signatures: [], closingLine: nil
+        )
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ",
+                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: letter)
     }
 
     private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
