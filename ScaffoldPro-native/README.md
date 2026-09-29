@@ -1019,3 +1019,18 @@ under "Letterhead layout".
   - Deleting an invoice removes its payments from Accounts. Deleting a
     delivery note puts its items back in stock. Linked drawings stay with
     the project, and exported PDF and Word files stay in the folder.
+
+## Batch 41 — One-click install from the Desktop
+
+- **Install ScaffoldPro.command** (in the Scaffold-Pro folder, beside
+  ScaffoldPro-native) builds and installs the app when you double-click it.
+  Copy it to your Desktop.
+  - The first time, it finds the ScaffoldPro-native folder, or asks you to
+    drag it into the window, and remembers it in `~/.scaffoldpro-install-path`.
+  - If the folder is a git copy, it fetches the latest version first. If it
+    can't update, it installs the version you have.
+  - It checks that Apple's Command Line Tools (the Swift compiler) are
+    installed, runs `./install.sh`, and keeps the window open so you can
+    read the result.
+  - If macOS says it can't be opened, right-click it › Open › Open. You only
+    need to do that once.
