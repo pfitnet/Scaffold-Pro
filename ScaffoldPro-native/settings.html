@@ -43,172 +43,225 @@
     .location-label { color: var(--text-secondary); }
     .location-path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
     .kind-safety { color: var(--text-secondary); font-style: italic; }
+    /* Collapsible sections: click a heading to open or close it. */
+    .settings-sections { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; max-width: 900px; }
+    .settings-section { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
+    .settings-section > summary {
+      list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 12px;
+      padding: 12px 16px 12px 36px; position: relative; -webkit-user-select: none; user-select: none;
+    }
+    .settings-section > summary::-webkit-details-marker { display: none; }
+    .settings-section > summary::before {
+      content: ""; position: absolute; left: 16px; top: 17px; width: 6px; height: 6px;
+      border-right: 1.5px solid var(--text-secondary); border-bottom: 1.5px solid var(--text-secondary);
+      transform: rotate(-45deg); transition: transform 0.15s ease;
+    }
+    .settings-section[open] > summary::before { transform: rotate(45deg); top: 15px; }
+    .settings-section > summary:hover { background: var(--sidebar-hover, rgba(0,0,0,0.03)); border-radius: var(--radius-lg); }
+    .section-title { font-size: 14px; font-weight: 600; }
+    .section-desc { font-size: 12px; color: var(--text-secondary); }
+    .settings-section[open] > summary { border-bottom: 1px solid var(--hairline); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    .section-body { padding: 14px 16px 18px; }
+    .section-body > .subtitle:first-child { margin-top: 0; }
+    .settings-section .settings-grid { max-width: none; }
+    .settings-section .team-box, .settings-section .cloud-backup { background: var(--content, var(--bg)); }
+    .settings-sections > .save-row { margin-top: 4px; }
   </style>
 </head>
 <body data-page="settings">
   <nav id="sidebar"></nav>
   <main id="content">
     <h1>Settings</h1>
-    <div class="subtitle">Company details below feed the header of every BOQ, Quotation, Invoice, and Delivery Note PDF.</div>
+    <div class="subtitle">Click a section to open or close it. Company details feed the letterhead of every BOQ, quotation, invoice and delivery note.</div>
 
-    <h2 style="margin-top:24px;">Company Information</h2>
+    <div class="settings-sections">
+      <details class="settings-section" id="general" open>
+        <summary><span class="section-title">General</span><span class="section-desc">Company details, currency and tax, appearance</span></summary>
+        <div class="section-body">
     <div class="settings-grid">
-      <div class="field"><label>Company Name</label><input type="text" id="companyName-input" /></div>
-      <div class="field"><label>Website</label><input type="text" id="website-input" /></div>
-      <div class="field"><label>Address Line 1</label><input type="text" id="addressLine1-input" /></div>
-      <div class="field"><label>Address Line 2</label><input type="text" id="addressLine2-input" /></div>
-      <div class="field"><label>Phone</label><input type="text" id="phone-input" /></div>
-      <div class="field"><label>Email</label><input type="text" id="email-input" /></div>
-      <div class="field"><label>Registration No.</label><input type="text" id="registrationNumber-input" /></div>
-      <div class="field"><label>VAT / Tax No.</label><input type="text" id="vatNumber-input" /></div>
-      <div class="field full"><label>Bank Details (shown on invoices, one line each)</label><textarea id="bankDetails-input"></textarea></div>
-      <div class="field"><label>Currency</label><input type="text" id="currency-input" /></div>
-      <div class="field"><label>Default Tax / VAT Rate (%)</label><input type="number" id="defaultTaxRatePercent-input" min="0" step="0.01" /></div>
-      <div class="field full"><label for="defaultPaymentTerms-input">Default Payment Terms (printed on invoices)</label><textarea id="defaultPaymentTerms-input" rows="3"></textarea></div>
-      <div class="field full"><label>Default Notes (filled in on new quotations and invoices)</label><textarea id="defaultNotes-input"></textarea></div>
+          <div class="field"><label>Company Name</label><input type="text" id="companyName-input" /></div>
+          <div class="field"><label>Website</label><input type="text" id="website-input" /></div>
+          <div class="field"><label>Address Line 1</label><input type="text" id="addressLine1-input" /></div>
+          <div class="field"><label>Address Line 2</label><input type="text" id="addressLine2-input" /></div>
+          <div class="field"><label>Phone</label><input type="text" id="phone-input" /></div>
+          <div class="field"><label>Email</label><input type="text" id="email-input" /></div>
+          <div class="field"><label>Registration No.</label><input type="text" id="registrationNumber-input" /></div>
+          <div class="field"><label>VAT / Tax No.</label><input type="text" id="vatNumber-input" /></div>
+          <div class="field"><label>Currency</label><input type="text" id="currency-input" /></div>
+          <div class="field"><label>Default Tax / VAT Rate (%)</label><input type="number" id="defaultTaxRatePercent-input" min="0" step="0.01" /></div>
+          <div class="field full">
+            <label class="inline-check"><input type="checkbox" id="pricesIncludeTax-input" /> Prices already include tax / VAT</label>
+            <span class="small-note">When ticked, the tax shown on quotations and invoices is the part already inside the total, rather than added on top.</span>
+          </div>
     </div>
+        <p class="small-note">Every quotation, invoice, delivery note and BOQ is printed on the company letterhead — the Proficiency (HK) Limited heading and the address footer — exactly as on the standard quotation Qt26193. The signatory, terms and other wording below are used in the documents.</p>
+    <h3 class="related-title">Appearance</h3>
+        <div class="segmented" id="appearance-control">
+          <button data-value="System">Follow System</button>
+          <button data-value="Light">Light</button>
+          <button data-value="Dark">Dark</button>
+        </div>
+        </div>
+      </details>
 
-    <h2 style="margin-top:32px;">Letterhead</h2>
-    <p class="small-note">Every quotation, invoice, delivery note and BOQ is printed on the company letterhead — the Proficiency (HK) Limited heading and the address footer — exactly as on the standard quotation Qt26193. The signatory, terms and other wording below are used in the documents.</p>
-
-    <h2 style="margin-top:32px;">Documents</h2>
+      <details class="settings-section" id="documents">
+        <summary><span class="section-title">Documents &amp; Numbering</span><span class="section-desc">Paper size, default notes, document number formats</span></summary>
+        <div class="section-body">
     <div class="settings-grid">
-      <div class="field"><label>Paper Size</label>
-        <select id="paperSize-input"><option value="A4">A4</option><option value="Letter">Letter</option></select>
-      </div>
-      <div class="field"><label>Invoice Due After (days)</label><input type="number" id="defaultInvoiceDueDays-input" min="0" step="1" /></div>
-      <div class="field full">
-        <label class="inline-check"><input type="checkbox" id="pricesIncludeTax-input" /> Prices already include tax / VAT</label>
-        <span class="small-note">When ticked, the tax shown on quotations and invoices is the part already inside the total, rather than added on top.</span>
-      </div>
+          <div class="field"><label>Paper Size</label>
+            <select id="paperSize-input"><option value="A4">A4</option><option value="Letter">Letter</option></select>
+          </div>
+          <div class="field full"><label>Default Notes (filled in on new quotations and invoices)</label><textarea id="defaultNotes-input"></textarea></div>
     </div>
-
-    <h3 class="related-title" style="margin-top:22px;">Document Numbers</h3>
-    <div class="small-note" style="margin-bottom:10px; max-width:780px;">
-      Use <code>{PROJECT}</code> for the project number, <code>{YYYY}</code> or <code>{YY}</code> for the year, and <code>{SEQ}</code> for the running number (001, 002…).
-      Numbers already issued never change. Leave a box empty to use the standard format.
-    </div>
+    <h3 class="related-title">Document Numbers</h3>
+        <div class="small-note" style="margin-bottom:10px; max-width:780px;">
+          Use <code>{PROJECT}</code> for the project number, <code>{YYYY}</code> or <code>{YY}</code> for the year, and <code>{SEQ}</code> for the running number (001, 002…).
+          Numbers already issued never change. Leave a box empty to use the standard format.
+        </div>
     <div class="settings-grid">
-      <div class="field"><label>Bill of Quantities</label><input type="text" id="numberFormatBOQ-input" data-type="BOQ" placeholder="{PROJECT}-BOQ-{SEQ}" /><span class="number-example" id="numberFormatBOQ-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-BOQ" min="1" step="1" placeholder="1" /></label></div>
-      <div class="field"><label>Quotation</label><input type="text" id="numberFormatQuotation-input" data-type="QT" placeholder="Qt{YY}{SEQ}" /><span class="number-example" id="numberFormatQuotation-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-QT" min="1" step="1" placeholder="1" /></label></div>
-      <div class="field"><label>Invoice</label><input type="text" id="numberFormatInvoice-input" data-type="INV" placeholder="H{YY}{SEQ}" /><span class="number-example" id="numberFormatInvoice-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-INV" min="1" step="1" placeholder="1" /></label></div>
-      <div class="field"><label>Delivery Note</label><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /><span class="number-example" id="numberFormatDeliveryNote-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label></div>
+          <div class="field"><label>Bill of Quantities</label><input type="text" id="numberFormatBOQ-input" data-type="BOQ" placeholder="{PROJECT}-BOQ-{SEQ}" /><span class="number-example" id="numberFormatBOQ-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-BOQ" min="1" step="1" placeholder="1" /></label></div>
+          <div class="field"><label>Quotation</label><input type="text" id="numberFormatQuotation-input" data-type="QT" placeholder="Qt{YY}{SEQ}" /><span class="number-example" id="numberFormatQuotation-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-QT" min="1" step="1" placeholder="1" /></label></div>
+          <div class="field"><label>Invoice</label><input type="text" id="numberFormatInvoice-input" data-type="INV" placeholder="H{YY}{SEQ}" /><span class="number-example" id="numberFormatInvoice-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-INV" min="1" step="1" placeholder="1" /></label></div>
+          <div class="field"><label>Delivery Note</label><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /><span class="number-example" id="numberFormatDeliveryNote-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label></div>
     </div>
+        </div>
+      </details>
 
-    <h2 style="margin-top:32px;">Standard Quotation</h2>
+      <details class="settings-section" id="quotations">
+        <summary><span class="section-title">Quotations</span><span class="section-desc">Signatory, delivery charge, minimum hire, markup rounding, manpower rates, terms</span></summary>
+        <div class="section-body">
     <div class="small-note" style="margin-bottom:10px; max-width:780px;">Used on every quotation, laid out like Qt26193.</div>
     <div class="settings-grid">
-      <div class="field"><label>Signed by</label><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
-      <div class="field"><label>Title</label><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
-      <div class="field"><label>Terms &amp; Conditions web address</label><input type="text" id="termsURL-input" placeholder="www.pfitnet.com/TC" /></div>
-      <div class="field"><label>Standard delivery charge (HK$ per truck per trip)</label><input type="number" id="standardDeliveryCharge-input" min="0" step="0.01" placeholder="3800" /></div>
-      <div class="field"><label>Minimum hire (months) — used when “Minimum Hire” is ticked on a rental quotation</label><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1" /></div>
-      <div class="field"><label>EUR → HKD exchange rate (SCAFOM list)</label><input type="number" id="eurRate-input" min="0" step="0.0001" /></div>
-      <div class="field"><label for="termsNewPage-input">Terms &amp; Conditions page</label>
-        <select id="termsNewPage-input">
-          <option value="WhenLong">Follow on the same page when they fit (else a new page)</option>
-          <option value="Always">Always on a new page</option>
-        </select>
+          <div class="field"><label>Signed by</label><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
+          <div class="field"><label>Title</label><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
+          <div class="field"><label>Terms &amp; Conditions web address</label><input type="text" id="termsURL-input" placeholder="www.pfitnet.com/TC" /></div>
+          <div class="field"><label>Standard delivery charge (HK$ per truck per trip)</label><input type="number" id="standardDeliveryCharge-input" min="0" step="0.01" placeholder="3800" /></div>
+          <div class="field"><label>Minimum hire (months) — used when “Minimum Hire” is ticked on a rental quotation</label><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1" /></div>
+          <div class="field"><label>EUR → HKD exchange rate (SCAFOM list)</label><input type="number" id="eurRate-input" min="0" step="0.0001" /></div>
+          <div class="field"><label for="termsNewPage-input">Terms &amp; Conditions page</label>
+            <select id="termsNewPage-input">
+              <option value="WhenLong">Follow on the same page when they fit (else a new page)</option>
+              <option value="Always">Always on a new page</option>
+            </select>
+          </div>
+          <div class="field"><label for="markupRounding-input">Marked-up unit prices (quotation and BOQ markup %)</label>
+            <select id="markupRounding-input">
+              <option value="Nearest">Round off to the nearest 0.1 (4.83 → 4.80)</option>
+              <option value="Up">Round up to the next 0.1 (4.83 → 4.90)</option>
+            </select>
+          </div>
+          <div class="field full"><label>Standard manpower rates <span class="small-note">(“Standard Manpower Rates” / “Fill Standard Rates” on a quotation)</span></label>
+            <table class="compact manpower-rates">
+              <thead><tr><th>Worker</th><th class="num">Rate (HK$)</th><th>Per</th></tr></thead>
+              <tbody id="manpower-rates-body"></tbody>
+            </table>
+          </div>
+          <div class="field full"><label>Standard key terms (used on quotations that don't have key terms of their own)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
+          <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
+    </div>
+        </div>
+      </details>
+
+      <details class="settings-section" id="invoices">
+        <summary><span class="section-title">Invoices</span><span class="section-desc">Due date, bank details, payment terms</span></summary>
+        <div class="section-body">
+    <div class="settings-grid">
+          <div class="field"><label>Invoice Due After (days)</label><input type="number" id="defaultInvoiceDueDays-input" min="0" step="1" /></div>
+          <div class="field full"><label>Bank Details (shown on invoices, one line each)</label><textarea id="bankDetails-input"></textarea></div>
+          <div class="field full"><label for="defaultPaymentTerms-input">Default Payment Terms (printed on invoices)</label><textarea id="defaultPaymentTerms-input" rows="3"></textarea></div>
+    </div>
+        </div>
+      </details>
+
+      <div class="save-row">
+        <button class="primary" id="save-btn">Save Settings</button>
+        <span class="saved-note hidden" id="saved-note">Saved.</span>
       </div>
-      <div class="field"><label for="markupRounding-input">Marked-up unit prices (quotation and BOQ markup %)</label>
-        <select id="markupRounding-input">
-          <option value="Nearest">Round off to the nearest 0.1 (4.83 → 4.80)</option>
-          <option value="Up">Round up to the next 0.1 (4.83 → 4.90)</option>
-        </select>
+      <div class="changed-elsewhere hidden" id="settings-changed-elsewhere">
+        <span>These settings were just changed on another Mac. Save yours to keep what you've entered here, or reload to see theirs.</span>
+        <button id="settings-reload-btn">Reload</button>
       </div>
-      <div class="field full"><label>Standard manpower rates <span class="small-note">(“Standard Manpower Rates” / “Fill Standard Rates” on a quotation)</span></label>
-        <table class="compact manpower-rates">
-          <thead><tr><th>Worker</th><th class="num">Rate (HK$)</th><th>Per</th></tr></thead>
-          <tbody id="manpower-rates-body"></tbody>
-        </table>
-      </div>
-      <div class="field full"><label>Standard key terms (used on quotations that don't have key terms of their own)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
-      <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
-    </div>
 
-    <h2 style="margin-top:32px;">Appearance</h2>
-    <div class="segmented" id="appearance-control">
-      <button data-value="System">Follow System</button>
-      <button data-value="Light">Light</button>
-      <button data-value="Dark">Dark</button>
-    </div>
+      <details class="settings-section" id="team">
+        <summary><span class="section-title">Share with Other Macs</span><span class="section-desc">Work on the same data from several Macs through iCloud Drive</span></summary>
+        <div class="section-body">
+        <div class="subtitle">Several people can work on the same projects, quotations and documents, each on their own Mac, with no server: the data lives in a folder you all share in iCloud Drive (free with every Apple ID). When someone saves a change, it appears on the other Macs by itself — usually within a few seconds, as soon as iCloud has carried it across.</div>
+        <div class="team-box" id="team-box">
+          <div id="team-off">
+            <p class="small-note" style="margin-top:0;">To set it up:</p>
+            <ol>
+              <li>On this Mac, press <b>Share My Data…</b> and choose a folder in iCloud Drive (for example your shared <b>Proficiency</b> folder). ScaffoldPro makes a <b>ScaffoldPro Team</b> folder there and copies in your data and project files.</li>
+              <li>In Finder, share that folder with the others if it isn't shared already: Control-click it › <b>Share</b> › <b>Share Folder…</b>, add them, and set <b>Permission</b> to <b>Can make changes</b>.</li>
+              <li>On each of their Macs: install ScaffoldPro, accept the invitation, then in Settings press <b>Join a Shared Folder…</b> and choose the ScaffoldPro Team folder.</li>
+            </ol>
+            <p class="small-note">Joining leaves that Mac's own data untouched — it comes back if sharing is turned off there.</p>
+            <div class="backup-actions">
+              <button class="primary" id="team-start-btn">Share My Data…</button>
+              <button id="team-join-btn">Join a Shared Folder…</button>
+              <span class="backup-status" id="team-busy"></span>
+            </div>
+          </div>
+          <div id="team-on" class="hidden">
+            <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="team-folder">—</span></div>
+            <div class="cloud-row"><span class="cloud-label">Status</span><span id="team-status">—</span></div>
+            <div class="team-members" id="team-members"></div>
+            <div class="team-name-row">
+              <label for="team-name-input">Your name (shown to the others, and in each project's history)</label>
+              <input type="text" id="team-name-input" />
+            </div>
+            <p class="small-note">If two people change the same thing at the same moment, the later change is kept. Document numbers are worked out on each Mac, so if two people create, say, a quotation for the same project within a few seconds of each other, check the numbers.</p>
+            <div class="backup-actions">
+              <button id="team-reveal-btn">Show Folder in Finder</button>
+              <button id="team-leave-btn">Stop Sharing on This Mac…</button>
+            </div>
+          </div>
+        </div>
+        </div>
+      </details>
 
-    <div class="save-row">
-      <button class="primary" id="save-btn">Save Settings</button>
-      <span class="saved-note hidden" id="saved-note">Saved.</span>
-    </div>
+      <details class="settings-section" id="backup">
+        <summary><span class="section-title">Backup &amp; Restore</span><span class="section-desc">Backups, restoring, automatic iCloud backup</span></summary>
+        <div class="section-body">
+        <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive. Backups are kept with the database (Library ▸ Application Support ▸ ScaffoldPro ▸ Backups), away from the business files in Documents.</div>
 
-    <div class="changed-elsewhere hidden" id="settings-changed-elsewhere">
-      <span>These settings were just changed on another Mac. Save yours to keep what you've entered here, or reload to see theirs.</span>
-      <button id="settings-reload-btn">Reload</button>
-    </div>
-
-    <h2 style="margin-top:36px;" id="team">Share with Other Macs</h2>
-    <div class="subtitle">Several people can work on the same projects, quotations and documents, each on their own Mac, with no server: the data lives in a folder you all share in iCloud Drive (free with every Apple ID). When someone saves a change, it appears on the other Macs by itself — usually within a few seconds, as soon as iCloud has carried it across.</div>
-    <div class="team-box" id="team-box">
-      <div id="team-off">
-        <p class="small-note" style="margin-top:0;">To set it up:</p>
-        <ol>
-          <li>On this Mac, press <b>Share My Data…</b> and choose a folder in iCloud Drive (for example your shared <b>Proficiency</b> folder). ScaffoldPro makes a <b>ScaffoldPro Team</b> folder there and copies in your data and project files.</li>
-          <li>In Finder, share that folder with the others if it isn't shared already: Control-click it › <b>Share</b> › <b>Share Folder…</b>, add them, and set <b>Permission</b> to <b>Can make changes</b>.</li>
-          <li>On each of their Macs: install ScaffoldPro, accept the invitation, then in Settings press <b>Join a Shared Folder…</b> and choose the ScaffoldPro Team folder.</li>
-        </ol>
-        <p class="small-note">Joining leaves that Mac's own data untouched — it comes back if sharing is turned off there.</p>
         <div class="backup-actions">
-          <button class="primary" id="team-start-btn">Share My Data…</button>
-          <button id="team-join-btn">Join a Shared Folder…</button>
-          <span class="backup-status" id="team-busy"></span>
+          <button class="primary" id="create-backup-btn">Create Backup</button>
+          <button id="restore-other-btn">Restore from Folder…</button>
+          <button id="show-backups-btn">Show Backups Folder</button>
+          <span class="backup-status" id="backup-status"></span>
         </div>
-      </div>
-      <div id="team-on" class="hidden">
-        <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="team-folder">—</span></div>
-        <div class="cloud-row"><span class="cloud-label">Status</span><span id="team-status">—</span></div>
-        <div class="team-members" id="team-members"></div>
-        <div class="team-name-row">
-          <label for="team-name-input">Your name (shown to the others, and in each project's history)</label>
-          <input type="text" id="team-name-input" />
+
+        <div id="backup-list"></div>
+
+        <div class="cloud-backup" id="cloud-backup">
+          <h3>Automatic iCloud Backup</h3>
+          <p class="small-note">Keeps an up-to-date copy of everything — the database, every project folder and all worker and company documents — straight into the shared iCloud Drive folder <b>Proficiency › William's Work</b> (its Database, Projects, Administration, Configuration and Database History folders). It updates itself about a minute after anything is saved, every 15 minutes, and when ScaffoldPro opens; only files that changed are copied. A copy of the database is also kept for each of the last 30 days. Nothing is ever deleted from the iCloud copy. To restore from it, use <b>Restore from Folder…</b> above and choose the William's Work folder.</p>
+          <label class="inline-check"><input type="checkbox" id="cloud-enabled" /> Back up to iCloud automatically</label>
+          <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="cloud-folder">—</span></div>
+          <div class="cloud-row"><span class="cloud-label">Status</span><span id="cloud-status">—</span></div>
+          <div class="backup-actions">
+            <button id="cloud-now-btn">Back Up Now</button>
+            <button id="cloud-choose-btn">Choose Folder…</button>
+            <button id="cloud-default-btn">Use Proficiency › William's Work</button>
+            <button id="cloud-reveal-btn">Show in Finder</button>
+          </div>
         </div>
-        <p class="small-note">If two people change the same thing at the same moment, the later change is kept. Document numbers are worked out on each Mac, so if two people create, say, a quotation for the same project within a few seconds of each other, check the numbers.</p>
-        <div class="backup-actions">
-          <button id="team-reveal-btn">Show Folder in Finder</button>
-          <button id="team-leave-btn">Stop Sharing on This Mac…</button>
         </div>
-      </div>
+      </details>
+
+      <details class="settings-section" id="data-location">
+        <summary><span class="section-title">Data Location</span><span class="section-desc">Where the files and database are kept</span></summary>
+        <div class="section-body">
+        <div class="location-grid">
+          <div class="location-label">Business files</div><div class="location-path" id="loc-documents">—</div>
+          <div class="location-label">Backups</div><div class="location-path" id="loc-backups">—</div>
+          <div class="location-label">Database</div><div class="location-path" id="loc-database">—</div>
+        </div>
+        <div style="margin-top:10px;"><button id="show-data-folder-btn">Show in Finder</button></div>
+        </div>
+      </details>
+
     </div>
-
-    <h2 style="margin-top:36px;" id="backup">Backup &amp; Restore</h2>
-    <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive. Backups are kept with the database (Library ▸ Application Support ▸ ScaffoldPro ▸ Backups), away from the business files in Documents.</div>
-
-    <div class="backup-actions">
-      <button class="primary" id="create-backup-btn">Create Backup</button>
-      <button id="restore-other-btn">Restore from Folder…</button>
-      <button id="show-backups-btn">Show Backups Folder</button>
-      <span class="backup-status" id="backup-status"></span>
-    </div>
-
-    <div id="backup-list"></div>
-
-    <div class="cloud-backup" id="cloud-backup">
-      <h3>Automatic iCloud Backup</h3>
-      <p class="small-note">Keeps an up-to-date copy of everything — the database, every project folder and all worker and company documents — straight into the shared iCloud Drive folder <b>Proficiency › William's Work</b> (its Database, Projects, Administration, Configuration and Database History folders). It updates itself about a minute after anything is saved, every 15 minutes, and when ScaffoldPro opens; only files that changed are copied. A copy of the database is also kept for each of the last 30 days. Nothing is ever deleted from the iCloud copy. To restore from it, use <b>Restore from Folder…</b> above and choose the William's Work folder.</p>
-      <label class="inline-check"><input type="checkbox" id="cloud-enabled" /> Back up to iCloud automatically</label>
-      <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="cloud-folder">—</span></div>
-      <div class="cloud-row"><span class="cloud-label">Status</span><span id="cloud-status">—</span></div>
-      <div class="backup-actions">
-        <button id="cloud-now-btn">Back Up Now</button>
-        <button id="cloud-choose-btn">Choose Folder…</button>
-        <button id="cloud-default-btn">Use Proficiency › William's Work</button>
-        <button id="cloud-reveal-btn">Show in Finder</button>
-      </div>
-    </div>
-
-    <h2 style="margin-top:36px;">Data Location</h2>
-    <div class="location-grid">
-      <div class="location-label">Business files</div><div class="location-path" id="loc-documents">—</div>
-      <div class="location-label">Backups</div><div class="location-path" id="loc-backups">—</div>
-      <div class="location-label">Database</div><div class="location-path" id="loc-database">—</div>
-    </div>
-    <div style="margin-top:10px;"><button id="show-data-folder-btn">Show in Finder</button></div>
   </main>
   <script src="js/sidebar.js"></script>
   <script src="js/paragraph-format.js"></script>

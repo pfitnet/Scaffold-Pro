@@ -115,6 +115,20 @@ function render() {
   const adjustmentInput = document.getElementById('adjustment-input');
   if (document.activeElement !== adjustmentInput) adjustmentInput.value = formatAdjustment(d);
   adjustmentInput.disabled = isLocked;
+  // The client's default markup: said when it's in use, offered when not.
+  const hint = document.getElementById('client-markup-hint');
+  const cm = Number(d.clientMarkupPercent) || 0;
+  hint.classList.toggle('hidden', !cm);
+  if (cm) {
+    hint.innerHTML = Number(d.markupPercent) === cm
+      ? `The client’s default markup (${cm}%).`
+      : `Client’s default: ${cm}%.${isLocked ? '' : ` <button type="button" class="link-btn" id="use-client-markup-btn">Use ${cm}%</button>`}`;
+    const use = document.getElementById('use-client-markup-btn');
+    if (use) use.addEventListener('click', () => {
+      adjustmentInput.value = `+${cm}%`;
+      saveHeader();
+    });
+  }
 
   const taxRateInput = document.getElementById('tax-rate-input');
   if (document.activeElement !== taxRateInput) taxRateInput.value = d.taxRatePercent;
