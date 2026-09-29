@@ -57,6 +57,10 @@ cp -R "$SCRIPT_DIR/resources" "$BUILD/Contents/Resources/resources"
 # Which version this is (the date of its latest change). Macs sharing a
 # folder compare it, so a copy that needs updating can be spotted.
 git -C "$SCRIPT_DIR" log -1 --format=%cI 2>/dev/null > "$BUILD/Contents/Resources/version.txt" || true
+# The exact version and where its source is, so the app can check GitHub
+# for a newer one when it opens (and run Install ScaffoldPro to update).
+git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null > "$BUILD/Contents/Resources/commit.txt" || true
+printf '%s\n' "$SCRIPT_DIR" > "$BUILD/Contents/Resources/source.txt"
 
 printf 'APPL????' > "$BUILD/Contents/PkgInfo"
 
@@ -79,6 +83,14 @@ xattr -cr "$BUILD"
 
 echo "🔏 Ad-hoc signing..."
 codesign --force --deep --sign - "$BUILD"
+
+# A copy that's still open would otherwise stay open (and `open` below
+# would just bring it to the front instead of starting the new one).
+if pgrep -xq ScaffoldPro; then
+    echo "👋 Closing the open ScaffoldPro..."
+    osascript -e 'tell application "ScaffoldPro" to quit' >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -xq ScaffoldPro || break; sleep 0.5; done
+fi
 
 echo "📦 Installing to /Applications..."
 rm -rf "$DEST"

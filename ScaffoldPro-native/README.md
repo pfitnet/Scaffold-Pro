@@ -1140,3 +1140,36 @@ under "Letterhead layout".
   - A subject line typed by hand is never changed.
   - Draft quotations made before this get the structure when ScaffoldPro
     opens. Issued ones are left as they are.
+
+## Batch 47 — Tidier Settings, client default markup, update check
+
+- **Settings is grouped into collapsible sections**, each with a
+  one-line description. Click a heading to open or close it:
+  - General
+  - Documents & Numbering
+  - Quotations
+  - Invoices
+  - Share with Other Macs
+  - Backup & Restore
+  - Data Location
+
+  The open sections are remembered, and links such as settings.html#team open
+  that section.
+- **Default Markup (%) for each client** (Clients › edit).
+  - New BOQs for the client's projects start with it, and a BOQ's mark-up
+    carries on to its quotation as before.
+  - A quotation made without a BOQ starts with the client's markup.
+  - The BOQ and quotation editors show the client's default. When the
+    document uses a different markup, they offer "Use 15%".
+  - The client list has a Default Markup column.
+- **Update check when ScaffoldPro opens**, and from ScaffoldPro › Check for
+  Updates….
+  - install.sh records the commit it built (commit.txt) and its source folder
+    (source.txt).
+  - The app fetches from GitHub in that folder without asking for a
+    password. It compares GitHub's latest (as fetched by it or by GitHub
+    Desktop) and the folder's own latest with what's installed. If git can't
+    sign in, it asks GitHub's web API, which works for public repositories.
+  - If there's a newer version, **Update Now** runs Install ScaffoldPro and
+    closes the app. The new build opens when it's done.
+  - install.sh now closes an open ScaffoldPro before replacing it.

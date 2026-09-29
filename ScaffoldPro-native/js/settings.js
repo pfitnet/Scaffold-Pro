@@ -386,6 +386,32 @@ window.onSharedDataChanged = async (change) => {
   }
 };
 
+// ---------- Collapsible sections ----------
+
+// The open sections are remembered; a link to #team, #backup etc. opens
+// (and scrolls to) that section.
+function setupSections() {
+  const KEY = 'scaffoldpro.settings.open';
+  const sections = [...document.querySelectorAll('details.settings-section')];
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { saved = null; }
+  if (Array.isArray(saved)) for (const d of sections) d.open = saved.includes(d.id);
+  const openFromHash = () => {
+    const target = location.hash && document.getElementById(location.hash.slice(1));
+    if (target && target.tagName === 'DETAILS') {
+      target.open = true;
+      setTimeout(() => target.scrollIntoView({ block: 'start' }), 0);
+    }
+  };
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+  for (const d of sections) {
+    d.addEventListener('toggle', () => {
+      try { localStorage.setItem(KEY, JSON.stringify(sections.filter((x) => x.open).map((x) => x.id))); } catch (e) { /* not kept */ }
+    });
+  }
+}
+
 async function init() {
   const formatted = ['defaultPaymentTerms-input', 'quotationTerms-input'].map((id) => document.getElementById(id));
   for (const ta of formatted) window.attachParagraphFormatting(ta);
@@ -410,9 +436,7 @@ async function init() {
       await window.api.settings.update({ appearance: b.dataset.value });
     });
   }
-  if (location.hash === '#backup' || location.hash === '#team') {
-    document.getElementById(location.hash.slice(1)).scrollIntoView();
-  }
+  setupSections();
 
   document.getElementById('create-backup-btn').addEventListener('click', createBackup);
   document.getElementById('restore-other-btn').addEventListener('click', restoreFromOtherFolder);

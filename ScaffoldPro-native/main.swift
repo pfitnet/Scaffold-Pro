@@ -34,6 +34,9 @@ struct Client: Codable {
     /// `address` is line 1; these are the address's further lines.
     var addressLine2: String? = nil
     var addressLine3: String? = nil
+    /// The markup % new BOQs and quotations for this client start with
+    /// (a BOQ's mark-up then carries on to its quotation). nil = none.
+    var defaultMarkupPercent: Double? = nil
 }
 
 struct Site: Codable {
@@ -715,6 +718,9 @@ struct BOQSummary: Codable {
 }
 
 struct BOQDetail: Codable {
+    /// The client's default markup (a hint in the editor), and its name.
+    var clientMarkupPercent: Double? = nil
+    var clientName: String? = nil
     var id: String
     var boqNumber: String
     var status: String
@@ -928,6 +934,8 @@ struct QuotationDetail: Codable {
     var signedCopyAt: String? = nil
     var signedCopyExists = false
     var signedCopyNotNeeded = false
+    /// The client's default markup (a hint in the editor).
+    var clientMarkupPercent: Double? = nil
 }
 
 struct QuotationActionResult: Codable {
@@ -2315,8 +2323,33 @@ final class AppDatabase {
         items[i].billingInfo = text(payload, "billingInfo")
         items[i].addressLine2 = text(payload, "addressLine2")
         items[i].addressLine3 = text(payload, "addressLine3")
+        switch markupField(payload["defaultMarkupPercent"]) {
+        case .failure(let e): return e.message
+        case .success(let m): items[i].defaultMarkupPercent = m
+        }
         clientsStore.writeAll(items)
         return nil
+    }
+
+    /// A default markup typed in the client form: blank or 0 = none.
+    private func markupField(_ raw: Any?) -> Result<Double?, WorkerError> {
+        let value: Double?
+        if let n = raw as? Double { value = n }
+        else if let t = nonBlank(raw as? String) {
+            guard let n = Double(t.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)) else {
+                return .failure(WorkerError(message: "Enter the default markup as a number, e.g. 15 for 15%."))
+            }
+            value = n
+        } else { value = nil }
+        guard let m = value, m != 0 else { return .success(nil) }
+        guard m > 0, m <= 1000 else { return .failure(WorkerError(message: "Enter a default markup between 0% and 1000%.")) }
+        return .success(m)
+    }
+
+    /// The default markup of a project's client, if it has one.
+    func clientDefaultMarkup(projectId: String) -> Double? {
+        guard let project = projectsStore.readAll().first(where: { $0.id == projectId }) else { return nil }
+        return getClient(id: project.clientId)?.defaultMarkupPercent
     }
 
     func setClientArchived(id: String, archived: Bool) -> String? {
@@ -2348,6 +2381,7 @@ final class AppDatabase {
         )
         client.addressLine2 = text(payload, "addressLine2")
         client.addressLine3 = text(payload, "addressLine3")
+        if case .success(let m) = markupField(payload["defaultMarkupPercent"]) { client.defaultMarkupPercent = m }
         clientsStore.insert(client)
         return client
     }
@@ -2863,7 +2897,7 @@ final class AppDatabase {
     }
 
     func createBOQ(projectId: String, projectNumber: String, pricingMode: String) -> BillOfQuantities {
-        let boq = BillOfQuantities(
+        var boq = BillOfQuantities(
             id: makeId("boq"),
             projectId: projectId,
             boqNumber: nextBOQNumber(projectNumber: projectNumber, projectId: projectId),
@@ -2874,6 +2908,8 @@ final class AppDatabase {
             updatedAt: nowISO(),
             markupOnRates: true
         )
+        // Starts with the client's default markup.
+        boq.markupPercent = clientDefaultMarkup(projectId: projectId)
         boqsStore.insert(boq)
         logActivity(projectId: projectId, "BOQ created (\(boq.pricingMode))", reference: boq.boqNumber)
         return boq
@@ -2889,7 +2925,7 @@ final class AppDatabase {
         let items = lineItems(for: boq.id)
         let total = boqMoneyTotal(items)
         let roundUp = markupRoundsUp
-        return BOQDetail(
+        var detail = BOQDetail(
             id: boq.id, boqNumber: boq.boqNumber, status: boq.status, pricingMode: boq.pricingMode,
             notes: boq.notes, createdAt: boq.createdAt, updatedAt: boq.updatedAt,
             projectNumber: project.projectNumber, projectName: project.name,
@@ -2902,6 +2938,10 @@ final class AppDatabase {
             totalAmount: doubleOf(decimalOf(total) + decimalOf(boqChargesTotal(boq.charges))),
             markupOnRates: boq.markupOnRates == true, markupRoundUp: roundUp
         )
+        let client = getClient(id: project.clientId)
+        detail.clientMarkupPercent = client?.defaultMarkupPercent
+        detail.clientName = client?.companyName
+        return detail
     }
 
     /// How the BQ sheet is printed; allowed on issued BOQs too, as it
@@ -3328,6 +3368,9 @@ final class AppDatabase {
                                                      structure: sourceBOQId.flatMap { getBOQ(id: $0)?.structure })
         }
         quotation.deliveryMethod = "BY EMAIL ONLY"
+        // Starts with the client's default markup — unless it follows a BOQ,
+        // whose own mark-up carries on to it instead.
+        if sourceBOQId == nil { quotation.markupPercent = clientDefaultMarkup(projectId: projectId) }
         // Minimum hire is an option per quotation, off until switched on;
         // the months default from Settings.
         quotation.minimumHireMonths = settings.defaultMinimumHireMonths ?? 2
@@ -3497,6 +3540,7 @@ final class AppDatabase {
         detail.signedCopyAt = q.signedCopyAt
         detail.signedCopyExists = q.signedCopyPath.map { fileIsPresent($0) } ?? false
         detail.signedCopyNotNeeded = q.signedCopyNotNeeded ?? false
+        detail.clientMarkupPercent = client?.defaultMarkupPercent
         return detail
     }
 
@@ -10940,6 +10984,112 @@ final class TitlebarDragView: NSView {
     override func draw(_ dirtyRect: NSRect) {}
 }
 
+// =====================================================================
+// MARK: - Checking GitHub for a newer version
+//
+// install.sh records the commit it built (commit.txt) and its source
+// folder (source.txt). When the app opens it fetches from GitHub in that
+// folder (without asking for a password), then compares: GitHub's latest
+// as last fetched — here, or by GitHub Desktop — and the folder's own
+// latest, with what's installed. If Terminal can't sign in to GitHub, a
+// public repository is also checked through GitHub's web API.
+// =====================================================================
+
+struct UpdateInfo {
+    /// How many changes are newer than this copy (nil = newer, count unknown).
+    var changes: Int?
+    /// The newest change's description.
+    var latest: String?
+    /// Install ScaffoldPro.command in the source folder.
+    var installer: URL?
+}
+
+enum UpdateChecker {
+    private static func resource(_ name: String) -> String? {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent(name),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return nonBlank(text)
+    }
+
+    /// Whether this copy was built from a git folder (so updates can be checked).
+    static var canCheck: Bool { resource("commit.txt") != nil && resource("source.txt") != nil }
+
+    /// Runs git in `dir`, never waiting on a password prompt; nil if it
+    /// failed or took longer than `timeout`.
+    private static func git(_ args: [String], in dir: String, timeout: TimeInterval = 20) -> String? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        p.arguments = ["-C", dir] + args
+        var env = ProcessInfo.processInfo.environment
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        p.environment = env
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = FileHandle.nullDevice
+        p.standardInput = FileHandle.nullDevice
+        do { try p.run() } catch { return nil }
+        let deadline = Date().addingTimeInterval(timeout)
+        while p.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
+        if p.isRunning { p.terminate(); return nil }
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        guard p.terminationStatus == 0 else { return nil }
+        return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    /// The latest commit on GitHub, through the web API (public
+    /// repositories only), for when git can't sign in.
+    private static func latestOnGitHub(repoDir: String, branch: String) -> String? {
+        guard let remote = git(["remote", "get-url", "origin"], in: repoDir),
+              let match = remote.range(of: #"github\.com[:/]([^/]+)/([^/]+?)(\.git)?/?$"#, options: .regularExpression) else { return nil }
+        let parts = remote[match].dropFirst("github.com/".count).split(separator: "/").map(String.init)
+        guard parts.count >= 2 else { return nil }
+        let repo = parts[1].hasSuffix(".git") ? String(parts[1].dropLast(4)) : parts[1]
+        guard let url = URL(string: "https://api.github.com/repos/\(parts[0])/\(repo)/commits/\(branch)") else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: 15)
+        request.setValue("application/vnd.github.sha", forHTTPHeaderField: "Accept")
+        let done = DispatchSemaphore(value: 0)
+        var sha: String?
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            if (response as? HTTPURLResponse)?.statusCode == 200, let data = data {
+                sha = nonBlank(String(data: data, encoding: .utf8))
+            }
+            done.signal()
+        }.resume()
+        _ = done.wait(timeout: .now() + 20)
+        return sha
+    }
+
+    /// Checks for a newer version (background thread). nil = up to date,
+    /// or it couldn't tell.
+    static func check() -> UpdateInfo? {
+        guard let installed = resource("commit.txt"), let source = resource("source.txt"),
+              FileManager.default.fileExists(atPath: source),
+              let top = git(["rev-parse", "--show-toplevel"], in: source), !top.isEmpty else { return nil }
+        let installer = URL(fileURLWithPath: top).appendingPathComponent("Install ScaffoldPro.command")
+        let fetched = git(["-c", "credential.interactive=never", "fetch", "--quiet", "origin"], in: top, timeout: 30) != nil
+        var newest = 0
+        var newestRef: String?
+        for ref in ["@{u}", "origin/main", "HEAD"] {
+            guard let n = git(["rev-list", "--count", "\(installed)..\(ref)"], in: top).flatMap({ Int($0) }), n > newest else { continue }
+            newest = n
+            newestRef = ref
+        }
+        if newest > 0 {
+            return UpdateInfo(changes: newest, latest: newestRef.flatMap { git(["log", "-1", "--format=%s", $0], in: top) },
+                              installer: FileManager.default.fileExists(atPath: installer.path) ? installer : nil)
+        }
+        // Couldn't reach GitHub with git: ask its web API instead.
+        if !fetched {
+            let branch = git(["rev-parse", "--abbrev-ref", "@{u}"], in: top).map { String($0.split(separator: "/").last ?? "main") } ?? "main"
+            if let sha = latestOnGitHub(repoDir: top, branch: branch), sha != installed,
+               git(["merge-base", "--is-ancestor", sha, installed], in: top) == nil {
+                return UpdateInfo(changes: nil, latest: nil, installer: FileManager.default.fileExists(atPath: installer.path) ? installer : nil)
+            }
+        }
+        return nil
+    }
+}
+
 /// Quits and opens ScaffoldPro again (after switching to or from a shared folder).
 func relaunchApp() {
     let task = Process()
@@ -10969,6 +11119,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         }
         // Keep the shared iCloud copy up to date from now on.
         bridge.cloudBackup.start()
+        // Is there a newer version on GitHub?
+        checkForUpdates(manual: false)
+    }
+
+    // MARK: Updates
+
+    private var checkingForUpdates = false
+
+    @objc func checkForUpdatesFromMenu(_ sender: Any?) { checkForUpdates(manual: true) }
+
+    /// Checks GitHub in the background; offers to update if there's a newer
+    /// version. `manual` also says when it's up to date or couldn't check.
+    func checkForUpdates(manual: Bool) {
+        guard !checkingForUpdates else { return }
+        guard UpdateChecker.canCheck else {
+            if manual { showUpdateAlert("Updates can't be checked for this copy", "It wasn't installed from a GitHub copy of ScaffoldPro (a folder downloaded as a zip has no link to GitHub). Download the latest version and run install.sh.") }
+            return
+        }
+        checkingForUpdates = true
+        DispatchQueue.global(qos: .utility).async {
+            let info = UpdateChecker.check()
+            DispatchQueue.main.async {
+                self.checkingForUpdates = false
+                if let info = info { self.offerUpdate(info) }
+                else if manual { self.showUpdateAlert("ScaffoldPro is up to date", "This is the latest version on GitHub (as far as can be checked from this Mac).") }
+            }
+        }
+    }
+
+    private func showUpdateAlert(_ title: String, _ text: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text
+        if let window = window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+    }
+
+    private func offerUpdate(_ info: UpdateInfo) {
+        let alert = NSAlert()
+        alert.messageText = "A new version of ScaffoldPro is available"
+        var text = info.changes.map { "\($0) change\($0 == 1 ? "" : "s") since this copy was installed." } ?? "GitHub has a newer version than this copy."
+        if let latest = nonBlank(info.latest) { text += "\nLatest: “\(latest)”." }
+        text += info.installer == nil
+            ? "\n\nTo update, run install.sh in the ScaffoldPro-native folder."
+            : "\n\nUpdate now? ScaffoldPro closes, Install ScaffoldPro gets the new version and builds it (about a minute), then opens it again."
+        alert.informativeText = text
+        alert.addButton(withTitle: info.installer == nil ? "OK" : "Update Now")
+        if info.installer != nil { alert.addButton(withTitle: "Later") }
+        let handle: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn, let installer = info.installer else { return }
+            // Runs in Terminal; the new version opens when it's done.
+            NSWorkspace.shared.open(installer)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+        }
+        if let window = window { alert.beginSheetModal(for: window, completionHandler: handle) } else { handle(alert.runModal()) }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -11205,6 +11409,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         // App menu
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About ScaffoldPro", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let updates = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu(_:)), keyEquivalent: "")
+        updates.target = self
+        appMenu.addItem(updates)
         appMenu.addItem(.separator())
         let settings = item("Settings…", #selector(goToPage(_:)), ",", page: "settings.html")
         settings.target = self

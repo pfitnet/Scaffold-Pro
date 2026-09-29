@@ -62,6 +62,21 @@ function render() {
   markupNote.textContent = !m ? '' : m > 0
     ? `Unit rates include the ${m}% mark-up, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1. A quotation made from this BOQ takes ${m}% as its markup.`
     : `Unit rates include the ${-m}% mark-down, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1.`;
+  // The client's default markup: said when it's in use, offered when not.
+  const clientMarkup = document.getElementById('boq-client-markup');
+  const cm = Number(d.clientMarkupPercent) || 0;
+  clientMarkup.classList.toggle('hidden', !cm);
+  if (cm) {
+    const who = d.clientName ? `${d.clientName}’s` : 'The client’s';
+    clientMarkup.innerHTML = cm === m
+      ? `${escAttr(who)} default markup (${cm}%) is in use.`
+      : `${escAttr(who)} default markup is ${cm}%.${locked ? '' : ` <button type="button" class="link-btn" id="use-client-markup-btn">Use ${cm}%</button>`}`;
+    const use = document.getElementById('use-client-markup-btn');
+    if (use) use.addEventListener('click', () => {
+      markup.value = cm;
+      markup.dispatchEvent(new Event('change'));
+    });
+  }
   const structure = document.getElementById('boq-structure-input');
   if (document.activeElement !== structure) structure.value = d.structure || '';
   structure.disabled = locked;
