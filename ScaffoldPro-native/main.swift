@@ -632,6 +632,16 @@ struct BillOfQuantities: Codable {
     /// Rates listed after the total on the BQ sheet (e.g. manpower rates);
     /// the "Total Amount :" row then reads "Subtotal :".
     var ratesSection: BOQRatesSection? = nil
+    /// Amounts added after the subtotal on the BQ sheet (e.g. D1 Delivery,
+    /// D2 Design Fees): not priced by unit, but added to the total.
+    var charges: [BOQCharge]? = nil
+}
+
+struct BOQCharge: Codable {
+    /// "D1", "D2"… when blank.
+    var code: String?
+    var name: String
+    var amount: Double
 }
 
 struct BOQRatesSection: Codable {
@@ -701,6 +711,11 @@ struct BOQDetail: Codable {
     /// Line id → unit rate after its discount.
     var effectiveRates: [String: Double]
     var ratesSection: BOQRatesSection?
+    /// nil = no "+ Section"; grandTotal is the items' total (the
+    /// subtotal when there are charges) and totalAmount adds the charges.
+    var charges: [BOQCharge]?
+    var chargesTotal: Double
+    var totalAmount: Double
 }
 
 struct BOQActionResult: Codable {
@@ -2592,6 +2607,22 @@ final class AppDatabase {
         return nil
     }
 
+    /// The amounts added after the subtotal (nil removes the section).
+    func setBOQCharges(id: String, charges: [BOQCharge]?) -> String? {
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
+        guard boqs[i].status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        boqs[i].charges = charges
+        boqs[i].updatedAt = nowISO()
+        boqsStore.writeAll(boqs)
+        return nil
+    }
+
+    /// The sum of a BOQ's charges, to the cent.
+    func boqChargesTotal(_ charges: [BOQCharge]?) -> Double {
+        doubleOf(roundToCents((charges ?? []).reduce(Decimal(0)) { $0 + decimalOf($1.amount) }))
+    }
+
     private func totalWeight(for items: [BOQLineItem]) -> Double {
         let kg = items.reduce(Decimal(0)) { $0 + decimalOf($1.quantity.rounded()) * decimalOf($1.weightKg ?? 0) }
         return doubleOf(roundToCents(kg))
@@ -2603,7 +2634,8 @@ final class AppDatabase {
             .sorted { $0.boqNumber > $1.boqNumber }
             .map { boq in
                 let items = lineItems(for: boq.id)
-                let total = boqMoneyTotal(items)
+                // The total amount, with any charges after the subtotal.
+                let total = doubleOf(decimalOf(boqMoneyTotal(items)) + decimalOf(boqChargesTotal(boq.charges)))
                 return BOQSummary(
                     id: boq.id, boqNumber: boq.boqNumber, status: boq.status,
                     pricingMode: boq.pricingMode, itemCount: items.count,
@@ -2654,7 +2686,9 @@ final class AppDatabase {
             markupPercent: boq.markupPercent ?? 0, structure: boq.structure,
             orientation: boq.orientation == "Portrait" ? "Portrait" : "Landscape",
             effectiveRates: Dictionary(items.map { ($0.id, boqEffectiveRate($0)) }, uniquingKeysWith: { a, _ in a }),
-            ratesSection: boq.ratesSection
+            ratesSection: boq.ratesSection,
+            charges: boq.charges, chargesTotal: boqChargesTotal(boq.charges),
+            totalAmount: doubleOf(decimalOf(total) + decimalOf(boqChargesTotal(boq.charges)))
         )
     }
 
@@ -5907,6 +5941,8 @@ struct SheetCell: Encodable {
     var align: String
     /// Baseline height above the row's bottom line.
     var baselineUp: Double
+    /// Part of the text drawn as a link (blue, underlined), e.g. "pfitnet.com/TC".
+    var link: String? = nil
 }
 
 struct SheetRow: Encodable {
@@ -5918,6 +5954,9 @@ struct SheetRow: Encodable {
     var cells: [SheetCell]
     /// Repeated at the top of every page (banner, info rows, heading row).
     var repeats: Bool
+    /// No rule between this row and the next, which stay on the same page
+    /// (the lines of the Notes box).
+    var joinNext = false
 }
 
 struct SheetLayout: Encodable {
@@ -5933,6 +5972,9 @@ struct SheetLayout: Encodable {
     /// Rows stop above this; the rest go on the next page.
     var bottomLimit: Double
     var rows: [SheetRow]
+    /// Below 1 when the sheet is shrunk to fit one page (rules and
+    /// padding shrink with it).
+    var scale = 1.0
     // Filled in for a Word copy:
     var number = ""
     var title = "PROFICIENCY QUOTATION"
@@ -5950,7 +5992,7 @@ enum BQSheet {
     static func layout(landscape: Bool, pricingMode: String, currencyCode: String,
                        info: (projectCode: String, client: String, jobSite: String, structure: String),
                        lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double,
-                       ratesSection: BOQRatesSection? = nil) -> SheetLayout {
+                       ratesSection: BOQRatesSection? = nil, charges: [BOQCharge] = [], notes: String? = nil) -> SheetLayout {
         let pageWidth: Double = landscape ? 842.88 : 595.92
         let pageHeight: Double = landscape ? 595.92 : 842.88
         let left = 85.875
@@ -6008,17 +6050,40 @@ enum BQSheet {
         // "Total Amount :" across the columns before the totals.
         let n = widths.count
         var totals: [SheetCell] = []
-        // With rates listed after it, the total is a subtotal.
+        // With rates or charges listed after it, the total is a subtotal.
         let rates = landscape ? (ratesSection?.rates.filter { !$0.name.isEmpty } ?? []) : []
         let hasRates = landscape && ratesSection != nil && (!rates.isEmpty || nonBlank(ratesSection?.title) != nil)
+        let shownCharges = landscape ? charges.filter { nonBlank($0.name) != nil || $0.amount != 0 } : []
         if landscape {
-            totals.append(cell(edges[0], edges[n - 2], hasRates ? "Subtotal :" : "Total Amount :", 28.99, "center", 8.625))
+            let label = !shownCharges.isEmpty ? "Subtotal Amount :" : hasRates ? "Subtotal :" : "Total Amount :"
+            totals.append(cell(edges[0], edges[n - 2], label, 28.99, "center", 8.625))
             totals.append(cell(edges[n - 2], edges[n - 1], formatMoney(grandTotal), 12, "money", 15.375))
         } else {
             totals.append(cell(edges[0], edges[n - 1], "Total Weight :", 28.99, "center", 8.625))
         }
         totals.append(cell(edges[n - 1], edges[n], kg(totalWeightKg), 12, "right", 15.375))
         rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
+
+        // Amounts added after the subtotal (as on the company's sheet for
+        // Mr. Law's container access platform): D1 Delivery, D2 Design
+        // Fees…, "N/a" for their weight, then "Total Amount".
+        if !shownCharges.isEmpty {
+            var total = decimalOf(grandTotal)
+            for (i, charge) in shownCharges.enumerated() {
+                total += decimalOf(charge.amount)
+                rows.append(SheetRow(kind: "charge", height: 18.75, fill: nil, cells: [
+                    cell(edges[0], edges[1], nonBlank(charge.code) ?? "D\(i + 1)", 12, "left", 5.625),
+                    cell(edges[1], edges[n - 2], charge.name, 12, "left", 5.625),
+                    cell(edges[n - 2], edges[n - 1], formatMoney(charge.amount), 12, "money", 5.625),
+                    cell(edges[n - 1], edges[n], "N/a", 12, "center", 5.625),
+                ], repeats: false))
+            }
+            rows.append(SheetRow(kind: "grandTotal", height: 45.75, fill: nil, cells: [
+                cell(edges[0], edges[n - 2], "Total Amount", 28.99, "center", 12.375),
+                cell(edges[n - 2], edges[n - 1], formatMoney(doubleOf(roundToCents(total))), 12, "money", 19.125),
+                cell(edges[n - 1], edges[n], "", 12, "right", 19.125),
+            ], repeats: false))
+        }
 
         // Rates after the total (e.g. Erection & Dismantle Manpower Rates):
         // a blue title row, then R1, R2… with "(Rate Only)", then the note.
@@ -6043,8 +6108,94 @@ enum BQSheet {
             }
         }
 
-        return SheetLayout(landscape: landscape, pageWidth: pageWidth, pageHeight: pageHeight,
-                           left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows)
+        // The BOQ's notes in one box at the end: "Notes:" and then each
+        // line, 14.25pt apart with 9pt above and below; any web address
+        // in blue, underlined.
+        if landscape, let text = nonBlank(notes) {
+            var lines = wrap(text, width: right - left - 2 * 2.625, size: 12)
+            if !(lines.first ?? "").lowercased().hasPrefix("note") { lines.insert("Notes:", at: 0) }
+            for (i, line) in lines.enumerated() {
+                let first = i == 0, last = i == lines.count - 1
+                var c = cell(left, right, line, 12, "left", last ? 12.375 : 3.375)
+                c.link = webAddress(in: line)
+                rows.append(SheetRow(kind: "notes", height: 14.25 + (first ? 9 : 0) + (last ? 9 : 0), fill: nil,
+                                     cells: [c], repeats: false, joinNext: !last))
+            }
+        }
+
+        return fitToPage(SheetLayout(landscape: landscape, pageWidth: pageWidth, pageHeight: pageHeight,
+                                     left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows))
+    }
+
+    /// As Google Sheets' "Fit to page": a sheet a little too long for one
+    /// page is shrunk onto it (to no less than 70%), from the same top
+    /// margin and about the same centre line, e.g. Mr. Law's sheet at
+    /// 76.75%. Longer sheets run on over pages at full size.
+    static func fitToPage(_ sheet: SheetLayout) -> SheetLayout {
+        let height = sheet.rows.reduce(0) { $0 + $1.height }
+        let room = sheet.bottomLimit - sheet.top
+        guard height > room, room / height >= 0.7 else { return sheet }
+        // 3pt to spare, so Word's rounding never tips the last rows over.
+        let k = (room - 3) / height
+        let centre = (sheet.left + sheet.right) / 2
+        let x: (Double) -> Double = { centre + ($0 - centre) * k }
+        var out = sheet
+        out.scale = k
+        out.left = x(sheet.left)
+        out.right = x(sheet.right)
+        out.rows = sheet.rows.map { row in
+            var r = row
+            r.height = row.height * k
+            r.cells = row.cells.map { c in
+                var cell = c
+                cell.x0 = x(c.x0)
+                cell.x1 = x(c.x1)
+                cell.size = c.size * k
+                cell.baselineUp = c.baselineUp * k
+                return cell
+            }
+            return r
+        }
+        return out
+    }
+
+    /// Calibri, or Carlito (same letter widths), as the renderer uses.
+    static func bodyFont(_ size: Double) -> NSFont {
+        for name in ["Calibri", "Carlito-Regular", "Carlito", "Helvetica"] {
+            if let f = NSFont(name: name, size: CGFloat(size)) { return f }
+        }
+        return NSFont.systemFont(ofSize: CGFloat(size))
+    }
+
+    /// Splits text into lines no wider than `width`, keeping its own line breaks.
+    static func wrap(_ text: String, width: Double, size: Double) -> [String] {
+        let font = bodyFont(size)
+        let measure: (String) -> Double = { Double(($0 as NSString).size(withAttributes: [.font: font]).width) }
+        var lines: [String] = []
+        for paragraph in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+            var current = ""
+            for word in paragraph.split(separator: " ", omittingEmptySubsequences: false).map(String.init) {
+                let candidate = current.isEmpty ? word : "\(current) \(word)"
+                if measure(candidate) <= width || current.isEmpty {
+                    current = candidate
+                } else {
+                    lines.append(current)
+                    current = word
+                }
+            }
+            lines.append(current)
+        }
+        while lines.last?.trimmingCharacters(in: .whitespaces).isEmpty == true { lines.removeLast() }
+        return lines
+    }
+
+    /// The first web address in a line (e.g. "pfitnet.com/TC"), if any.
+    static func webAddress(in line: String) -> String? {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue),
+              let match = detector.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
+              let range = Range(match.range, in: line) else { return nil }
+        let found = String(line[range])
+        return found.contains("@") ? nil : found
     }
 }
 
@@ -6055,7 +6206,7 @@ final class BQSheetRenderer {
     private let layout: SheetLayout
     private let data = NSMutableData()
     private var context: CGContext!
-    private let rule = 0.75
+    private var rule: Double { 0.75 * layout.scale }
 
     private init(_ layout: SheetLayout) { self.layout = layout }
 
@@ -6085,8 +6236,20 @@ final class BQSheetRenderer {
         var pages: [[SheetRow]] = []
         var current = repeating
         var y = layout.top + headHeight
-        for row in body {
-            if y + row.height > layout.bottomLimit && current.count > repeating.count {
+        var keepingTogether = false
+        for (i, row) in body.enumerated() {
+            // Rows joined to the next (the Notes box) move to a new page
+            // together, unless they'd fill more than a page.
+            var needed = row.height
+            if i > 0 && body[i - 1].joinNext {
+                if keepingTogether { needed = 0 }
+            } else if row.joinNext {
+                var j = i
+                while body[j].joinNext && j + 1 < body.count { j += 1; needed += body[j].height }
+                keepingTogether = needed <= layout.bottomLimit - layout.top - headHeight
+                if !keepingTogether { needed = row.height }
+            }
+            if y + needed > layout.bottomLimit && current.count > repeating.count {
                 pages.append(current)
                 current = repeating
                 y = layout.top + headHeight
@@ -6116,12 +6279,12 @@ final class BQSheetRenderer {
             context.setFillColor(NSColor.black.cgColor)
             y = layout.top
             hLine(y)
-            for row in rows {
+            for (index, row) in rows.enumerated() {
                 for cell in row.cells where cell.x0 > layout.left + 0.01 {
                     context.fill(CGRect(x: cell.x0 - half, y: h - (y + row.height + half), width: rule, height: row.height + rule))
                 }
                 y += row.height
-                hLine(y)
+                if !row.joinNext || index == rows.count - 1 { hLine(y) }
             }
             context.fill(CGRect(x: layout.left - half, y: h - (y + half), width: rule, height: y - layout.top + rule))
             context.fill(CGRect(x: layout.right - half, y: h - (y + half), width: rule, height: y - layout.top + rule))
@@ -6144,10 +6307,18 @@ final class BQSheetRenderer {
         return CGColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
     }
 
-    private func line(_ text: String, _ font: NSFont) -> CTLine {
-        CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [
-            .font: font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor]))
+    private func line(_ text: String, _ font: NSFont, link: String? = nil) -> CTLine {
+        let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
+        let string = NSMutableAttributedString(string: text, attributes: [.font: font, colorKey: NSColor.black.cgColor])
+        if let link = link {
+            let range = (text as NSString).range(of: link)
+            if range.location != NSNotFound { string.addAttribute(colorKey, value: color(BQSheetRenderer.linkBlue), range: range) }
+        }
+        return CTLineCreateWithAttributedString(string)
     }
+
+    /// Links as Google Sheets shows them: blue, with a 0.75pt underline 1.125pt below the baseline.
+    static let linkBlue = "1155CC"
 
     private func width(_ l: CTLine) -> Double { Double(CTLineGetTypographicBounds(l, nil, nil, nil)) }
 
@@ -6164,23 +6335,29 @@ final class BQSheetRenderer {
     private func drawText(_ cell: SheetCell, rowBottom: Double) {
         guard !cell.text.isEmpty else { return }
         var f = font(cell)
-        let pad = 2.625
+        let pad = 2.625 * layout.scale
         let space = width(line(" ", f))
         let room = cell.x1 - cell.x0 - 2 * pad - (cell.align == "right" || cell.align == "money" ? space : 0)
-        var l = line(cell.text, f)
+        var l = line(cell.text, f, link: cell.link)
         // Too long for its cell: a slightly smaller size, never wrapped.
         if width(l) > room, room > 0 {
             f = NSFont(descriptor: f.fontDescriptor, size: max(f.pointSize * CGFloat(room / width(l)), f.pointSize * 0.6)) ?? f
-            l = line(cell.text, f)
+            l = line(cell.text, f, link: cell.link)
         }
         let baseline = rowBottom - cell.baselineUp
+        var x: Double
         switch cell.align {
-        case "center": put(l, x: (cell.x0 + cell.x1) / 2 - width(l) / 2, baseline: baseline)
-        case "right": put(l, x: cell.x1 - pad - space - width(l), baseline: baseline)
-        case "money":
-            put(line("$", f), x: cell.x0 + pad, baseline: baseline)
-            put(l, x: cell.x1 - pad - space - width(l), baseline: baseline)
-        default: put(l, x: cell.x0 + pad, baseline: baseline)
+        case "center": x = (cell.x0 + cell.x1) / 2 - width(l) / 2
+        case "right", "money": x = cell.x1 - pad - space - width(l)
+        default: x = cell.x0 + pad
+        }
+        if cell.align == "money" { put(line("$", f), x: cell.x0 + pad, baseline: baseline) }
+        put(l, x: x, baseline: baseline)
+        if let link = cell.link, let range = cell.text.range(of: link) {
+            let start = x + width(line(String(cell.text[..<range.lowerBound]), f))
+            context.setFillColor(color(BQSheetRenderer.linkBlue))
+            context.fill(CGRect(x: start, y: layout.pageHeight - (baseline + 1.125 * layout.scale) - rule / 2, width: width(line(link, f)), height: rule))
+            context.setFillColor(NSColor.black.cgColor)
         }
     }
 }
@@ -7452,6 +7629,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             let error = db.setBOQRatesSection(id: (payload["id"] as? String) ?? "", section: section)
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "boq:setCharges":
+            var charges: [BOQCharge]? = nil
+            if let list = payload["charges"] as? [[String: Any]] {
+                charges = list.map { c in
+                    BOQCharge(code: nonBlank(c["code"] as? String),
+                              name: ((c["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                              amount: doubleOf(roundToCents(decimalOf((c["amount"] as? Double) ?? 0))))
+                }
+            }
+            let error = db.setBOQCharges(id: (payload["id"] as? String) ?? "", charges: charges)
+            respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
         case "boq:standardRates":
             respond(id: id, encodable: db.getCompanySettings().manpowerRates ?? defaultManpowerRates)
         case "boq:setOrientation":
@@ -8318,7 +8506,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
             info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
             lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
-            ratesSection: detail.ratesSection)
+            ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes)
         let safeNumber = detail.boqNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
 
         if mode == .word {

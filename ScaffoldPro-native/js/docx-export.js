@@ -607,44 +607,58 @@
   const RIGHT_EXTRA = 0.9;
 
   function buildSheetDocx(d) {
+    // A sheet shrunk to fit one page has thinner rules and less padding.
+    const k = d.scale || 1;
+    const PAD = 2.625 * k, HALF = HALF_RULE * k, EXTRA = RIGHT_EXTRA * k;
     const edges = [...new Set(d.rows.flatMap((r) => r.cells.flatMap((c) => [c.x0, c.x1])).map((x) => Math.round(x * 1000) / 1000))]
       .sort((a, b) => a - b);
     const widths = edges.slice(1).map((x, i) => x - edges[i]);
     const at = (x) => edges.findIndex((e) => Math.abs(e - x) < 0.01);
-    const rows = d.rows.map((row) => {
+    const rows = d.rows.map((row, r) => {
+      // Rows joined to the next (the Notes box) have no rule between them.
+      const joinedAbove = r > 0 && d.rows[r - 1].joinNext;
       const cells = row.cells.map((c) => {
         const span = at(c.x1) - at(c.x0);
-        const line = c.size * SHEET_LINE;
+        // A short row (a line of the Notes box) gets a shorter line, so the
+        // baseline can still go where the PDF has it.
+        const line = Math.min(c.size * SHEET_LINE, (row.height - c.baselineUp - 2 * HALF) / SHEET_BASELINE_AT);
         const font = c.font === 'title' ? 'Arial' : 'Calibri';
         const style = { font, size: c.size, bold: c.font === 'title' };
         const figure = c.align === 'right' || c.align === 'money';
-        const inner = c.x1 - c.x0 - (2.625 - HALF_RULE) * 2 - RIGHT_EXTRA - (figure ? c.size * CALIBRI_SPACE : 0);
+        const inner = c.x1 - c.x0 - (PAD - HALF) * 2 - EXTRA - (figure ? c.size * CALIBRI_SPACE : 0);
         let runs;
         // Placed with space before the paragraph (cell top margins are
         // shared across a row in some Word-compatible apps), so the
         // baseline is where the PDF has it.
-        const before = Math.max(0, row.height - c.baselineUp - line * SHEET_BASELINE_AT - 2 * HALF_RULE);
-        let opts = { line, before, align: { center: 'center', right: 'right' }[c.align] || 'left' };
+        const before = Math.max(0, row.height - c.baselineUp - line * SHEET_BASELINE_AT - 2 * HALF);
+        let opts = { line, before, align: { center: 'center', right: 'right' }[c.align] || 'left', keepNext: !!row.joinNext };
+        const linkAt = c.link ? c.text.indexOf(c.link) : -1;
         if (c.align === 'money' && c.text) {
           runs = run(`$\t${c.text}`, style);
           opts = { line, before, align: 'left', tabs: [{ val: 'right', pos: inner }] };
+        } else if (linkAt >= 0) {
+          // A web address: blue and underlined, as in the PDF.
+          runs = run(c.text.slice(0, linkAt), style) + run(c.link, { ...style, color: '1155CC', underline: true }) +
+            run(c.text.slice(linkAt + c.link.length), style);
         } else {
           runs = run(c.text, style);
         }
         const shade = row.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${row.fill}"/>` : '';
         // Centred text needs no side padding (and so never wraps).
-        const side = c.align === 'center' ? 0 : 2.625 - HALF_RULE;
-        const pr = `<w:tcW w:w="${TW(c.x1 - c.x0)}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${shade}<w:noWrap/>` +
+        const side = c.align === 'center' ? 0 : PAD - HALF;
+        const joins = (joinedAbove ? '<w:top w:val="nil"/>' : '') + (row.joinNext ? '<w:bottom w:val="nil"/>' : '');
+        const pr = `<w:tcW w:w="${TW(c.x1 - c.x0)}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}` +
+          `${joins ? `<w:tcBorders>${joins}</w:tcBorders>` : ''}${shade}<w:noWrap/>` +
           `<w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="${TW(side)}" w:type="dxa"/>` +
           '<w:bottom w:w="0" w:type="dxa"/>' +
-          `<w:right w:w="${TW(side + RIGHT_EXTRA + (figure ? c.size * CALIBRI_SPACE : 0))}" w:type="dxa"/></w:tcMar><w:vAlign w:val="top"/>`;
+          `<w:right w:w="${TW(side + EXTRA + (figure ? c.size * CALIBRI_SPACE : 0))}" w:type="dxa"/></w:tcMar><w:vAlign w:val="top"/>`;
         return `<w:tc><w:tcPr>${pr}</w:tcPr>${para(runs, opts)}</w:tc>`;
       });
       return `<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="${TW(row.height)}" w:hRule="exact"/>${row.repeats ? '<w:tblHeader/>' : ''}</w:trPr>${cells.join('')}</w:tr>`;
     });
     const sides = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'];
     const table = `<w:tbl><w:tblPr><w:tblW w:w="${TW(d.right - d.left)}" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/>` +
-      `<w:tblBorders>${sides.map((side) => border(side, 0.75)).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/>` +
+      `<w:tblBorders>${sides.map((side) => border(side, 0.75 * k)).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/>` +
       '<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>' +
       '<w:tblLook w:val="0000" w:firstRow="0" w:lastRow="0" w:firstColumn="0" w:lastColumn="0" w:noHBand="1" w:noVBand="1"/></w:tblPr>' +
       `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${TW(w)}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`;
