@@ -31,7 +31,10 @@ def text_x(marker, left, indent, colon):
     return min(tx, Gen.textRight - 120 - Gen.textLeft)
 
 def layout(doc):
-    g = Gen(); f = body(11); cw = width(doc['cur'], f)
+    g = Gen(); g.configure(doc); f = body(11); cw = width(doc['cur'], f)
+    receipt_new_page = False
+    if doc.get('receiptRows'):
+        t = Gen(); t.layOut(doc); receipt_new_page = t.receiptOnNewPage
     long = False
     if any(s.get('newPageUnlessSinglePage') for s in doc['sections']):
         t = Gen(); t.layOut(doc); long = t.pageNumber > 1
@@ -62,11 +65,13 @@ def layout(doc):
                 deliveryMethod=doc.get('deliveryMethod'), salutation=doc.get('salutation'), subject=doc.get('subject'), intro=doc.get('intro'),
                 currencySymbol=doc['cur'], columns=[dict(title=c[0], width=c[1], kind=c[2]) for c in doc['columns']], rows=rows, sections=sections,
                 signatures=[dict(heading=s['heading'], lines=[dict(text=t, colon=c, value=v) for t, c, v in s['lines']]) for s in doc['signatures']],
-                closingLine=doc.get('closing'), fonts=fonts)
+                closingLine=doc.get('closing'), fonts=fonts,
+                infoRows=[dict(label=a, lines=g.infoLines(b, bold), bold=bold) for a, b, bold in doc.get('infoRows') or []],
+                headerHeight=g.headH, receiptRows=[list(r) for r in doc.get('receiptRows') or []], receiptNewPage=receipt_new_page)
 
 if __name__ == '__main__':
     png = letterhead_png()
-    names = sys.argv[1:] or ['quotation', 'quotation_sections', 'quotation_keyterms', 'invoice', 'dn', 'boq']
+    names = sys.argv[1:] or ['quotation', 'quotation_sections', 'quotation_keyterms', 'invoice', 'dn', 'dn_short', 'boq']
     for name in names:
         payload = layout(getattr(docs, name)()); payload['letterheadPNG'] = png
         jp = os.path.join(OUT, f'word_{name}.json'); json.dump(payload, open(jp, 'w'))
