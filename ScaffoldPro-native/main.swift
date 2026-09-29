@@ -2979,12 +2979,15 @@ final class AppDatabase {
         guard newMarkup > -100 else { return "A mark-down can't be 100% or more." }
         boqs[i].pricingMode = newMode
         boqs[i].markupPercent = newMarkup
+        let oldStructure = boqs[i].structure
         if updateStructure {
             let t = structure?.trimmingCharacters(in: .whitespacesAndNewlines)
             boqs[i].structure = (t?.isEmpty ?? true) ? nil : t
         }
         boqs[i].updatedAt = nowISO()
         boqsStore.writeAll(boqs)
+        // Quotations following this BOQ carry its structure in their subject line.
+        if boqs[i].structure != oldStructure { refreshQuotationSubjects(boqId: id, previousStructure: oldStructure) }
 
         // The mark-up is applied to the rates as they're shown and printed;
         // only a Sale ↔ Rental change re-prices the lines.
@@ -3263,6 +3266,46 @@ final class AppDatabase {
     /// existing BOQ (section 21: "create quotations from a project, a
     /// BOQ, or manually entered items"). Copies, not references — later
     /// edits to the BOQ never change an already-created quotation.
+    /// The quotation's "Re:" subject line until someone types their own:
+    /// "<project> - <Rental|Sale>", then the structure of the BOQ it
+    /// follows, e.g. "GL-28 Works - Rental - Access platform for louvres".
+    func autoQuotationSubject(projectName: String, pricingMode: String, structure: String?) -> String {
+        ([projectName, pricingMode] + [nonBlank(structure)].compactMap { $0 }).joined(separator: " - ")
+    }
+
+    /// Whether a subject line is still the one made for it (with or without
+    /// the structure), so it can be kept in step; typed-in ones are left.
+    private func isAutoQuotationSubject(_ subject: String?, projectName: String, pricingMode: String, structures: [String?]) -> Bool {
+        guard let subject = nonBlank(subject) else { return true }
+        return (([nil] as [String?]) + structures).contains { autoQuotationSubject(projectName: projectName, pricingMode: pricingMode, structure: $0) == subject }
+    }
+
+    /// Draft quotations following BOQ `boqId` whose subject line is still
+    /// automatic get the BOQ's structure (e.g. after it's changed).
+    func refreshQuotationSubjects(boqId: String, previousStructure: String? = nil) {
+        guard let boq = getBOQ(id: boqId),
+              let project = projectsStore.readAll().first(where: { $0.id == boq.projectId }) else { return }
+        var qs = quotationsStore.readAll()
+        var changed = false
+        for i in qs.indices where qs[i].sourceBOQId == boqId && qs[i].status == "Draft" {
+            guard isAutoQuotationSubject(qs[i].subject, projectName: project.name, pricingMode: qs[i].pricingMode,
+                                         structures: [previousStructure, boq.structure]) else { continue }
+            let subject = autoQuotationSubject(projectName: project.name, pricingMode: qs[i].pricingMode, structure: boq.structure)
+            guard qs[i].subject != subject else { continue }
+            qs[i].subject = subject
+            qs[i].updatedAt = nowISO()
+            changed = true
+        }
+        if changed { quotationsStore.writeAll(qs) }
+    }
+
+    /// Once per launch: draft quotations made before their subject line
+    /// carried the BOQ's structure.
+    func addStructuresToQuotationSubjects() {
+        let boqIds = Set(quotationsStore.readAll().filter { $0.status == "Draft" }.compactMap { $0.sourceBOQId })
+        for id in boqIds { refreshQuotationSubjects(boqId: id) }
+    }
+
     func createQuotation(projectId: String, projectNumber: String, sourceBOQId: String?, pricingMode: String) -> Quotation {
         // A quotation built from a BOQ inherits that BOQ's pricing mode
         // (the line items it copies already reflect that mode's prices),
@@ -3281,7 +3324,8 @@ final class AppDatabase {
         if let project = projectsStore.readAll().first(where: { $0.id == projectId }) {
             let site = sitesStore.readAll().first { $0.id == project.siteId }
             quotation.siteRef = site?.siteReference ?? site?.name
-            quotation.subject = "\(project.name) - \(resolvedPricingMode)"
+            quotation.subject = autoQuotationSubject(projectName: project.name, pricingMode: resolvedPricingMode,
+                                                     structure: sourceBOQId.flatMap { getBOQ(id: $0)?.structure })
         }
         quotation.deliveryMethod = "BY EMAIL ONLY"
         // Minimum hire is an option per quotation, off until switched on;
@@ -3411,10 +3455,13 @@ final class AppDatabase {
         allQuotationItems.append(contentsOf: imported)
         quotationLineItemsStore.writeAll(allQuotationItems)
 
+        let previousStructure = qs[qIndex].sourceBOQId.flatMap { getBOQ(id: $0)?.structure }
         qs[qIndex].sourceBOQId = boqId
         qs[qIndex].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         logActivity(projectId: qs[qIndex].projectId, "Items imported from \(boq.boqNumber)", reference: qs[qIndex].quotationNumber)
+        // Now following this BOQ: its structure goes in the subject line.
+        refreshQuotationSubjects(boqId: boqId, previousStructure: previousStructure)
         return nil
     }
 
@@ -3707,10 +3754,12 @@ final class AppDatabase {
         qs[index].taxRatePercent = taxRatePercent
         let oldMode = qs[index].pricingMode
         qs[index].pricingMode = pricingMode
-        if oldMode != pricingMode, let project = projectsStore.readAll().first(where: { $0.id == qs[index].projectId }),
-           qs[index].subject == "\(project.name) - \(oldMode)" {
-            // The subject line still reads "<project> - Rental": keep it in step.
-            qs[index].subject = "\(project.name) - \(pricingMode)"
+        if oldMode != pricingMode, let project = projectsStore.readAll().first(where: { $0.id == qs[index].projectId }) {
+            // The subject line still reads "<project> - Rental[ - structure]": keep it in step.
+            let structure = qs[index].sourceBOQId.flatMap { getBOQ(id: $0)?.structure }
+            if isAutoQuotationSubject(qs[index].subject, projectName: project.name, pricingMode: oldMode, structures: [structure]) {
+                qs[index].subject = autoQuotationSubject(projectName: project.name, pricingMode: pricingMode, structure: structure)
+            }
         }
         qs[index].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
@@ -10990,6 +11039,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db.applyDeliveryChargeUpdateIfNeeded()
         db.movePaymentTermsIntoKeyTermsIfNeeded()
         db.moveBOQMarkupsOntoRates()
+        db.addStructuresToQuotationSubjects()
     }
 
     private func seedPriceListsIfNeeded() {
