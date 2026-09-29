@@ -550,3 +550,18 @@ table.history td { vertical-align: top; }
 .discount-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; color: var(--text-secondary); }
 .discount-btn:hover { color: var(--text); }
 .discount-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+/* Drag-and-drop reordering (js/drag-reorder.js) */
+.drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 24px; border-radius: 4px;
+  color: var(--text-tertiary); cursor: grab; touch-action: none; user-select: none;
+}
+.drag-handle:hover { color: var(--text); background: var(--sidebar-hover); }
+.drag-handle:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); color: var(--text); }
+th.drag-col, td.drag-col { width: 20px; padding-left: 4px; padding-right: 0; }
+body.reordering, body.reordering * { cursor: grabbing !important; user-select: none; }
+.dragging { position: relative; z-index: 5; }
+tr.dragging > td { background: var(--panel); box-shadow: inset 0 0 0 999px var(--accent-soft); }
+tr.dragging { box-shadow: var(--shadow-menu); }
+div.dragging { box-shadow: var(--shadow-menu); }

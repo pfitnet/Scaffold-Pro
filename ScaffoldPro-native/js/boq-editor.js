@@ -100,7 +100,7 @@ function renderLineItems() {
   const table = document.createElement('table');
   table.innerHTML = `
     <thead>
-      <tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Rate</th><th></th><th class="num">Unit Wt (kg)</th><th class="num">Total Wt (kg)</th><th></th></tr>
+      <tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Rate</th><th></th><th class="num">Unit Wt (kg)</th><th class="num">Total Wt (kg)</th><th></th></tr>
     </thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
@@ -115,7 +115,9 @@ function renderLineItems() {
     const lineWeight = hasWeight ? item.weightKg * item.quantity : null;
 
     const tr = document.createElement('tr');
+    tr.dataset.id = item.id;
     tr.innerHTML = `
+      <td class="drag-col">${isIssued || items.length < 2 ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
       <td class="num row-no">${index + 1}</td>
       <td>${item.itemDescription}
         ${isIssued
@@ -128,8 +130,6 @@ function renderLineItems() {
       <td class="num">${weight(item.weightKg)}</td>
       <td class="num">${weight(lineWeight)}</td>
       <td class="row-actions">${isIssued ? '' : `
-        <button class="icon-btn up-btn" title="Move up" ${index === 0 ? 'disabled' : ''}>↑</button>
-        <button class="icon-btn down-btn" title="Move down" ${index === items.length - 1 ? 'disabled' : ''}>↓</button>
         <button class="icon-btn dup-btn" title="Duplicate line">⧉</button>
         <button class="remove-btn">Remove</button>`}</td>`;
 
@@ -142,10 +142,6 @@ function renderLineItems() {
       if (!r.ok) alert(r.error);
       await loadDetail();
     };
-    const up = tr.querySelector('.up-btn');
-    if (up) up.addEventListener('click', () => lineAction(() => window.api.boq.moveLineItem(item.id, -1)));
-    const down = tr.querySelector('.down-btn');
-    if (down) down.addEventListener('click', () => lineAction(() => window.api.boq.moveLineItem(item.id, 1)));
     const dup = tr.querySelector('.dup-btn');
     if (dup) dup.addEventListener('click', () => lineAction(() => window.api.boq.duplicateLineItem(item.id)));
     const discountBtn = tr.querySelector('.discount-btn');
@@ -163,6 +159,18 @@ function renderLineItems() {
     });
 
     tbody.appendChild(tr);
+  }
+
+  // Drag a line by its handle to move it.
+  if (!isIssued) {
+    window.makeReorderable(tbody, {
+      item: 'tr',
+      onReorder: async (ids) => {
+        const r = await window.api.boq.reorderLineItems(boqId, ids);
+        if (!r.ok) alert(r.error);
+        await loadDetail();
+      },
+    });
   }
 
   container.innerHTML = '';

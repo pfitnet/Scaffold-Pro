@@ -1578,6 +1578,15 @@ struct PDFExportResult: Codable {
 // MARK: - Small helpers
 // =====================================================================
 
+/// `current` in the order of `ids` (unknown ids ignored), then any of
+/// `current` that `ids` left out, in their existing order.
+func reordered(_ current: [String], by ids: [String]) -> [String] {
+    let known = Set(current)
+    var seen = Set<String>()
+    let front = ids.filter { known.contains($0) && seen.insert($0).inserted }
+    return front + current.filter { !seen.contains($0) }
+}
+
 func makeId(_ prefix: String) -> String {
     let millis = Int(Date().timeIntervalSince1970 * 1000)
     let randomPart = Int.random(in: 0..<1_000_000_000)
@@ -2844,6 +2853,21 @@ final class AppDatabase {
         return nil
     }
 
+    /// Puts a BOQ's lines in the order given (dragged in the editor); any
+    /// line not listed keeps its place after them.
+    func reorderBOQLineItems(boqId: String, ids: [String]) -> String? {
+        guard let boq = getBOQ(id: boqId) else { return "BOQ not found." }
+        guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        var all = boqLineItemsStore.readAll()
+        let lines = all.filter { $0.boqId == boqId }.sorted { $0.sortOrder < $1.sortOrder }
+        for (order, lineId) in reordered(lines.map { $0.id }, by: ids).enumerated() {
+            if let i = all.firstIndex(where: { $0.id == lineId }) { all[i].sortOrder = order }
+        }
+        boqLineItemsStore.writeAll(all)
+        touchBOQ(boq.id)
+        return nil
+    }
+
     /// Section 19: duplicate a line, placed straight after the original.
     func duplicateBOQLineItem(id: String) -> String? {
         var all = boqLineItemsStore.readAll()
@@ -3233,6 +3257,19 @@ final class AppDatabase {
         }
         quotationBlocksStore.writeAll(blocks)
         touchQuotation(target.quotationId)
+        return nil
+    }
+
+    /// Puts a quotation's sections in the order given (dragged in the editor).
+    func reorderQuotationBlocks(quotationId: String, ids: [String]) -> String? {
+        if case .failure(let e) = draftQuotation(quotationId) { return e.message }
+        var blocks = quotationBlocksStore.readAll()
+        let current = quotationBlocks(for: quotationId).map { $0.id }
+        for (n, blockId) in reordered(current, by: ids).enumerated() {
+            if let i = blocks.firstIndex(where: { $0.id == blockId }) { blocks[i].sortOrder = n }
+        }
+        quotationBlocksStore.writeAll(blocks)
+        touchQuotation(quotationId)
         return nil
     }
 
@@ -7576,6 +7613,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:moveBlock":
             let error = db.moveQuotationBlock(id: (payload["id"] as? String) ?? "", up: (payload["up"] as? Bool) ?? true)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:reorderBlocks":
+            let error = db.reorderQuotationBlocks(quotationId: (payload["quotationId"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:removeBlock":
             let error = db.removeQuotationBlock(id: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
@@ -7798,6 +7838,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
         case "boq:moveLineItem":
             let error = db.moveBOQLineItem(id: (payload["id"] as? String) ?? "", direction: (payload["direction"] as? Int) ?? 1)
+            respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "boq:reorderLineItems":
+            let error = db.reorderBOQLineItems(boqId: (payload["boqId"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
         case "boq:duplicateLineItem":
             let error = db.duplicateBOQLineItem(id: (payload["id"] as? String) ?? "")
