@@ -11457,6 +11457,10 @@ final class Updater: NSObject {
 
     // MARK: 2. building and installing
 
+    private var buildTask: Process?
+    private var buildStarted: Date?
+    private var slowShown = false
+
     private func build() {
         setButtons([])
         show("Building the new version…", "This takes about a minute. ScaffoldPro closes and opens again by itself when it's done.", progress: 3)
@@ -11466,11 +11470,15 @@ final class Updater: NSObject {
         task.executableURL = URL(fileURLWithPath: "/bin/bash")
         task.arguments = ["-c", "exec /bin/bash ./install.sh > \"$0\" 2>&1 < /dev/null", logURL.path]
         task.currentDirectoryURL = URL(fileURLWithPath: sourceDir)
+        // Only build: this app installs it (see installAndReopen).
+        var env = ProcessInfo.processInfo.environment
+        env["SCAFFOLDPRO_BUILD_ONLY"] = "1"
+        task.environment = env
         task.terminationHandler = { process in
             DispatchQueue.main.async {
+                self.buildTask = nil
                 if process.terminationStatus == 0 {
-                    // Normally this copy has already been closed by now.
-                    NSApp.terminate(nil)
+                    self.installAndReopen()
                 } else {
                     let lines = ((try? String(contentsOf: self.logURL, encoding: .utf8)) ?? "")
                         .split(separator: "\n").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -11483,16 +11491,110 @@ final class Updater: NSObject {
             fail("The installer couldn't be started: \(error.localizedDescription)")
             return
         }
+        buildTask = task
+        buildStarted = Date()
         timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in self?.followLog() }
+    }
+
+    @objc private func stopClicked(_ sender: Any?) { buildTask?.terminate() }
+
+    // MARK: 3. putting the new copy in place
+
+    /// Where a failed install leaves its reason, for the next launch to show.
+    static var failureNoteURL: URL {
+        FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Logs/ScaffoldPro Update failed.txt")
+    }
+
+    /// Waits for this copy to close, then swaps the new build in (the old
+    /// copy is only removed once the new one is in place, and is put back
+    /// if that fails) and opens ScaffoldPro. Runs on its own after this
+    /// app has quit.
+    private static let installScript = """
+    #!/bin/sh
+    PID="$1"; BUILD="$2"; DEST="$3"; FAILED="$4"
+    n=0
+    while kill -0 "$PID" 2>/dev/null; do
+        n=$((n + 1))
+        [ "$n" -eq 75 ] && kill -9 "$PID" 2>/dev/null
+        sleep 0.2
+    done
+    echo "📦 Installing to $DEST..."
+    rm -f "$FAILED"
+    NEW="$DEST.updating"
+    OLD="$DEST.previous"
+    rm -rf "$NEW" "$OLD"
+    if cp -R "$BUILD" "$NEW" && mv "$DEST" "$OLD"; then
+        if mv "$NEW" "$DEST"; then
+            rm -rf "$OLD"
+            xattr -cr "$DEST" 2>/dev/null
+            /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST" 2>/dev/null
+            echo "✅ Installed."
+        else
+            mv "$OLD" "$DEST"
+            echo "❌ The new copy couldn't be moved into place."
+            echo "The new version couldn't be moved into place." > "$FAILED"
+        fi
+    else
+        rm -rf "$NEW"
+        echo "❌ The copy in $DEST couldn't be replaced."
+        echo "The copy of ScaffoldPro in $(dirname "$DEST") couldn't be replaced. If macOS asked about letting ScaffoldPro modify apps, allow it in System Settings › Privacy & Security › App Management, then update again." > "$FAILED"
+    fi
+    open "$DEST" || open "$BUILD"
+    """
+
+    private func installAndReopen() {
+        finished = true
+        timer?.invalidate()
+        setButtons([])
+        show("Installing…", "ScaffoldPro closes and opens again in a moment.", progress: 97)
+        let build = URL(fileURLWithPath: sourceDir).appendingPathComponent("build/ScaffoldPro.app").path
+        let script = FileManager.default.temporaryDirectory.appendingPathComponent("scaffoldpro-install-update.sh")
+        do {
+            try Updater.installScript.write(to: script, atomically: true, encoding: .utf8)
+            let helper = Process()
+            helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+            // Started in the background (nohup, &) so it carries on once this app has quit.
+            helper.arguments = ["-c", "nohup /bin/sh \"$0\" \"$1\" \"$2\" \"$3\" \"$4\" >> \"$5\" 2>&1 < /dev/null &",
+                                script.path, String(ProcessInfo.processInfo.processIdentifier), build, Bundle.main.bundlePath,
+                                Updater.failureNoteURL.path, logURL.path]
+            try helper.run()
+        } catch {
+            fail("The new version is built, but couldn't be installed: \(error.localizedDescription). Double-click Install ScaffoldPro to finish.")
+            return
+        }
+        // Close this copy so the helper can replace it. If quitting is held
+        // up for any reason, leave anyway after a few seconds.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            if let sheet = self.sheet, let host = self.host { host.endSheet(sheet) }
+            self.sheet = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(0) }
+            NSApp.terminate(nil)
+        }
+    }
+
+    /// Says (once) why the last update couldn't be installed, if it couldn't.
+    static func reportPreviousFailure(in window: NSWindow?) {
+        guard let text = try? String(contentsOf: failureNoteURL, encoding: .utf8) else { return }
+        try? FileManager.default.removeItem(at: failureNoteURL)
+        let alert = NSAlert()
+        alert.messageText = "The last update couldn't be installed"
+        alert.informativeText = text.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\nThis is still the version you had. You can try again from ScaffoldPro › Check for Updates…, or double-click Install ScaffoldPro."
+        if let window = window { alert.beginSheetModal(for: window) } else { alert.runModal() }
     }
 
     /// Moves the screen on as install.sh reports each step.
     private func followLog() {
         guard !finished else { return }
+        // Never stuck without a way out: after 8 minutes, offer to stop.
+        if !slowShown, let started = buildStarted, Date().timeIntervalSince(started) > 480 {
+            slowShown = true
+            setButtons([("Show Log", #selector(showLogClicked(_:))), ("Stop", #selector(stopClicked(_:)))])
+        }
         let log = (try? String(contentsOf: logURL, encoding: .utf8)) ?? ""
         func has(_ s: String) -> Bool { log.contains(s) }
-        if has("Installing to /Applications") || has("Closing the open ScaffoldPro") {
-            show("Installing…", "ScaffoldPro opens again in a moment.", progress: 97)
+        if has("✅ Built.") {
+            show("Installing…", "ScaffoldPro closes and opens again in a moment.", progress: 96)
         } else if has("Ad-hoc signing") || has("Removing quarantine") || has("Validating Info.plist") || has("Adding app icon") {
             show("Finishing…", "Almost done.", progress: 90)
         } else if has("Assembling bundle") {
@@ -11538,6 +11640,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         bridge.cloudBackup.start()
         // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept a week).
         bridge.startScheduledBackups()
+        // If the last update couldn't be put in place, say why.
+        Updater.reportPreviousFailure(in: window)
         // Is there a newer version on GitHub?
         checkForUpdates(manual: false)
     }
