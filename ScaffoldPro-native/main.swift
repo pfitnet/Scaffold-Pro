@@ -8953,7 +8953,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:print":
             handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .print)
         case "quotations:combinePDF":
-            handleCombineQuotations(id: id, ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
+            handleCombineDocuments(id: id, kind: "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
+        case "documents:combinePDF":
+            handleCombineDocuments(id: id, kind: (payload["kind"] as? String) ?? "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
+        case "files:locateDocuments":
+            handleLocateDocuments(id: id, kind: (payload["kind"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
         case "team:status":
             respond(id: id, encodable: teamStatus())
         case "team:start":
@@ -9680,52 +9684,85 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// "Locate File": shows a document's file in Finder — the PDF last
     /// exported, else the newest PDF or Word copy with its number in its
     /// project folder, else just that folder.
-    private func handleLocateDocument(id: String, kind: String, documentId: String) {
-        struct LocateResult: Encodable { var ok: Bool; var error: String?; var note: String? }
+    /// A document's file: the PDF last exported, else the newest PDF or
+    /// Word copy with its number in its project folder (nil if none yet),
+    /// with that folder and the document's number. nil if not found.
+    private func documentFile(kind: String, documentId: String) -> (file: URL?, folder: URL, number: String)? {
         var number = "", projectId = "", pdfPath: String?, subfolder = ""
         switch kind {
         case "BOQ":
-            guard let d = db.getBOQ(id: documentId) else { break }
+            guard let d = db.getBOQ(id: documentId) else { return nil }
             (number, projectId, pdfPath, subfolder) = (d.boqNumber, d.projectId, d.pdfPath, "BOQ")
         case "Quotation":
-            guard let d = db.getQuotation(id: documentId) else { break }
+            guard let d = db.getQuotation(id: documentId) else { return nil }
             (number, projectId, pdfPath, subfolder) = (d.quotationNumber, d.projectId, d.pdfPath, "Quotations")
         case "Invoice":
-            guard let d = db.getInvoice(id: documentId) else { break }
+            guard let d = db.getInvoice(id: documentId) else { return nil }
             (number, projectId, pdfPath, subfolder) = (d.invoiceNumber, d.projectId, d.pdfPath, "Invoices")
         case "DeliveryNote":
-            guard let d = db.getDeliveryNote(id: documentId) else { break }
+            guard let d = db.getDeliveryNote(id: documentId) else { return nil }
             (number, projectId, pdfPath, subfolder) = (d.deliveryNoteNumber, d.projectId, d.pdfPath, "Delivery Notes")
-        default: break
+        default: return nil
         }
-        guard !number.isEmpty, let project = db.getProject(id: projectId) else {
-            respond(id: id, encodable: LocateResult(ok: false, error: "Document not found.", note: nil))
-            return
-        }
-        let fm = FileManager.default
-        if let path = pdfPath, fm.fileExists(atPath: path) {
-            storage.revealInFinder(URL(fileURLWithPath: path))
-            respond(id: id, encodable: LocateResult(ok: true, error: nil, note: nil))
-            return
-        }
+        guard !number.isEmpty, let project = db.getProject(id: projectId) else { return nil }
         let folder = storage.projectFolder(project.projectNumber).appendingPathComponent(subfolder, isDirectory: true)
+        if let path = pdfPath, fileIsPresent(path) { return (URL(fileURLWithPath: path), folder, number) }
+        let fm = FileManager.default
         let safeNumber = number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         let files = ((try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [])
-            .filter { $0.lastPathComponent.contains(safeNumber) && !$0.lastPathComponent.contains(" - Signed") && ["pdf", "docx"].contains($0.pathExtension.lowercased()) }
+            .filter { $0.lastPathComponent.contains(safeNumber) && !$0.lastPathComponent.contains(" - Signed") && !isCombinedExport($0.lastPathComponent) && ["pdf", "docx"].contains($0.pathExtension.lowercased()) }
         let newest = files.max { a, b in
             let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             let dbb = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             return da < dbb
         }
-        if let file = newest {
+        return (newest, folder, number)
+    }
+
+    /// One PDF made from several documents ("…_Quotations_Qt1+Qt2.pdf").
+    private func isCombinedExport(_ name: String) -> Bool {
+        ["_Quotations_", "_BOQs_", "_Invoices_", "_Delivery Notes_"].contains { name.contains($0) }
+    }
+
+    /// "Locate File": shows a document's file in Finder — or, if it hasn't
+    /// been exported yet, the folder it will be saved in.
+    private func handleLocateDocument(id: String, kind: String, documentId: String) {
+        struct LocateResult: Encodable { var ok: Bool; var error: String?; var note: String? }
+        guard let found = documentFile(kind: kind, documentId: documentId) else {
+            respond(id: id, encodable: LocateResult(ok: false, error: "Document not found.", note: nil))
+            return
+        }
+        if let file = found.file {
             storage.revealInFinder(file)
             respond(id: id, encodable: LocateResult(ok: true, error: nil, note: nil))
             return
         }
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        storage.revealInFinder(folder)
+        try? FileManager.default.createDirectory(at: found.folder, withIntermediateDirectories: true)
+        storage.revealInFinder(found.folder)
         respond(id: id, encodable: LocateResult(ok: true, error: nil,
-                                               note: "\(number) hasn't been exported as a PDF or Word file yet, so Finder shows the folder it will be saved in."))
+                                               note: "\(found.number) hasn't been exported as a PDF or Word file yet, so Finder shows the folder it will be saved in."))
+    }
+
+    /// "Locate Files" for several documents: one Finder window with all
+    /// their files selected. Says which haven't been exported yet.
+    private func handleLocateDocuments(id: String, kind: String, ids: [String]) {
+        struct LocateResult: Encodable { var ok: Bool; var error: String?; var note: String? }
+        let found = ids.compactMap { documentFile(kind: kind, documentId: $0) }
+        let files = found.compactMap { $0.file }
+        let missing = found.filter { $0.file == nil }.map { $0.number }
+        if files.isEmpty {
+            guard let folder = found.first?.folder else {
+                respond(id: id, encodable: LocateResult(ok: false, error: "Nothing to show.", note: nil))
+                return
+            }
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            storage.revealInFinder(folder)
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting(files)
+        }
+        let note = missing.isEmpty ? nil
+            : "\(missing.joined(separator: ", ")) \(missing.count == 1 ? "hasn't" : "haven't") been exported as a PDF or Word file yet\(files.isEmpty ? ", so Finder shows the folder they'll be saved in" : "")."
+        respond(id: id, encodable: LocateResult(ok: true, error: nil, note: note))
     }
 
     // MARK: Documents in the letterhead layout (from Qt26193)
@@ -10050,40 +10087,65 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         )
     }
 
-    /// Several quotations of a project in one PDF, in the order given —
-    /// each with its drawings (and the BOQ it follows) after it, if asked.
-    /// Saved in the project's Quotations folder and opened.
-    private func handleCombineQuotations(id: String, ids: [String], includeDrawings: Bool) {
-        let details = ids.compactMap { db.getQuotationDetail(id: $0) }
-        guard let first = details.first else {
-            respond(id: id, encodable: PDFExportResult(ok: false, error: "Choose at least one quotation.", path: nil))
-            return
-        }
+    /// Several quotations or BOQs of a project in one PDF, in the order
+    /// given — each with its drawings (for a quotation, the BOQ it follows
+    /// first) after it, if asked. Saved in the project's folder and opened.
+    private func handleCombineDocuments(id: String, kind: String, ids: [String], includeDrawings: Bool) {
         let company = db.getCompanySettings()
         let paper = company.paperSize ?? "A4"
         let paperSize = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
+        // Each document: its number, project, and its pages (with drawings).
+        var parts: [(number: String, projectNumber: String, data: Data)] = []
+        for docId in ids {
+            if kind == "BOQ" {
+                guard let detail = db.getBOQDetail(id: docId), var data = boqPDFData(detail) else { continue }
+                if includeDrawings { data = PDFAttachments.append(db.appendedDrawingFiles(kind: "BOQ", id: detail.id), to: data, paperSize: paperSize) }
+                parts.append((detail.boqNumber, detail.projectNumber, data))
+            } else if kind == "Invoice" {
+                guard let detail = db.getInvoiceDetail(id: docId), let generator = PDFGenerator(paperSize: paper) else { continue }
+                parts.append((detail.invoiceNumber, detail.projectNumber, generator.generate(invoiceLetter(detail, company: company))))
+            } else if kind == "DeliveryNote" {
+                guard let detail = db.getDeliveryNoteDetail(id: docId), let note = db.getDeliveryNote(id: docId),
+                      let generator = PDFGenerator(paperSize: paper) else { continue }
+                parts.append((detail.deliveryNoteNumber, detail.projectNumber, generator.generate(deliveryNoteLetter(detail, note: note, company: company))))
+            } else {
+                guard let detail = db.getQuotationDetail(id: docId), let generator = PDFGenerator(paperSize: paper) else { continue }
+                var data = generator.generate(quotationLetter(detail, company: company))
+                if includeDrawings { data = PDFAttachments.append(quotationAttachments(detail), to: data, paperSize: paperSize) }
+                parts.append((detail.quotationNumber, detail.projectNumber, data))
+            }
+        }
+        let (label, subfolder): (String, String) = {
+            switch kind {
+            case "BOQ": return ("BOQs", "BOQ")
+            case "Invoice": return ("Invoices", "Invoices")
+            case "DeliveryNote": return ("Delivery Notes", "Delivery Notes")
+            default: return ("Quotations", "Quotations")
+            }
+        }()
+        guard let first = parts.first else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Nothing to export.", path: nil))
+            return
+        }
         let combined = PDFDocument()
-        for detail in details {
-            guard let generator = PDFGenerator(paperSize: paper) else { continue }
-            var data = generator.generate(quotationLetter(detail, company: company))
-            if includeDrawings { data = PDFAttachments.append(quotationAttachments(detail), to: data, paperSize: paperSize) }
-            guard let part = PDFDocument(data: data) else { continue }
-            for i in 0..<part.pageCount {
-                if let page = part.page(at: i)?.copy() as? PDFPage { combined.insert(page, at: combined.pageCount) }
+        for part in parts {
+            guard let doc = PDFDocument(data: part.data) else { continue }
+            for i in 0..<doc.pageCount {
+                if let page = doc.page(at: i)?.copy() as? PDFPage { combined.insert(page, at: combined.pageCount) }
             }
         }
         guard combined.pageCount > 0, let data = combined.dataRepresentation() else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be made.", path: nil))
             return
         }
-        let numbers = details.map { $0.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") }
-        let name = numbers.count <= 4 ? numbers.joined(separator: "+") : "\(numbers.count) quotations \(letterDate(nowISO()).replacingOccurrences(of: "/", with: "-"))"
-        let filename = "\(first.projectNumber)_Quotations_\(name)\(includeDrawings ? "_with drawings" : "").pdf"
+        let numbers = parts.map { $0.number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") }
+        let name = numbers.count <= 4 ? numbers.joined(separator: "+") : "\(numbers.count) \(label.lowercased()) \(letterDate(nowISO()).replacingOccurrences(of: "/", with: "-"))"
+        let filename = "\(first.projectNumber)_\(label)_\(name)\(includeDrawings ? "_with drawings" : "").pdf"
         do {
-            let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: "Quotations", meaningfulFilename: filename)
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: subfolder, meaningfulFilename: filename)
             NSWorkspace.shared.open(destination)
             if let project = db.getProjectByNumber(first.projectNumber) {
-                db.logActivity(projectId: project.id, "Quotations combined into one PDF", reference: destination.lastPathComponent)
+                db.logActivity(projectId: project.id, "\(label) exported as one PDF", reference: destination.lastPathComponent)
             }
             respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
         } catch {
@@ -10097,6 +10159,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Invoices",
+                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice", letter: invoiceLetter(detail, company: company))
+    }
+
+    /// An invoice laid out on the letterhead.
+    private func invoiceLetter(_ detail: InvoiceDetail, company: CompanySettings) -> LetterDocument {
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
         let isRental = detail.pricingMode == "Rental"
         let quotation = detail.sourceQuotationId.flatMap { db.getQuotation(id: $0) }
@@ -10165,7 +10233,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         refRows += [("Site Ref.", nonBlank(quotation?.siteRef) ?? siteReference(projectNumber: detail.projectNumber)), ("Date", letterDate(detail.invoiceDate))]
         if let due = nonBlank(detail.dueDate) { refRows.append(("Due Date", letterDate(due))) }
 
-        let letter = LetterDocument(
+        return LetterDocument(
             number: detail.invoiceNumber, status: detail.status, title: "INVOICE",
             clientName: client.name, clientLines: client.lines, refRows: refRows,
             deliveryMethod: nil, salutation: nil,
@@ -10173,8 +10241,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
             sections: sections, signatures: [companySignature(company)], closingLine: nil
         )
-        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Invoices",
-                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice", letter: letter)
     }
 
     /// The delivery note as the company's own (e.g. DN26038a): Our Ref. No.,
@@ -10188,6 +10254,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
+        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
+                           documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote",
+                           letter: deliveryNoteLetter(detail, note: note, company: company))
+    }
+
+    /// A delivery note laid out on the letterhead (as DN26038a).
+    private func deliveryNoteLetter(_ detail: DeliveryNoteDetail, note: DeliveryNote, company: CompanySettings) -> LetterDocument {
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
         let project = db.getProjectByNumber(detail.projectNumber)
         let site = project.flatMap { db.getSite(id: $0.siteId) }
@@ -10241,8 +10314,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         letter.infoRows = info
         letter.compactTable = true
         letter.receiptRows = [("Received By", "Date"), ("Full Name", "Contact No.")]
-        deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
-                           documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote", letter: letter)
+        return letter
     }
 
     /// Edit Project Details › Project Code: renames the project's folder

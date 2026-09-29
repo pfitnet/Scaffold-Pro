@@ -1273,3 +1273,35 @@ under "Letterhead layout".
   launch says why the update couldn't be installed.
 - If building takes more than 8 minutes, the loading screen offers Show Log
   and Stop, so it can never sit there with no way out.
+
+## Batch 54 — Icon buttons; Select on every document list
+
+- **Icon buttons** (js/icons.js, on every page). Buttons for common actions
+  show an icon instead of the word; hovering shows the word as a tooltip:
+  - Locate File (a folder with a magnifier)
+  - Delete / Remove (a red bin)
+  - Print
+  - Open
+  - Edit
+  - Duplicate
+  - Show in Finder (a folder)
+  - Archive
+  - Rename
+
+  Buttons where the words matter (Export PDF, Save, Upload…, Replace…)
+  keep them.
+- **Select** on the project's BOQ, Quotations, Invoices and Delivery Notes
+  tabs (js/doc-select.js). The tick boxes only appear after pressing
+  Select; then clicking a row ticks it instead of opening it. The toolbar
+  offers:
+  - **Select All**
+  - **Export PDF**: all the ticked documents in one PDF. BOQs and
+    quotations can include their drawings, and a quotation also the BOQ it
+    follows. It's saved in the project's folder for that kind of document
+    and opened.
+  - **Locate Files**: one Finder window with all their files selected. It
+    says which ones haven't been exported yet.
+  - **Done**. Esc also leaves Select.
+- The quotation, invoice and delivery note letters are each built by one
+  function (quotationLetter / invoiceLetter / deliveryNoteLetter), shared by
+  single export and the one-PDF export.

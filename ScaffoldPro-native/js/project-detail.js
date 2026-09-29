@@ -8,6 +8,30 @@ let currentQuotations = [];
 let currentInvoices = [];
 let currentDeliveryNotes = [];
 
+// "Select" on each list: tick several, then Export PDF (one PDF) or Locate Files.
+const selections = {
+  boq: window.createDocumentSelection({
+    kind: 'BOQ', noun: 'BOQ', plural: 'BOQs', drawings: true, drawingsLabel: 'Include each BOQ\u2019s drawings after it',
+    toolbar: document.getElementById('boq-actions'), container: document.getElementById('boq-list'),
+    order: () => currentBOQs.map((b) => b.id), numberOf: (id) => (currentBOQs.find((b) => b.id === id) || {}).boqNumber,
+  }),
+  quotation: window.createDocumentSelection({
+    kind: 'Quotation', noun: 'quotation', drawings: true, drawingsLabel: 'Include each quotation\u2019s drawings (and the BOQ it follows) after it',
+    toolbar: document.getElementById('quotation-actions'), container: document.getElementById('quotation-list'),
+    order: () => currentQuotations.map((q) => q.id), numberOf: (id) => (currentQuotations.find((q) => q.id === id) || {}).quotationNumber,
+  }),
+  invoice: window.createDocumentSelection({
+    kind: 'Invoice', noun: 'invoice',
+    toolbar: document.getElementById('invoice-actions'), container: document.getElementById('invoice-list'),
+    order: () => currentInvoices.map((i) => i.id), numberOf: (id) => (currentInvoices.find((i) => i.id === id) || {}).invoiceNumber,
+  }),
+  delivery: window.createDocumentSelection({
+    kind: 'DeliveryNote', noun: 'delivery note',
+    toolbar: document.getElementById('delivery-actions'), container: document.getElementById('delivery-note-list'),
+    order: () => currentDeliveryNotes.map((d) => d.id), numberOf: (id) => (currentDeliveryNotes.find((d) => d.id === id) || {}).deliveryNoteNumber,
+  }),
+};
+
 function getProjectNumberFromURL() {
   const params = new URLSearchParams(location.search);
   return params.get('number');
@@ -49,16 +73,17 @@ async function refreshBOQList() {
   const totalWeight = counted.reduce((sum, b) => sum + (Number(b.totalWeightKg) || 0), 0);
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Pricing</th><th>Status</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
+    <thead><tr>${selections.boq.headerCell()}<th>Number</th><th>Pricing</th><th>Status</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr class="project-total"><td colspan="4">Project total weight${counted.length < currentBOQs.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
+    <tfoot><tr class="project-total">${selections.boq.footerCell()}<td colspan="4">Project total weight${counted.length < currentBOQs.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
       <td class="num">${money(totalWeight)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
   for (const b of currentBOQs) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `boq-editor.html?id=${b.id}`; };
-    tr.innerHTML = `
+    tr.dataset.id = b.id;
+    tr.innerHTML = `${selections.boq.cell(b.id)}
       <td>${esc(b.boqNumber)}${b.structure ? `<div class="sub">${esc(b.structure)}</div>` : ''}</td>
       <td>${b.pricingMode}</td>
       <td><span class="status-pill">${b.status}</span></td>
@@ -69,6 +94,7 @@ async function refreshBOQList() {
   }
   container.innerHTML = '';
   container.appendChild(table);
+  selections.boq.afterRender();
 }
 
 async function refreshQuotationList() {
@@ -90,19 +116,19 @@ async function refreshQuotationList() {
   const total = counted.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="check-col"><input type="checkbox" id="quotation-select-all" title="Select all" /></th><th>Number</th><th>BOQ</th><th>Status</th><th>Items</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr>${selections.quotation.headerCell()}<th>Number</th><th>BOQ</th><th>Status</th><th>Items</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr class="project-total"><td></td><td colspan="4">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
+    <tfoot><tr class="project-total">${selections.quotation.footerCell()}<td colspan="4">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
       <td class="num">${money(total)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
   for (const q of currentQuotations) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `quotation-editor.html?id=${q.id}`; };
+    tr.dataset.id = q.id;
     // Under the number: the structure of the BOQ it follows, else its subject line.
     const sub = q.structure || q.subject;
-    tr.innerHTML = `
-      <td class="check-col"><input type="checkbox" class="quotation-select" data-id="${esc(q.id)}" ${selectedQuotations.has(q.id) ? 'checked' : ''} /></td>
+    tr.innerHTML = `${selections.quotation.cell(q.id)}
       <td>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</td>
       <td>${q.boqNumber ? esc(q.boqNumber) : '<span class="muted">—</span>'}</td>
       <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
@@ -113,65 +139,7 @@ async function refreshQuotationList() {
   }
   container.innerHTML = '';
   container.appendChild(table);
-  // Ticking a quotation chooses it for "Combine into PDF…" (it doesn't open it).
-  for (const box of table.querySelectorAll('.check-col')) box.addEventListener('click', (e) => e.stopPropagation());
-  for (const box of table.querySelectorAll('input.quotation-select')) {
-    box.addEventListener('change', () => {
-      if (box.checked) selectedQuotations.add(box.dataset.id); else selectedQuotations.delete(box.dataset.id);
-      updateCombineButton();
-    });
-  }
-  document.getElementById('quotation-select-all').addEventListener('change', (e) => {
-    for (const box of table.querySelectorAll('input.quotation-select')) {
-      box.checked = e.target.checked;
-      if (box.checked) selectedQuotations.add(box.dataset.id); else selectedQuotations.delete(box.dataset.id);
-    }
-    updateCombineButton();
-  });
-  updateCombineButton();
-}
-
-// ---- Several quotations in one PDF ----
-
-const selectedQuotations = new Set();
-
-function updateCombineButton() {
-  // Only quotations still in the list count.
-  const ids = new Set(currentQuotations.map((q) => q.id));
-  for (const id of [...selectedQuotations]) if (!ids.has(id)) selectedQuotations.delete(id);
-  const n = selectedQuotations.size;
-  const button = document.getElementById('combine-quotations-btn');
-  button.disabled = n === 0;
-  button.textContent = n > 0 ? `Combine ${n} into PDF…` : 'Combine into PDF…';
-  const all = document.getElementById('quotation-select-all');
-  if (all) {
-    all.checked = n > 0 && n === currentQuotations.length;
-    all.indeterminate = n > 0 && n < currentQuotations.length;
-  }
-}
-
-function setupCombineQuotations() {
-  const modal = document.getElementById('combine-modal');
-  document.getElementById('combine-quotations-btn').addEventListener('click', () => {
-    // In the list's order (newest first).
-    const chosen = currentQuotations.filter((q) => selectedQuotations.has(q.id));
-    if (chosen.length === 0) return;
-    document.getElementById('combine-summary').textContent =
-      `${chosen.map((q) => q.quotationNumber).join(', ')} — ${chosen.length} quotation${chosen.length === 1 ? '' : 's'}, one after another.`;
-    modal.classList.remove('hidden');
-  });
-  document.getElementById('combine-cancel').addEventListener('click', () => modal.classList.add('hidden'));
-  document.getElementById('combine-go').addEventListener('click', async () => {
-    const ids = currentQuotations.filter((q) => selectedQuotations.has(q.id)).map((q) => q.id);
-    const go = document.getElementById('combine-go');
-    go.disabled = true;
-    go.textContent = 'Making PDF…';
-    const r = await window.api.quotations.combinePDF(ids, document.getElementById('combine-drawings').checked);
-    go.disabled = false;
-    go.textContent = 'Make PDF';
-    modal.classList.add('hidden');
-    if (!r || !r.ok) alert((r && r.error) || 'The PDF couldn’t be made.');
-  });
+  selections.quotation.afterRender();
 }
 
 async function refreshInvoiceList() {
@@ -190,14 +158,15 @@ async function refreshInvoiceList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Paid</th><th></th></tr></thead>
+    <thead><tr>${selections.invoice.headerCell()}<th>Number</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Paid</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const inv of currentInvoices) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `invoice-editor.html?id=${inv.id}`; };
-    tr.innerHTML = `
+    tr.dataset.id = inv.id;
+    tr.innerHTML = `${selections.invoice.cell(inv.id)}
       <td>${inv.invoiceNumber}</td>
       <td><span class="status-pill">${inv.status}</span></td>
       <td>${inv.dueDate || '—'}</td>
@@ -208,6 +177,7 @@ async function refreshInvoiceList() {
   }
   container.innerHTML = '';
   container.appendChild(table);
+  selections.invoice.afterRender();
 }
 
 async function refreshDeliveryNoteList() {
@@ -226,14 +196,15 @@ async function refreshDeliveryNoteList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Status</th><th>Date</th><th>Items</th><th></th></tr></thead>
+    <thead><tr>${selections.delivery.headerCell()}<th>Number</th><th>Status</th><th>Date</th><th>Items</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const dn of currentDeliveryNotes) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `delivery-note-editor.html?id=${dn.id}`; };
-    tr.innerHTML = `
+    tr.dataset.id = dn.id;
+    tr.innerHTML = `${selections.delivery.cell(dn.id)}
       <td>${dn.deliveryNoteNumber}</td>
       <td><span class="status-pill">${dn.status}</span></td>
       <td>${(dn.deliveryDate || '').slice(0, 10)}</td>
@@ -243,6 +214,7 @@ async function refreshDeliveryNoteList() {
   }
   container.innerHTML = '';
   container.appendChild(table);
+  selections.delivery.afterRender();
 }
 
 /// Shared renderer for both the Drawings list and the Documents list —
@@ -300,7 +272,9 @@ function renderFileList(containerId, items, api, opts) {
     // Right-click offers the same actions as the row's buttons.
     tr.addEventListener('contextmenu', (e) => {
       const buttons = Array.from(actionsCell.querySelectorAll('button'));
-      window.showContextMenu(e, buttons.map((b) => ({ label: b.textContent.trim(), action: () => b.click(), danger: /archive|remove/i.test(b.textContent) })));
+      // (Icon buttons keep their word in data-icon-label.)
+      const labelOf = (b) => (b.dataset.iconLabel || b.textContent).trim();
+      window.showContextMenu(e, buttons.map((b) => ({ label: labelOf(b), action: () => b.click(), danger: /archive|remove/i.test(labelOf(b)) })));
     });
     if (item.fileExists) {
       actionsCell.innerHTML = `<button class="open-btn">Open</button> <button class="reveal-btn" title="Show this file in Finder">Locate File</button> <button class="rename-btn">Rename</button> <button class="replace-btn">Replace…</button> <button class="archive-btn">Archive</button>`;
@@ -724,7 +698,6 @@ async function init() {
 
   document.getElementById('new-boq-btn').addEventListener('click', createNewBOQ);
   document.getElementById('new-quotation-btn').addEventListener('click', createNewQuotation);
-  setupCombineQuotations();
   document.getElementById('new-invoice-btn').addEventListener('click', createNewInvoice);
   document.getElementById('new-delivery-note-btn').addEventListener('click', createNewDeliveryNote);
 

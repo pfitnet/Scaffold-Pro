@@ -229,6 +229,10 @@
       // Shows a BOQ / quotation / invoice / delivery note's file in Finder.
       // kind: 'BOQ', 'Quotation', 'Invoice' or 'DeliveryNote'.
       locateDocument: (kind, id) => callNative('files:locateDocument', { kind: kind, id: id }),
+      // Several at once: one Finder window with all their files selected.
+      locateDocuments: (kind, ids) => callNative('files:locateDocuments', { kind: kind, ids: ids }),
+      // Several quotations or BOQs ('Quotation' | 'BOQ') in one PDF, optionally each with its drawings.
+      combinePDF: (kind, ids, includeDrawings) => callNative('documents:combinePDF', { kind: kind, ids: ids, includeDrawings: !!includeDrawings }),
     },
     // Stock list: what's in the yard, on hire and owned; movements.
     stock: {
