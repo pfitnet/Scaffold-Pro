@@ -1128,3 +1128,15 @@ under "Letterhead layout".
     pulled. Type S to install the version you have.
 - A copy of the Install file kept elsewhere (e.g. on the Desktop) now
   updates itself from the one in Scaffold-Pro.
+
+## Batch 46 — The BOQ's structure in the quotation's subject line
+
+- A quotation that follows a BOQ has the BOQ's **Structure** in its "Re:"
+  subject line, e.g. "GL-28 Works - Rental - Access platform for louvres".
+  - This applies when it's created from the BOQ, or when the BOQ's items are
+    imported into it later.
+  - Changing the structure in the BOQ, or switching the quotation between
+    Rental and Sale, keeps the subject line in step.
+  - A subject line typed by hand is never changed.
+  - Draft quotations made before this get the structure when ScaffoldPro
+    opens. Issued ones are left as they are.
