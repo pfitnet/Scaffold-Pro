@@ -75,6 +75,27 @@ function renderSidebar(activePage) {
     }
     sidebar.appendChild(link);
   }
+  renderTeamIndicator(sidebar);
+}
+
+// "Shared with Tom, Anna" at the foot of the sidebar while this Mac uses
+// a shared folder (Settings › Share with Other Macs).
+async function renderTeamIndicator(sidebar) {
+  if (!window.api || !window.api.team) return;
+  let s;
+  try { s = await window.api.team.status(); } catch (e) { return; }
+  if (!s || (!s.enabled && !s.folderMissing)) return;
+  const el = document.createElement('div');
+  el.className = `sidebar-team${s.enabled && !s.thisMacOutdated ? '' : ' missing'}`;
+  const others = (s.members || []).filter((m) => !m.isThisMac).map((m) => m.name);
+  const label = !s.enabled ? 'Shared folder not found' : s.thisMacOutdated ? 'Update ScaffoldPro'
+    : others.length ? `Shared with ${others.slice(0, 2).join(', ')}${others.length > 2 ? ` +${others.length - 2}` : ''}` : 'Shared folder';
+  el.innerHTML = '<span class="dot"></span><span></span>';
+  el.lastChild.textContent = label;
+  el.title = s.enabled ? `Working in the shared folder ${s.folderDisplay}. Changes from the other Macs appear by themselves.`
+    : 'The shared folder couldn’t be found, so this Mac’s own data is open. See Settings.';
+  el.addEventListener('click', () => { location.href = 'settings.html#team'; });
+  sidebar.appendChild(el);
 }
 
 // ---------------------------------------------------------------------

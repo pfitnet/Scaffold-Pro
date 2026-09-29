@@ -169,6 +169,12 @@
       exportPDF: (id) => callNative('quotations:exportPDF', { id: id }),
       exportWord: (id) => callNative('quotations:exportWord', { id: id }),
       print: (id) => callNative('quotations:print', { id: id }),
+      // The client's signed copy (PDF or photo/scan), kept in the project's Quotations folder.
+      uploadSigned: (id) => callNative('quotations:uploadSigned', { id: id }),
+      saveSignedFile: (id, fileName, base64) => callNative('quotations:saveSignedFile', { id: id, fileName: fileName, base64: base64 }),
+      // action: 'open' | 'reveal' | 'remove' (the file stays in the folder).
+      signedCopy: (id, action) => callNative('quotations:signedCopy', { id: id, action: action }),
+      setSignedNotNeeded: (id, notNeeded) => callNative('quotations:setSignedNotNeeded', { id: id, notNeeded: !!notNeeded }),
     },
     invoices: {
       listForProject: (projectId) => callNative('invoices:listForProject', { projectId: projectId }),
@@ -242,6 +248,21 @@
       useDefaultFolder: () => callNative('cloudBackup:useDefaultFolder'),
       reveal: () => callNative('cloudBackup:reveal'),
     },
+    // Sharing the data with other Macs through a shared (iCloud Drive) folder.
+    team: {
+      status: () => callNative('team:status'),
+      // Makes a shared folder from this Mac's data (asks where).
+      start: () => callNative('team:start'),
+      // Uses a shared folder set up on another Mac (asks for it).
+      join: () => callNative('team:join'),
+      // Back to this Mac's own data (after the app restarts).
+      leave: () => callNative('team:leave'),
+      setName: (name) => callNative('team:setName', { name: name }),
+      reveal: () => callNative('team:reveal'),
+    },
+    app: {
+      relaunch: () => callNative('app:relaunch'),
+    },
     backup: {
       list: () => callNative('backup:list'),
       locations: () => callNative('backup:locations'),
@@ -280,4 +301,87 @@
       expiring: (days) => callNative('adminDocuments:expiring', { days: days || 30 }),
     },
   };
+
+  // ---- Changes from other Macs (team sharing) ----
+  //
+  // main.swift calls window.__sharedDataChanged({ stores, names }) when
+  // another Mac's changes have been merged in. The page then refreshes to
+  // show them: straight away, or — so nothing being typed is lost — once
+  // no field has focus, no dialog is open and nothing is being dragged.
+  // A page can handle it itself by setting window.onSharedDataChanged.
+
+  const SCROLL_KEY = 'scaffoldpro.sharedRefresh';
+  let waiting = null;
+
+  function busy() {
+    const a = document.activeElement;
+    if (a && (a.isContentEditable || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' ||
+        (a.tagName === 'INPUT' && !['button', 'submit', 'checkbox', 'radio', 'file'].includes(a.type)))) return true;
+    if (document.querySelector('.modal-backdrop:not(.hidden), .search-overlay:not(.hidden)')) return true;
+    return !!(document.body && document.body.classList.contains('reordering'));
+  }
+
+  function toast(text) {
+    if (!document.body) return;
+    const el = document.createElement('div');
+    el.className = 'sync-toast';
+    el.textContent = text;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3800);
+  }
+
+  function refresh(change) {
+    const who = (change.names || []).join(', ') || 'another Mac';
+    if (typeof window.onSharedDataChanged === 'function') {
+      window.onSharedDataChanged(change);
+      toast(`Updated with changes from ${who}`);
+      return;
+    }
+    const content = document.getElementById('content');
+    try {
+      sessionStorage.setItem(SCROLL_KEY, JSON.stringify({
+        url: location.href, y: window.scrollY, content: content ? content.scrollTop : 0, who: who,
+      }));
+    } catch (e) { /* the page still refreshes */ }
+    location.reload();
+  }
+
+  window.__sharedDataChanged = function (change) {
+    const merged = waiting || { stores: [], names: [] };
+    for (const key of ['stores', 'names']) {
+      for (const v of (change && change[key]) || []) if (!merged[key].includes(v)) merged[key].push(v);
+    }
+    if (waiting) return; // already waiting for a quiet moment
+    waiting = merged;
+    const tryNow = () => {
+      if (busy()) { setTimeout(tryNow, 1000); return; }
+      // A field that was just left may still be saving.
+      setTimeout(() => {
+        if (busy()) { setTimeout(tryNow, 1000); return; }
+        const c = waiting;
+        waiting = null;
+        refresh(c);
+      }, 700);
+    };
+    tryNow();
+  };
+
+  // After such a refresh: back to the same place, and say what happened.
+  window.addEventListener('load', () => {
+    let saved = null;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null');
+      sessionStorage.removeItem(SCROLL_KEY);
+    } catch (e) { saved = null; }
+    if (!saved || saved.url !== location.href) return;
+    const restore = () => {
+      window.scrollTo(0, saved.y || 0);
+      const content = document.getElementById('content');
+      if (content) content.scrollTop = saved.content || 0;
+    };
+    // The page fills in its lists after loading; restore as they arrive.
+    for (const ms of [0, 150, 400, 900]) setTimeout(restore, ms);
+    toast(`Updated with changes from ${saved.who}`);
+  });
 })();

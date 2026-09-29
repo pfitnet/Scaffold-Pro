@@ -91,7 +91,7 @@ async function refreshQuotationList() {
     tr.onclick = () => { location.href = `quotation-editor.html?id=${q.id}`; };
     tr.innerHTML = `
       <td>${q.quotationNumber}</td>
-      <td><span class="status-pill">${q.status}</span></td>
+      <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
       <td>${q.itemCount}</td>
       <td class="num">${money(q.total)}</td>`;
     tr.appendChild(window.documentRowActions('Quotation', { id: q.id, number: q.quotationNumber, status: q.status }, refreshQuotationList));
@@ -534,7 +534,7 @@ async function refreshHistory() {
   const render = (list) => list.length === 0
     ? '<div class="empty-state compact"><p>No activity recorded yet.</p></div>'
     : `<table class="history"><thead><tr><th>When</th><th>What</th><th>Reference</th></tr></thead><tbody>${
-        list.map((e) => `<tr><td class="nowrap muted">${formatWhen(e.createdAt)}</td><td>${esc(e.action)}</td><td>${esc(e.reference || '')}</td></tr>`).join('')
+        list.map((e) => `<tr><td class="nowrap muted">${formatWhen(e.createdAt)}</td><td>${esc(e.action)}${e.by ? ` <span class="muted">— ${esc(e.by)}</span>` : ''}</td><td>${esc(e.reference || '')}</td></tr>`).join('')
       }</tbody></table>`;
   document.getElementById('history-list').innerHTML = render(entries);
   document.getElementById('overview-activity').innerHTML = render(entries.slice(0, 5));
