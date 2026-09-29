@@ -85,11 +85,14 @@ echo "🔏 Ad-hoc signing..."
 codesign --force --deep --sign - "$BUILD"
 
 # A copy that's still open would otherwise stay open (and `open` below
-# would just bring it to the front instead of starting the new one).
+# would just bring it to the front instead of starting the new one). When
+# the app updates itself, this is the moment its loading screen closes.
+# (A signal, not AppleScript: no "allow control of ScaffoldPro" prompt.)
 if pgrep -xq ScaffoldPro; then
     echo "👋 Closing the open ScaffoldPro..."
-    osascript -e 'tell application "ScaffoldPro" to quit' >/dev/null 2>&1 || true
+    pkill -x ScaffoldPro 2>/dev/null || true
     for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -xq ScaffoldPro || break; sleep 0.5; done
+    pkill -9 -x ScaffoldPro 2>/dev/null || true
 fi
 
 echo "📦 Installing to /Applications..."
