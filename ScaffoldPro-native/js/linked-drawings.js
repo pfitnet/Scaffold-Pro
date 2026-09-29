@@ -2,7 +2,9 @@
 
 // The drawings a BOQ or quotation is based on, shown inside its editor:
 // open them, or upload a new drawing (PDF, DWG, DXF or image) already
-// linked to this document.
+// linked to this document. A quotation that follows a BOQ has the BOQ's
+// drawings too. Image and PDF drawings are added, in this order, after the
+// document's own pages when it's exported as a PDF or printed.
 //
 //   window.setupLinkedDrawings({ kind: 'BOQ' | 'Quotation', id, projectNumber })
 //
@@ -25,9 +27,16 @@
         container.innerHTML = `<p class="small-note">No drawings linked to this ${options.kind === 'BOQ' ? 'BOQ' : 'quotation'} yet. Upload one here, or link an existing drawing from the project's Drawings &amp; Documents tab.</p>`;
         return;
       }
-      container.innerHTML = `<table class="compact"><tbody>${drawings.map((d) => `
+      const appended = drawings.filter((d) => d.appended).length;
+      const note = appended
+        ? `<p class="small-note">${appended === drawings.length ? 'These drawings are' : `The ${appended} marked “PDF page” are`} added after the ${options.kind === 'BOQ' ? 'BOQ' : 'quotation'}’s own pages, in this order, when it’s exported as a PDF or printed.</p>`
+        : '';
+      container.innerHTML = note + `<table class="compact"><tbody>${drawings.map((d, i) => `
         <tr>
+          <td class="muted">${i + 1}</td>
           <td>${esc(d.storedFilename || d.originalName)}${d.fileExists ? '' : ' <span class="status-pill pill-danger">File unavailable</span>'}
+            ${d.fromBOQNumber ? ` <span class="status-pill" title="A drawing of the BOQ this quotation follows">From ${esc(d.fromBOQNumber)}</span>` : ''}
+            ${d.appended && appended !== drawings.length ? ' <span class="status-pill">PDF page</span>' : ''}
             ${d.description ? `<div class="sub">${esc(d.description)}</div>` : ''}</td>
           <td class="muted">${esc(d.fileType)}</td>
           <td class="row-actions">${d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}</td>

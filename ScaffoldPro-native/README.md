@@ -1034,3 +1034,24 @@ under "Letterhead layout".
     read the result.
   - If macOS says it can't be opened, right-click it › Open › Open. You only
     need to do that once.
+
+## Batch 42 — Drawings follow the quotation and print after it
+
+- A quotation made from a BOQ, or with a BOQ's items imported, has that
+  BOQ's drawings as well as its own.
+  - The quotation's Drawings panel shows them tagged "From <BOQ no.>".
+  - They're looked up live, so a drawing added to the BOQ later appears on
+    the quotation too.
+- When a quotation or BOQ is exported as a PDF or printed, its image and PDF
+  drawings are added after its own pages: page 1 the quotation, page 2
+  drawing 1, page 3 drawing 2, and so on.
+  - The order is the one numbered in the Drawings panel: the BOQ's drawings
+    first, then the quotation's own, each oldest first.
+  - Every page of a PDF drawing is added as it is. Each image goes on a
+    page of its own, fitted inside a small margin and turned landscape if
+    it's wide.
+  - When printing, drawing pages larger than the paper (e.g. A1) are scaled
+    down to fit. The document's own pages print at full size.
+  - DWG / DXF drawings, and files that are missing or password-protected,
+    are left out.
+- The Word copy is unchanged: it holds only the document itself.

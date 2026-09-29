@@ -240,6 +240,11 @@ struct ProjectDrawingSummary: Codable {
     var linkedId: String?
     /// e.g. "26017-BOQ-001" or "Qt26193".
     var linkedNumber: String?
+    /// In a quotation's list: the BOQ it comes from (drawings of the BOQ
+    /// the quotation follows are the quotation's too).
+    var fromBOQNumber: String? = nil
+    /// Image or PDF: added after the document's own pages in its PDF.
+    var appended: Bool = false
 }
 
 /// Drawing files: PDF and images, plus AutoCAD DWG / DXF.
@@ -4383,7 +4388,6 @@ final class AppDatabase {
         drawingSummaries(drawingsStore.readAll().filter { $0.projectId == projectId && !$0.isArchived })
     }
 
-    /// The drawings linked to one BOQ or quotation.
     /// Drawings that belonged to a deleted BOQ or quotation stay with the project.
     func unlinkDrawings(kind: String, id: String) {
         var items = drawingsStore.readAll()
@@ -4396,8 +4400,32 @@ final class AppDatabase {
         if changed { drawingsStore.writeAll(items) }
     }
 
+    /// The drawings of one BOQ or quotation, in the order they're added to
+    /// its PDF: for a quotation that follows a BOQ, the BOQ's drawings first,
+    /// then its own; each oldest first.
     func listDrawings(linkedKind: String, linkedId: String) -> [ProjectDrawingSummary] {
-        drawingSummaries(drawingsStore.readAll().filter { !$0.isArchived && $0.linkedKind == linkedKind && $0.linkedId == linkedId })
+        let boq = linkedKind == "Quotation" ? getQuotation(id: linkedId)?.sourceBOQId.flatMap { getBOQ(id: $0) } : nil
+        return documentDrawings(kind: linkedKind, id: linkedId).map { d in
+            var summary = drawingSummaries([d])[0]
+            if let boq = boq, d.linkedKind == "BOQ", d.linkedId == boq.id { summary.fromBOQNumber = boq.boqNumber }
+            summary.appended = PDFAttachments.canAppend(URL(fileURLWithPath: d.filePath)) && summary.fileExists
+            return summary
+        }
+    }
+
+    /// See `listDrawings(linkedKind:linkedId:)`.
+    func documentDrawings(kind: String, id: String) -> [ProjectDrawing] {
+        let all = drawingsStore.readAll().filter { !$0.isArchived }
+        let own = all.filter { $0.linkedKind == kind && $0.linkedId == id }.sorted { $0.uploadedAt < $1.uploadedAt }
+        guard kind == "Quotation", let boqId = getQuotation(id: id)?.sourceBOQId else { return own }
+        let inherited = all.filter { $0.linkedKind == "BOQ" && $0.linkedId == boqId }.sorted { $0.uploadedAt < $1.uploadedAt }
+        return inherited + own
+    }
+
+    /// The drawing files added after a BOQ's or quotation's own pages.
+    func appendedDrawingFiles(kind: String, id: String) -> [URL] {
+        documentDrawings(kind: kind, id: id).map { URL(fileURLWithPath: $0.filePath) }
+            .filter { PDFAttachments.canAppend($0) && FileManager.default.fileExists(atPath: $0.path) }
     }
 
     private func drawingSummaries(_ drawings: [ProjectDrawing]) -> [ProjectDrawingSummary] {
@@ -4963,6 +4991,52 @@ enum LetterheadColor {
     static let grey = NSColor(srgbRed: 153 / 255, green: 153 / 255, blue: 153 / 255, alpha: 1)
     static let darkGrey = NSColor(srgbRed: 102 / 255, green: 102 / 255, blue: 102 / 255, alpha: 1)
     static let link = NSColor(srgbRed: 40 / 255, green: 84 / 255, blue: 197 / 255, alpha: 1)
+}
+
+/// Drawings added after a document's own pages: every page of a PDF as
+/// it is, and each image on a page of its own (the document's paper size,
+/// turned landscape for a wide image), fitted inside a 24pt margin.
+enum PDFAttachments {
+    static let imageTypes: Set<String> = ["png", "jpg", "jpeg", "heic", "heif", "tif", "tiff", "gif", "bmp", "webp"]
+
+    static func canAppend(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return ext == "pdf" || imageTypes.contains(ext)
+    }
+
+    static func append(_ files: [URL], to data: Data, paperSize: NSSize) -> Data {
+        guard !files.isEmpty, let document = PDFDocument(data: data) else { return data }
+        for url in files {
+            if url.pathExtension.lowercased() == "pdf" {
+                guard let drawing = PDFDocument(url: url), !drawing.isLocked else { continue }
+                for i in 0..<drawing.pageCount {
+                    if let page = drawing.page(at: i)?.copy() as? PDFPage { document.insert(page, at: document.pageCount) }
+                }
+            } else if let page = imagePage(url, paperSize: paperSize) {
+                document.insert(page, at: document.pageCount)
+            }
+        }
+        return document.dataRepresentation() ?? data
+    }
+
+    private static func imagePage(_ url: URL, paperSize: NSSize) -> PDFPage? {
+        guard let image = NSImage(contentsOf: url), let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let wide = cg.width > cg.height
+        let short = min(paperSize.width, paperSize.height), long = max(paperSize.width, paperSize.height)
+        var box = CGRect(x: 0, y: 0, width: wide ? long : short, height: wide ? short : long)
+        let margin: CGFloat = 24
+        let scale = min((box.width - 2 * margin) / CGFloat(cg.width), (box.height - 2 * margin) / CGFloat(cg.height))
+        let size = CGSize(width: CGFloat(cg.width) * scale, height: CGFloat(cg.height) * scale)
+        let data = NSMutableData()
+        guard let consumer = CGDataConsumer(data: data as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { return nil }
+        context.beginPDFPage(nil)
+        context.interpolationQuality = .high
+        context.draw(cg, in: CGRect(x: (box.width - size.width) / 2, y: (box.height - size.height) / 2, width: size.width, height: size.height))
+        context.endPDFPage()
+        context.closePDF()
+        return PDFDocument(data: data as Data)?.page(at: 0)
+    }
 }
 
 final class PDFGenerator {
@@ -8661,7 +8735,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
     }
 
-    private func deliverRenderedPDF(id: String, mode: PDFMode, company: CompanySettings, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String, letter: LetterDocument) {
+    private func deliverRenderedPDF(id: String, mode: PDFMode, company: CompanySettings, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String, letter: LetterDocument,
+                                    attachments: [URL] = []) {
         let paper = company.paperSize ?? "A4"
         guard let generator = PDFGenerator(paperSize: paper) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document.", path: nil))
@@ -8694,13 +8769,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let data = generator.generate(letter)
         deliverPDF(id: id, mode: mode, data: data,
                    paperSize: paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89),
-                   projectNumber: projectNumber, subfolder: subfolder, documentNumber: documentNumber, docTypeTag: docTypeTag)
+                   projectNumber: projectNumber, subfolder: subfolder, documentNumber: documentNumber, docTypeTag: docTypeTag,
+                   attachments: attachments)
     }
 
     /// Prints a finished PDF (standard print dialog), or saves it into the
-    /// project's folder and opens it.
-    private func deliverPDF(id: String, mode: PDFMode, data: Data, paperSize: NSSize, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String) {
+    /// project's folder and opens it. `attachments` (drawings) are added
+    /// after the document's own pages.
+    private func deliverPDF(id: String, mode: PDFMode, data original: Data, paperSize: NSSize, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String,
+                            attachments: [URL] = []) {
         let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let data = PDFAttachments.append(attachments, to: original, paperSize: paperSize)
         if mode == .print {
             guard let document = PDFDocument(data: data), let window = window else {
                 respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document for printing.", path: nil))
@@ -8711,7 +8790,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             info.orientation = paperSize.width > paperSize.height ? .landscape : .portrait
             info.topMargin = 0; info.bottomMargin = 0; info.leftMargin = 0; info.rightMargin = 0
             info.jobDisposition = .spool
-            if let op = document.printOperation(for: info, scalingMode: .pageScaleNone, autoRotate: false) {
+            // Drawings may be larger than the paper (e.g. A1) or landscape:
+            // those pages are fitted and turned; the document's own aren't.
+            if let op = document.printOperation(for: info, scalingMode: attachments.isEmpty ? .pageScaleNone : .pageScaleDownToFit,
+                                                autoRotate: !attachments.isEmpty) {
                 op.jobTitle = "\(docTypeTag) \(documentNumber)"
                 op.showsPrintPanel = true
                 op.showsProgressPanel = true
@@ -8952,7 +9034,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
-                   projectNumber: detail.projectNumber, subfolder: "BOQ", documentNumber: detail.boqNumber, docTypeTag: "BOQ")
+                   projectNumber: detail.projectNumber, subfolder: "BOQ", documentNumber: detail.boqNumber, docTypeTag: "BOQ",
+                   attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
     }
 
     /// The portrait BOQ: the letterhead layout (from Qt26193) with each
@@ -8987,7 +9070,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             sections: remarks(detail.notes), signatures: [], closingLine: nil
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "BOQ",
-                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: letter)
+                           documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: letter,
+                           attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
     }
 
     private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
@@ -9067,7 +9151,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             closingLine: "-[Remainder of this page is intentionally left blank]-"
         )
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
-                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter)
+                           documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
+                           attachments: db.appendedDrawingFiles(kind: "Quotation", id: detail.id))
     }
 
     private func handleExportInvoicePDF(id: String, invoiceId: String, mode: PDFMode = .export) {
