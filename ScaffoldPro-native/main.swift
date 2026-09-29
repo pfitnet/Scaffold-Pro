@@ -11072,7 +11072,7 @@ struct UpdateInfo {
 }
 
 enum UpdateChecker {
-    private static func resource(_ name: String) -> String? {
+    static func resource(_ name: String) -> String? {
         guard let url = Bundle.main.resourceURL?.appendingPathComponent(name),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         return nonBlank(text)
@@ -11083,7 +11083,7 @@ enum UpdateChecker {
 
     /// Runs git in `dir`, never waiting on a password prompt; nil if it
     /// failed or took longer than `timeout`.
-    private static func git(_ args: [String], in dir: String, timeout: TimeInterval = 20) -> String? {
+    static func git(_ args: [String], in dir: String, timeout: TimeInterval = 20) -> String? {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         p.arguments = ["-C", dir] + args
@@ -11157,6 +11157,261 @@ enum UpdateChecker {
     }
 }
 
+// =====================================================================
+// MARK: - Updating inside the app (a loading screen instead of Terminal)
+//
+// "Update Now" gets the new version and builds it in the background while
+// a loading screen shows how far it has got. Terminal isn't used:
+//  1. git pull in the source folder (never asking for a password). If
+//     that can't sign in to GitHub, GitHub Desktop is opened and the
+//     screen waits until its Pull origin has brought the new version.
+//  2. install.sh, with its messages going to a log file
+//     (~/Library/Logs/ScaffoldPro Update.log) that the screen follows.
+//     Near the end install.sh closes this copy, puts the new one in
+//     Applications and opens it. (A log file, unlike a pipe back to this
+//     app, lets install.sh carry on once this copy has closed.)
+// =====================================================================
+
+final class Updater: NSObject {
+    private weak var host: NSWindow?
+    private let installed: String
+    private let sourceDir: String
+    private let repoDir: String
+    private let logURL: URL
+    private var sheet: NSWindow?
+    private let titleLabel = NSTextField(labelWithString: "Updating ScaffoldPro")
+    private let statusLabel = NSTextField(labelWithString: "")
+    private let detailLabel = NSTextField(wrappingLabelWithString: "")
+    private let bar = NSProgressIndicator()
+    private let buttonRow = NSStackView()
+    private var timer: Timer?
+    private var compileStarted: Date?
+    private var waitingForDesktop = false
+    private var finished = false
+    /// Called when the screen closes without updating (cancelled, failed, nothing new).
+    var onClose: (() -> Void)?
+
+    init?(host: NSWindow) {
+        guard let commit = UpdateChecker.resource("commit.txt"), let source = UpdateChecker.resource("source.txt"),
+              FileManager.default.fileExists(atPath: source + "/install.sh"),
+              let top = UpdateChecker.git(["rev-parse", "--show-toplevel"], in: source), !top.isEmpty else { return nil }
+        self.host = host
+        installed = commit
+        sourceDir = source
+        repoDir = top
+        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        logURL = logs.appendingPathComponent("ScaffoldPro Update.log")
+        super.init()
+    }
+
+    // MARK: the screen
+
+    private func showScreen() {
+        guard let host = host else { return }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 210), styleMask: [.titled], backing: .buffered, defer: false)
+        let icon = NSImageView(image: NSApp.applicationIconImage ?? NSImage())
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.widthAnchor.constraint(equalToConstant: 64).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 64).isActive = true
+        titleLabel.font = .boldSystemFont(ofSize: 15)
+        statusLabel.font = .systemFont(ofSize: 13)
+        detailLabel.font = .systemFont(ofSize: 11)
+        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.preferredMaxLayoutWidth = 340
+        bar.style = .bar
+        bar.isIndeterminate = false
+        bar.minValue = 0
+        bar.maxValue = 100
+        bar.widthAnchor.constraint(equalToConstant: 340).isActive = true
+        buttonRow.orientation = .horizontal
+        buttonRow.spacing = 8
+        buttonRow.isHidden = true
+        let text = NSStackView(views: [titleLabel, statusLabel, bar, detailLabel, buttonRow])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 8
+        let row = NSStackView(views: [icon, text])
+        row.orientation = .horizontal
+        row.alignment = .top
+        row.spacing = 16
+        row.edgeInsets = NSEdgeInsets(top: 22, left: 22, bottom: 22, right: 22)
+        row.translatesAutoresizingMaskIntoConstraints = false
+        let content = NSView()
+        content.addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: content.leadingAnchor), row.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            row.topAnchor.constraint(equalTo: content.topAnchor), row.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
+        window.contentView = content
+        sheet = window
+        host.beginSheet(window, completionHandler: nil)
+    }
+
+    private func show(_ status: String, _ detail: String, progress: Double?) {
+        statusLabel.stringValue = status
+        detailLabel.stringValue = detail
+        if let p = progress {
+            bar.isIndeterminate = false
+            bar.stopAnimation(nil)
+            bar.doubleValue = p
+        } else {
+            bar.isIndeterminate = true
+            bar.startAnimation(nil)
+        }
+    }
+
+    private func setButtons(_ items: [(String, Selector)]) {
+        for v in buttonRow.arrangedSubviews { buttonRow.removeArrangedSubview(v); v.removeFromSuperview() }
+        for (i, item) in items.enumerated() {
+            let b = NSButton(title: item.0, target: self, action: item.1)
+            b.bezelStyle = .rounded
+            if i == 0 { b.keyEquivalent = "\r" }
+            buttonRow.addArrangedSubview(b)
+        }
+        buttonRow.isHidden = items.isEmpty
+    }
+
+    private func closeScreen() {
+        timer?.invalidate()
+        timer = nil
+        if let sheet = sheet, let host = host { host.endSheet(sheet) }
+        sheet = nil
+        onClose?()
+    }
+
+    @objc private func closeClicked(_ sender: Any?) { closeScreen() }
+    @objc private func showLogClicked(_ sender: Any?) { NSWorkspace.shared.open(logURL) }
+    @objc private func openDesktopClicked(_ sender: Any?) { openGitHubDesktop() }
+    @objc private func cancelClicked(_ sender: Any?) { waitingForDesktop = false; closeScreen() }
+
+    private func fail(_ message: String) {
+        finished = true
+        timer?.invalidate()
+        titleLabel.stringValue = "The update didn't finish"
+        show(message, "ScaffoldPro is still the version you had; nothing has changed.", progress: 0)
+        bar.isHidden = true
+        setButtons([("Close", #selector(closeClicked(_:))), ("Show Log", #selector(showLogClicked(_:)))])
+    }
+
+    // MARK: 1. getting the new version
+
+    func start() {
+        showScreen()
+        show("Getting the latest version…", "", progress: nil)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let pulled = UpdateChecker.git(["-c", "credential.interactive=never", "pull", "--ff-only", "--quiet"], in: self.repoDir, timeout: 90) != nil
+            let state = self.localState()
+            DispatchQueue.main.async {
+                if state.hasNew {
+                    self.build()
+                } else if pulled && state.head == self.installed {
+                    self.finished = true
+                    self.titleLabel.stringValue = "ScaffoldPro is up to date"
+                    self.show("There's nothing new to install.", "", progress: 100)
+                    self.setButtons([("Close", #selector(self.closeClicked(_:)))])
+                } else if self.gitHubDesktopURL != nil {
+                    self.waitForGitHubDesktop()
+                } else {
+                    self.fail("The new version couldn't be downloaded from GitHub (it may need you to sign in). Open the Scaffold-Pro folder in GitHub Desktop, press Pull origin, then try again.")
+                }
+            }
+        }
+    }
+
+    /// The source folder's version, and whether it's newer than this copy
+    /// with nothing left to pull (as far as the last fetch knows).
+    private func localState() -> (head: String, hasNew: Bool) {
+        let head = UpdateChecker.git(["rev-parse", "HEAD"], in: repoDir) ?? installed
+        let behind = UpdateChecker.git(["rev-list", "--count", "HEAD..@{u}"], in: repoDir).flatMap { Int($0) } ?? 0
+        return (head, head != installed && behind == 0)
+    }
+
+    private var gitHubDesktopURL: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.github.GitHubClient") }
+
+    private func openGitHubDesktop() {
+        guard let app = gitHubDesktopURL else { return }
+        NSWorkspace.shared.open([URL(fileURLWithPath: repoDir)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
+    }
+
+    /// Git can't sign in to GitHub by itself: GitHub Desktop brings the new
+    /// version, and the screen carries on by itself once it's here.
+    private func waitForGitHubDesktop() {
+        waitingForDesktop = true
+        openGitHubDesktop()
+        show("Waiting for GitHub Desktop…", "In GitHub Desktop, press “Fetch origin”, then “Pull origin”. The update carries on by itself once the new version is here.", progress: nil)
+        setButtons([("Open GitHub Desktop", #selector(openDesktopClicked(_:))), ("Cancel", #selector(cancelClicked(_:)))])
+        checkForDesktopPull()
+    }
+
+    private func checkForDesktopPull() {
+        guard waitingForDesktop else { return }
+        DispatchQueue.global(qos: .utility).async {
+            let state = self.localState()
+            DispatchQueue.main.async {
+                guard self.waitingForDesktop else { return }
+                if state.hasNew {
+                    self.waitingForDesktop = false
+                    self.build()
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.checkForDesktopPull() }
+                }
+            }
+        }
+    }
+
+    // MARK: 2. building and installing
+
+    private func build() {
+        setButtons([])
+        show("Building the new version…", "This takes about a minute. ScaffoldPro closes and opens again by itself when it's done.", progress: 3)
+        NSApp.activate(ignoringOtherApps: true)
+        try? Data().write(to: logURL)
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/bash")
+        task.arguments = ["-c", "exec /bin/bash ./install.sh > \"$0\" 2>&1 < /dev/null", logURL.path]
+        task.currentDirectoryURL = URL(fileURLWithPath: sourceDir)
+        task.terminationHandler = { process in
+            DispatchQueue.main.async {
+                if process.terminationStatus == 0 {
+                    // Normally this copy has already been closed by now.
+                    NSApp.terminate(nil)
+                } else {
+                    let lines = ((try? String(contentsOf: self.logURL, encoding: .utf8)) ?? "")
+                        .split(separator: "\n").map(String.init).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                    let reason = lines.last { $0.contains("error:") || $0.hasPrefix("❌") } ?? lines.last ?? "The build stopped."
+                    self.fail("It couldn't be built: \(reason.trimmingCharacters(in: .whitespaces))")
+                }
+            }
+        }
+        do { try task.run() } catch {
+            fail("The installer couldn't be started: \(error.localizedDescription)")
+            return
+        }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in self?.followLog() }
+    }
+
+    /// Moves the screen on as install.sh reports each step.
+    private func followLog() {
+        guard !finished else { return }
+        let log = (try? String(contentsOf: logURL, encoding: .utf8)) ?? ""
+        func has(_ s: String) -> Bool { log.contains(s) }
+        if has("Installing to /Applications") || has("Closing the open ScaffoldPro") {
+            show("Installing…", "ScaffoldPro opens again in a moment.", progress: 97)
+        } else if has("Ad-hoc signing") || has("Removing quarantine") || has("Validating Info.plist") || has("Adding app icon") {
+            show("Finishing…", "Almost done.", progress: 90)
+        } else if has("Assembling bundle") {
+            show("Putting it together…", "Almost done.", progress: 84)
+        } else if has("Compiling ScaffoldPro") {
+            if compileStarted == nil { compileStarted = Date() }
+            // Compiling is most of the wait (about a minute): creep towards 80%.
+            let seconds = Date().timeIntervalSince(compileStarted ?? Date())
+            show("Building the new version…", "This takes about a minute. ScaffoldPro closes and opens again by itself when it's done.",
+                 progress: 8 + 72 * (1 - exp(-seconds / 45)))
+        }
+    }
+}
+
 /// Quits and opens ScaffoldPro again (after switching to or from a shared folder).
 func relaunchApp() {
     let task = Process()
@@ -11215,6 +11470,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         }
     }
 
+    private var updater: Updater?
+
+    /// Runs the update behind a loading screen; if this copy can't (no
+    /// source folder), Install ScaffoldPro runs in Terminal instead.
+    private func startUpdate(fallbackInstaller: URL) {
+        guard updater == nil else { return }
+        guard let window = window, let u = Updater(host: window) else {
+            NSWorkspace.shared.open(fallbackInstaller)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+            return
+        }
+        updater = u
+        u.onClose = { [weak self] in self?.updater = nil }
+        u.start()
+    }
+
     private func showUpdateAlert(_ title: String, _ text: String) {
         let alert = NSAlert()
         alert.messageText = title
@@ -11235,9 +11506,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         if info.installer != nil { alert.addButton(withTitle: "Later") }
         let handle: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .alertFirstButtonReturn, let installer = info.installer else { return }
-            // Runs in Terminal; the new version opens when it's done.
-            NSWorkspace.shared.open(installer)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+            // Updated here, behind a loading screen (Terminal isn't shown).
+            // The alert has to be gone before the loading screen appears.
+            DispatchQueue.main.async { self.startUpdate(fallbackInstaller: installer) }
         }
         if let window = window { alert.beginSheetModal(for: window, completionHandler: handle) } else { handle(alert.runModal()) }
     }

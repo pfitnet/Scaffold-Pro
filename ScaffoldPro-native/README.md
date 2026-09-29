@@ -1202,3 +1202,26 @@ under "Letterhead layout".
   - the BOQ tab gives the project total weight;
   - the Quotations tab gives the project total of the quotations;
   - cancelled ones aren't counted.
+
+## Batch 50 — Updating behind a loading screen (no Terminal)
+
+- **Update Now** no longer opens Terminal. ScaffoldPro shows a loading
+  screen over its window while it updates itself in the background:
+  1. **Getting the latest version**: a git pull in the source folder that
+     never asks for a password. If git can't sign in to GitHub, GitHub
+     Desktop opens on Scaffold-Pro and the screen says "press Fetch
+     origin, then Pull origin". It carries on by itself once the new
+     version has arrived, or Cancel stops it.
+  2. **Building the new version** (about a minute), **Putting it
+     together**, **Finishing**, **Installing**. The progress bar follows
+     install.sh, whose messages go to ~/Library/Logs/ScaffoldPro
+     Update.log instead of a Terminal window.
+  3. install.sh closes this copy, installs the new one and opens it.
+- If the build fails, the screen says why (the compiler's error line),
+  with **Show Log** and **Close**. The version you had keeps running,
+  unchanged.
+- install.sh now closes a running ScaffoldPro with a signal (pkill)
+  instead of AppleScript. This avoids macOS asking for permission to
+  control ScaffoldPro.
+- Install ScaffoldPro (the Desktop file) still uses Terminal. It's for
+  installing the first time.
