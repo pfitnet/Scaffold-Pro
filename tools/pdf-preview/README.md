@@ -39,3 +39,14 @@ compares it with the original pixel by pixel (`out/sheet_diff.png`), and
 builds and renders the Word copies (`out/word_sheet_*`). Carlito, the app's
 bundled stand-in for Calibri, must be installed for LibreOffice to render the
 Word copies like Word does (for example `~/.local/share/fonts`).
+
+```bash
+python3 sheet.py law "Mr. Law - Container Access Platform - Google Sheets.pdf"
+```
+
+`law` mode builds Mr. Law's sale sheet: Delivery and Design Fees added after
+the "Subtotal Amount", then "Total Amount" and the Notes box. It writes our
+sheet (`out/law.png`), the original (`out/law_original.png`), the difference
+(`out/law_diff.png`) and the Word copy (`out/word_law.png`). The original was
+printed with its signature block at 76.75%, but ours has no signatures and
+shrinks only as far as it needs to fit one page, so the two differ in scale.

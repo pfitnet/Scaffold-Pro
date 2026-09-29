@@ -117,6 +117,7 @@
       updateLineDiscount: (id, discountType, discountValue) => callNative('boq:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
       // Rates listed after the total ({ title, rates: [{ name, rate, unit }], note }), or null to remove.
       setRatesSection: (id, section) => callNative('boq:setRatesSection', { id: id, section: section }),
+      setCharges: (id, charges) => callNative('boq:setCharges', { id: id, charges: charges }),
       standardRates: () => callNative('boq:standardRates'),
       create: (projectId, projectNumber, pricingMode) =>
         callNative('boq:create', { projectId: projectId, projectNumber: projectNumber, pricingMode: pricingMode }),

@@ -67,6 +67,7 @@ function render() {
 
   const isIssued = d.status === 'Issued';
   renderLineItems();
+  renderCharges();
   renderRates();
 
   const notesBox = document.getElementById('notes-box');
@@ -166,8 +167,72 @@ function renderLineItems() {
 
   container.innerHTML = '';
   container.appendChild(table);
-  document.getElementById('grand-total').textContent =
-    `${currentDetail.ratesSection ? 'Subtotal' : 'Total'}: ${currencyLabel} ${money(currentDetail.grandTotal)} · Total Weight: ${weight(currentDetail.totalWeightKg)} kg`;
+  const d = currentDetail;
+  document.getElementById('grand-total').textContent = d.charges
+    ? `Subtotal: ${currencyLabel} ${money(d.grandTotal)} · Total: ${currencyLabel} ${money(d.totalAmount)} · Total Weight: ${weight(d.totalWeightKg)} kg`
+    : `${d.ratesSection ? 'Subtotal' : 'Total'}: ${currencyLabel} ${money(d.grandTotal)} · Total Weight: ${weight(d.totalWeightKg)} kg`;
+}
+
+// ---------- Amounts added after the subtotal (landscape BQ sheet) ----------
+// Items not priced by unit (delivery, design fees…): D1, D2… under
+// "Subtotal Amount", added to the "Total Amount".
+
+async function saveCharges(charges) {
+  const r = await window.api.boq.setCharges(boqId, charges);
+  if (!r.ok) alert(r.error);
+  await loadDetail();
+}
+
+function renderCharges() {
+  const box = document.getElementById('boq-charges');
+  const d = currentDetail;
+  const locked = d.status !== 'Draft';
+  const charges = d.charges;
+  if (!charges) {
+    box.innerHTML = `<h3>Added to the total</h3>
+      <p class="small-note">For the landscape BQ: items not priced by unit, such as Delivery or Design Fees, listed after the “Subtotal Amount” and added to the “Total Amount”.</p>
+      ${locked ? '' : '<div class="actions-row"><button id="charges-add-section-btn">+ Section</button></div>'}`;
+    if (!locked) {
+      box.querySelector('#charges-add-section-btn').addEventListener('click', () =>
+        saveCharges([{ code: '', name: 'Delivery', amount: 0 }]));
+    }
+    return;
+  }
+  const dis = locked ? 'disabled' : '';
+  box.innerHTML = `<h3>Added to the total</h3>
+    <table class="compact">
+      <thead><tr><th class="row-no">No.</th><th>Item</th><th class="num">Amount (${currencyLabel})</th><th></th></tr></thead>
+      <tbody>${charges.map((c, i) => `
+        <tr data-i="${i}">
+          <td><input type="text" class="c-code narrow" value="${escAttr(c.code || '')}" placeholder="D${i + 1}" ${dis} /></td>
+          <td><input type="text" class="c-name" value="${escAttr(c.name)}" placeholder="e.g. Delivery, Design Fees" ${dis} /></td>
+          <td class="num"><input type="number" class="c-amount" step="0.01" value="${c.amount}" ${dis} style="width:120px" /></td>
+          <td>${locked ? '' : '<button class="c-remove">Remove</button>'}</td>
+        </tr>`).join('')}</tbody>
+      <tfoot><tr><td></td><td style="text-align:right">Total Amount</td><td class="num">${money(d.totalAmount)}</td><td></td></tr></tfoot>
+    </table>
+    ${locked ? '' : `<div class="actions-row">
+      <button id="charges-add-btn">Add Row</button>
+      <button id="charges-remove-btn">Remove Section</button>
+    </div>`}`;
+  if (locked) return;
+  const read = () => [...box.querySelectorAll('tr[data-i]')].map((tr) => ({
+    code: tr.querySelector('.c-code').value.trim(),
+    name: tr.querySelector('.c-name').value,
+    amount: Number(tr.querySelector('.c-amount').value) || 0,
+  }));
+  for (const el of box.querySelectorAll('input')) el.addEventListener('change', () => saveCharges(read()));
+  for (const b of box.querySelectorAll('.c-remove')) {
+    b.addEventListener('click', () => {
+      const list = read();
+      list.splice(Number(b.closest('tr').dataset.i), 1);
+      saveCharges(list);
+    });
+  }
+  box.querySelector('#charges-add-btn').addEventListener('click', () => saveCharges([...read(), { code: '', name: '', amount: 0 }]));
+  box.querySelector('#charges-remove-btn').addEventListener('click', () => {
+    if (confirm('Remove this section? Its amounts will no longer be added to the total.')) saveCharges(null);
+  });
 }
 
 // ---------- Rates after the total (landscape BQ sheet) ----------
@@ -192,15 +257,12 @@ function renderRates() {
       <p class="small-note">For the landscape BQ: rates listed after the total, which then reads “Subtotal”.</p>
       ${locked ? '' : `<div class="actions-row">
         <button id="rates-standard-btn">+ Standard Manpower Rates</button>
-        <button id="rates-empty-btn">+ Rates Section</button>
       </div>`}`;
     if (!locked) {
       box.querySelector('#rates-standard-btn').addEventListener('click', async () => {
         const standard = await window.api.boq.standardRates();
         saveRates({ title: 'Erection & Dismantle Manpower Rates', rates: standard, note: STANDARD_RATES_NOTE });
       });
-      box.querySelector('#rates-empty-btn').addEventListener('click', () =>
-        saveRates({ title: 'Erection & Dismantle Manpower Rates', rates: [], note: STANDARD_RATES_NOTE }));
     }
     return;
   }

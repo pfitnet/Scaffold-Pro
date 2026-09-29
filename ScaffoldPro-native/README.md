@@ -925,3 +925,26 @@ under "Letterhead layout".
   cash and so on) and a reference, which feed the Accounts page.
 - The Go menu and sidebar shortcuts are now ⌘1–⌘9: Admin is ⌘8 and
   Settings ⌘9.
+
+## Batch 37 — "+ Section" on the BQ: amounts added to the total
+
+- In the BOQ editor, **+ Section** (it replaces "+ Rates Section") adds items
+  that aren't priced by unit, such as Delivery or Design Fees. Each row has a
+  No. (D1, D2… when left blank), a description and an amount.
+- On the landscape BQ sheet these rows follow **"Subtotal Amount :"**, with
+  "N/a" in the Total Weight column, then **"Total Amount"** with the amounts
+  added. The layout is measured from the company's sheet for Mr. Law's
+  container access platform; the signature block isn't included.
+- The editor and the project's BOQ list show the total with these amounts
+  added.
+- **+ Standard Manpower Rates** still adds the rates section, which now comes
+  after "Total Amount".
+- The BOQ's **Notes** now also appear on the landscape BQ, in a box under the
+  table. "Notes:" is added at the top if it isn't already there, and web
+  addresses (e.g. pfitnet.com/TC) are blue and underlined.
+- **Fit to page:** if a BQ sheet is slightly too long for one page, it is
+  shrunk onto one page, as Google Sheets' "Fit to page" does. It shrinks to no
+  less than 70%; longer sheets still run over several pages at full size.
+  The Word copy matches.
+- The amounts aren't copied when a quotation is made from the BOQ. Add them
+  to the quotation's own priced section.
