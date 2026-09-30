@@ -980,6 +980,30 @@ struct QuotationLineItem: Codable {
     var blockId: String? = nil
 }
 
+/// One day of a quotation's delivery schedule: how many of each of the
+/// quotation's materials go to site that day (by quotation line id). Just a
+/// plan / record for now — not connected to the stock list.
+struct QuotationDeliveryDay: Codable {
+    var id: String
+    var quotationId: String
+    /// Day 1, Day 2… (renumbered when a day is removed).
+    var day: Int
+    /// yyyy-MM-dd, if a date is set.
+    var date: String?
+    /// Delivered (true) or still planned.
+    var sent: Bool?
+    var note: String?
+    var quantities: [String: Double]
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct DeliveryScheduleData: Codable {
+    var days: [QuotationDeliveryDay]
+    /// Each material line's unit weight (kg) from the material list, by line id.
+    var weights: [String: Double]
+}
+
 /// An extra section of a quotation's table, after the materials and
 /// delivery charges, as on the company's own quotations:
 /// - "Priced": a title row and priced rows added to the total, e.g.
@@ -2260,6 +2284,7 @@ final class AppDatabase {
     let invoicePaymentsStore: JSONStore<InvoicePayment>
     let expensesStore: JSONStore<Expense>
     let liabilitiesStore: JSONStore<Liability>
+    let quotationDeliveriesStore: JSONStore<QuotationDeliveryDay>
     let liabilityPaymentsStore: JSONStore<LiabilityPayment>
     let employeesStore: JSONStore<Employee>
 
@@ -2290,6 +2315,7 @@ final class AppDatabase {
         invoicePaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("invoice_payments.json"))
         expensesStore = JSONStore(fileURL: dataDir.appendingPathComponent("expenses.json"))
         liabilitiesStore = JSONStore(fileURL: dataDir.appendingPathComponent("liabilities.json"))
+        quotationDeliveriesStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_deliveries.json"))
         liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
     }
@@ -4467,6 +4493,66 @@ final class AppDatabase {
         var blocks = quotationBlocksStore.readAll()
         blocks.removeAll { $0.quotationId == id }
         quotationBlocksStore.writeAll(blocks)
+        var days = quotationDeliveriesStore.readAll()
+        if days.contains(where: { $0.quotationId == id }) {
+            days.removeAll { $0.quotationId == id }
+            quotationDeliveriesStore.writeAll(days)
+        }
+        return nil
+    }
+
+    // ---- Quotation delivery schedule ----
+
+    func deliverySchedule(quotationId: String) -> DeliveryScheduleData {
+        let days = quotationDeliveriesStore.readAll().filter { $0.quotationId == quotationId }.sorted { ($0.day, $0.createdAt) < ($1.day, $1.createdAt) }
+        let itemWeights = Dictionary(priceListItemsStore.readAll().compactMap { i in i.weightKg.map { (i.id, $0) } }, uniquingKeysWith: { a, _ in a })
+        var weights: [String: Double] = [:]
+        for line in quotationLineItemsStore.readAll() where line.quotationId == quotationId {
+            if let w = line.priceListItemId.flatMap({ itemWeights[$0] }) { weights[line.id] = w }
+        }
+        return DeliveryScheduleData(days: days, weights: weights)
+    }
+
+    /// Adds the next day (Day n+1) to a quotation's delivery schedule.
+    func addDeliveryDay(quotationId: String) -> String? {
+        guard getQuotation(id: quotationId) != nil else { return "Quotation not found." }
+        let next = (quotationDeliveriesStore.readAll().filter { $0.quotationId == quotationId }.map { $0.day }.max() ?? 0) + 1
+        quotationDeliveriesStore.insert(QuotationDeliveryDay(id: makeId("qdday"), quotationId: quotationId, day: next, date: nil, sent: nil,
+                                                             note: nil, quantities: [:], createdAt: nowISO(), updatedAt: nowISO()))
+        return nil
+    }
+
+    /// Changes a day: its date, whether it was sent, its note, and any
+    /// quantities given ({ lineId: quantity }; 0 or less takes the item off that day).
+    func updateDeliveryDay(id: String, payload: [String: Any]) -> String? {
+        var all = quotationDeliveriesStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "Delivery day not found." }
+        if payload.keys.contains("date") {
+            let text = nonBlank(payload["date"] as? String)
+            if text != nil && validDay(text) == nil { return "Enter a valid date." }
+            all[i].date = validDay(text)
+        }
+        if let sent = payload["sent"] as? Bool { all[i].sent = sent ? true : nil }
+        if payload.keys.contains("note") { all[i].note = nonBlank(payload["note"] as? String) }
+        if let quantities = payload["quantities"] as? [String: Any] {
+            for (lineId, raw) in quantities {
+                let q = ((raw as? Double) ?? 0).rounded()
+                if q > 0 { all[i].quantities[lineId] = q } else { all[i].quantities.removeValue(forKey: lineId) }
+            }
+        }
+        all[i].updatedAt = nowISO()
+        quotationDeliveriesStore.writeAll(all)
+        return nil
+    }
+
+    /// Removes a day; the days after it move up (Day 3 becomes Day 2…).
+    func deleteDeliveryDay(id: String) -> String? {
+        var all = quotationDeliveriesStore.readAll()
+        guard let gone = all.first(where: { $0.id == id }) else { return "Delivery day not found." }
+        all.removeAll { $0.id == id }
+        let rest = all.indices.filter { all[$0].quotationId == gone.quotationId }.sorted { all[$0].day < all[$1].day }
+        for (n, index) in rest.enumerated() where all[index].day != n + 1 { all[index].day = n + 1 }
+        quotationDeliveriesStore.writeAll(all)
         return nil
     }
 
@@ -9673,6 +9759,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
             }
+        case "quotations:deliverySchedule":
+            respond(id: id, encodable: db.deliverySchedule(quotationId: (payload["id"] as? String) ?? ""))
+        case "quotations:addDeliveryDay":
+            let error = db.addDeliveryDay(quotationId: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "quotations:updateDeliveryDay":
+            let error = db.updateDeliveryDay(id: (payload["id"] as? String) ?? "", payload: payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "quotations:deleteDeliveryDay":
+            let error = db.deleteDeliveryDay(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "boq:setLanguage", "deliveryNotes:setLanguage", "quotations:setLanguage":
             let kind = action.hasPrefix("boq") ? "boq" : action.hasPrefix("quotations") ? "quotation" : "dn"
             let error = db.setDocumentLanguage(kind: kind, id: (payload["id"] as? String) ?? "",
@@ -10622,7 +10719,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved."))
             return
         }
-        let folder = storage.administrationCategoryFolder("Accounts")
+        // Accounts' own folder, unless the page names another: a project's
+        // subfolder (a quotation's delivery schedule) or an Administration one.
+        var folder = storage.administrationCategoryFolder("Accounts")
+        if let project = nonBlank(payload["projectNumber"] as? String) {
+            folder = storage.projectFolder(project).appendingPathComponent(nonBlank(payload["subfolder"] as? String) ?? "Other", isDirectory: true)
+        } else if let admin = nonBlank(payload["adminFolder"] as? String), !admin.contains("/"), !admin.hasPrefix(".") {
+            folder = storage.administrationCategoryFolder(admin)
+        }
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let destination = folder.appendingPathComponent(name)

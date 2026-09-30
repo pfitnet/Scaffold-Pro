@@ -156,6 +156,12 @@
       print: (id) => callNative('boq:print', { id: id }),
     },
     quotations: {
+      // Delivery schedule: how many of each material go to site on Day 1, Day 2… (not tied to stock).
+      deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
+      addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
+      // changes: { date?, sent?, note?, quantities?: { lineId: qty } }
+      updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
+      deleteDeliveryDay: (dayId) => callNative('quotations:deleteDeliveryDay', { id: dayId }),
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('quotations:setLanguage', { id: id, language: language || null }),
       listForProject: (projectId) => callNative('quotations:listForProject', { projectId: projectId }),
@@ -271,7 +277,8 @@
       data: () => callNative('accounts:data'),
       saveExpense: (expense) => callNative('accounts:saveExpense', expense),
       deleteExpense: (id) => callNative('accounts:deleteExpense', { id: id }),
-      saveCSV: (fileName, csv) => callNative('accounts:saveCSV', { fileName: fileName, csv: csv }),
+      // where: { projectNumber, subfolder } or { adminFolder } — else Administration › Accounts.
+      saveCSV: (fileName, csv, where) => callNative('accounts:saveCSV', Object.assign({ fileName: fileName, csv: csv }, where || {})),
       // Liabilities: money the company owes, and payments made towards it.
       saveLiability: (liability) => callNative('accounts:saveLiability', liability),
       deleteLiability: (id) => callNative('accounts:deleteLiability', { id: id }),

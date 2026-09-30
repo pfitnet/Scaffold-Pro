@@ -338,7 +338,7 @@
           e.usualUnitsPerMonth || '', e.monthlyAllowance || '', m.pay, m.mpf, m.cost, e.annualLeaveDays || '', e.bankAccount || '',
           e.startDate || '', e.endDate || '', e.isArchived ? 'Yes' : ''];
       }));
-    const r = await window.api.accounts.saveCSV(`Employees ${ymd(new Date())}.csv`, rows.map(line).join('\r\n'));
+    const r = await window.api.accounts.saveCSV(`Employees ${ymd(new Date())}.csv`, rows.map(line).join('\r\n'), { adminFolder: 'Employees' });
     if (r && !r.ok) alert(r.error);
   }
 

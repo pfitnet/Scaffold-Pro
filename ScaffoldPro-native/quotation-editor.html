@@ -179,6 +179,20 @@
           </div>
         </div>
       </div>
+
+      <!-- Delivery schedule: how many of each material go to site on
+           Day 1, Day 2… (a plan / record; not connected to the stock list) -->
+      <section class="delivery-schedule" id="delivery-schedule">
+        <div class="section-toolbar">
+          <h2>Delivery Schedule</h2>
+          <div class="controls">
+            <button id="ds-csv-btn" title="Save the schedule as a spreadsheet (CSV)">Export CSV</button>
+            <button class="primary" id="ds-add-day-btn">+ Add Day</button>
+          </div>
+        </div>
+        <p class="small-note">Plan which of the quoted materials go to site on each day, and tick a day once it’s been delivered. “Left” is what hasn’t been scheduled yet. Not linked to the stock list.</p>
+        <div id="ds-table"></div>
+      </section>
     </div>
   </main>
 
@@ -196,6 +210,7 @@
   <script src="js/linked-drawings.js"></script>
   <script src="js/paragraph-format.js"></script>
   <script src="js/docx-export.js"></script>
+  <script src="js/delivery-schedule.js"></script>
   <script src="js/quotation-editor.js"></script>
 </body>
 </html>
