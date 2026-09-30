@@ -153,8 +153,8 @@ async function init() {
   document.getElementById('status-select').addEventListener('change', async (e) => {
     const to = e.target.value;
     const from = detail.letter.status;
-    if (to === 'Cancelled' && !confirm('Cancel this letter?\n\nIt will be kept for your records but can’t be reopened.')) { e.target.value = from; return; }
-    if (from === 'Issued' && to === 'Draft' && !confirm('Return this letter to Draft?\n\nIt has already been issued; editing it afterwards means the copy sent no longer matches.')) { e.target.value = from; return; }
+    if (to === 'Cancelled' && !await appConfirm('Cancel this letter?\n\nIt will be kept for your records but can’t be reopened.')) { e.target.value = from; return; }
+    if (from === 'Issued' && to === 'Draft' && !await appConfirm('Return this letter to Draft?\n\nIt has already been issued; editing it afterwards means the copy sent no longer matches.')) { e.target.value = from; return; }
     await flush();
     const r = await window.api.letters.updateStatus(letterId, to);
     if (r && r.ok === false) alert(r.error);
@@ -174,10 +174,10 @@ async function init() {
     const l = detail.letter;
     let force = false;
     if (l.status !== 'Draft') {
-      if (!confirm(`${l.letterNumber} has been ${l.status.toLowerCase()}. Delete it anyway?`)) return;
+      if (!await appConfirm(`${l.letterNumber} has been ${l.status.toLowerCase()}. Delete it anyway?`)) return;
       force = true;
     }
-    if (!confirm(`Delete ${l.letterNumber}? This can’t be undone. (A PDF already saved stays in its folder.)`)) return;
+    if (!await appConfirm(`Delete ${l.letterNumber}? This can’t be undone. (A PDF already saved stays in its folder.)`)) return;
     clearTimeout(saveTimer); saveTimer = null;
     const r = await window.api.letters.remove(letterId, force);
     if (r && r.ok === false) { alert(r.error); return; }

@@ -60,7 +60,7 @@
 
     /** Forgets the signed copy; the file itself stays in the folder. */
     async remove(id, number) {
-      if (!confirm(`Remove the signed copy from ${number}?\n\nThe file stays in the project’s Quotations folder; ${number} goes back on the Dashboard’s list of quotations waiting for a signed copy.`)) return false;
+      if (!await appConfirm(`Remove the signed copy from ${number}?\n\nThe file stays in the project’s Quotations folder; ${number} goes back on the Dashboard’s list of quotations waiting for a signed copy.`)) return false;
       return report(await window.api.quotations.signedCopy(id, 'remove'));
     },
 

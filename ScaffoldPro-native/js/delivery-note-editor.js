@@ -8,13 +8,13 @@ function zhName(item) {
 
 // Section 25: issued documents are protected. Cancelled is final, and
 // reopening an issued document for editing asks first.
-function allowStatusChange(from, to, label) {
+async function allowStatusChange(from, to, label) {
   if (from === 'Cancelled' && to !== 'Cancelled') return false;
   if (from !== 'Draft' && to === 'Draft') {
-    return confirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
+    return await appConfirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
   }
   if (to === 'Cancelled' && from !== 'Cancelled') {
-    return confirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
+    return await appConfirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
   }
   return true;
 }
@@ -126,8 +126,10 @@ async function importFromQuotation() {
   if (!quotationId) return;
   let replaceExisting = false;
   if (currentDetail.lineItems.length > 0) {
-    replaceExisting = confirm(
-      'This delivery note already has items.\n\nOK = replace them with the quotation\'s materials\nCancel = add the quotation\'s quantities to the existing items');
+    const pick = await window.appChoose('This delivery note already has items.\n\nReplace them with the quotation’s materials, or add the quotation’s quantities to the items already here?', [
+      { label: 'Add to Them', value: 'add' }, { label: 'Replace Them', value: 'replace', primary: true }]);
+    if (!pick) return;
+    replaceExisting = pick === 'replace';
   }
   const result = await window.api.deliveryNotes.importQuotation(deliveryNoteId, quotationId, replaceExisting);
   if (!result || !result.ok) { alert((result && result.error) || 'The quotation couldn’t be imported.'); return; }
@@ -263,7 +265,7 @@ async function init() {
   document.getElementById('import-quotation-btn').addEventListener('click', importFromQuotation);
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
-    if (!allowStatusChange(currentDetail.status, e.target.value, 'delivery note')) {
+    if (!await allowStatusChange(currentDetail.status, e.target.value, 'delivery note')) {
       e.target.value = currentDetail.status;
       return;
     }

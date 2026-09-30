@@ -42,7 +42,30 @@ async function loadDetail() {
   }
   document.getElementById('boq-body').classList.remove('hidden');
   render();
+  renderLinkedBar();
   window.docLanguage.show(currentDetail);
+  window.deliverySchedule.refresh(currentDetail);
+}
+
+// The quotations kept the same as this BOQ: a change to either is made to
+// the other (while both are Drafts), until the link is removed.
+function renderLinkedBar() {
+  const bar = document.getElementById('linked-bar');
+  const list = currentDetail.linkedQuotations || [];
+  bar.classList.toggle('hidden', !list.length);
+  if (!list.length) return;
+  const e = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  bar.innerHTML = `<strong>Linked</strong> with ${list.map((q) => `<span class="linked-doc"><a href="quotation-editor.html?id=${encodeURIComponent(q.id)}">${e(q.number)}</a>${q.status !== 'Draft' ? ` <span class="muted">(${e(q.status.toLowerCase())} — not changed)</span>` : ''}
+    <button data-unlink="${e(q.id)}" data-number="${e(q.number)}" title="Stop keeping ${e(q.number)} the same as this BOQ">Remove Link</button></span>`).join(', ')}
+    — a change here is made there too, and the other way round.`;
+  for (const b of bar.querySelectorAll('[data-unlink]')) {
+    b.addEventListener('click', async () => {
+      if (!await appConfirm(`Remove the link between this BOQ and ${b.dataset.number}?\n\nBoth stay as they are now; after this, changing one no longer changes the other.`)) return;
+      const r = await window.api.quotations.unlinkBOQ(b.dataset.unlink);
+      if (r && r.ok === false) { alert(r.error); return; }
+      await loadDetail();
+    });
+  }
 }
 
 function render() {
@@ -277,8 +300,8 @@ function renderCharges() {
     });
   }
   box.querySelector('#charges-add-btn').addEventListener('click', () => saveCharges([...read(), { code: '', name: '', amount: 0 }]));
-  box.querySelector('#charges-remove-btn').addEventListener('click', () => {
-    if (confirm('Remove this section? Its amounts will no longer be added to the total.')) saveCharges(null);
+  box.querySelector('#charges-remove-btn').addEventListener('click', async () => {
+    if (await appConfirm('Remove this section? Its amounts will no longer be added to the total.')) saveCharges(null);
   });
 }
 
@@ -364,8 +387,8 @@ function renderRates() {
     }
     saveRates(section);
   });
-  box.querySelector('#rates-remove-btn').addEventListener('click', () => {
-    if (confirm('Remove the rates section? The total will read “Total Amount” again.')) saveRates(null);
+  box.querySelector('#rates-remove-btn').addEventListener('click', async () => {
+    if (await appConfirm('Remove the rates section? The total will read “Total Amount” again.')) saveRates(null);
   });
 }
 
@@ -449,6 +472,7 @@ async function init() {
   }
   const settings = await window.api.settings.get();
   currencyLabel = settings.currency === 'HKD' ? 'HK$' : settings.currency;
+  window.deliverySchedule.setup(boqId, 'boq');
 
   await loadDetail();
   if (!currentDetail) return;
@@ -456,7 +480,7 @@ async function init() {
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
     if (currentDetail.status === 'Issued' && e.target.value === 'Draft' &&
-        !confirm('Return this BOQ to Draft?\n\nIt has already been issued; its items become editable again.')) {
+        !await appConfirm('Return this BOQ to Draft?\n\nIt has already been issued; its items become editable again.')) {
       e.target.value = currentDetail.status;
       return;
     }
@@ -483,7 +507,7 @@ async function init() {
     const standard = currentDetail.standardTerms || '';
     if (!standard) return;
     if (box.value.trim() && box.value.trim() !== standard.trim() &&
-        !confirm('Replace this BOQ’s terms with the standard terms from Settings?')) return;
+        !await appConfirm('Replace this BOQ’s terms with the standard terms from Settings?')) return;
     box.value = standard;
     box.dispatchEvent(new Event('change'));
   });
@@ -492,7 +516,7 @@ async function init() {
   document.getElementById('boq-mode-select').addEventListener('change', async (e) => {
     const to = e.target.value;
     if (currentDetail.lineItems.length > 0 &&
-        !confirm(`Change this BOQ to ${to} pricing?\n\nEvery item from the material list will be re-priced at its ${to.toLowerCase()} price (with this BOQ's mark-up). Prices you typed in by hand are kept. Weights don't change.`)) {
+        !await appConfirm(`Change this BOQ to ${to} pricing?\n\nEvery item from the material list will be re-priced at its ${to.toLowerCase()} price (with this BOQ's mark-up). Prices you typed in by hand are kept. Weights don't change.`)) {
       e.target.value = currentDetail.pricingMode;
       return;
     }

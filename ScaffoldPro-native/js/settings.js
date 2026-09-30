@@ -322,22 +322,22 @@ const RESTORE_WARNING =
   'Restoring replaces ALL current data — projects, documents, price lists and settings — with the contents of the backup.\n\n' +
   'Your current data is saved first as an automatic "before restore" backup, so this can be undone.\n\nContinue?';
 
-function afterRestore(result) {
+async function afterRestore(result) {
   if (!result) { setBusy(false, ''); return; }   // folder picker cancelled
   setBusy(false, '');
   if (!result.ok) { alert(result.error); refreshBackups(); return; }
-  alert(`Restore complete.\n\nYour previous data was saved as "${result.safetyBackup.name}" in case you need it back.`);
+  await window.appAlert(`Restore complete.\n\nYour previous data was saved as "${result.safetyBackup.name}" in case you need it back.`);
   location.href = 'index.html';
 }
 
 async function restoreBackup(backup) {
-  if (!confirm(`Restore the backup from ${formatWhen(backup.createdAt)}?\n\n${RESTORE_WARNING}`)) return;
+  if (!await appConfirm(`Restore the backup from ${formatWhen(backup.createdAt)}?\n\n${RESTORE_WARNING}`)) return;
   setBusy(true, 'Restoring… please don\'t close ScaffoldPro.');
   afterRestore(await window.api.backup.restore(backup.path));
 }
 
 async function restoreFromOtherFolder() {
-  if (!confirm(RESTORE_WARNING)) return;
+  if (!await appConfirm(RESTORE_WARNING, { danger: true, ok: 'Restore' })) return;
   setBusy(true, 'Choose a backup folder…');
   afterRestore(await window.api.backup.chooseAndRestore());
 }
@@ -415,7 +415,7 @@ function renderTeam(s) {
     row.innerHTML = '<span class="status-pill"></span><span></span><span class="muted"></span>';
     row.children[0].textContent = m.isThisMac ? 'This Mac' : whenSeen(m.lastSeen);
     row.children[0].classList.toggle('pill-success', !!m.isThisMac || whenSeen(m.lastSeen) === 'active now');
-    row.children[1].textContent = m.name;
+    row.children[1].innerHTML = window.personTag(m.name);
     row.children[2].textContent = m.computer + (m.outdated ? ' — older version of ScaffoldPro: update it with Install ScaffoldPro' : '');
     if (m.outdated) row.children[2].classList.add('team-warning');
     members.appendChild(row);
@@ -426,14 +426,14 @@ async function refreshTeam() {
   renderTeam(await window.api.team.status());
 }
 
-function restartForTeam(message) {
-  alert(message);
+async function restartForTeam(message) {
+  await window.appAlert(message);
   window.api.app.relaunch();
 }
 
 function setupTeam() {
   document.getElementById('team-start-btn').addEventListener('click', async () => {
-    if (!confirm('Share this Mac’s data?\n\nYou’ll choose a folder in iCloud Drive. ScaffoldPro copies in your projects, drawings, documents and database, then restarts and works from there. Your files in Documents › ScaffoldPro stay where they are as they are now.')) return;
+    if (!await appConfirm('Share this Mac’s data?\n\nYou’ll choose a folder in iCloud Drive. ScaffoldPro copies in your projects, drawings, documents and database, then restarts and works from there. Your files in Documents › ScaffoldPro stay where they are as they are now.')) return;
     const busy = document.getElementById('team-busy');
     busy.textContent = 'Copying your data into the shared folder…';
     const buttons = document.querySelectorAll('#team-off button');
@@ -451,8 +451,8 @@ function setupTeam() {
     if (!r.ok) { alert(r.error); return; }
     restartForTeam('ScaffoldPro restarts now and opens the shared data.\n\nThis Mac’s own data is kept as it is; it comes back if you stop sharing.');
   });
-  document.getElementById('team-leave-btn').addEventListener('click', () => {
-    if (!confirm('Stop sharing on this Mac?\n\nScaffoldPro restarts with this Mac’s own data as it was before sharing. The shared folder and everyone else’s work in it stay as they are, and you can join again later.')) return;
+  document.getElementById('team-leave-btn').addEventListener('click', async () => {
+    if (!await appConfirm('Stop sharing on this Mac?\n\nScaffoldPro restarts with this Mac’s own data as it was before sharing. The shared folder and everyone else’s work in it stay as they are, and you can join again later.')) return;
     window.api.team.leave().then(() => window.api.app.relaunch());
   });
   document.getElementById('team-reveal-btn').addEventListener('click', async () => {

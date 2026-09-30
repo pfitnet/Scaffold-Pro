@@ -112,7 +112,7 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
         if (!r.ok) alert(r.error);
       });
       actions.querySelector('.archive-btn').addEventListener('click', async () => {
-        if (!confirm(`Archive "${doc.originalName}"? The file stays in Finder; it just won't show here.`)) return;
+        if (!await appConfirm(`Archive "${doc.originalName}"? The file stays in Finder; it just won't show here.`)) return;
         await api.archive(doc.id);
         await refresh();
         await refreshExpiring();
@@ -125,7 +125,7 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
         await refresh();
       });
       actions.querySelector('.remove-ref-btn').addEventListener('click', async () => {
-        if (!confirm("Remove this reference? This only removes it from ScaffoldPro's records, not any file on disk.")) return;
+        if (!await appConfirm("Remove this reference? This only removes it from ScaffoldPro's records, not any file on disk.")) return;
         await api.removeReference(doc.id);
         await refresh();
         await refreshExpiring();
@@ -223,7 +223,7 @@ async function renderWorkerDetail() {
   document.getElementById('worker-reveal-btn').addEventListener('click', () => window.api.workers.revealFolder(worker.id));
   document.getElementById('worker-archive-btn').addEventListener('click', async () => {
     const archiving = !worker.isArchived;
-    if (archiving && !confirm(`Archive ${worker.name}? Their record and files are kept; they just won't show in the list.`)) return;
+    if (archiving && !await appConfirm(`Archive ${worker.name}? Their record and files are kept; they just won't show in the list.`)) return;
     await window.api.workers.setArchived(worker.id, archiving);
     await refreshWorkers();
     await refreshExpiring();

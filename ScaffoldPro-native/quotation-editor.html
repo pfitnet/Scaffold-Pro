@@ -25,6 +25,11 @@
     }
     .boq-reference label { font-size: 12px; color: var(--text-secondary); }
     .boq-reference-note { font-size: 12px; color: var(--text-secondary); margin-left: 4px; }
+    .boq-reference-note.linked { color: var(--success); font-weight: 500; }
+    .boq-reference #unlink-boq-btn { margin-left: auto; }
+    .boq-import-controls { display: inline-flex; align-items: center; gap: 8px; }
+    .boq-import-controls.hidden { display: none; }
+    #boq-import-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
     .hire-control { display: flex; align-items: center; gap: 8px; }
     .hire-control input[type="number"] { width: 60px; }
     .inline-check { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text); }
@@ -81,10 +86,18 @@
       <div class="signed-bar hidden" id="signed-bar"></div>
 
       <div class="boq-reference">
-        <label for="boq-reference-select">Reference BOQ</label>
-        <select id="boq-reference-select"></select>
-        <button id="import-boq-btn">Import Items</button>
+        <!-- Importing from a BOQ: folded into the import button until it's wanted -->
+        <button id="boq-import-toggle" class="icon-btn" data-no-icon title="Import items from a BOQ…" aria-label="Import items from a BOQ" aria-expanded="false">
+          <svg class="btn-icon" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 3.5v9"/><path d="M6.5 9 10 12.5 13.5 9"/></svg>
+        </button>
+        <span class="boq-import-controls hidden" id="boq-import-controls">
+          <label for="boq-reference-select" id="boq-reference-label">From BOQ</label>
+          <select id="boq-reference-select"></select>
+          <button id="import-boq-btn" title="Copy the BOQ's items onto this quotation (replacing its items also links the two)">Import Items</button>
+          <button id="link-boq-btn" title="Keep this quotation and the BOQ the same: a change to either is made to the other">Link</button>
+        </span>
         <span class="boq-reference-note" id="boq-reference-note"></span>
+        <button id="unlink-boq-btn" class="hidden" title="Stop keeping the two the same; both stay as they are now">Remove Link</button>
       </div>
 
       <!-- The standard quotation's letter fields (as on Qt26193) -->
@@ -186,6 +199,7 @@
         <div class="section-toolbar">
           <h2>Delivery Schedule</h2>
           <div class="controls">
+            <button id="ds-copy-boq-btn" class="hidden" title="Copy the BOQ's delivery schedule onto this quotation">Copy from BOQ</button>
             <button id="ds-csv-btn" title="Save the schedule as a spreadsheet (CSV)">Export CSV</button>
             <button class="primary" id="ds-add-day-btn">+ Add Day</button>
           </div>
@@ -196,6 +210,7 @@
     </div>
   </main>
 
+  <script src="js/dialogs.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/doc-authors.js"></script>
   <script src="js/icons.js"></script>

@@ -2,7 +2,7 @@
 
 // Admin › Employees: the people on the payroll, full-time or part-time,
 // paid monthly, daily or hourly, with allowances and the employer's MPF.
-// "Record Pay…" puts a month's pay into Accounts › Expenses.
+// "Record Pay…" puts a month's pay into Accounting › Expenses.
 //
 // Employer MPF is worked out as 5% of the month's pay (salary + allowances),
 // up to HK$1,500 (relevant income capped at HK$30,000).
@@ -215,7 +215,7 @@
     const values = formValues();
     // Leaving date filled in for a current employee: offer to move them off the payroll.
     if (editing && !editing.isArchived && !values.isArchived && values.endDate && values.endDate <= ymd(new Date()) &&
-        confirm(`${values.name} left on ${values.endDate}. Take them off the payroll (keep them as a former employee)?`)) {
+        await appConfirm(`${values.name} left on ${values.endDate}. Take them off the payroll (keep them as a former employee)?`)) {
       values.isArchived = true;
     }
     const r = await window.api.employees.save(values);
@@ -231,7 +231,7 @@
 
   async function deleteEmployee() {
     if (!editing) return;
-    if (!confirm(`Delete ${editing.name} completely?\n\nTo keep their record, tick “Former employee” instead. Pay already recorded in Expenses stays there.`)) return;
+    if (!await appConfirm(`Delete ${editing.name} completely?\n\nTo keep their record, tick “Former employee” instead. Pay already recorded in Expenses stays there.`)) return;
     const r = await window.api.employees.remove(editing.id);
     if (!r.ok) { alert(r.error); return; }
     closeEmployee();
@@ -320,7 +320,7 @@
     }
     closePayroll();
     const skipped = r.skipped && r.skipped.length ? `\n\nAlready recorded for this month (skipped): ${r.skipped.join(', ')}.` : '';
-    alert(`${r.recorded} ${r.recorded === 1 ? 'expense' : 'expenses'} added to Accounts › Expenses under “Salaries & MPF”.${skipped}`);
+    alert(`${r.recorded} ${r.recorded === 1 ? 'expense' : 'expenses'} added to Accounting › Expenses under “Salaries & MPF”.${skipped}`);
   }
 
   // ---------- CSV ----------

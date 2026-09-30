@@ -1745,3 +1745,51 @@ under "Letterhead layout".
   - **My Recent Activity** shows your own History entries. The new
     **Recent Team Activity** shows everyone else's, with their names.
   - Unpaid invoices and the totals are still company-wide.
+
+## Batch 71 — Linked BOQs and quotations, BOQ delivery schedules, name colours, a User tab, and the app's own dialogs
+
+- **A BOQ and a quotation can be linked:** a change to either is made to the
+  other, until the link is removed.
+  - A quotation made from a BOQ is linked automatically. Importing a BOQ's
+    items by replacing the quotation's also links them.
+  - "Link" (under the import button) links an existing quotation. Its
+    items become the BOQ's.
+  - What's kept the same: items, names, units, quantities, prices, line
+    discounts, Sale / Rental and the mark-up.
+    - Each quotation line records the BOQ line it is (`boqLineId`).
+    - With a BOQ mark-down, the quotation gets the marked-down rates.
+  - Each quotation's delivery charges, extra sections and overall discount
+    stay its own.
+  - Only Drafts are changed. A document that goes back to Draft catches up.
+  - While linked, a quotation's BOQ picker and "Import Items" are hidden, and
+    importing from another BOQ is refused. "Remove Link" brings them back.
+  - The BOQ editor lists its linked quotations (each with "Remove Link").
+    The project's quotation list marks them "Linked".
+  - `mirrorBOQ` / `pushQuotationToBOQ` / `linkQuotationToBOQ` in main.swift.
+- **Import button:** when not linked, the BOQ import controls are folded
+  into an import icon button next to "Reference BOQ".
+- **Delivery schedules on BOQs:** Day 1, Day 2… as on quotations.
+  - A quotation made from the BOQ starts with the BOQ's schedule.
+  - Any quotation from the BOQ can copy it ("Copy from BOQ" in its
+    Delivery Schedule).
+- **Names in colour:** each person's name appears as a coloured tag in:
+  - "Created by / Last worked on by" lines
+  - Recent Team Activity and project History
+  - Settings › Sharing, and the Dashboard.
+  Colours are chosen on the User page, or worked out from the name
+  otherwise. They're kept in the shared data (`user_profiles.json`), so
+  every Mac shows the same colours.
+- **User tab**, pinned at the bottom left of the sidebar (⌘0), shows:
+  - your name (with initials in your colour)
+  - your name and colour settings
+  - your projects, the documents you last worked on, and your activity
+  - the team.
+- **Accounts is now "Accounting".**
+- **Letters:** the recipient block now lines up with the "Re:" line and the
+  body, in the editor and on the PDF.
+- **The app's own dialogs** replace the Mac's alert / confirm / prompt boxes
+  (`js/dialogs.js`: `appAlert`, `appConfirm`, `appChoose`, `appPrompt`).
+  - Delete-type questions have a red button named after the action.
+  - Two-way questions now have named buttons instead of "OK = … / Cancel
+    = …": Rental / Sale, From BOQ / Start Blank, Replace & Link / Add Below.
+  - The update check uses the same dialog.

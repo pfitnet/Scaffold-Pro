@@ -299,7 +299,7 @@
       // Buttons don't take the focus (and the selection) from the text.
       if (e.target.closest('button') && !e.target.closest('input, select')) e.preventDefault();
     });
-    toolbar.addEventListener('click', (e) => {
+    toolbar.addEventListener('click', async (e) => {
       const b = e.target.closest('button[data-cmd]');
       if (!b || !editable) return;
       const cmd = b.dataset.cmd;
@@ -311,7 +311,8 @@
         return;
       }
       if (cmd === 'link') {
-        const url = prompt('Link address (e.g. www.pfitnet.com):');
+        // The text's selection is kept while the dialog is open (exec puts it back).
+        const url = await window.appPrompt('Insert Link\n\nLink address (e.g. www.pfitnet.com):', '', { ok: 'Insert', placeholder: 'www.example.com' });
         if (url) exec('createLink', /^[a-z]+:/i.test(url) ? url : `https://${url}`);
         return;
       }

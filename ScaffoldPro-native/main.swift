@@ -114,6 +114,32 @@ struct DashboardSummary: Codable {
     var userName = ""
 }
 
+/// A person's colour, so their name looks the same wherever it's shown and
+/// on every Mac (kept with the shared data). By name, lowercased.
+struct UserProfile: Codable {
+    var id: String
+    var name: String
+    /// "#RRGGBB".
+    var color: String
+    var updatedAt: String
+}
+
+/// The User page: this Mac's user, their colour, and their own work.
+struct UserPage: Codable {
+    var name: String
+    var computer: String
+    var color: String?
+    /// Working in a shared folder, and who else is in it.
+    var sharing: Bool
+    var members: [TeamMember]
+    var myProjects: [MyProject]
+    var myDocuments: [DocRow]
+    var myActivity: [ActivityRow]
+    /// Documents (and projects) they made, and ones they were the last to work on.
+    var createdCount: Int
+    var lastWorkedCount: Int
+}
+
 struct MyProject: Codable {
     var id: String
     var projectNumber: String
@@ -668,6 +694,7 @@ extension Quotation {
         signedCopyAt = try c.decodeIfPresent(String.self, forKey: .signedCopyAt)
         signedCopyNotNeeded = try c.decodeIfPresent(Bool.self, forKey: .signedCopyNotNeeded)
         language = try c.decodeIfPresent(String.self, forKey: .language)
+        boqLinked = try c.decodeIfPresent(Bool.self, forKey: .boqLinked)
     }
 }
 
@@ -912,6 +939,15 @@ struct BOQDetail: Codable {
     /// Item names on the PDF: the BOQ's own choice (nil = Settings'), and Settings'.
     var language: String? = nil
     var defaultLanguage = "English"
+    /// The quotations kept in step with this BOQ.
+    var linkedQuotations: [LinkedDocument] = []
+}
+
+/// A document linked to the one open (number and status, for a link).
+struct LinkedDocument: Codable {
+    var id: String
+    var number: String
+    var status: String
 }
 
 struct BOQActionResult: Codable {
@@ -976,6 +1012,9 @@ struct Quotation: Codable {
     var signedCopyAt: String? = nil
     /// "No signed copy needed" — takes it off the Dashboard's reminder.
     var signedCopyNotNeeded: Bool? = nil
+    /// Kept in step with its BOQ (`sourceBOQId`) both ways until the link
+    /// is removed. nil/false: the BOQ is only where its items came from.
+    var boqLinked: Bool? = nil
 }
 
 struct QuotationLineItem: Codable {
@@ -1001,6 +1040,9 @@ struct QuotationLineItem: Codable {
     /// Set for a row of one of the quotation's extra sections
     /// (`QuotationBlock`) rather than a material or delivery charge.
     var blockId: String? = nil
+    /// The line of the BOQ it came from (and, while the two are linked,
+    /// is kept the same as).
+    var boqLineId: String? = nil
 }
 
 /// A letter on the letterhead, written in the letter editor. The app prints
@@ -1121,6 +1163,8 @@ struct LetterActionResult: Codable {
 /// plan / record for now — not connected to the stock list.
 struct QuotationDeliveryDay: Codable {
     var id: String
+    /// The quotation's id — or the BOQ's, for a BOQ's delivery schedule
+    /// (keyed by BOQ line id then). Ids never clash between the two.
     var quotationId: String
     /// Day 1, Day 2… (renumbered when a day is removed).
     var day: Int
@@ -1132,6 +1176,13 @@ struct QuotationDeliveryDay: Codable {
     var quantities: [String: Double]
     var createdAt: String
     var updatedAt: String
+}
+
+struct CopyScheduleResult: Codable {
+    var ok: Bool
+    var error: String?
+    /// Items on the BOQ's schedule with no line on the quotation.
+    var skipped: Int
 }
 
 struct DeliveryScheduleData: Codable {
@@ -1187,6 +1238,8 @@ struct QuotationSummary: Codable {
     var signed = false
     /// The BOQ it refers to (if any), and that BOQ's structure.
     var boqNumber: String? = nil
+    /// Kept in step with that BOQ.
+    var boqLinked = false
     var structure: String? = nil
     /// Its "Re:" subject line.
     var subject: String? = nil
@@ -1272,6 +1325,10 @@ struct QuotationDetail: Codable {
     /// Item names on the PDF: the quotation's own choice (nil = Settings'), and Settings'.
     var language: String? = nil
     var defaultLanguage = "English"
+    /// Kept in step with the BOQ above, both ways; and that BOQ's status
+    /// (an issued one isn't changed).
+    var boqLinked = false
+    var sourceBOQStatus: String? = nil
 }
 
 struct QuotationActionResult: Codable {
@@ -2428,6 +2485,7 @@ final class AppDatabase {
     let liabilitiesStore: JSONStore<Liability>
     let quotationDeliveriesStore: JSONStore<QuotationDeliveryDay>
     let lettersStore: JSONStore<Letter>
+    let userProfilesStore: JSONStore<UserProfile>
     let liabilityPaymentsStore: JSONStore<LiabilityPayment>
     let employeesStore: JSONStore<Employee>
 
@@ -2460,6 +2518,7 @@ final class AppDatabase {
         liabilitiesStore = JSONStore(fileURL: dataDir.appendingPathComponent("liabilities.json"))
         quotationDeliveriesStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_deliveries.json"))
         lettersStore = JSONStore(fileURL: dataDir.appendingPathComponent("letters.json"))
+        userProfilesStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_profiles.json"))
         liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
     }
@@ -2683,6 +2742,70 @@ final class AppDatabase {
         summary.awaitingSignedCopy = Array(unsigned.prefix(8))
         summary.awaitingSignedCopyCount = unsigned.count
         return summary
+    }
+
+    // ---- The user: their colour and their own work ----
+
+    func userProfiles() -> [UserProfile] {
+        userProfilesStore.readAll().sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// A person's colour ("#RRGGBB"); blank goes back to the automatic one.
+    func setUserColor(name rawName: String, color rawColor: String?) -> String? {
+        guard let name = nonBlank(rawName) else { return "Enter your name first." }
+        let key = name.lowercased()
+        var all = userProfilesStore.readAll()
+        guard let color = nonBlank(rawColor) else {
+            all.removeAll { $0.id == key }
+            userProfilesStore.writeAll(all)
+            return nil
+        }
+        guard color.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) != nil else { return "Choose a colour." }
+        if let i = all.firstIndex(where: { $0.id == key }) {
+            all[i].name = name
+            all[i].color = color.uppercased()
+            all[i].updatedAt = nowISO()
+        } else {
+            all.append(UserProfile(id: key, name: name, color: color.uppercased(), updatedAt: nowISO()))
+        }
+        userProfilesStore.writeAll(all)
+        return nil
+    }
+
+    /// A new name for this Mac's user; their colour goes with them.
+    func renameUser(to rawName: String) -> String? {
+        guard let name = nonBlank(rawName) else { return "Enter your name." }
+        let old = TeamSync.memberName
+        if let sync = TeamSync.current { sync.setMemberName(name) } else { TeamSync.memberName = name }
+        if old.lowercased() != name.lowercased(), let color = userProfilesStore.readAll().first(where: { $0.id == old.lowercased() })?.color,
+           !userProfilesStore.readAll().contains(where: { $0.id == name.lowercased() }) {
+            _ = setUserColor(name: name, color: color)
+        }
+        return nil
+    }
+
+    func userPage() -> UserPage {
+        let rows = documentRows()
+        let me = TeamSync.memberName
+        let mine = rows.filter { $0.mine && $0.lastEditedBy != nil }
+            .sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }
+        let history = activityAuthors()
+        var created = rows.filter { $0.createdBy == me }.count
+        var lastWorked = mine.count
+        for file in ["projects.json", "letters.json"] {
+            for a in authorsIndex(file, history: history).values {
+                if a.createdBy == me { created += 1 }
+                if a.mine && a.lastEditedBy != nil { lastWorked += 1 }
+            }
+        }
+        let sync = TeamSync.current
+        return UserPage(name: me, computer: TeamSync.computerName,
+                        color: userProfilesStore.readAll().first { $0.id == me.lowercased() }?.color,
+                        sharing: sync != nil, members: sync?.members() ?? [],
+                        myProjects: myRecentProjects(rows: rows, limit: 12),
+                        myDocuments: Array(mine.prefix(15)),
+                        myActivity: Array(listActivity(projectId: nil, limit: 400).filter { $0.mine && $0.by != nil }.prefix(20)),
+                        createdCount: created, lastWorkedCount: lastWorked)
     }
 
     // ---- Signed copies of quotations ----
@@ -3501,6 +3624,8 @@ final class AppDatabase {
         }
         boqLineItemsStore.writeAll(items)
         touchBOQ(boq.id)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
         return nil
     }
 
@@ -3681,6 +3806,9 @@ final class AppDatabase {
         detail.standardTerms = getCompanySettings().boqTerms
         detail.language = boq.language
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
+        detail.linkedQuotations = quotationsStore.readAll().filter { $0.sourceBOQId == boq.id && $0.boqLinked == true }
+            .sorted { $0.quotationNumber < $1.quotationNumber }
+            .map { LinkedDocument(id: $0.id, number: $0.quotationNumber, status: $0.status) }
         return detail
     }
 
@@ -3717,6 +3845,8 @@ final class AppDatabase {
         )
         boqLineItemsStore.insert(line)
         touchBOQ(boqId)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boqId)
         return nil
     }
 
@@ -3732,6 +3862,8 @@ final class AppDatabase {
         if let appliedUnitPrice = appliedUnitPrice { items[index].appliedUnitPrice = appliedUnitPrice }
         boqLineItemsStore.writeAll(items)
         touchBOQ(boq.id)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
         return nil
     }
 
@@ -3789,6 +3921,8 @@ final class AppDatabase {
             boqLineItemsStore.writeAll(lines)
             logActivity(projectId: boqs[i].projectId, "BOQ changed to \(newMode) — \(repriced) line(s) re-priced\(kept > 0 ? ", \(kept) hand-typed price(s) kept" : "")", reference: boqs[i].boqNumber)
         }
+        // Linked quotations take the new Sale / Rental, mark-up and prices.
+        if newMode != oldMode || newMarkup != oldMarkup { syncLinkedQuotations(boqId: id) }
         return nil
     }
 
@@ -3811,6 +3945,8 @@ final class AppDatabase {
         }
         boqLineItemsStore.writeAll(all)
         touchBOQ(boq.id)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
         return nil
     }
 
@@ -3826,6 +3962,8 @@ final class AppDatabase {
         }
         boqLineItemsStore.writeAll(all)
         touchBOQ(boq.id)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
         return nil
     }
 
@@ -3843,6 +3981,8 @@ final class AppDatabase {
         all.append(copy)
         boqLineItemsStore.writeAll(all)
         touchBOQ(boq.id)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
         return nil
     }
 
@@ -3867,6 +4007,8 @@ final class AppDatabase {
         items.removeAll { $0.id == id }
         boqLineItemsStore.writeAll(items)
         touchBOQ(boq.id)
+        // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
         return nil
     }
 
@@ -3881,6 +4023,11 @@ final class AppDatabase {
         boqsStore.writeAll(boqs)
         if changed { logActivity(projectId: boqs[index].projectId, "BOQ \(status == "Issued" ? "issued" : "returned to draft")", reference: boqs[index].boqNumber) }
         if status == "Draft" { moveBOQMarkupOntoRates(id) }
+        // Back to Draft: its linked Draft quotations' changes since it was
+        // issued are made to it (and so to one another).
+        if changed, status == "Draft" {
+            for q in quotationsStore.readAll() where q.sourceBOQId == id && q.boqLinked == true && q.status == "Draft" { pushQuotationToBOQ(q.id) }
+        }
         return nil
     }
 
@@ -3974,6 +4121,17 @@ final class AppDatabase {
         var items = boqLineItemsStore.readAll()
         items.removeAll { $0.boqId == id }
         boqLineItemsStore.writeAll(items)
+        var days = quotationDeliveriesStore.readAll()
+        if days.contains(where: { $0.quotationId == id }) {
+            days.removeAll { $0.quotationId == id }
+            quotationDeliveriesStore.writeAll(days)
+        }
+        // Quotations linked to it keep their items, no longer linked.
+        var qs = quotationsStore.readAll()
+        if qs.contains(where: { $0.sourceBOQId == id && $0.boqLinked == true }) {
+            for i in qs.indices where qs[i].sourceBOQId == id { qs[i].boqLinked = nil }
+            quotationsStore.writeAll(qs)
+        }
         return nil
     }
 
@@ -4104,6 +4262,7 @@ final class AppDatabase {
                 summary.signed = q.signedCopyPath.map { fileIsPresent($0) } ?? false
                 let boq = q.sourceBOQId.flatMap { getBOQ(id: $0) }
                 summary.boqNumber = boq?.boqNumber
+                summary.boqLinked = boq != nil && q.boqLinked == true
                 summary.structure = nonBlank(boq?.structure)
                 summary.subject = nonBlank(q.subject)
                 summary.pricingMode = q.pricingMode
@@ -4119,10 +4278,10 @@ final class AppDatabase {
         nextDocumentNumber(template: numberFormat("QT"), projectNumber: projectNumber, existing: quotationsStore.readAll().map { $0.quotationNumber }, startAt: getCompanySettings().numberStarts?["QT"] ?? 1)
     }
 
-    /// Creates a quotation, optionally seeding its line items from an
-    /// existing BOQ (section 21: "create quotations from a project, a
-    /// BOQ, or manually entered items"). Copies, not references — later
-    /// edits to the BOQ never change an already-created quotation.
+    /// Creates a quotation, optionally from an existing BOQ (section 21:
+    /// "create quotations from a project, a BOQ, or manually entered
+    /// items"). One made from a BOQ is linked to it: changes to either are
+    /// made to the other, until the link is removed.
     /// The quotation's "Re:" subject line until someone types their own:
     /// "<project> - <Rental|Sale>", then the structure of the BOQ it
     /// follows, e.g. "GL-28 Works - Rental - Access platform for louvres".
@@ -4197,32 +4356,19 @@ final class AppDatabase {
         logActivity(projectId: projectId, sourceBOQId == nil ? "Quotation created (\(resolvedPricingMode))" : "Quotation created from BOQ", reference: quotation.quotationNumber)
 
         if let boqId = sourceBOQId, let boq = getBOQ(id: boqId) {
-            let sourceItems = boqLineItemsStore.readAll()
-                .filter { $0.boqId == boqId }
-                .sorted { $0.sortOrder < $1.sortOrder }
-            let copied: [QuotationLineItem] = sourceItems.enumerated().map { index, item in
-                let priced = quotationPricing(of: item, boq: boq)
-                var line = QuotationLineItem(
-                    id: makeId("qitem"), quotationId: quotation.id, sourceKey: item.sourceKey,
-                    priceListItemId: item.priceListItemId, itemCode: item.itemCode,
-                    itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
-                    appliedUnitPrice: priced.price, section: item.section, sortOrder: index,
-                    priceListUnitPrice: priced.listPrice
-                )
-                line.discountType = priced.discountType
-                line.discountValue = priced.discountValue
-                return line
+            // Linked to the BOQ: its items (with its mark-up as the markup %),
+            // kept in step both ways until the link is removed.
+            var qs = quotationsStore.readAll()
+            if let qi = qs.firstIndex(where: { $0.id == quotation.id }) {
+                qs[qi].boqLinked = true
+                quotationsStore.writeAll(qs)
             }
-            quotationLineItemsStore.insertMany(copied)
-            // The BOQ's mark-up becomes the quotation's markup %.
-            if let markup = carriedMarkup(boq) {
-                var qs = quotationsStore.readAll()
-                if let qi = qs.firstIndex(where: { $0.id == quotation.id }) {
-                    qs[qi].markupPercent = markup
-                    quotationsStore.writeAll(qs)
-                    quotation.markupPercent = markup
-                }
+            mirrorBOQ(boq, into: quotation.id)
+            // And the BOQ's delivery schedule, if it has one.
+            if quotationDeliveriesStore.readAll().contains(where: { $0.quotationId == boqId }) {
+                _ = copyDeliverySchedule(fromBOQ: boqId, toQuotation: quotation.id)
             }
+            quotation = getQuotation(id: quotation.id) ?? quotation
         }
         return quotation
     }
@@ -4254,6 +4400,301 @@ final class AppDatabase {
         }
     }
 
+    // ---- A BOQ and a quotation linked together ----
+    //
+    // A quotation made from a BOQ (or linked to one) is kept in step with it
+    // both ways until the link is removed: its materials are the BOQ's items
+    // (each quotation line knows the BOQ line it is), with the same names,
+    // quantities, prices and discounts, and the BOQ's Sale / Rental and
+    // mark-up are the quotation's. Only Draft documents are changed — an
+    // issued one stays as it was issued. The quotation's delivery charges,
+    // extra sections and overall discount are its own.
+
+    /// A BOQ's prices can pass to a linked quotation as they are (list
+    /// prices, the mark-up as the markup %, the discounts) — unless the BOQ
+    /// has a mark-down, which is priced into the quotation's rates.
+    func linkedPricesPassStraight(_ boq: BillOfQuantities) -> Bool {
+        boq.markupOnRates == true && (boq.markupPercent ?? 0) >= 0
+    }
+
+    /// A BOQ line as its linked quotation line prices it.
+    func linkedPricing(of item: BOQLineItem, boq: BillOfQuantities) -> (price: Double, listPrice: Double?, discountType: String?, discountValue: Double?) {
+        guard linkedPricesPassStraight(boq) else { return quotationPricing(of: item, boq: boq) }
+        let value = max(0, item.discountValue ?? 0)
+        switch item.discountType {
+        case "Percent" where value > 0: return (item.appliedUnitPrice, item.priceListUnitPrice, "Percent", min(value, 100))
+        case "Amount" where value > 0:
+            return (item.appliedUnitPrice, item.priceListUnitPrice, "Amount", doubleOf(roundToCents(decimalOf(value) * decimalOf(item.quantity.rounded()))))
+        default: return (item.appliedUnitPrice, item.priceListUnitPrice, nil, nil)
+        }
+    }
+
+    /// A quotation line's price and discount put back on its BOQ line (the
+    /// reverse of `linkedPricing`): a discount off the line total becomes
+    /// that much off each unit; with a mark-down, the rate charged becomes
+    /// the price before it.
+    private func applyQuotationPrice(_ ql: QuotationLineItem, to b: inout BOQLineItem, boq: BillOfQuantities) {
+        if linkedPricesPassStraight(boq) {
+            b.appliedUnitPrice = ql.appliedUnitPrice
+        } else {
+            let factor = 1 + decimalOf(boq.markupPercent ?? 0) / 100
+            b.appliedUnitPrice = factor > 0 ? doubleOf(roundToCents(decimalOf(ql.appliedUnitPrice) / factor)) : ql.appliedUnitPrice
+        }
+        if let list = ql.priceListUnitPrice, linkedPricesPassStraight(boq) { b.priceListUnitPrice = list }
+        let value = max(0, ql.discountValue ?? 0)
+        switch ql.discountType {
+        case "Percent" where value > 0:
+            b.discountType = "Percent"
+            b.discountValue = min(value, 100)
+        case "Amount" where value > 0 && ql.quantity.rounded() > 0:
+            b.discountType = "Amount"
+            b.discountValue = doubleOf(roundToCents(decimalOf(value) / decimalOf(ql.quantity.rounded())))
+        default:
+            b.discountType = nil
+            b.discountValue = nil
+        }
+    }
+
+    private func samePricing(_ ql: QuotationLineItem, _ e: (price: Double, listPrice: Double?, discountType: String?, discountValue: Double?)) -> Bool {
+        abs(ql.appliedUnitPrice - e.price) < 0.005 && (ql.discountType ?? "None") == (e.discountType ?? "None")
+            && abs((ql.discountValue ?? 0) - (e.discountValue ?? 0)) < 0.005
+    }
+
+    /// The linked Draft quotations of a BOQ made the same as it (all but
+    /// `except`, the one a change came from).
+    func syncLinkedQuotations(boqId: String, except: String? = nil) {
+        guard let boq = getBOQ(id: boqId) else { return }
+        for q in quotationsStore.readAll() where q.sourceBOQId == boqId && q.boqLinked == true && q.status == "Draft" && q.id != except {
+            mirrorBOQ(boq, into: q.id)
+        }
+    }
+
+    /// Makes a quotation's materials the BOQ's: each BOQ line's quotation
+    /// line updated (or added), in the BOQ's order; lines whose BOQ line
+    /// was deleted go too. Its Sale / Rental and markup % follow the BOQ.
+    private func mirrorBOQ(_ boq: BillOfQuantities, into quotationId: String) {
+        var qs = quotationsStore.readAll()
+        guard let qi = qs.firstIndex(where: { $0.id == quotationId }) else { return }
+        let boqLines = lineItems(for: boq.id)
+        let boqLineIds = Set(boqLines.map { $0.id })
+        var all = quotationLineItemsStore.readAll()
+        let before = all.filter { $0.quotationId == quotationId }
+        var paired: [String: QuotationLineItem] = [:]
+        for l in before where l.blockId == nil { if let b = l.boqLineId, paired[b] == nil { paired[b] = l } }
+        var materials: [QuotationLineItem] = []
+        for (index, item) in boqLines.enumerated() {
+            let priced = linkedPricing(of: item, boq: boq)
+            var line = paired[item.id] ?? QuotationLineItem(id: makeId("qitem"), quotationId: quotationId, sourceKey: nil, priceListItemId: nil,
+                                                            itemCode: "", itemDescription: "", unit: "", quantity: 0, appliedUnitPrice: 0,
+                                                            section: nil, sortOrder: 0)
+            line.sourceKey = item.sourceKey
+            line.priceListItemId = item.priceListItemId
+            line.itemCode = item.itemCode
+            line.itemDescription = item.itemDescription
+            line.unit = item.unit
+            line.quantity = item.quantity.rounded()
+            line.appliedUnitPrice = priced.price
+            line.priceListUnitPrice = priced.listPrice
+            line.discountType = priced.discountType
+            line.discountValue = priced.discountValue
+            line.section = item.section
+            line.sortOrder = index
+            line.boqLineId = item.id
+            materials.append(line)
+        }
+        // Everything else (delivery charges, the extra sections' rows, and
+        // any item only on the quotation) stays, after the BOQ's items.
+        let pairedIds = Set(materials.map { $0.id })
+        let others = before
+            .filter { !pairedIds.contains($0.id) && !($0.blockId == nil && $0.boqLineId.map { !boqLineIds.contains($0) } ?? false) }
+            .sorted { $0.sortOrder < $1.sortOrder }
+            .enumerated().map { i, l -> QuotationLineItem in
+                var c = l
+                c.sortOrder = boqLines.count + i
+                return c
+            }
+        let after = materials + others
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let key: ([QuotationLineItem]) -> Data? = { try? encoder.encode($0.sorted { $0.id < $1.id }) }
+        var changed = false
+        if key(before) != key(after) {
+            all.removeAll { $0.quotationId == quotationId }
+            all.append(contentsOf: after)
+            quotationLineItemsStore.writeAll(all)
+            changed = true
+        }
+        let markup = linkedPricesPassStraight(boq) ? carriedMarkup(boq) : nil
+        if qs[qi].pricingMode != boq.pricingMode {
+            if let project = projectsStore.readAll().first(where: { $0.id == qs[qi].projectId }),
+               isAutoQuotationSubject(qs[qi].subject, projectName: project.name, pricingMode: qs[qi].pricingMode, structures: [boq.structure]) {
+                qs[qi].subject = autoQuotationSubject(projectName: project.name, pricingMode: boq.pricingMode, structure: boq.structure)
+            }
+            qs[qi].pricingMode = boq.pricingMode
+            changed = true
+        }
+        if qs[qi].markupPercent != markup {
+            qs[qi].markupPercent = markup
+            changed = true
+        }
+        if changed {
+            qs[qi].updatedAt = nowISO()
+            quotationsStore.writeAll(qs)
+        }
+    }
+
+    /// A linked quotation's materials changed: the same changes to its BOQ
+    /// (while that's a Draft), then to the BOQ's other linked quotations.
+    /// Lines only on the quotation are added to the BOQ.
+    func pushQuotationToBOQ(_ quotationId: String) {
+        guard let q = getQuotation(id: quotationId), q.boqLinked == true, q.status == "Draft",
+              let boqId = q.sourceBOQId, let boq = getBOQ(id: boqId), boq.status == "Draft" else { return }
+        var qAll = quotationLineItemsStore.readAll()
+        let qIndexes = qAll.indices.filter { qAll[$0].quotationId == quotationId && qAll[$0].blockId == nil && (qAll[$0].boqLineId != nil || isMaterialLine(qAll[$0])) }
+            .sorted { qAll[$0].sortOrder < qAll[$1].sortOrder }
+        var bAll = boqLineItemsStore.readAll()
+        let bBefore = bAll.filter { $0.boqId == boqId }
+        var nextOrder = (bBefore.map { $0.sortOrder }.max() ?? -1) + 1
+        var weights: [String: Double]? = nil
+        var added = false
+        for qx in qIndexes {
+            let ql = qAll[qx]
+            if let bid = ql.boqLineId, let bi = bAll.firstIndex(where: { $0.id == bid && $0.boqId == boqId }) {
+                var b = bAll[bi]
+                b.sourceKey = ql.sourceKey
+                b.priceListItemId = ql.priceListItemId
+                b.itemCode = ql.itemCode
+                b.itemDescription = ql.itemDescription
+                b.unit = ql.unit
+                b.quantity = ql.quantity.rounded()
+                b.section = ql.section
+                if !samePricing(ql, linkedPricing(of: b, boq: boq)) { applyQuotationPrice(ql, to: &b, boq: boq) }
+                bAll[bi] = b
+            } else {
+                if weights == nil {
+                    weights = Dictionary(priceListItemsStore.readAll().compactMap { i in i.weightKg.map { (i.id, $0) } }, uniquingKeysWith: { a, _ in a })
+                }
+                var b = BOQLineItem(id: makeId("boqitem"), boqId: boqId, sourceKey: ql.sourceKey, priceListItemId: ql.priceListItemId,
+                                    itemCode: ql.itemCode, itemDescription: ql.itemDescription, unit: ql.unit, quantity: ql.quantity.rounded(),
+                                    priceListUnitPrice: ql.priceListUnitPrice, appliedUnitPrice: ql.appliedUnitPrice,
+                                    weightKg: ql.priceListItemId.flatMap { weights?[$0] }, section: ql.section, sortOrder: nextOrder, notes: nil)
+                nextOrder += 1
+                // An item picked from the material list comes in at its list
+                // price (the BOQ's mark-up / mark-down then applies to it).
+                let atListPrice = ql.priceListUnitPrice.map { abs($0 - ql.appliedUnitPrice) < 0.005 } ?? false
+                if !atListPrice { applyQuotationPrice(ql, to: &b, boq: boq) }
+                bAll.append(b)
+                qAll[qx].boqLineId = b.id
+                added = true
+            }
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let bAfter = bAll.filter { $0.boqId == boqId }
+        if (try? encoder.encode(bBefore)) != (try? encoder.encode(bAfter)) {
+            boqLineItemsStore.writeAll(bAll)
+            touchBOQ(boqId)
+        }
+        if added { quotationLineItemsStore.writeAll(qAll) }
+        // New items are priced as the BOQ prices them (its mark-down…).
+        if added, let fresh = getBOQ(id: boqId) { mirrorBOQ(fresh, into: quotationId) }
+        syncLinkedQuotations(boqId: boqId, except: quotationId)
+    }
+
+    /// Links a Draft quotation to a BOQ of its project: its materials are
+    /// made the BOQ's (lines matched to the BOQ's items by the item they
+    /// are; the others removed), then kept in step both ways.
+    func linkQuotationToBOQ(quotationId: String, boqId: String) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let qi = qs.firstIndex(where: { $0.id == quotationId }) else { return "Quotation not found." }
+        guard qs[qi].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        guard let boq = getBOQ(id: boqId) else { return "BOQ not found." }
+        guard boq.projectId == qs[qi].projectId else { return "That BOQ belongs to a different project." }
+        if qs[qi].boqLinked == true, let linked = qs[qi].sourceBOQId, linked != boqId, getBOQ(id: linked) != nil {
+            return "This quotation is already linked to \(getBOQ(id: linked)?.boqNumber ?? "a BOQ"). Remove that link first."
+        }
+        let boqLines = lineItems(for: boqId)
+        var all = quotationLineItemsStore.readAll()
+        var used = Set<String>()
+        var drop = Set<String>()
+        let boqIds = Set(boqLines.map { $0.id })
+        let candidates = all.indices.filter { all[$0].quotationId == quotationId && all[$0].blockId == nil && (all[$0].boqLineId != nil || isMaterialLine(all[$0])) }
+        // Lines already from this BOQ first; then the rest matched by item.
+        var unmatched: [Int] = []
+        for i in candidates {
+            if let b = all[i].boqLineId, boqIds.contains(b), !used.contains(b) { used.insert(b) } else { unmatched.append(i) }
+        }
+        for i in unmatched {
+            let l = all[i]
+            let match = boqLines.first { b in
+                !used.contains(b.id) && (l.priceListItemId != nil ? b.priceListItemId == l.priceListItemId
+                    : b.priceListItemId == nil && b.itemCode == l.itemCode && b.itemDescription == l.itemDescription && b.unit == l.unit)
+            }
+            if let m = match {
+                all[i].boqLineId = m.id
+                used.insert(m.id)
+            } else {
+                drop.insert(all[i].id)
+            }
+        }
+        all.removeAll { drop.contains($0.id) }
+        quotationLineItemsStore.writeAll(all)
+        let previousStructure = qs[qi].sourceBOQId.flatMap { getBOQ(id: $0)?.structure }
+        qs[qi].sourceBOQId = boqId
+        qs[qi].boqLinked = true
+        qs[qi].updatedAt = nowISO()
+        quotationsStore.writeAll(qs)
+        mirrorBOQ(boq, into: quotationId)
+        refreshQuotationSubjects(boqId: boqId, previousStructure: previousStructure)
+        logActivity(projectId: qs[qi].projectId, "Quotation linked to \(boq.boqNumber)", reference: qs[qi].quotationNumber)
+        return nil
+    }
+
+    /// The link removed: both stay as they are, and change on their own.
+    func unlinkQuotationFromBOQ(quotationId: String) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let qi = qs.firstIndex(where: { $0.id == quotationId }) else { return "Quotation not found." }
+        guard qs[qi].boqLinked == true else { return nil }
+        qs[qi].boqLinked = nil
+        qs[qi].updatedAt = nowISO()
+        quotationsStore.writeAll(qs)
+        let boqNumber = qs[qi].sourceBOQId.flatMap { getBOQ(id: $0)?.boqNumber } ?? "its BOQ"
+        logActivity(projectId: qs[qi].projectId, "Quotation's link to \(boqNumber) removed", reference: qs[qi].quotationNumber)
+        return nil
+    }
+
+    /// The BOQ's delivery schedule copied onto a quotation (replacing the
+    /// quotation's own): each BOQ item's quantities go on the quotation
+    /// line for it. Returns how many items had no line on the quotation.
+    func copyDeliverySchedule(fromBOQ boqId: String, toQuotation quotationId: String) -> (skipped: Int, error: String?) {
+        guard getQuotation(id: quotationId) != nil else { return (0, "Quotation not found.") }
+        guard getBOQ(id: boqId) != nil else { return (0, "BOQ not found.") }
+        var all = quotationDeliveriesStore.readAll()
+        let boqDays = all.filter { $0.quotationId == boqId }.sorted { $0.day < $1.day }
+        guard !boqDays.isEmpty else { return (0, "The BOQ has no delivery schedule yet.") }
+        let boqLines = lineItems(for: boqId)
+        let qLines = quotationLineItems(for: quotationId).filter { $0.blockId == nil && ($0.boqLineId != nil || isMaterialLine($0)) }
+        var map: [String: String] = [:]
+        var taken = Set<String>()
+        for b in boqLines {
+            let match = qLines.first { $0.boqLineId == b.id && !taken.contains($0.id) }
+                ?? qLines.first { l in !taken.contains(l.id) && l.boqLineId == nil && (b.priceListItemId != nil ? l.priceListItemId == b.priceListItemId
+                    : l.priceListItemId == nil && l.itemCode == b.itemCode && l.itemDescription == b.itemDescription) }
+            if let m = match { map[b.id] = m.id; taken.insert(m.id) }
+        }
+        let scheduled = Set(boqDays.flatMap { $0.quantities.filter { $0.value > 0 }.map { $0.key } })
+        let skipped = scheduled.filter { map[$0] == nil }.count
+        all.removeAll { $0.quotationId == quotationId }
+        for d in boqDays {
+            var quantities: [String: Double] = [:]
+            for (lineId, qty) in d.quantities { if let to = map[lineId] { quantities[to, default: 0] += qty } }
+            all.append(QuotationDeliveryDay(id: makeId("qdday"), quotationId: quotationId, day: d.day, date: d.date, sent: d.sent, note: d.note,
+                                            quantities: quantities, createdAt: nowISO(), updatedAt: nowISO()))
+        }
+        quotationDeliveriesStore.writeAll(all)
+        return (skipped, nil)
+    }
+
     func getQuotation(id: String) -> Quotation? {
         quotationsStore.readAll().first { $0.id == id }
     }
@@ -4271,6 +4712,10 @@ final class AppDatabase {
         guard qs[qIndex].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
         guard let boq = getBOQ(id: boqId) else { return "BOQ not found." }
         guard boq.projectId == qs[qIndex].projectId else { return "That BOQ belongs to a different project." }
+        // A quotation linked to its BOQ follows that BOQ only.
+        if qs[qIndex].boqLinked == true, let linked = qs[qIndex].sourceBOQId, getBOQ(id: linked) != nil {
+            return "This quotation is linked to \(getBOQ(id: linked)?.boqNumber ?? "its BOQ"). Remove the link before importing items from a BOQ."
+        }
 
         let boqItems = lineItems(for: boqId)
         guard !boqItems.isEmpty else { return "That BOQ has no items to import." }
@@ -4306,6 +4751,7 @@ final class AppDatabase {
             )
             line.discountType = priced.discountType
             line.discountValue = priced.discountValue
+            line.boqLineId = item.id
             return line
         }
         // The BOQ's mark-up becomes the quotation's markup % (replacing the
@@ -4318,9 +4764,13 @@ final class AppDatabase {
 
         let previousStructure = qs[qIndex].sourceBOQId.flatMap { getBOQ(id: $0)?.structure }
         qs[qIndex].sourceBOQId = boqId
+        // Replacing the items links the two (kept in step from now on);
+        // adding them below the quotation's own doesn't.
+        qs[qIndex].boqLinked = replaceExisting ? true : nil
         qs[qIndex].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         logActivity(projectId: qs[qIndex].projectId, "Items imported from \(boq.boqNumber)", reference: qs[qIndex].quotationNumber)
+        if replaceExisting { mirrorBOQ(boq, into: quotationId) }
         // Now following this BOQ: its structure goes in the subject line.
         refreshQuotationSubjects(boqId: boqId, previousStructure: previousStructure)
         return nil
@@ -4366,6 +4816,9 @@ final class AppDatabase {
         detail.charges = totals.charges
         detail.language = q.language
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
+        let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
+        detail.boqLinked = q.boqLinked == true && sourceBOQ != nil
+        detail.sourceBOQStatus = sourceBOQ?.status
         return detail
     }
 
@@ -4572,6 +5025,8 @@ final class AppDatabase {
         )
         quotationLineItemsStore.insert(line)
         touchQuotation(quotationId)
+        // A material on a quotation linked to a BOQ goes on the BOQ too.
+        if isMaterialLine(line) { pushQuotationToBOQ(quotationId) }
         return nil
     }
 
@@ -4591,6 +5046,7 @@ final class AppDatabase {
         if let unit = unit { items[index].unit = unit.trimmingCharacters(in: .whitespacesAndNewlines) }
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
+        pushQuotationToBOQ(q.id)
         return nil
     }
 
@@ -4603,6 +5059,17 @@ final class AppDatabase {
         items.removeAll { $0.id == id }
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
+        // Linked to a BOQ (a Draft): the item comes off it, and off the
+        // BOQ's other linked quotations.
+        if q.boqLinked == true, let boqLine = target.boqLineId, let boqId = q.sourceBOQId, getBOQ(id: boqId)?.status == "Draft" {
+            var lines = boqLineItemsStore.readAll()
+            if lines.contains(where: { $0.id == boqLine && $0.boqId == boqId }) {
+                lines.removeAll { $0.id == boqLine && $0.boqId == boqId }
+                boqLineItemsStore.writeAll(lines)
+                touchBOQ(boqId)
+                syncLinkedQuotations(boqId: boqId, except: q.id)
+            }
+        }
         return nil
     }
 
@@ -4618,6 +5085,7 @@ final class AppDatabase {
         guard discountValue >= 0, taxRatePercent >= 0 else { return "Enter amounts of zero or more." }
         if discountType == "Percent" && discountValue > 100 { return "A discount can't be more than 100%." }
         if let m = markupPercent, m < 0 || m > 1000 { return "Enter a markup between 0% and 1000%." }
+        let oldMarkup = qs[index].markupPercent
         qs[index].markupPercent = (markupPercent ?? 0) > 0 ? markupPercent : nil
 
         qs[index].validUntil = validUntil
@@ -4637,6 +5105,19 @@ final class AppDatabase {
         }
         qs[index].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
+        // Linked to a Draft BOQ: a new Sale / Rental or markup is the BOQ's
+        // too (it re-prices, then this quotation and the others follow it).
+        let markupChanged = (oldMarkup ?? 0) != (qs[index].markupPercent ?? 0)
+        if qs[index].boqLinked == true, let boqId = qs[index].sourceBOQId, let boq = getBOQ(id: boqId), boq.status == "Draft",
+           oldMode != pricingMode || markupChanged {
+            let error = updateBOQDetails(id: boqId, pricingMode: pricingMode,
+                                         markupPercent: markupChanged ? (qs[index].markupPercent ?? 0) : nil,
+                                         structure: nil, updateStructure: false)
+            if error == nil {
+                if let fresh = getBOQ(id: boqId) { mirrorBOQ(fresh, into: id) }
+                return nil
+            }
+        }
         if oldMode != pricingMode { repriceQuotationLines(qs[index], from: oldMode) }
         return nil
     }
@@ -4688,6 +5169,7 @@ final class AppDatabase {
         }
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
+        pushQuotationToBOQ(q.id)
         return nil
     }
 
@@ -4733,6 +5215,10 @@ final class AppDatabase {
         qs[index].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         if changed { logActivity(projectId: qs[index].projectId, "Quotation \(status == "Draft" ? "returned to draft" : status.lowercased())", reference: qs[index].quotationNumber) }
+        // Back to Draft while linked: it catches up with its BOQ's changes.
+        if changed, status == "Draft", qs[index].boqLinked == true, let boq = qs[index].sourceBOQId.flatMap({ getBOQ(id: $0) }) {
+            mirrorBOQ(boq, into: id)
+        }
         return nil
     }
 
@@ -4762,6 +5248,8 @@ final class AppDatabase {
 
     // ---- Quotation delivery schedule ----
 
+    /// A quotation's — or a BOQ's — delivery schedule (`quotationId` is
+    /// the document's id), with each line's unit weight.
     func deliverySchedule(quotationId: String) -> DeliveryScheduleData {
         let days = quotationDeliveriesStore.readAll().filter { $0.quotationId == quotationId }.sorted { ($0.day, $0.createdAt) < ($1.day, $1.createdAt) }
         let itemWeights = Dictionary(priceListItemsStore.readAll().compactMap { i in i.weightKg.map { (i.id, $0) } }, uniquingKeysWith: { a, _ in a })
@@ -4769,12 +5257,15 @@ final class AppDatabase {
         for line in quotationLineItemsStore.readAll() where line.quotationId == quotationId {
             if let w = line.priceListItemId.flatMap({ itemWeights[$0] }) { weights[line.id] = w }
         }
+        for line in boqLineItemsStore.readAll() where line.boqId == quotationId {
+            if let w = line.weightKg ?? line.priceListItemId.flatMap({ itemWeights[$0] }) { weights[line.id] = w }
+        }
         return DeliveryScheduleData(days: days, weights: weights)
     }
 
-    /// Adds the next day (Day n+1) to a quotation's delivery schedule.
+    /// Adds the next day (Day n+1) to a quotation's (or BOQ's) delivery schedule.
     func addDeliveryDay(quotationId: String) -> String? {
-        guard getQuotation(id: quotationId) != nil else { return "Quotation not found." }
+        guard getQuotation(id: quotationId) != nil || getBOQ(id: quotationId) != nil else { return "Document not found." }
         let next = (quotationDeliveriesStore.readAll().filter { $0.quotationId == quotationId }.map { $0.day }.max() ?? 0) + 1
         quotationDeliveriesStore.insert(QuotationDeliveryDay(id: makeId("qdday"), quotationId: quotationId, day: next, date: nil, sent: nil,
                                                              note: nil, quantities: [:], createdAt: nowISO(), updatedAt: nowISO()))
@@ -7326,7 +7817,8 @@ final class PDFGenerator {
     /// starts (with `draw` false, only measures).
     @discardableResult
     private func layOutLetterOpening(_ o: LetterOpening, draw: Bool) -> CGFloat {
-        let blockLeft = 47.75 + dx
+        // Lined up with the "Re:" line and the body (the letter's left margin).
+        let blockLeft = textLeft
         let firstBaseline: CGFloat = 104.25
         let pitch: CGFloat = 15.75
         var left: [(text: String, bold: Bool, underline: Bool)] = []
@@ -10351,6 +10843,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:updateLetterFields":
             let error = db.updateQuotationLetterFields(id: (payload["id"] as? String) ?? "", payload: payload)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:linkBOQ":
+            let error = db.linkQuotationToBOQ(quotationId: (payload["quotationId"] as? String) ?? "", boqId: (payload["boqId"] as? String) ?? "")
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:unlinkBOQ":
+            let error = db.unlinkQuotationFromBOQ(quotationId: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:copyScheduleFromBOQ":
+            let r = db.copyDeliverySchedule(fromBOQ: (payload["boqId"] as? String) ?? "", toQuotation: (payload["quotationId"] as? String) ?? "")
+            respond(id: id, encodable: CopyScheduleResult(ok: r.error == nil, error: r.error, skipped: r.skipped))
         case "quotations:importFromBOQ":
             let qid = (payload["quotationId"] as? String) ?? ""
             let boqId = (payload["boqId"] as? String) ?? ""
@@ -10625,6 +11126,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let name = ((payload["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if let sync = TeamSync.current { sync.setMemberName(name) } else { TeamSync.memberName = name }
             respond(id: id, encodable: teamStatus())
+        case "users:profiles":
+            respond(id: id, encodable: db.userProfiles())
+        case "users:page":
+            respond(id: id, encodable: db.userPage())
+        case "users:setColor":
+            let error = db.setUserColor(name: TeamSync.memberName, color: payload["color"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "users:setName":
+            let error = db.renameUser(to: (payload["name"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "team:reveal":
             if let folder = TeamSync.current?.root ?? TeamSync.configuredFolder, FileManager.default.fileExists(atPath: folder.path) {
                 NSWorkspace.shared.activateFileViewerSelecting([folder])
@@ -14039,31 +14550,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         u.start()
     }
 
+    /// Asks in the page's own dialog (js/dialogs.js) — the app's look, not
+    /// the Mac's alert box. `buttons` run left to right; the last is the
+    /// main one, the first (when there are two or more) is Escape's.
+    /// Answers the button's index, or nil if the page couldn't show it
+    /// (then `fallback` shows the Mac's alert instead).
+    private func askInPage(_ message: String, buttons: [String], fallback: @escaping () -> Void, answer: @escaping (Int) -> Void) {
+        guard let webView = webView else { fallback(); return }
+        let js = """
+        if (!window.appDialog) throw new Error('no dialogs');
+        return await window.appDialog({ message: message, buttons: labels.map((label, i) =>
+          ({ label: label, value: i, primary: i === labels.length - 1, cancel: labels.length > 1 ? i === 0 : true })) });
+        """
+        webView.callAsyncJavaScript(js, arguments: ["message": message, "labels": buttons], in: nil, in: .page) { result in
+            switch result {
+            case .success(let value): answer((value as? NSNumber)?.intValue ?? 0)
+            case .failure: fallback()
+            }
+        }
+    }
+
     private func showUpdateAlert(_ title: String, _ text: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = text
-        if let window = window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+        askInPage("\(title)\n\n\(text)", buttons: ["OK"], fallback: { [weak self] in
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = text
+            if let window = self?.window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+        }, answer: { _ in })
     }
 
     private func offerUpdate(_ info: UpdateInfo) {
-        let alert = NSAlert()
-        alert.messageText = "A new version of ScaffoldPro is available"
+        let title = "A new version of ScaffoldPro is available"
         var text = info.changes.map { "\($0) change\($0 == 1 ? "" : "s") since this copy was installed." } ?? "GitHub has a newer version than this copy."
         if let latest = nonBlank(info.latest) { text += "\nLatest: “\(latest)”." }
         text += info.installer == nil
             ? "\n\nTo update, run install.sh in the ScaffoldPro-native folder."
             : "\n\nUpdate now? ScaffoldPro closes, Install ScaffoldPro gets the new version and builds it (about a minute), then opens it again."
-        alert.informativeText = text
-        alert.addButton(withTitle: info.installer == nil ? "OK" : "Update Now")
-        if info.installer != nil { alert.addButton(withTitle: "Later") }
-        let handle: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn, let installer = info.installer else { return }
+        let update: () -> Void = {
+            guard let installer = info.installer else { return }
             // Updated here, behind a loading screen (Terminal isn't shown).
-            // The alert has to be gone before the loading screen appears.
+            // The dialog has to be gone before the loading screen appears.
             DispatchQueue.main.async { self.startUpdate(fallbackInstaller: installer) }
         }
-        if let window = window { alert.beginSheetModal(for: window, completionHandler: handle) } else { handle(alert.runModal()) }
+        let buttons = info.installer == nil ? ["OK"] : ["Later", "Update Now"]
+        askInPage("\(title)\n\n\(text)", buttons: buttons, fallback: { [weak self] in
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = text
+            alert.addButton(withTitle: info.installer == nil ? "OK" : "Update Now")
+            if info.installer != nil { alert.addButton(withTitle: "Later") }
+            let handle: (NSApplication.ModalResponse) -> Void = { response in
+                if response == .alertFirstButtonReturn { update() }
+            }
+            if let window = self?.window { alert.beginSheetModal(for: window, completionHandler: handle) } else { handle(alert.runModal()) }
+        }, answer: { index in
+            if info.installer != nil && index == 1 { update() }
+        })
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -14393,12 +14935,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         let go = NSMenu(title: "Go")
         let sections: [(String, String)] = [("Dashboard", "index.html"), ("Material List", "price-lists.html"), ("Sites", "sites.html"),
                                             ("Clients", "clients.html"), ("Projects", "projects.html"), ("Letters", "letters.html"),
-                                            ("Stock", "stock.html"), ("Accounts", "accounts.html"), ("Admin", "admin.html")]
+                                            ("Stock", "stock.html"), ("Accounting", "accounts.html"), ("Admin", "admin.html")]
         for (index, entry) in sections.enumerated() {
             let i = item(entry.0, #selector(goToPage(_:)), "\(index + 1)", page: entry.1)
             i.target = self
             go.addItem(i)
         }
+        // The user's own page, pinned at the foot of the sidebar.
+        let user = item("User", #selector(goToPage(_:)), "0", page: "user.html")
+        user.target = self
+        go.addItem(user)
         go.addItem(.separator())
         let back = item("Back", #selector(goBack(_:)), "[")
         back.target = self

@@ -30,8 +30,10 @@
   window.authorsText = function authorsText(a) {
     if (!a) return '';
     const parts = [];
-    if (a.createdBy) parts.push(`Created by ${esc(a.createdBy)}`);
-    if (a.lastEditedBy) parts.push(`Last worked on by ${esc(a.lastEditedBy)}${a.lastEditedAt ? `, ${ago(a.lastEditedAt)}` : ''}`);
+    // Names in each person's colour (sidebar.js).
+    const who = (n) => (window.personTag ? window.personTag(n) : esc(n));
+    if (a.createdBy) parts.push(`Created by ${who(a.createdBy)}`);
+    if (a.lastEditedBy) parts.push(`Last worked on by ${who(a.lastEditedBy)}${a.lastEditedAt ? `, ${ago(a.lastEditedAt)}` : ''}`);
     return parts.join(' · ');
   };
 

@@ -317,7 +317,7 @@ function renderLiabilityPayments(x) {
       <td><button class="remove-btn" data-payment="${esc(p.id)}">Remove</button></td></tr>`).join('')}</tbody></table>`;
   for (const b of list.querySelectorAll('[data-payment]')) {
     b.addEventListener('click', async () => {
-      if (!confirm('Remove this payment?')) return;
+      if (!await appConfirm('Remove this payment?')) return;
       const r = await window.api.accounts.deleteLiabilityPayment(b.dataset.payment);
       if (!r.ok) { alert(r.error); return; }
       await reloadLiability();
@@ -381,7 +381,7 @@ async function addLiabilityPayment() {
 async function deleteLiability() {
   if (!editingLiability) return;
   const x = data.liabilities.find((l) => l.liability.id === editingLiability);
-  if (!confirm(`Delete “${x ? x.liability.name : 'this liability'}” and the payments recorded against it?`)) return;
+  if (!await appConfirm(`Delete “${x ? x.liability.name : 'this liability'}” and the payments recorded against it?`)) return;
   const r = await window.api.accounts.deleteLiability(editingLiability);
   if (!r.ok) { alert(r.error); return; }
   closeLiability();
@@ -436,7 +436,7 @@ async function saveExpense() {
 }
 
 async function deleteExpense() {
-  if (!editingExpense || !confirm('Delete this expense?')) return;
+  if (!editingExpense || !await appConfirm('Delete this expense?')) return;
   const r = await window.api.accounts.deleteExpense(editingExpense.id);
   if (!r.ok) { alert(r.error); return; }
   closeExpense();

@@ -167,7 +167,7 @@ function renderMovements() {
     </tr>`).join('')}</tbody></table>`;
   for (const b of container.querySelectorAll('.remove-btn')) {
     b.addEventListener('click', async () => {
-      if (!confirm('Delete this stock entry? The figures will be worked out again without it.')) return;
+      if (!await appConfirm('Delete this stock entry? The figures will be worked out again without it.')) return;
       const r = await window.api.stock.deleteMovement(b.dataset.id);
       if (!r.ok) alert(r.error);
       await load();

@@ -116,7 +116,7 @@ function initPartyPage(config) {
   async function toggleArchive() {
     if (!editing) return;
     const archiving = !editing.isArchived;
-    if (archiving && !confirm(`Archive "${config.titleOf(editing)}"? It stays linked to its projects and documents, but won't appear in lists or when creating new projects.`)) return;
+    if (archiving && !await appConfirm(`Archive "${config.titleOf(editing)}"? It stays linked to its projects and documents, but won't appear in lists or when creating new projects.`)) return;
     await config.api.setArchived(editing.id, archiving);
     closeSheet();
     await refresh();
