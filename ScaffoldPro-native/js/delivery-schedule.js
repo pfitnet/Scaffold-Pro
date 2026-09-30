@@ -35,7 +35,8 @@
 
   async function load() {
     if (!quotationId) return;
-    data = (await window.api.quotations.deliverySchedule(quotationId)) || { days: [], weights: {} };
+    const r = await window.api.quotations.deliverySchedule(quotationId);
+    data = { days: (r && r.days) || [], weights: (r && r.weights) || {} };
     render();
   }
 
