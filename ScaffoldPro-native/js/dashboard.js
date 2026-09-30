@@ -190,6 +190,29 @@ async function loadDashboard() {
     { cls: 'muted num', value: (a) => when(a.createdAt) },
   ], 'Nothing from the rest of the team yet.');
 
+  // Scaffold inspections due in the next 3 days, or overdue.
+  const due = summary.inspectionsDue || [];
+  document.getElementById('inspections-panel').classList.toggle('hidden', !due.length);
+  table('inspections-due-list', due, [
+    { value: (d) => `<strong>${esc(d.structure)}</strong><div class="sub">${esc(d.projectNumber)} ${esc(d.projectName)}</div>` },
+    { value: (d) => `<span class="status-pill ${d.daysLeft < 0 ? 'pill-danger' : 'pill-warning'}">${d.daysLeft < 0 ? `Overdue ${-d.daysLeft} day${d.daysLeft === -1 ? '' : 's'}` : d.daysLeft === 0 ? 'Due today' : `Due in ${d.daysLeft} day${d.daysLeft === 1 ? '' : 's'}`}</span>` },
+    { cls: 'muted num', value: (d) => `Last ${day(d.lastInspected)}` },
+  ], '');
+
+  // My open tasks: tick to finish, click to open.
+  const taskBox = document.getElementById('my-tasks-list');
+  const myTasks = summary.myTasks || [];
+  const reloadTasks = async () => {
+    const fresh = (await window.api.tasks.list()).filter((r) => r.mine && !r.task.done).slice(0, 8);
+    renderMyTasks(fresh);
+  };
+  const renderMyTasks = (rows) => {
+    if (!rows.length) { taskBox.innerHTML = '<div class="empty-inline">Nothing to do — <a href="tasks.html">add a task</a>.</div>'; return; }
+    taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`;
+    window.wireTaskRows(taskBox, rows, reloadTasks, { projects });
+  };
+  renderMyTasks(myTasks);
+
   // Expired / expiring worker and company documents (sections 42-43).
   const expiring = await window.api.adminDocuments.expiring(30);
   if (expiring.length > 0) {

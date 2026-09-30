@@ -1845,3 +1845,47 @@ under "Letterhead layout".
     scaffolding and values, searchable. The ticked or shown projects can be
     exported as a spreadsheet for tenders and the company profile (saved in
     Administration › Marketing).
+
+## Batch 74 — Scaffold inspections, Tasks and a Calendar
+
+- **Scaffold Inspections** (a new tab on each project): the Form 5
+  register.
+  - Each scaffold is inspected by a competent person before first use and
+    at least every 14 days.
+  - Each record has the scaffold, location, date, competent person,
+    result (Safe / Safe with remarks / Unsafe), remarks and action taken.
+  - The next inspection is due 14 days on unless another date is given.
+    "Dismantled" ends a scaffold's inspections.
+  - Cards at the top show each scaffold's next inspection (amber when due
+    within 3 days, red when overdue). "Record Inspection" on a card fills
+    in the scaffold, location and competent person.
+  - "Export Register" saves the register as a spreadsheet in the project's
+    Documents folder.
+  - Due and overdue inspections on active projects show on the Dashboard
+    ("Scaffold Inspections Due") and the Calendar.
+  - Stored in `scaffold_inspections.json`.
+- **Tasks** (new page, plus a Tasks tab on each project): the team's
+  to-dos.
+  - Each task can be for a project and for a person (shown in their colour),
+    with a due date and a High priority.
+  - Tick a task to finish it (who finished it and when is recorded); click
+    it to change it.
+  - Views: My Tasks, Everyone's and Done, with search and person/project
+    filters.
+  - The Dashboard's new "My Tasks" panel lists your open tasks, and they
+    can be ticked there too.
+  - Stored in `tasks.json`.
+- **Calendar** (new page): a month view of everything with a date:
+  - delivery schedule days (quotations' and BOQs') and delivery notes
+  - inspections done and due (overdue ones on today)
+  - tasks
+  - quotations' "valid until" dates
+  - unpaid invoices' due dates
+  - lead follow-ups
+  - worker and company documents expiring
+  - projects' start and finish dates.
+
+  Each kind can be switched off (remembered on this Mac). Beside the month
+  are the chosen day's items and the next 14 days. Every item opens what
+  it's about.
+- Calendar and Tasks are in the sidebar (under Dashboard) and the Go menu.

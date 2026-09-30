@@ -843,6 +843,12 @@ async function init() {
   await refreshLetterList();
   await refreshDrawingList();
   await refreshDocumentList();
+  // Scaffold inspections and the project's tasks (js/project-work.js).
+  await window.projectWork.load(currentProject, {
+    setCount,
+    structures: () => currentBOQs.filter((b) => !b.combined).map((b) => b.structure).filter(Boolean),
+    afterChange: refreshHistory,
+  });
   await refreshHistory();
 }
 

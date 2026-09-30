@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Tasks — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="tasks">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div class="page-header">
+      <div>
+        <h1>Tasks</h1>
+        <div class="subtitle">What the team needs to do — for a project or not — who it’s for, and when.</div>
+      </div>
+      <div class="header-actions"><button class="primary" id="new-task-btn">+ New Task</button></div>
+    </div>
+
+    <div class="stat-grid" id="task-stats"></div>
+
+    <div class="tabs" id="task-tabs">
+      <button data-view="mine" class="active">My Tasks</button>
+      <button data-view="team">Everyone’s</button>
+      <button data-view="done">Done</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="task-search" placeholder="Search tasks" />
+      <select id="task-person"><option value="">Everyone</option></select>
+      <select id="task-project"><option value="">All projects</option></select>
+    </div>
+    <div id="task-list"></div>
+  </main>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/task-editor.js"></script>
+  <script src="js/tasks.js"></script>
+</body>
+</html>
