@@ -626,15 +626,18 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
 .person {
   --person: #8a8f98;
   display: inline-block; padding: 0 7px; border-radius: 9px; line-height: 1.55;
-  color: var(--person); background: color-mix(in srgb, var(--person) 13%, transparent);
-  font-weight: 600; white-space: nowrap;
+  /* Subtle: the text mostly the page's own, a faint see-through tint. */
+  color: color-mix(in srgb, var(--person) 55%, var(--text));
+  background: color-mix(in srgb, var(--person) 8%, transparent);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--person) 22%, transparent);
+  font-weight: 500; white-space: nowrap;
 }
 .person::before {
   content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--person); margin-right: 5px; vertical-align: 1px;
+  background: var(--person); opacity: 0.65; margin-right: 5px; vertical-align: 1px;
 }
 @media (prefers-color-scheme: dark) {
-  .person { color: color-mix(in srgb, var(--person) 70%, #fff); background: color-mix(in srgb, var(--person) 24%, transparent); }
+  .person { color: color-mix(in srgb, var(--person) 45%, var(--text)); background: color-mix(in srgb, var(--person) 12%, transparent); }
 }
 
 /* Sidebar: shown while the data is shared with other Macs. */
@@ -792,3 +795,22 @@ td.created-by .sub { margin-top: 3px; font-size: 11px; }
 td.created-by .sub .person { font-size: 11px; }
 .sub.made-by { margin-top: 3px; }
 .sub.made-by .person { font-size: 11px; }
+
+/* Combined counts (and their quotations): a bracket of their own below
+   the project total, not added to it. */
+tbody.combined-rows tr.combined-head td {
+  padding-top: 14px; font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  border-top: 1px solid var(--border); background: var(--panel);
+}
+tbody.combined-rows tr.combined-row td:not(.check-col):nth-child(2) { box-shadow: inset 3px 0 0 var(--border-strong); }
+tbody.combined-rows tr.combined-row td { background: color-mix(in srgb, var(--panel) 70%, var(--bg)); }
+
+/* Drawings / documents in brackets: a BOQ with its quotations, one on its own, or not linked. */
+table.file-groups tbody.file-group tr.file-group-head td {
+  background: var(--header-bg); font-size: 12px; padding-top: 9px; padding-bottom: 7px;
+  border-top: 1px solid var(--border); box-shadow: inset 3px 0 0 var(--border-strong);
+}
+table.file-groups tbody.file-group:first-of-type tr.file-group-head td { border-top: none; }
+.file-group-title { font-weight: 600; color: var(--text); }
+.file-group-count { float: right; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+table.file-groups tbody.file-group tr:not(.file-group-head) td:first-child { padding-left: 20px; }

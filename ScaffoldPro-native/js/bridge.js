@@ -110,6 +110,8 @@
     },
     documents: {
       listForProject: (projectId) => callNative('documents:listForProject', { projectId: projectId }),
+      // Filed with one of the project's BOQs / quotations (kind 'BOQ' | 'Quotation'), or not (null).
+      setLink: (id, linkedKind, linkedId) => callNative('documents:setLink', { id: id, linkedKind: linkedKind || null, linkedId: linkedId || null }),
       upload: (projectNumber, category) => callNative('documents:upload', { projectNumber: projectNumber, category: category }),
       updateDescription: (id, description) => callNative('documents:updateDescription', { id: id, description: description }),
       rename: (id, newName) => callNative('documents:rename', { id: id, newName: newName }),
@@ -332,6 +334,16 @@
       reveal: () => callNative('cloudBackup:reveal'),
     },
     // Sharing the data with other Macs through a shared (iCloud Drive) folder.
+    // Marketing: the overview / follow-ups / references, and leads.
+    marketing: {
+      summary: () => callNative('marketing:summary'),
+      leads: () => callNative('marketing:leads'),
+      // { id? (to change one), company, contactPerson, phone, email, source, status, estimatedValue, nextFollowUp, owner, notes } → { ok, error, id }
+      saveLead: (lead) => callNative('marketing:saveLead', lead),
+      deleteLead: (id) => callNative('marketing:deleteLead', { id: id }),
+      // Makes a client from the lead → { ok, error, id: the client's id }
+      convertLead: (id) => callNative('marketing:convertLead', { id: id }),
+    },
     // This Mac's user: their page, and everyone's name colours.
     users: {
       page: () => callNative('users:page'),

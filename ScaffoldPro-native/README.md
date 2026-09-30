@@ -1810,3 +1810,38 @@ under "Letterhead layout".
 - The list data now carries `createdBy` / `lastEditedBy`
   (`authorsByRecord` in main.swift); `window.createdByCell` in sidebar.js
   draws the cell.
+
+## Batch 73 — Combined counts apart, subtler name colours, drawings in brackets, Marketing
+
+- **Combined counts are listed apart.** A BOQ made by combining others
+  (`combinedFrom`, or "Combined from …" in the notes of an older one) is
+  listed in its own bracket below the "Project total weight" row. It says
+  which BOQs it was made from, and its weight isn't added to the total.
+  Quotations made from a combined BOQ are listed the same way, below the
+  "Project total" row, and aren't added to it either.
+- **Subtler name colours:** a softer, muted palette. Name tags are now a
+  faint, see-through tint, with the text mostly in the normal text colour.
+- **Drawings and documents in brackets.** On a project's Drawings &
+  Documents tab, both lists are grouped:
+  - each BOQ with the quotations made from it (e.g. "BOQ BQ26212-001 ·
+    Quotation Qt26212-001")
+  - a quotation or a BOQ on its own
+  - then "Not linked to a BOQ or quotation".
+  Documents can now be filed with a BOQ or quotation too (a "For" column,
+  like drawings: `documents:setLink`).
+- **Marketing** (new sidebar tab) has four tabs:
+  - **Overview:** quotations sent, the win rate and the average quotation
+    over 12 months; a month-by-month chart of the value quoted and won; top
+    clients by value invoiced; and where leads come from.
+  - **Follow-ups:** quotations sent a week or more ago with no reply,
+    clients with no new work for three months, and leads whose follow-up
+    day has come. Each shows who's looking after it.
+  - **Leads:** a board (New / Contacted / Quoted / Won / Lost) of companies
+    being won over. Each lead has its contact, where it came from, an
+    estimated value, a follow-up date and who's looking after it. "Convert
+    to Client" adds it to Clients. Leads are kept in `leads.json` (shared
+    like the rest of the data).
+  - **Project References:** every project with its client, site,
+    scaffolding and values, searchable. The ticked or shown projects can be
+    exported as a spreadsheet for tenders and the company profile (saved in
+    Administration › Marketing).

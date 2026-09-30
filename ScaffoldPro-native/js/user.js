@@ -3,7 +3,8 @@
 // The User page (pinned at the foot of the sidebar): this Mac's user —
 // their name and colour — and their own projects, documents and activity.
 
-const COLOURS = ['#2F6FED', '#D9480F', '#2B8A3E', '#AE3EC9', '#C2255C', '#0C8599', '#B7791F', '#5F3DC4', '#087F5B', '#E03131', '#495057', '#1864AB'];
+// Soft, muted colours (names are shown tinted, not bright).
+const COLOURS = ['#5B7DB1', '#B07A5E', '#5E8C6A', '#8E72A8', '#A8677C', '#4F8A8F', '#9A8458', '#6D6BA6', '#4E8472', '#A66A6A', '#6B7078', '#4F6F96'];
 
 let page = null;
 

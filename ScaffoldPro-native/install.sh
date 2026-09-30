@@ -92,7 +92,7 @@ cp "$SCRIPT_DIR/Info.plist"  "$BUILD/Contents/Info.plist"
 # relative layout main.swift expects (Resources/index.html,
 # Resources/css/..., Resources/js/..., Resources/resources/...).
 cp "$SCRIPT_DIR/index.html" "$BUILD/Contents/Resources/index.html"
-for page in price-lists.html clients.html sites.html projects.html project-detail.html stock.html accounts.html boq-editor.html quotation-editor.html invoice-editor.html delivery-note-editor.html letters.html letter-editor.html user.html admin.html settings.html launch.html; do
+for page in price-lists.html clients.html sites.html projects.html project-detail.html stock.html accounts.html boq-editor.html quotation-editor.html invoice-editor.html delivery-note-editor.html letters.html letter-editor.html user.html marketing.html admin.html settings.html launch.html; do
     if [ -f "$SCRIPT_DIR/$page" ]; then
         cp "$SCRIPT_DIR/$page" "$BUILD/Contents/Resources/$page"
     fi

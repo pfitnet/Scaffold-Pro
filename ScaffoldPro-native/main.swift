@@ -114,6 +114,95 @@ struct DashboardSummary: Codable {
     var userName = ""
 }
 
+/// A possible customer being worked on (Marketing › Leads) — not a
+/// client yet. "Convert to Client" makes it one.
+struct Lead: Codable {
+    var id: String
+    var company: String
+    var contactPerson: String?
+    var phone: String?
+    var email: String?
+    /// How they came: Referral, Website, Tender, Cold Call, Repeat Client, Site Visit, Other.
+    var source: String
+    /// New, Contacted, Quoted, Won or Lost.
+    var status: String
+    var estimatedValue: Double?
+    /// yyyy-MM-dd — shown in Follow-ups from that day.
+    var nextFollowUp: String?
+    var notes: String?
+    /// Who's looking after it (a user's name).
+    var owner: String?
+    /// The client made from it.
+    var clientId: String?
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct MarketingMonth: Codable {
+    /// yyyy-MM
+    var month: String
+    var quotedCount: Int
+    var quotedValue: Double
+    var wonCount: Int
+}
+
+struct MarketingClient: Codable {
+    var id: String
+    var name: String
+    var invoiced: Double
+    var quotations: Int
+    var won: Int
+    var lastActivity: String?
+}
+
+/// Something to chase: a quotation with no reply, a client gone quiet, a lead due.
+struct MarketingFollowUp: Codable {
+    var kind: String
+    var title: String
+    var detail: String
+    var days: Int
+    var url: String
+    var owner: String?
+}
+
+/// A project for a reference list (tenders, the company profile).
+struct ProjectReference: Codable {
+    var projectNumber: String
+    var name: String
+    var clientName: String?
+    var siteName: String?
+    var status: String
+    var startDate: String?
+    var structures: [String]
+    var quotedValue: Double
+    var invoicedValue: Double
+}
+
+struct MarketingSummary: Codable {
+    var currency: String
+    /// The last 12 months, oldest first.
+    var months: [MarketingMonth]
+    var quotedCount: Int
+    var quotedValue: Double
+    var wonCount: Int
+    /// Won ÷ quoted over the 12 months (0–1).
+    var winRate: Double
+    var averageQuote: Double
+    var newClients: Int
+    var openLeads: Int
+    var pipelineValue: Double
+    var leadSources: [String: Int]
+    var topClients: [MarketingClient]
+    var followUps: [MarketingFollowUp]
+    var references: [ProjectReference]
+}
+
+struct LeadSaveResult: Codable {
+    var ok: Bool
+    var error: String?
+    var id: String?
+}
+
 /// A person's colour, so their name looks the same wherever it's shown and
 /// on every Mac (kept with the shared data). By name, lowercased.
 struct UserProfile: Codable {
@@ -447,6 +536,10 @@ struct ProjectDocument: Codable {
     var description: String?
     var isArchived: Bool
     var uploadedAt: String
+    /// The BOQ or quotation it's filed with ("BOQ" / "Quotation" and its
+    /// id), like a drawing's; nil = the project in general.
+    var linkedKind: String? = nil
+    var linkedId: String? = nil
 }
 
 struct ProjectDocumentSummary: Codable {
@@ -459,6 +552,8 @@ struct ProjectDocumentSummary: Codable {
     var description: String?
     var uploadedAt: String
     var fileExists: Bool
+    var linkedKind: String? = nil
+    var linkedId: String? = nil
 }
 
 let documentCategories = ["Contracts", "Specifications", "Correspondence", "Certificates", "Client Documents", "Site Information", "Miscellaneous"]
@@ -843,6 +938,8 @@ struct BillOfQuantities: Codable {
     var signatureSection: Bool? = nil
     /// Item names on the PDF: "English" or "Chinese"; nil = Settings' choice.
     var language: String? = nil
+    /// The BOQs it was combined from (a combined count), by number.
+    var combinedFrom: [String]? = nil
 }
 
 struct BOQCharge: Codable {
@@ -899,6 +996,10 @@ struct BOQSummary: Codable {
     var createdAt: String
     /// What the scaffold is for, e.g. "Access platform for louvres".
     var structure: String? = nil
+    /// A combined count (made from other BOQs): listed apart, not added
+    /// to the project's total weight. `combinedFrom` = their numbers.
+    var combined = false
+    var combinedFrom: [String]? = nil
     /// Who made it, and who last worked on it (their names).
     var createdBy: String? = nil
     var lastEditedBy: String? = nil
@@ -1247,6 +1348,7 @@ struct QuotationSummary: Codable {
     /// The client's signed copy has been added.
     var signed = false
     /// The BOQ it refers to (if any), and that BOQ's structure.
+    var boqId: String? = nil
     var boqNumber: String? = nil
     /// Kept in step with that BOQ.
     var boqLinked = false
@@ -1255,6 +1357,8 @@ struct QuotationSummary: Codable {
     var subject: String? = nil
     var pricingMode: String? = nil
     var charges: ChargeSplit? = nil
+    /// Made from a combined BOQ: listed apart, not added to the project total.
+    var fromCombined = false
     /// Who made it, and who last worked on it (their names).
     var createdBy: String? = nil
     var lastEditedBy: String? = nil
@@ -2505,6 +2609,7 @@ final class AppDatabase {
     let quotationDeliveriesStore: JSONStore<QuotationDeliveryDay>
     let lettersStore: JSONStore<Letter>
     let userProfilesStore: JSONStore<UserProfile>
+    let leadsStore: JSONStore<Lead>
     let liabilityPaymentsStore: JSONStore<LiabilityPayment>
     let employeesStore: JSONStore<Employee>
 
@@ -2538,6 +2643,7 @@ final class AppDatabase {
         quotationDeliveriesStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_deliveries.json"))
         lettersStore = JSONStore(fileURL: dataDir.appendingPathComponent("letters.json"))
         userProfilesStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_profiles.json"))
+        leadsStore = JSONStore(fileURL: dataDir.appendingPathComponent("leads.json"))
         liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
     }
@@ -2768,6 +2874,201 @@ final class AppDatabase {
         summary.awaitingSignedCopy = Array(unsigned.prefix(8))
         summary.awaitingSignedCopyCount = unsigned.count
         return summary
+    }
+
+    // ---- Marketing ----
+
+    static let leadStatuses = ["New", "Contacted", "Quoted", "Won", "Lost"]
+    static let leadSources = ["Referral", "Website", "Tender", "Cold Call", "Repeat Client", "Site Visit", "Other"]
+
+    func listLeads() -> [Lead] {
+        let order = Dictionary(uniqueKeysWithValues: AppDatabase.leadStatuses.enumerated().map { ($1, $0) })
+        return leadsStore.readAll().sorted { (order[$0.status] ?? 9, $1.updatedAt) < (order[$1.status] ?? 9, $0.updatedAt) }
+    }
+
+    /// Adds a lead (no id) or changes one.
+    func saveLead(_ payload: [String: Any]) -> LeadSaveResult {
+        guard let company = text(payload, "company") else { return LeadSaveResult(ok: false, error: "Enter the company's name.") }
+        let status = text(payload, "status") ?? "New"
+        guard AppDatabase.leadStatuses.contains(status) else { return LeadSaveResult(ok: false, error: "Choose a status.") }
+        let followUp = text(payload, "nextFollowUp")
+        if followUp != nil && validDay(followUp) == nil { return LeadSaveResult(ok: false, error: "Enter a valid follow-up date.") }
+        let value = (payload["estimatedValue"] as? Double).map { max(0, $0) }
+        var all = leadsStore.readAll()
+        if let id = text(payload, "id"), let i = all.firstIndex(where: { $0.id == id }) {
+            all[i].company = company
+            all[i].contactPerson = text(payload, "contactPerson")
+            all[i].phone = text(payload, "phone")
+            all[i].email = text(payload, "email")
+            all[i].source = text(payload, "source") ?? "Other"
+            all[i].status = status
+            all[i].estimatedValue = value
+            all[i].nextFollowUp = validDay(followUp)
+            all[i].notes = text(payload, "notes")
+            all[i].owner = text(payload, "owner")
+            all[i].updatedAt = nowISO()
+            leadsStore.writeAll(all)
+            return LeadSaveResult(ok: true, error: nil, id: id)
+        }
+        let lead = Lead(id: makeId("lead"), company: company, contactPerson: text(payload, "contactPerson"), phone: text(payload, "phone"),
+                        email: text(payload, "email"), source: text(payload, "source") ?? "Other", status: status, estimatedValue: value,
+                        nextFollowUp: validDay(followUp), notes: text(payload, "notes"), owner: text(payload, "owner") ?? TeamSync.memberName,
+                        clientId: nil, createdAt: nowISO(), updatedAt: nowISO())
+        leadsStore.insert(lead)
+        logActivity(projectId: nil, "Lead added", reference: company)
+        return LeadSaveResult(ok: true, error: nil, id: lead.id)
+    }
+
+    func deleteLead(id: String) -> String? {
+        var all = leadsStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Lead not found." }
+        all.removeAll { $0.id == id }
+        leadsStore.writeAll(all)
+        return nil
+    }
+
+    /// Makes a client from a lead (its name, contact, phone, e-mail).
+    func convertLead(id: String) -> LeadSaveResult {
+        var all = leadsStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return LeadSaveResult(ok: false, error: "Lead not found.") }
+        if let existing = all[i].clientId, clientsStore.readAll().contains(where: { $0.id == existing }) {
+            return LeadSaveResult(ok: true, error: nil, id: existing)
+        }
+        let l = all[i]
+        var payload: [String: Any] = ["companyName": l.company]
+        payload["contactPerson"] = l.contactPerson
+        payload["phone"] = l.phone
+        payload["email"] = l.email
+        payload["notes"] = [l.notes, "From a lead (\(l.source))."].compactMap { nonBlank($0) }.joined(separator: "\n")
+        let client = createClient(payload)
+        all[i].clientId = client.id
+        if all[i].status != "Won" { all[i].status = "Won" }
+        all[i].updatedAt = nowISO()
+        leadsStore.writeAll(all)
+        logActivity(projectId: nil, "Lead became a client", reference: l.company)
+        return LeadSaveResult(ok: true, error: nil, id: client.id)
+    }
+
+    func marketingSummary() -> MarketingSummary {
+        let today = todayYMD()
+        func localDay(_ iso: String) -> String { String(iso.prefix(10)) }
+        let projects = projectsStore.readAll()
+        let projectById = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let clients = clientsStore.readAll()
+        let clientName = Dictionary(clients.map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
+        let sites = Dictionary(sitesStore.readAll().map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        let boqs = boqsStore.readAll()
+        let boqById = Dictionary(boqs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let invoices = invoicesStore.readAll().filter { $0.status != "Cancelled" }
+        let invoicedQuotations = Set(invoices.filter { $0.status != "Draft" }.compactMap { $0.sourceQuotationId })
+        let qLines = Dictionary(grouping: quotationLineItemsStore.readAll(), by: { $0.quotationId })
+        let iLines = Dictionary(grouping: invoiceLineItemsStore.readAll(), by: { $0.invoiceId })
+        // Quotations sent (not drafts, not cancelled, not for a combined count).
+        let sent = quotationsStore.readAll().filter { q in
+            q.status != "Draft" && q.status != "Cancelled" && !(q.sourceBOQId.flatMap { boqById[$0] }.map { combinedSources($0) != nil } ?? false)
+        }
+        func isWon(_ q: Quotation) -> Bool { invoicedQuotations.contains(q.id) || (q.signedCopyPath.map { fileIsPresent($0) } ?? false) }
+        func value(_ q: Quotation) -> Double { quotationMoney(q, lineItems: qLines[q.id] ?? []).total }
+        let calendar = Calendar(identifier: .gregorian)
+        let monthFormat = DateFormatter()
+        monthFormat.locale = Locale(identifier: "en_US_POSIX")
+        monthFormat.dateFormat = "yyyy-MM"
+        let thisMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
+        let monthKeys = (0..<12).reversed().compactMap { calendar.date(byAdding: .month, value: -$0, to: thisMonth) }.map { monthFormat.string(from: $0) }
+        var months = Dictionary(uniqueKeysWithValues: monthKeys.map { ($0, MarketingMonth(month: $0, quotedCount: 0, quotedValue: 0, wonCount: 0)) })
+        var quotedValue = Decimal(0), quotedCount = 0, wonCount = 0
+        for q in sent {
+            let key = String(localDay(q.quotationDate).prefix(7))
+            guard months[key] != nil else { continue }
+            let v = value(q)
+            months[key]!.quotedCount += 1
+            months[key]!.quotedValue = doubleOf(decimalOf(months[key]!.quotedValue) + decimalOf(v))
+            quotedCount += 1
+            quotedValue += decimalOf(v)
+            if isWon(q) { months[key]!.wonCount += 1; wonCount += 1 }
+        }
+        let yearAgo = monthKeys.first ?? today
+        // Clients: invoiced, quotations, won, and when they last had work.
+        var byClient: [String: MarketingClient] = [:]
+        func entry(_ clientId: String) -> MarketingClient {
+            byClient[clientId] ?? MarketingClient(id: clientId, name: clientName[clientId] ?? "Unknown client", invoiced: 0, quotations: 0, won: 0, lastActivity: nil)
+        }
+        func touch(_ c: inout MarketingClient, _ day: String) { if (c.lastActivity ?? "") < day { c.lastActivity = day } }
+        for q in sent {
+            guard let cid = projectById[q.projectId]?.clientId else { continue }
+            var c = entry(cid)
+            c.quotations += 1
+            if isWon(q) { c.won += 1 }
+            touch(&c, localDay(q.quotationDate))
+            byClient[cid] = c
+        }
+        for inv in invoices where inv.status != "Draft" {
+            guard let cid = projectById[inv.projectId]?.clientId else { continue }
+            var c = entry(cid)
+            c.invoiced = doubleOf(decimalOf(c.invoiced) + decimalOf(invoiceTotals(inv, lineItems: iLines[inv.id] ?? []).total))
+            touch(&c, localDay(inv.invoiceDate))
+            byClient[cid] = c
+        }
+        for p in projects {
+            var c = entry(p.clientId)
+            touch(&c, localDay(p.createdAt))
+            byClient[p.clientId] = c
+        }
+        let topClients = byClient.values.filter { $0.invoiced > 0 || $0.quotations > 0 }
+            .sorted { ($0.invoiced, Double($0.quotations)) > ($1.invoiced, Double($1.quotations)) }.prefix(10).map { $0 }
+        // Follow-ups.
+        func daysSince(_ day: String) -> Int {
+            guard let d = isoFromDay(day).flatMap({ isoFormatter.date(from: $0) }) else { return 0 }
+            return max(0, Int(Date().timeIntervalSince(d) / 86400))
+        }
+        let authorNames = authorsByRecord("quotations.json")
+        var followUps: [MarketingFollowUp] = []
+        for q in sent where q.status == "Issued" && !isWon(q) && q.signedCopyNotNeeded != true {
+            let days = daysSince(localDay(q.quotationDate))
+            guard days >= 7 else { continue }
+            let p = projectById[q.projectId]
+            followUps.append(MarketingFollowUp(kind: "Quotation", title: "Chase \(q.quotationNumber)",
+                detail: [p.flatMap { clientName[$0.clientId] }, nonBlank(q.subject)].compactMap { $0 }.joined(separator: " · "),
+                days: days, url: "quotation-editor.html?id=\(q.id)", owner: authorNames[q.id]?.lastEditedBy ?? authorNames[q.id]?.createdBy))
+        }
+        for c in byClient.values where !(clients.first(where: { $0.id == c.id })?.isArchived ?? true) {
+            guard let last = c.lastActivity else { continue }
+            let days = daysSince(last)
+            guard days >= 90 else { continue }
+            followUps.append(MarketingFollowUp(kind: "Client", title: "Get back in touch with \(c.name)",
+                detail: "No new quotation, invoice or project since \(last)", days: days, url: "clients.html?id=\(c.id)", owner: nil))
+        }
+        let leads = leadsStore.readAll()
+        for l in leads where !["Won", "Lost"].contains(l.status) {
+            guard let due = l.nextFollowUp, due <= today else { continue }
+            followUps.append(MarketingFollowUp(kind: "Lead", title: "Follow up with \(l.company)",
+                detail: [l.contactPerson, l.status, due == today ? "due today" : "due \(due)"].compactMap { nonBlank($0) }.joined(separator: " · "),
+                days: daysSince(due), url: "marketing.html?tab=leads&lead=\(l.id)", owner: l.owner))
+        }
+        followUps.sort { ($0.kind == "Lead" ? 0 : $0.kind == "Quotation" ? 1 : 2, -$0.days) < ($1.kind == "Lead" ? 0 : $1.kind == "Quotation" ? 1 : 2, -$1.days) }
+        // References: every project, newest first.
+        let sentByProject = Dictionary(grouping: sent, by: { $0.projectId })
+        let invoicesByProject = Dictionary(grouping: invoices.filter { $0.status != "Draft" }, by: { $0.projectId })
+        let references = projects.sorted { $0.projectNumber > $1.projectNumber }.map { p -> ProjectReference in
+            let structures = boqs.filter { $0.projectId == p.id && combinedSources($0) == nil }.compactMap { nonBlank($0.structure) }
+            let quoted = (sentByProject[p.id] ?? []).reduce(Decimal(0)) { $0 + decimalOf(value($1)) }
+            let invoiced = (invoicesByProject[p.id] ?? []).reduce(Decimal(0)) { $0 + decimalOf(invoiceTotals($1, lineItems: iLines[$1.id] ?? []).total) }
+            return ProjectReference(projectNumber: p.projectNumber, name: p.name, clientName: clientName[p.clientId], siteName: sites[p.siteId],
+                                    status: p.status, startDate: nonBlank(p.startDate) ?? String(localDay(p.createdAt)),
+                                    structures: Array(NSOrderedSet(array: structures)).compactMap { $0 as? String },
+                                    quotedValue: doubleOf(quoted), invoicedValue: doubleOf(invoiced))
+        }
+        let open = leads.filter { !["Won", "Lost"].contains($0.status) }
+        var sources: [String: Int] = [:]
+        for l in leads { sources[l.source, default: 0] += 1 }
+        return MarketingSummary(
+            currency: getCompanySettings().currency, months: monthKeys.compactMap { months[$0] },
+            quotedCount: quotedCount, quotedValue: doubleOf(quotedValue), wonCount: wonCount,
+            winRate: quotedCount > 0 ? Double(wonCount) / Double(quotedCount) : 0,
+            averageQuote: quotedCount > 0 ? doubleOf(roundToCents(quotedValue / Decimal(quotedCount))) : 0,
+            newClients: clients.filter { !$0.isArchived && String(localDay($0.createdAt).prefix(7)) >= yearAgo }.count,
+            openLeads: open.count, pipelineValue: doubleOf(open.reduce(Decimal(0)) { $0 + decimalOf($1.estimatedValue ?? 0) }),
+            leadSources: sources, topClients: topClients, followUps: Array(followUps.prefix(60)), references: references)
     }
 
     // ---- The user: their colour and their own work ----
@@ -3687,6 +3988,16 @@ final class AppDatabase {
         return doubleOf(roundToCents(kg))
     }
 
+    /// A combined count's source BOQ numbers (nil if it isn't one). BOQs
+    /// combined before this was recorded are known by their notes.
+    func combinedSources(_ boq: BillOfQuantities) -> [String]? {
+        if let list = boq.combinedFrom, !list.isEmpty { return list }
+        guard let notes = boq.notes, notes.hasPrefix("Combined from ") else { return nil }
+        let list = notes.dropFirst("Combined from ".count).split(separator: "\n").first.map(String.init)?
+            .trimmingCharacters(in: CharacterSet(charactersIn: ". ")).components(separatedBy: ", ").filter { !$0.isEmpty } ?? []
+        return list.isEmpty ? nil : list
+    }
+
     func listBOQSummaries(projectId: String) -> [BOQSummary] {
         let names = authorsByRecord("boqs.json")
         return boqsStore.readAll()
@@ -3702,6 +4013,8 @@ final class AppDatabase {
                     grandTotal: total, totalWeightKg: totalWeight(for: items), createdAt: boq.createdAt
                 )
                 summary.structure = nonBlank(boq.structure)
+                summary.combinedFrom = combinedSources(boq)
+                summary.combined = summary.combinedFrom != nil
                 summary.createdBy = names[boq.id]?.createdBy
                 summary.lastEditedBy = names[boq.id]?.lastEditedBy
                 return summary
@@ -3779,6 +4092,7 @@ final class AppDatabase {
             boqsNow[i].orientation = first.orientation
             boqsNow[i].structure = structures.isEmpty ? nil : Array(NSOrderedSet(array: structures)).compactMap { $0 as? String }.joined(separator: " + ")
             boqsNow[i].notes = "Combined from \(boqs.map { $0.boqNumber }.joined(separator: ", "))."
+            boqsNow[i].combinedFrom = boqs.map { $0.boqNumber }
             boqsStore.writeAll(boqsNow)
             combined = boqsNow[i]
         }
@@ -4292,7 +4606,9 @@ final class AppDatabase {
                 summary.signed = q.signedCopyPath.map { fileIsPresent($0) } ?? false
                 let boq = q.sourceBOQId.flatMap { getBOQ(id: $0) }
                 summary.boqNumber = boq?.boqNumber
+                summary.boqId = boq?.id
                 summary.boqLinked = boq != nil && q.boqLinked == true
+                summary.fromCombined = boq.map { combinedSources($0) != nil } ?? false
                 summary.structure = nonBlank(boq?.structure)
                 summary.subject = nonBlank(q.subject)
                 summary.pricingMode = q.pricingMode
@@ -6446,13 +6762,35 @@ final class AppDatabase {
             .filter { $0.projectId == projectId && !$0.isArchived }
             .sorted { $0.uploadedAt > $1.uploadedAt }
             .map { d in
-                ProjectDocumentSummary(
+                var summary = ProjectDocumentSummary(
                     id: d.id, originalName: d.originalName, storedFilename: d.storedFilename,
                     category: d.category, fileType: d.fileType, fileSizeBytes: d.fileSizeBytes,
                     description: d.description, uploadedAt: d.uploadedAt,
                     fileExists: FileManager.default.fileExists(atPath: d.filePath)
                 )
+                // Only while that BOQ / quotation is still there.
+                if let kind = d.linkedKind, let lid = d.linkedId,
+                   kind == "BOQ" ? getBOQ(id: lid) != nil : getQuotation(id: lid) != nil {
+                    summary.linkedKind = kind
+                    summary.linkedId = lid
+                }
+                return summary
             }
+    }
+
+    /// Files a document with one of its project's BOQs or quotations, or
+    /// with the project in general (kind nil).
+    func setDocumentLink(id: String, kind: String?, linkedId: String?) -> String? {
+        var items = documentsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return "Document not found." }
+        if let error = checkDrawingLink(projectId: items[i].projectId, kind: kind, linkedId: linkedId) {
+            return error.replacingOccurrences(of: "A drawing", with: "A document")
+        }
+        let linked = (kind == "BOQ" || kind == "Quotation") && nonBlank(linkedId) != nil
+        items[i].linkedKind = linked ? kind : nil
+        items[i].linkedId = linked ? linkedId : nil
+        documentsStore.writeAll(items)
+        return nil
     }
 
     @discardableResult
@@ -10699,6 +11037,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "projects:uploadDrawing":
             let number = (payload["projectNumber"] as? String) ?? ""
             handleUploadDrawing(id: id, projectNumber: number, linkedKind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+        case "documents:setLink":
+            let error = db.setDocumentLink(id: (payload["id"] as? String) ?? "", kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+            respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
         case "drawings:setLink":
             let error = db.setDrawingLink(id: (payload["id"] as? String) ?? "", kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
             respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
@@ -11170,6 +11511,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let name = ((payload["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if let sync = TeamSync.current { sync.setMemberName(name) } else { TeamSync.memberName = name }
             respond(id: id, encodable: teamStatus())
+        case "marketing:summary":
+            respond(id: id, encodable: db.marketingSummary())
+        case "marketing:leads":
+            respond(id: id, encodable: db.listLeads())
+        case "marketing:saveLead":
+            respond(id: id, encodable: db.saveLead(payload))
+        case "marketing:deleteLead":
+            let error = db.deleteLead(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "marketing:convertLead":
+            respond(id: id, encodable: db.convertLead(id: (payload["id"] as? String) ?? ""))
         case "users:profiles":
             respond(id: id, encodable: db.userProfiles())
         case "users:page":
@@ -14989,6 +15341,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             i.target = self
             go.addItem(i)
         }
+        let marketing = item("Marketing", #selector(goToPage(_:)), "", page: "marketing.html")
+        marketing.target = self
+        go.addItem(marketing)
         // The user's own page, pinned at the foot of the sidebar.
         let user = item("User", #selector(goToPage(_:)), "0", page: "user.html")
         user.target = self

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Marketing — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .mk-chart { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; align-items: end; height: 150px; padding: 8px 4px 0; }
+    .mk-bar-stack { position: relative; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+    .mk-bar-stack .quoted { background: color-mix(in srgb, var(--accent) 22%, transparent); border-radius: 4px 4px 0 0; min-height: 2px; }
+    .mk-bar-stack .won { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--success) 55%, transparent); border-radius: 4px 4px 0 0; }
+    .mk-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; padding: 4px 4px 0; font-size: 11px; color: var(--text-tertiary); text-align: center; }
+    .mk-legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+    .mk-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+    .mk-legend .l-quoted::before { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+    .mk-legend .l-won::before { background: color-mix(in srgb, var(--success) 55%, transparent); }
+    .mk-sources { display: flex; flex-direction: column; gap: 6px; }
+    .mk-source { display: grid; grid-template-columns: 110px 1fr 30px; gap: 8px; align-items: center; font-size: 13px; }
+    .mk-source .track { height: 8px; background: var(--hairline); border-radius: 4px; overflow: hidden; }
+    .mk-source .fill { height: 100%; background: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 4px; }
+    .kind-pill { font-size: 11px; }
+    .board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
+    .board-col { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px; min-height: 120px; }
+    .board-col h3 { font-size: 12px; margin: 2px 4px 8px; color: var(--text-secondary); display: flex; justify-content: space-between; }
+    .lead-card { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--content); cursor: pointer; font-size: 13px; }
+    .lead-card:hover { border-color: var(--border-strong); }
+    .lead-card .company { font-weight: 600; }
+    .lead-card .meta { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+    .lead-card .due { color: var(--warning); }
+    .ref-check { width: 16px; }
+    @media (max-width: 1100px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+</head>
+<body data-page="marketing">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div class="page-header">
+      <div>
+        <h1>Marketing</h1>
+        <div class="subtitle">How quotations are turning into work, who to chase, new leads, and project references for tenders.</div>
+      </div>
+      <div class="header-actions">
+        <button class="primary" id="new-lead-btn">+ New Lead</button>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="mk-stats"></div>
+
+    <div class="tabs" id="mk-tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="followups">Follow-ups</button>
+      <button data-tab="leads">Leads</button>
+      <button data-tab="references">Project References</button>
+    </div>
+
+    <section class="tab-panel active" data-panel="overview">
+      <div class="dash-grid">
+        <section class="panel" style="grid-column: 1 / -1;">
+          <h3 class="panel-title">Quotations Sent — Last 12 Months</h3>
+          <div class="mk-chart" id="mk-chart"></div>
+          <div class="mk-months" id="mk-months"></div>
+          <div class="mk-legend"><span class="l-quoted">Value quoted</span><span class="l-won">Of which won (invoiced or signed)</span></div>
+        </section>
+        <section class="panel">
+          <h3 class="panel-title">Top Clients</h3>
+          <div id="mk-clients"></div>
+        </section>
+        <section class="panel">
+          <h3 class="panel-title">Where Leads Come From</h3>
+          <div id="mk-sources"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="followups">
+      <p class="small-note">Quotations sent a week or more ago with no reply, clients with no new work for three months, and leads whose follow-up day has come.</p>
+      <div id="mk-followups"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="leads">
+      <p class="small-note">Companies you’re working on winning. Click a card to change it; “Convert to Client” adds it to Clients.</p>
+      <div class="board" id="mk-board"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="references">
+      <div class="toolbar">
+        <input type="text" id="ref-search" placeholder="Search projects, clients, sites, structures" />
+        <select id="ref-status"><option value="">All projects</option><option value="Active">Active</option><option value="Completed">Completed</option></select>
+        <span class="toolbar-spacer"></span>
+        <button id="ref-csv-btn" title="Save the ticked projects (or all shown) as a spreadsheet — for tenders and the company profile">Export Reference List</button>
+      </div>
+      <div id="mk-references"></div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop hidden" id="lead-modal">
+    <div class="modal wide" role="dialog" aria-labelledby="ld-title">
+      <h2 id="ld-title">New Lead</h2>
+      <div class="form-grid">
+        <div class="field span-2"><label for="ld-company">Company</label><input type="text" id="ld-company" placeholder="e.g. Gammon Construction" /></div>
+        <div class="field"><label for="ld-contact">Contact person</label><input type="text" id="ld-contact" /></div>
+        <div class="field"><label for="ld-phone">Phone</label><input type="text" id="ld-phone" /></div>
+        <div class="field"><label for="ld-email">E-mail</label><input type="text" id="ld-email" /></div>
+        <div class="field"><label for="ld-source">Came from</label><select id="ld-source"></select></div>
+        <div class="field"><label for="ld-status">Status</label><select id="ld-status"></select></div>
+        <div class="field"><label for="ld-value">Estimated value</label><input type="number" id="ld-value" min="0" step="100" /></div>
+        <div class="field"><label for="ld-followup">Next follow-up</label><input type="date" id="ld-followup" /></div>
+        <div class="field"><label for="ld-owner">Looked after by</label><input type="text" id="ld-owner" /></div>
+        <div class="field span-2"><label for="ld-notes">Notes</label><input type="text" id="ld-notes" placeholder="e.g. Tendering for MTR platform works in Q1" /></div>
+      </div>
+      <div class="error-text hidden" id="ld-error"></div>
+      <div class="actions">
+        <button id="ld-delete" class="left hidden">Delete</button>
+        <button id="ld-convert" class="left hidden" data-no-icon>Convert to Client</button>
+        <button id="ld-cancel">Cancel</button>
+        <button class="primary" id="ld-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/marketing.js"></script>
+</body>
+</html>
