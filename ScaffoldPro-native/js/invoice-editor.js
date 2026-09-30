@@ -120,9 +120,12 @@ function render() {
   if (document.activeElement !== discountValueInput) discountValueInput.value = d.discountValue;
   discountValueInput.disabled = isLocked;
 
+  // No sales tax in Hong Kong: the rate box only appears on an older
+  // document that still has one.
   const taxRateInput = document.getElementById('tax-rate-input');
   if (document.activeElement !== taxRateInput) taxRateInput.value = d.taxRatePercent;
   taxRateInput.disabled = isLocked;
+  document.getElementById('tax-rate-field').classList.toggle('hidden', !(Number(d.taxRatePercent) > 0) && document.activeElement !== taxRateInput);
 
   const notesBox = document.getElementById('notes-box');
   if (document.activeElement !== notesBox) notesBox.value = d.notes || '';
@@ -201,7 +204,7 @@ function renderTotals() {
   box.innerHTML = rentalRows + `
     <div class="row"><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
     <div class="row"><span>Discount</span><span>-${money(d.discountAmount)}</span></div>
-    <div class="row"><span>Tax / VAT</span><span>${money(d.taxAmount)}</span></div>
+    ${d.taxAmount > 0 ? `<div class="row"><span>Tax</span><span>${money(d.taxAmount)}</span></div>` : ''}
     <div class="row grand"><span>Total</span><span>${currencyLabel} ${money(d.total)}</span></div>
     <div class="row"><span>Paid</span><span>${money(d.amountPaid)}</span></div>
     <div class="row balance"><span>Balance Due</span><span>${currencyLabel} ${money(d.balanceDue)}</span></div>`;
@@ -260,11 +263,8 @@ async function renderPickerResults() {
     return;
   }
 
-  const table = document.createElement('table');
-  table.innerHTML = `<thead><tr><th>Item</th><th class="num">Price</th><th></th></tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector('tbody');
-
-  for (const item of items) {
+  // A box per category (Base Items, Standards (with Spigots), …).
+  window.renderPickerGroups(container, items, '<th>Item</th><th class="num">Price</th><th></th>', (item) => {
     const price = defaultPrice(item);
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -272,11 +272,8 @@ async function renderPickerResults() {
       <td class="num">${money(price)}</td>
       <td><button class="add-btn" ${currentDetail.status !== 'Draft' ? 'disabled' : ''}>+ Add</button></td>`;
     tr.querySelector('.add-btn').addEventListener('click', () => addFromPicker(item, price));
-    tbody.appendChild(tr);
-  }
-
-  container.innerHTML = '';
-  container.appendChild(table);
+    return tr;
+  });
 }
 
 async function addFromPicker(item, price) {

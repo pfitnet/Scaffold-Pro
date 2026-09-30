@@ -130,9 +130,12 @@ function render() {
     });
   }
 
+  // No sales tax in Hong Kong: the rate box only appears on an older
+  // document that still has one.
   const taxRateInput = document.getElementById('tax-rate-input');
   if (document.activeElement !== taxRateInput) taxRateInput.value = d.taxRatePercent;
   taxRateInput.disabled = isLocked;
+  document.getElementById('tax-rate-field').classList.toggle('hidden', !(Number(d.taxRatePercent) > 0) && document.activeElement !== taxRateInput);
 
   const notesBox = document.getElementById('notes-box');
   if (document.activeElement !== notesBox) notesBox.value = d.notes || '';
@@ -299,7 +302,7 @@ function renderTotals() {
   if (d.discountAmount > 0) {
     rows.push([d.discountType === 'Percent' ? `Less ${d.discountValue}% Discount` : 'Less Discount', `-${money(d.discountAmount)}`]);
   }
-  if (d.taxAmount > 0) rows.push(['Tax / VAT', money(d.taxAmount)]);
+  if (d.taxAmount > 0) rows.push(['Tax', money(d.taxAmount)]);
   const markupNote = d.markupPercent > 0
     ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1 (Settings › Standard Quotation). Delivery charges aren't marked up.</p>`
     : '';
@@ -559,11 +562,8 @@ async function renderPickerResults() {
     return;
   }
 
-  const table = document.createElement('table');
-  table.innerHTML = `<thead><tr><th>Item</th><th class="num">Price</th><th></th></tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector('tbody');
-
-  for (const item of items) {
+  // A box per category (Base Items, Standards (with Spigots), …).
+  window.renderPickerGroups(container, items, '<th>Item</th><th class="num">Price</th><th></th>', (item) => {
     const price = priceForMode(item, currentDetail.pricingMode);
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -571,11 +571,8 @@ async function renderPickerResults() {
       <td class="num">${money(price)}</td>
       <td><button class="add-btn" ${currentDetail.status !== 'Draft' ? 'disabled' : ''}>+ Add</button></td>`;
     tr.querySelector('.add-btn').addEventListener('click', () => addFromPicker(item, price));
-    tbody.appendChild(tr);
-  }
-
-  container.innerHTML = '';
-  container.appendChild(table);
+    return tr;
+  });
 }
 
 async function addFromPicker(item, price) {

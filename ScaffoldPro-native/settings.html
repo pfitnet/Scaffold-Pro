@@ -76,7 +76,7 @@
 
     <div class="settings-sections">
       <details class="settings-section" id="general" open>
-        <summary><span class="section-title">General</span><span class="section-desc">Company details, currency and tax, appearance</span></summary>
+        <summary><span class="section-title">General</span><span class="section-desc">Company details, currency, appearance</span></summary>
         <div class="section-body">
     <div class="settings-grid">
           <div class="field"><label>Company Name</label><input type="text" id="companyName-input" /></div>
@@ -86,13 +86,7 @@
           <div class="field"><label>Phone</label><input type="text" id="phone-input" /></div>
           <div class="field"><label>Email</label><input type="text" id="email-input" /></div>
           <div class="field"><label>Registration No.</label><input type="text" id="registrationNumber-input" /></div>
-          <div class="field"><label>VAT / Tax No.</label><input type="text" id="vatNumber-input" /></div>
           <div class="field"><label>Currency</label><input type="text" id="currency-input" /></div>
-          <div class="field"><label>Default Tax / VAT Rate (%)</label><input type="number" id="defaultTaxRatePercent-input" min="0" step="0.01" /></div>
-          <div class="field full">
-            <label class="inline-check"><input type="checkbox" id="pricesIncludeTax-input" /> Prices already include tax / VAT</label>
-            <span class="small-note">When ticked, the tax shown on quotations and invoices is the part already inside the total, rather than added on top.</span>
-          </div>
     </div>
         <p class="small-note">Every quotation, invoice, delivery note and BOQ is printed on the company letterhead — the Proficiency (HK) Limited heading and the address footer — exactly as on the standard quotation Qt26193. The signatory, terms and other wording below are used in the documents.</p>
     <h3 class="related-title">Appearance</h3>
@@ -124,6 +118,23 @@
           <div class="field"><label>Invoice</label><input type="text" id="numberFormatInvoice-input" data-type="INV" placeholder="H{YY}{SEQ}" /><span class="number-example" id="numberFormatInvoice-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-INV" min="1" step="1" placeholder="1" /></label></div>
           <div class="field"><label>Delivery Note</label><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /><span class="number-example" id="numberFormatDeliveryNote-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label></div>
     </div>
+        </div>
+      </details>
+
+      <details class="settings-section" id="boq-defaults">
+        <summary><span class="section-title">BOQ Defaults</span><span class="section-desc">Materials every new BOQ starts with</span></summary>
+        <div class="section-body">
+    <div class="small-note" style="margin-bottom:10px; max-width:780px;">These items are put into every new BOQ, with these quantities, priced for the BOQ’s Sale or Rental mode. They can be changed or removed in the BOQ like any other item. BOQs already made aren’t changed.</div>
+    <div class="default-items-add">
+          <select id="default-item-source" title="Material list">
+            <option value="SP">SP Material &amp; Price List</option>
+            <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
+          </select>
+          <select id="default-item-select" title="Item"></select>
+          <input type="number" id="default-item-qty" min="1" step="1" value="1" title="Quantity" />
+          <button id="default-item-add-btn">Add Item</button>
+    </div>
+    <div id="default-items-list"></div>
         </div>
       </details>
 

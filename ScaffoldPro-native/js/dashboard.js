@@ -48,35 +48,41 @@ function table(container, rows, columns, emptyText) {
 
 let projectsCache = [];
 
-// Issued quotations still waiting for the client's signed copy: upload it
-// (or drop it onto the row), or mark it as not needed.
-function renderSignedCopies(summary) {
-  const block = document.getElementById('signed-block');
+// Quotations awaiting reply: issued ones with no signed copy from the
+// client yet. Upload the signed copy with the arrow (or drop the PDF or
+// photo onto the row), or take it off with the cross when it isn't
+// needed (accepted by email, or not going ahead).
+function renderAwaitingQuotations(summary) {
+  const cur = summary.currency;
   const rows = summary.awaitingSignedCopy || [];
-  block.classList.toggle('hidden', rows.length === 0);
-  if (rows.length === 0) return;
   const total = summary.awaitingSignedCopyCount || rows.length;
-  document.getElementById('signed-title').textContent =
-    `Signed Quotations to Upload (${total})`;
-  const list = document.getElementById('signed-list');
-  list.innerHTML = `<table class="compact signed-table"><tbody>${rows.map((r) => `
-    <tr class="link-row signed-row" data-id="${esc(r.id)}" data-url="${esc(r.url)}">
-      <td><strong>${esc(r.number)}</strong><div class="sub">${esc([r.clientName, r.projectNumber].filter(Boolean).join(' · '))}</div></td>
+  const list = document.getElementById('quotation-list');
+  if (rows.length === 0) {
+    list.innerHTML = '<div class="empty-inline">No issued quotations waiting for a reply.</div>';
+    return;
+  }
+  list.innerHTML = `<table class="compact"><tbody>${rows.map((r) => `
+    <tr class="link-row quote-row" data-id="${esc(r.id)}" data-url="${esc(r.url)}" title="Drop the client’s signed copy (PDF or photo) here to file it">
+      <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div></td>
       <td>${r.status === 'Invoiced'
         ? '<span class="status-pill pill-warning" title="Already invoiced — going ahead without a signed copy on file">Invoiced, not signed</span>'
-        : `<span class="muted">Issued ${day(r.date)}</span>`}</td>
-      <td class="num">${summary.currency} ${money(r.amount)}</td>
-      <td class="row-actions">
-        <button class="primary upload-signed-btn">Upload Signed Copy…</button>
-        <button class="not-needed-btn" title="Take it off this list — e.g. the client accepted by email, or won't go ahead">Not Needed</button>
+        : `<span class="muted">${r.dueDate ? `Valid to ${day(r.dueDate)}` : `Sent ${day(r.date)}`}</span>`}</td>
+      <td class="num">${cur} ${money(r.amount)}</td>
+      <td class="quote-actions" data-no-icon>
+        <button class="icon-btn upload-signed-btn" title="Upload the signed copy…" aria-label="Upload the signed copy">${window.ICONS.upload}</button>
+        <button class="icon-btn not-needed-btn" title="Not needed — take it off this list (e.g. accepted by email, or not going ahead)" aria-label="Signed copy not needed">${window.ICONS.dismiss}</button>
       </td>
     </tr>`).join('')}</tbody></table>
-    ${total > rows.length ? `<div class="small-note" style="padding:6px 4px 0;">and ${total - rows.length} more — they appear here as these are done.</div>` : ''}`;
-  const refresh = async () => renderSignedCopies(await window.api.dashboard.summary());
-  for (const tr of list.querySelectorAll('tr.signed-row')) {
+    ${total > rows.length ? `<div class="small-note" style="padding:6px 4px 0;">and ${total - rows.length} more</div>` : ''}`;
+  const refresh = async () => {
+    const fresh = await window.api.dashboard.summary();
+    renderAwaitingQuotations(fresh);
+    updateAwaitingCount(fresh);
+  };
+  for (const tr of list.querySelectorAll('tr.quote-row')) {
     const id = tr.dataset.id;
     tr.addEventListener('click', () => { location.href = tr.dataset.url; });
-    tr.querySelector('.row-actions').addEventListener('click', (e) => e.stopPropagation());
+    tr.querySelector('.quote-actions').addEventListener('click', (e) => e.stopPropagation());
     tr.querySelector('.upload-signed-btn').addEventListener('click', async () => {
       if (await window.signedCopy.upload(id)) await refresh();
     });
@@ -85,6 +91,11 @@ function renderSignedCopies(summary) {
     });
     window.signedCopy.dropTarget(tr, id, refresh);
   }
+}
+
+let awaitingCard = null;
+function updateAwaitingCount(summary) {
+  if (awaitingCard) awaitingCard.querySelector('.value').textContent = summary.awaitingSignedCopyCount || 0;
 }
 
 // "New Quotation / Invoice / Delivery Note" from the Dashboard: pick the
@@ -118,7 +129,7 @@ async function loadDashboard() {
   grid.appendChild(statCard(`${cur} ${money(summary.unpaidTotal)}`, `Unpaid (${summary.unpaidInvoices.length} invoice${summary.unpaidInvoices.length === 1 ? '' : 's'})`));
   grid.appendChild(statCard(summary.overdueCount > 0 ? `${cur} ${money(summary.overdueTotal)}` : '—',
     summary.overdueCount > 0 ? `Overdue (${summary.overdueCount})` : 'Nothing overdue', summary.overdueCount > 0 ? 'danger' : null));
-  grid.appendChild(statCard(summary.outstandingQuotations.length, 'Quotations Awaiting Reply'));
+  awaitingCard = grid.appendChild(statCard(summary.awaitingSignedCopyCount || 0, 'Quotations Awaiting Reply'));
 
   table('unpaid-list', summary.unpaidInvoices, [
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>` },
@@ -126,11 +137,7 @@ async function loadDashboard() {
     { cls: 'num', value: (r) => `${cur} ${money(r.balance)}` },
   ], 'No unpaid invoices.');
 
-  table('quotation-list', summary.outstandingQuotations, [
-    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>` },
-    { value: (r) => `<span class="muted">${r.dueDate ? `Valid to ${day(r.dueDate)}` : `Sent ${day(r.date)}`}</span>` },
-    { cls: 'num', value: (r) => `${cur} ${money(r.amount)}` },
-  ], 'No issued quotations waiting for a reply.');
+  renderAwaitingQuotations(summary);
 
   const recentProjects = projects
     .slice()
@@ -160,8 +167,6 @@ async function loadDashboard() {
     { value: (a) => `${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference, a.by].filter(Boolean).join(' · '))}</div>` },
     { cls: 'muted num', value: (a) => when(a.createdAt) },
   ], 'Nothing recorded yet.');
-
-  renderSignedCopies(summary);
 
   // Expired / expiring worker and company documents (sections 42-43).
   const expiring = await window.api.adminDocuments.expiring(30);

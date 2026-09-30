@@ -162,21 +162,15 @@ async function renderPickerResults() {
     return;
   }
 
-  const table = document.createElement('table');
-  table.innerHTML = `<thead><tr><th>Item</th><th></th></tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector('tbody');
-
-  for (const item of items) {
+  // A box per category (Base Items, Standards (with Spigots), …).
+  window.renderPickerGroups(container, items, '<th>Item</th><th></th>', (item) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${item.itemName}</td>
       <td><button class="add-btn" ${currentDetail.status !== 'Draft' ? 'disabled' : ''}>+ Add</button></td>`;
     tr.querySelector('.add-btn').addEventListener('click', () => addFromPicker(item));
-    tbody.appendChild(tr);
-  }
-
-  container.innerHTML = '';
-  container.appendChild(table);
+    return tr;
+  });
 }
 
 async function addFromPicker(item) {

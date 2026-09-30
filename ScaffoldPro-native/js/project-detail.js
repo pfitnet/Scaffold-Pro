@@ -685,6 +685,22 @@ async function init() {
   document.getElementById('document-category-select').innerHTML =
     DOCUMENT_CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('');
 
+  // Files dragged from Finder onto the Drawings or Documents section.
+  window.fileDrop(document.getElementById('drawings-drop'), {
+    projectNumber: project.projectNumber, target: 'drawing',
+    options: () => {
+      const link = document.getElementById('drawing-link-select').value;
+      const [linkedKind, linkedId] = link ? link.split('|') : [null, null];
+      return { linkedKind: linkedKind, linkedId: linkedId };
+    },
+    done: async () => { await refreshDrawingList(); await refreshHistory(); },
+  });
+  window.fileDrop(document.getElementById('documents-drop'), {
+    projectNumber: project.projectNumber, target: 'document',
+    options: () => ({ category: document.getElementById('document-category-select').value }),
+    done: async () => { await refreshDocumentList(); await refreshHistory(); },
+  });
+
   document.getElementById('upload-document-btn').addEventListener('click', async () => {
     const category = document.getElementById('document-category-select').value;
     try {

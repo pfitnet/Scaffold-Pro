@@ -23,6 +23,10 @@
     rename: svg('<path d="M3 16.5h14"/><path d="M12.5 3.5a1.6 1.6 0 0 1 2.3 2.3L8 12.6l-3 .9.9-3z"/>'),
     pdf: svg('<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="M10 10v5M7.8 12.8 10 15l2.2-2.2"/>'),
     select: svg('<rect x="3" y="3" width="14" height="14" rx="3"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>'),
+    // A tray with an arrow going in: add a file.
+    upload: svg('<path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 12.5V3.5"/><path d="M6.5 7 10 3.5 13.5 7"/>'),
+    // A crossed circle: not needed / take off the list.
+    dismiss: svg('<circle cx="10" cy="10" r="6.5"/><path d="m7.5 7.5 5 5M12.5 7.5l-5 5"/>'),
   };
   window.ICONS = ICONS;
 

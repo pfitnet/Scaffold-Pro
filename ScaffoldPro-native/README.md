@@ -1348,3 +1348,38 @@ under "Letterhead layout".
     instead.
 - The Terminal installer (Install ScaffoldPro.command) keeps working and
   does the same steps.
+
+## Batch 57 — Dashboard, grouped item picker, BOQ defaults, drag-and-drop, one-click editing, no tax
+
+- **Dashboard:**
+  - "Signed Quotations to Upload" is merged into **Quotations Awaiting
+    Reply**, which keeps its look. It lists issued quotations with no
+    signed copy yet: "Valid to …", or "Invoiced, not signed" for ones
+    already invoiced.
+  - Each row has an upload icon (file the signed copy) and a cross (not
+    needed: accepted by email, or not going ahead). A signed PDF or photo
+    can also be dropped onto the row. Filing it, or marking it not needed,
+    takes the row off the list.
+  - Active & Recent Projects and Unpaid Invoices have swapped places.
+- **Add Materials** (BOQ, quotation, invoice, delivery note): items come
+  in a box per category (Base Items, Standards (with Spigots), Ledgers…),
+  in item-code order, with the same column widths in every box
+  (js/item-picker.js).
+- **Settings → BOQ Defaults:** materials and quantities every new BOQ
+  starts with, priced for its Sale / Rental mode (`defaultBOQItems` in
+  the company settings). Items since deleted from the material list are
+  flagged in Settings and skipped.
+- **Drag and drop:** drag drawings from Finder onto the Drawings panel of
+  a BOQ or quotation, or onto the project's Drawings or Documents
+  section. Documents go under the category chosen there, and drawings are
+  linked to the BOQ / quotation chosen (js/file-drop.js →
+  `files:dropIntoProject`). Files over 60 MB still need the Upload button.
+- **One click to edit another box:** saving box A redraws the table, which
+  used to throw away box B as it was clicked. The same box is now focused
+  again in the new table, keeping anything typed and where the cursor was
+  (js/keep-focus.js; the editors and the project page).
+- **No tax** (none on sales in Hong Kong): the tax / VAT rate, "prices
+  include tax" and VAT number fields are gone from Settings, clients,
+  quotations and invoices. New quotations carry no tax. An older quotation
+  or invoice that still has a tax rate shows the box, so it can be set
+  to 0.
