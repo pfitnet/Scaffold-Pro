@@ -74,6 +74,8 @@ struct DocRow: Codable {
     var dueDate: String?
     var isOverdue: Bool
     var url: String
+    /// Quotations: monthly / one-time split (see ChargeSplit).
+    var charges: ChargeSplit? = nil
 }
 
 struct PartyDetail: Codable {
@@ -213,6 +215,13 @@ struct ProjectCreateResult: Codable {
 struct UploadDrawingResult: Codable {
     var originalName: String
     var destination: String
+}
+
+/// A document made by combining several (its id, to open it).
+struct CombinedDocumentResult: Codable {
+    var ok: Bool
+    var error: String?
+    var id: String?
 }
 
 struct DroppedFilesResult: Codable {
@@ -530,6 +539,7 @@ extension Quotation {
         deliveryMethod = try c.decodeIfPresent(String.self, forKey: .deliveryMethod)
         minimumHireMonths = try c.decodeIfPresent(Int.self, forKey: .minimumHireMonths)
         minimumHireEnabled = try c.decodeIfPresent(Bool.self, forKey: .minimumHireEnabled)
+        minimumMonthlyChargeEnabled = try c.decodeIfPresent(Bool.self, forKey: .minimumMonthlyChargeEnabled)
         markupPercent = try c.decodeIfPresent(Double.self, forKey: .markupPercent)
         keyTerms = try c.decodeIfPresent(String.self, forKey: .keyTerms)
         pdfPath = try c.decodeIfPresent(String.self, forKey: .pdfPath)
@@ -809,6 +819,9 @@ struct Quotation: Codable {
     /// Whether this quotation has a minimum hire period at all. nil =
     /// saved before this option existed, when every rental quotation had one.
     var minimumHireEnabled: Bool?
+    /// Rental: the monthly rental charge is at least Settings' minimum
+    /// (HK$1,000 unless changed) when ticked.
+    var minimumMonthlyChargeEnabled: Bool? = nil
     /// Markup on every item's unit price (e.g. 30 = +30%), each marked-up
     /// price rounded to the nearest 0.1. Delivery charges aren't marked up.
     var markupPercent: Double?
@@ -870,6 +883,20 @@ struct QuotationBlock: Codable {
     var prefix: String
     var note: String?
     var sortOrder: Int
+    /// Priced sections: charged once (nil), or "Day" / "Week" / "Month" —
+    /// shown as "per week" etc. and counted as a recurring charge.
+    var chargePeriod: String? = nil
+}
+
+/// A quotation's charges split for the Dashboard and project totals:
+/// the monthly charge (rental, and sections charged per month), the
+/// one-time charge (delivery and sections charged once; everything on a
+/// Sale quotation), and sections charged per day or week.
+struct ChargeSplit: Codable {
+    var monthly: Double
+    var oneTime: Double
+    /// "Day" / "Week" → amount.
+    var recurring: [String: Double]
 }
 
 struct QuotationSummary: Codable {
@@ -886,6 +913,8 @@ struct QuotationSummary: Codable {
     var structure: String? = nil
     /// Its "Re:" subject line.
     var subject: String? = nil
+    var pricingMode: String? = nil
+    var charges: ChargeSplit? = nil
 }
 
 struct QuotationDetail: Codable {
@@ -944,6 +973,13 @@ struct QuotationDetail: Codable {
     var blocks: [QuotationBlock]
     /// The priced sections' rows, added to the total.
     var otherChargesTotal: Double
+    /// Minimum monthly rental charge: ticked, the minimum, and whether it
+    /// raised this quotation's monthly rental (then `monthlyRental` is it).
+    var minimumMonthlyChargeEnabled: Bool = false
+    var minimumMonthlyCharge: Double = 1000
+    var minimumMonthlyApplied: Bool = false
+    var monthlyRental: Double = 0
+    var charges: ChargeSplit? = nil
     /// This quotation's own key terms; nil = the standard ones below.
     var keyTerms: String?
     /// The key terms from Settings, printed when `keyTerms` is blank.
@@ -1212,6 +1248,8 @@ struct CompanySettings: Codable {
     var markupRoundUp: Bool? = nil
     /// Materials every new BOQ starts with (Settings → BOQ Defaults).
     var defaultBOQItems: [DefaultBOQItem]? = nil
+    /// The minimum monthly rental charge a quotation can apply (nil = 1,000).
+    var minimumMonthlyRental: Double? = nil
 }
 
 /// A price-list item and quantity put into every new BOQ.
@@ -2145,7 +2183,8 @@ final class AppDatabase {
             let t = quotationMoney(q, lineItems: quotationLines[q.id] ?? [])
             rows.append(DocRow(id: q.id, kind: "Quotation", number: q.quotationNumber, status: q.status, projectNumber: p.projectNumber,
                                projectName: p.name, clientName: clients[p.clientId], date: q.quotationDate, updatedAt: q.updatedAt,
-                               amount: t.total, balance: nil, dueDate: q.validUntil, isOverdue: false, url: "quotation-editor.html?id=\(q.id)"))
+                               amount: t.total, balance: nil, dueDate: q.validUntil, isOverdue: false, url: "quotation-editor.html?id=\(q.id)",
+                               charges: t.charges))
         }
         for inv in invoicesStore.readAll() {
             guard let p = include(inv.projectId) else { continue }
@@ -2965,7 +3004,7 @@ final class AppDatabase {
         nextDocumentNumber(template: numberFormat("BOQ"), projectNumber: projectNumber, existing: boqsStore.readAll().map { $0.boqNumber }, startAt: getCompanySettings().numberStarts?["BOQ"] ?? 1)
     }
 
-    func createBOQ(projectId: String, projectNumber: String, pricingMode: String) -> BillOfQuantities {
+    func createBOQ(projectId: String, projectNumber: String, pricingMode: String, withDefaultItems: Bool = true) -> BillOfQuantities {
         var boq = BillOfQuantities(
             id: makeId("boq"),
             projectId: projectId,
@@ -2980,9 +3019,58 @@ final class AppDatabase {
         // Starts with the client's default markup.
         boq.markupPercent = clientDefaultMarkup(projectId: projectId)
         boqsStore.insert(boq)
-        addDefaultBOQItems(to: boq)
+        if withDefaultItems { addDefaultBOQItems(to: boq) }
         logActivity(projectId: projectId, "BOQ created (\(boq.pricingMode))", reference: boq.boqNumber)
         return boq
+    }
+
+    /// Several BOQs of a project added together into one new Draft BOQ:
+    /// each item once, with its quantities summed (in the order the items
+    /// first appear). Takes the first BOQ's Sale / Rental mode, markup and
+    /// prices; notes say which BOQs it was made from.
+    func combineBOQs(ids: [String]) -> (id: String?, error: String?) {
+        let all = boqsStore.readAll()
+        let boqs = ids.compactMap { id in all.first { $0.id == id } }
+        guard boqs.count >= 2 else { return (nil, "Choose at least two BOQs to combine.") }
+        guard Set(boqs.map { $0.projectId }).count == 1,
+              let project = projectsStore.readAll().first(where: { $0.id == boqs[0].projectId }) else { return (nil, "The BOQs must be from the same project.") }
+        let first = boqs[0]
+        var combined = createBOQ(projectId: project.id, projectNumber: project.projectNumber, pricingMode: first.pricingMode, withDefaultItems: false)
+        var order: [String] = []
+        var lines: [String: BOQLineItem] = [:]
+        for boq in boqs {
+            for line in lineItems(for: boq.id) {
+                let key = line.priceListItemId ?? "\(line.itemCode)|\(line.itemDescription)|\(line.unit)"
+                if var existing = lines[key] {
+                    existing.quantity += line.quantity
+                    lines[key] = existing
+                } else {
+                    var copy = line
+                    copy.id = makeId("boqitem")
+                    copy.boqId = combined.id
+                    lines[key] = copy
+                    order.append(key)
+                }
+            }
+        }
+        boqLineItemsStore.insertMany(order.enumerated().compactMap { index, key in
+            guard var line = lines[key] else { return nil }
+            line.sortOrder = index
+            return line
+        })
+        var boqsNow = boqsStore.readAll()
+        if let i = boqsNow.firstIndex(where: { $0.id == combined.id }) {
+            let structures = boqs.compactMap { nonBlank($0.structure) }
+            boqsNow[i].markupPercent = first.markupPercent
+            boqsNow[i].markupOnRates = first.markupOnRates
+            boqsNow[i].orientation = first.orientation
+            boqsNow[i].structure = structures.isEmpty ? nil : Array(NSOrderedSet(array: structures)).compactMap { $0 as? String }.joined(separator: " + ")
+            boqsNow[i].notes = "Combined from \(boqs.map { $0.boqNumber }.joined(separator: ", "))."
+            boqsStore.writeAll(boqsNow)
+            combined = boqsNow[i]
+        }
+        logActivity(projectId: project.id, "BOQ combined from \(boqs.map { $0.boqNumber }.joined(separator: ", "))", reference: combined.boqNumber)
+        return (combined.id, nil)
     }
 
     /// The materials from Settings → BOQ Defaults, priced for the BOQ's
@@ -3324,6 +3412,11 @@ final class AppDatabase {
     /// "Delivery" section.
     struct QuotationMoney {
         var materialsSubtotal: Double
+        /// The monthly rental charged: the materials subtotal, or the
+        /// minimum monthly charge when that's ticked and higher.
+        var monthlyRental: Double
+        var minimumApplied: Bool
+        var charges: ChargeSplit
         var materialsCharge: Double
         var deliveryTotal: Double
         var otherTotal: Double
@@ -3355,19 +3448,50 @@ final class AppDatabase {
 
     func quotationMoney(_ q: Quotation, lineItems: [QuotationLineItem]) -> QuotationMoney {
         let months = hireMonths(q)
+        let isRental = q.pricingMode == "Rental"
         func net(_ line: QuotationLineItem) -> Decimal { quotationLineTotal(line, q) }
         let materials = lineItems.filter { isMaterialLine($0) }.reduce(Decimal(0)) { $0 + net($1) }
+        // A minimum monthly rental charge (when ticked) lifts a small order to it.
+        let minimum = decimalOf(minimumMonthlyRental)
+        let minimumApplied = isRental && q.minimumMonthlyChargeEnabled == true && materials > 0 && materials < minimum
+        let rental = minimumApplied ? minimum : materials
         let delivery = lineItems.filter { isDeliveryLine($0) }.reduce(Decimal(0)) { $0 + net($1) }
         // Priced sections count once; rates-only rows aren't charged.
-        let priced = Set(quotationBlocks(for: q.id).filter { $0.kind == "Priced" }.map { $0.id })
-        let other = lineItems.filter { $0.blockId.map { priced.contains($0) } ?? false }.reduce(Decimal(0)) { $0 + net($1) }
-        let charge = materials * Decimal(months)
+        let pricedBlocks = quotationBlocks(for: q.id).filter { $0.kind == "Priced" }
+        var once = Decimal(0)
+        var perPeriod: [String: Decimal] = [:]
+        for block in pricedBlocks {
+            let amount = lineItems.filter { $0.blockId == block.id }.reduce(Decimal(0)) { $0 + net($1) }
+            if let period = block.chargePeriod, ["Day", "Week", "Month"].contains(period) {
+                perPeriod[period, default: 0] += amount
+            } else {
+                once += amount
+            }
+        }
+        let other = once + perPeriod.values.reduce(Decimal(0), +)
+        let charge = rental * Decimal(months)
         let t = moneyTotals(subtotal: charge + delivery + other, discountType: q.discountType, discountValue: q.discountValue,
                             taxRatePercent: q.taxRatePercent, pricesIncludeTax: getCompanySettings().pricesIncludeTax ?? false)
-        return QuotationMoney(materialsSubtotal: doubleOf(materials), materialsCharge: doubleOf(charge), deliveryTotal: doubleOf(delivery),
+        // The split, with any discount taken off each part in proportion.
+        let subtotal = decimalOf(t.subtotal)
+        let factor: Decimal = subtotal > 0 && t.discountAmount > 0 ? (subtotal - decimalOf(t.discountAmount)) / subtotal : 1
+        func part(_ d: Decimal) -> Double { doubleOf(roundToCents(d * factor)) }
+        let split: ChargeSplit
+        if isRental {
+            split = ChargeSplit(monthly: part(rental + (perPeriod["Month"] ?? 0)), oneTime: part(delivery + once),
+                                recurring: perPeriod.filter { $0.key != "Month" && $0.value != 0 }.mapValues { part($0) })
+        } else {
+            // Sale: nothing monthly; it's all one-time.
+            split = ChargeSplit(monthly: 0, oneTime: part(materials + delivery + other), recurring: [:])
+        }
+        return QuotationMoney(materialsSubtotal: doubleOf(materials), monthlyRental: doubleOf(rental), minimumApplied: minimumApplied,
+                              charges: split, materialsCharge: doubleOf(charge), deliveryTotal: doubleOf(delivery),
                               otherTotal: doubleOf(other),
                               subtotal: t.subtotal, discountAmount: t.discountAmount, taxAmount: t.taxAmount, total: t.total)
     }
+
+    /// Settings' minimum monthly rental charge (HK$1,000 unless changed).
+    var minimumMonthlyRental: Double { getCompanySettings().minimumMonthlyRental ?? 1000 }
 
     func listQuotationSummaries(projectId: String) -> [QuotationSummary] {
         quotationsStore.readAll()
@@ -3382,6 +3506,8 @@ final class AppDatabase {
                 summary.boqNumber = boq?.boqNumber
                 summary.structure = nonBlank(boq?.structure)
                 summary.subject = nonBlank(q.subject)
+                summary.pricingMode = q.pricingMode
+                summary.charges = totals.charges
                 return summary
             }
     }
@@ -3633,6 +3759,11 @@ final class AppDatabase {
         detail.signedCopyExists = q.signedCopyPath.map { fileIsPresent($0) } ?? false
         detail.signedCopyNotNeeded = q.signedCopyNotNeeded ?? false
         detail.clientMarkupPercent = client?.defaultMarkupPercent
+        detail.minimumMonthlyChargeEnabled = q.pricingMode == "Rental" && q.minimumMonthlyChargeEnabled == true
+        detail.minimumMonthlyCharge = minimumMonthlyRental
+        detail.minimumMonthlyApplied = totals.minimumApplied
+        detail.monthlyRental = totals.monthlyRental
+        detail.charges = totals.charges
         return detail
     }
 
@@ -3689,6 +3820,10 @@ final class AppDatabase {
             blocks[i].prefix = prefix
         }
         if payload.keys.contains("note") { blocks[i].note = text(payload, "note") }
+        if payload.keys.contains("chargePeriod") {
+            let period = payload["chargePeriod"] as? String
+            blocks[i].chargePeriod = ["Day", "Week", "Month"].contains(period ?? "") ? period : nil
+        }
         quotationBlocksStore.writeAll(blocks)
         touchQuotation(blocks[i].quotationId)
         return nil
@@ -3801,6 +3936,7 @@ final class AppDatabase {
         if payload.keys.contains("keyTerms") { qs[i].keyTerms = text(payload, "keyTerms") }
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
         if let enabled = payload["minimumHireEnabled"] as? Bool { qs[i].minimumHireEnabled = enabled }
+        if let enabled = payload["minimumMonthlyChargeEnabled"] as? Bool { qs[i].minimumMonthlyChargeEnabled = enabled ? true : nil }
         qs[i].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         return nil
@@ -4132,7 +4268,21 @@ final class AppDatabase {
             }
             return copy
         }
-        invoiceLineItemsStore.insertMany(copied)
+        // The quotation's minimum monthly rental charge carries over as a
+        // line after the materials (charged for each month, like them).
+        var lines = copied
+        let money = quotationMoney(quotation, lineItems: allItems)
+        if money.minimumApplied {
+            let adjustment = doubleOf(roundToCents(decimalOf(money.monthlyRental) - decimalOf(money.materialsSubtotal)))
+            let position = sourceItems.filter { isMaterialLine($0.line) }.count
+            lines.insert(InvoiceLineItem(
+                id: makeId("iitem"), invoiceId: invoice.id, sourceKey: nil, priceListItemId: nil, itemCode: "",
+                itemDescription: "Minimum monthly rental charge adjustment (minimum \(formatMoney(money.monthlyRental)) per month)",
+                unit: "lot", quantity: 1, appliedUnitPrice: adjustment, section: nil, sortOrder: position
+            ), at: position)
+            for i in lines.indices { lines[i].sortOrder = i }
+        }
+        invoiceLineItemsStore.insertMany(lines)
         return .success(invoice)
     }
 
@@ -4407,6 +4557,45 @@ final class AppDatabase {
         return note
     }
 
+    /// Several delivery notes of a project added together into one new Draft
+    /// note: each item once, its quantities summed.
+    func combineDeliveryNotes(ids: [String]) -> (id: String?, error: String?) {
+        let all = deliveryNotesStore.readAll()
+        let notesList = ids.compactMap { id in all.first { $0.id == id } }
+        guard notesList.count >= 2 else { return (nil, "Choose at least two delivery notes to combine.") }
+        guard Set(notesList.map { $0.projectId }).count == 1,
+              let project = projectsStore.readAll().first(where: { $0.id == notesList[0].projectId }) else { return (nil, "The delivery notes must be from the same project.") }
+        let combined = createDeliveryNote(projectId: project.id, projectNumber: project.projectNumber, sourceQuotationId: nil, sourceInvoiceId: nil)
+        var order: [String] = []
+        var lines: [String: DeliveryNoteLineItem] = [:]
+        for note in notesList {
+            for line in deliveryNoteLineItems(for: note.id) {
+                let key = line.priceListItemId ?? "\(line.itemCode)|\(line.itemDescription)|\(line.unit)"
+                if var existing = lines[key] {
+                    existing.quantity += line.quantity
+                    lines[key] = existing
+                } else {
+                    var copy = line
+                    copy.id = makeId("dnitem")
+                    copy.deliveryNoteId = combined.id
+                    lines[key] = copy
+                    order.append(key)
+                }
+            }
+        }
+        deliveryNoteLineItemsStore.insertMany(order.enumerated().compactMap { index, key in
+            guard var line = lines[key] else { return nil }
+            line.sortOrder = index
+            return line
+        })
+        var notesNow = deliveryNotesStore.readAll()
+        if let i = notesNow.firstIndex(where: { $0.id == combined.id }) {
+            notesNow[i].notes = "Combined from \(notesList.map { $0.deliveryNoteNumber }.joined(separator: ", "))."
+            deliveryNotesStore.writeAll(notesNow)
+        }
+        return (combined.id, nil)
+    }
+
     func getDeliveryNote(id: String) -> DeliveryNote? {
         deliveryNotesStore.readAll().first { $0.id == id }
     }
@@ -4639,6 +4828,7 @@ final class AppDatabase {
                 return ManpowerRate(name: name, rate: max(0, (item["rate"] as? Double) ?? 0), unit: unit.isEmpty ? "md" : unit)
             }
         }
+        if let v = payload["minimumMonthlyRental"] as? Double { settings.minimumMonthlyRental = max(0, v) }
         if let list = payload["defaultBOQItems"] as? [[String: Any]] {
             var seen = Set<String>()
             let items: [DefaultBOQItem] = list.compactMap { item in
@@ -8664,6 +8854,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "boq:listForProject":
             let projectId = (payload["projectId"] as? String) ?? ""
             respond(id: id, encodable: db.listBOQSummaries(projectId: projectId))
+        case "boq:combine":
+            let r = db.combineBOQs(ids: (payload["ids"] as? [String]) ?? [])
+            respond(id: id, encodable: CombinedDocumentResult(ok: r.error == nil, error: r.error, id: r.id))
+        case "deliveryNotes:combine":
+            let r = db.combineDeliveryNotes(ids: (payload["ids"] as? [String]) ?? [])
+            respond(id: id, encodable: CombinedDocumentResult(ok: r.error == nil, error: r.error, id: r.id))
         case "boq:create":
             handleCreateBOQ(id: id, payload: payload)
         case "boq:get":
@@ -9910,7 +10106,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// rows (numbered A1, A2… or R1, R2…) and its note.
     private func blockRows(_ block: QuotationBlock, _ detail: QuotationDetail, currency: String) -> [LetterTableRow] {
         var rows: [LetterTableRow] = []
-        if let title = nonBlank(block.title) { rows.append(.section(title)) }
+        // A section charged per day / week / month says so in its title.
+        let per = block.kind == "Priced" ? block.chargePeriod.map { " (per \($0.lowercased()))" } ?? "" : ""
+        if let title = nonBlank(block.title) { rows.append(.section(title + per)) } else if !per.isEmpty { rows.append(.section("Charged\(per)")) }
         let lines = detail.lineItems.filter { $0.blockId == block.id }.sorted { $0.sortOrder < $1.sortOrder }
         for (i, line) in lines.enumerated() {
             let number = "\(block.prefix)\(i + 1)"
@@ -10085,6 +10283,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         var rows = priced.materials
         if isRental {
             rows.append(.summary(label: "Subtotal of Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
+            if detail.minimumMonthlyApplied {
+                rows.append(.summary(label: "Minimum Monthly Rental Charge:", value: formatMoney(detail.monthlyRental), emphasized: false))
+            }
             // Only when it changes the amount: ticked, and more than one month.
             if detail.minimumHireEnabled && detail.hireMonths > 1 {
                 rows.append(.summary(label: "Minimum Hire of \(detail.hireMonths) Month\(detail.hireMonths == 1 ? "" : "s"):", value: formatMoney(detail.materialsCharge), emphasized: false))

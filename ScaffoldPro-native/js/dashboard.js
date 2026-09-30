@@ -48,6 +48,17 @@ function table(container, rows, columns, emptyText) {
 
 let projectsCache = [];
 
+// A quotation's charges: the monthly charge (rental) over the one-time
+// charge (delivery and one-off charges; all of a Sale quotation).
+function chargeCell(r, cur) {
+  const c = r.charges;
+  if (!c) return `${cur} ${money(r.amount)}`;
+  const recurring = Object.entries(c.recurring || {}).filter(([, v]) => v)
+    .map(([k, v]) => `<div class="charge-line"><span class="charge-label">per ${esc(k.toLowerCase())}</span> ${money(v)}</div>`).join('');
+  return `<div class="charge-line"><span class="charge-label">Monthly</span> ${c.monthly ? `${cur} ${money(c.monthly)}` : '<span class="muted">—</span>'}</div>
+    <div class="charge-line"><span class="charge-label">One-time</span> ${cur} ${money(c.oneTime)}</div>${recurring}`;
+}
+
 // Quotations awaiting reply: issued ones with no signed copy from the
 // client yet. Upload the signed copy with the arrow (or drop the PDF or
 // photo onto the row), or take it off with the cross when it isn't
@@ -67,7 +78,7 @@ function renderAwaitingQuotations(summary) {
       <td>${r.status === 'Invoiced'
         ? '<span class="status-pill pill-warning" title="Already invoiced — going ahead without a signed copy on file">Invoiced, not signed</span>'
         : `<span class="muted">${r.dueDate ? `Valid to ${day(r.dueDate)}` : `Sent ${day(r.date)}`}</span>`}</td>
-      <td class="num">${cur} ${money(r.amount)}</td>
+      <td class="num">${chargeCell(r, cur)}</td>
       <td class="quote-actions" data-no-icon>
         <button class="icon-btn upload-signed-btn" title="Upload the signed copy…" aria-label="Upload the signed copy">${window.ICONS.upload}</button>
         <button class="icon-btn not-needed-btn" title="Not needed — take it off this list (e.g. accepted by email, or not going ahead)" aria-label="Signed copy not needed">${window.ICONS.dismiss}</button>

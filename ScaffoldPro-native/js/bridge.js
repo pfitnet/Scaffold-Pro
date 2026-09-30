@@ -117,6 +117,8 @@
       reveal: (id) => callNative('documents:reveal', { id: id }),
     },
     boq: {
+      // Several BOQs added together into one new Draft BOQ → { ok, error, id }.
+      combine: (ids) => callNative('boq:combine', { ids: ids }),
       listForProject: (projectId) => callNative('boq:listForProject', { projectId: projectId }),
       setOrientation: (id, orientation) => callNative('boq:setOrientation', { id: id, orientation: orientation }),
       // A discount on an item's unit rate: 'None' | 'Percent' | 'Amount' (off each unit).
@@ -202,6 +204,8 @@
       print: (id) => callNative('invoices:print', { id: id }),
     },
     deliveryNotes: {
+      // Several delivery notes added together into one new Draft note → { ok, error, id }.
+      combine: (ids) => callNative('deliveryNotes:combine', { ids: ids }),
       listForProject: (projectId) => callNative('deliveryNotes:listForProject', { projectId: projectId }),
       create: (projectId, projectNumber, quotationId, invoiceId) =>
         callNative('deliveryNotes:create', { projectId: projectId, projectNumber: projectNumber, quotationId: quotationId || null, invoiceId: invoiceId || null }),

@@ -321,4 +321,31 @@ async function renderTeamIndicator(sidebar) {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderSidebar(document.body.dataset.page);
+  addBackButton();
 });
+
+// ---------------------------------------------------------------------
+// Back button, top left of pages opened from another page (a project, a
+// BOQ / quotation / invoice / delivery note) — not the sidebar's own pages.
+// ---------------------------------------------------------------------
+
+function addBackButton() {
+  const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+  const ROOT_PAGES = ['index.html', 'price-lists.html', 'sites.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'admin.html', 'settings.html', 'launch.html'];
+  const content = document.getElementById('content');
+  if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'page-back';
+  button.dataset.noIcon = '';
+  button.innerHTML = '<svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg><span>Back</span>';
+  button.title = 'Back to the previous page';
+  button.addEventListener('click', () => {
+    // The page it was opened from, if it was one of ours; else its parent.
+    const cameFromApp = document.referrer && document.referrer.startsWith(location.origin === 'null' ? 'file:' : location.origin);
+    if (cameFromApp && history.length > 1) { history.back(); return; }
+    const parent = document.getElementById('back-link');
+    location.href = parent && parent.getAttribute('href') && parent.getAttribute('href') !== '#' ? parent.getAttribute('href') : 'projects.html';
+  });
+  content.prepend(button);
+}

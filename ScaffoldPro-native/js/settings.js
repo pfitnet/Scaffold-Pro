@@ -140,6 +140,7 @@ async function loadSettings() {
   for (const f of QUOTE_TEXT_FIELDS) document.getElementById(`${f}-input`).value = settings[f] || '';
   document.getElementById('standardDeliveryCharge-input').value = settings.standardDeliveryCharge ?? '';
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
+  document.getElementById('minimumMonthlyRental-input').value = settings.minimumMonthlyRental ?? 1000;
   document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
   document.getElementById('markupRounding-input').value = settings.markupRoundUp ? 'Up' : 'Nearest';
   renderManpowerRates(settings.manpowerRates);
@@ -176,6 +177,8 @@ async function saveSettings() {
   payload.termsNewPage = document.getElementById('termsNewPage-input').value;
   payload.markupRounding = document.getElementById('markupRounding-input').value;
   payload.manpowerRates = readManpowerRates();
+  const minMonthly = document.getElementById('minimumMonthlyRental-input').value;
+  payload.minimumMonthlyRental = minMonthly === '' ? 1000 : Math.max(0, Number(minMonthly) || 0);
   payload.defaultMinimumHireMonths = Math.max(1, Math.round(Number(document.getElementById('defaultMinimumHireMonths-input').value) || 2));
   const eur = Number(document.getElementById('eurRate-input').value);
   if (eur > 0) payload.exchangeRates = { EUR: eur };
