@@ -47,17 +47,23 @@ async function load() {
 
 function openNew() {
   const filter = document.getElementById('project-filter').value;
-  document.getElementById('nl-project').innerHTML = '<option value="">— None (a general letter) —</option>' +
+  document.getElementById('nl-project').innerHTML = '<option value="">Choose the project…</option>' +
     projects.map((p) => `<option value="${esc(p.id)}">${esc(p.projectNumber)} — ${esc(p.name)}</option>`).join('');
   document.getElementById('nl-project').value = filter || '';
   document.getElementById('nl-client').innerHTML = '<option value="">— The project’s client, or none —</option>' +
     clients.map((c) => `<option value="${esc(c.id)}">${esc(c.companyName)}</option>`).join('');
-  document.getElementById('nl-number-note').textContent = 'The letter number is given from Settings › Document Numbers (e.g. L26001).';
+  document.getElementById('nl-number-note').textContent = 'The letter is numbered from the project code, e.g. L26001-001 for project 26001 (Settings › Document Numbers).';
   document.getElementById('nl-error').classList.add('hidden');
   document.getElementById('new-letter-modal').classList.remove('hidden');
 }
 
 async function create() {
+  if (!document.getElementById('nl-project').value) {
+    const err = document.getElementById('nl-error');
+    err.textContent = 'Choose the project the letter is for.';
+    err.classList.remove('hidden');
+    return;
+  }
   const r = await window.api.letters.create({
     projectId: document.getElementById('nl-project').value || null,
     clientId: document.getElementById('nl-client').value || null,

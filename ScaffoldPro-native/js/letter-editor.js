@@ -58,15 +58,18 @@ function render() {
   const date = document.getElementById('f-date');
   if (document.activeElement !== date) date.value = localDay(l.letterDate);
   date.disabled = locked;
-  document.getElementById('f-project').value = l.projectId || '';
-  document.getElementById('f-project').disabled = locked;
+  document.getElementById('f-project').innerHTML = detail.projectNumber
+    ? `<a href="project-detail.html?number=${encodeURIComponent(detail.projectNumber)}&tab=letters">${esc(detail.projectNumber)} — ${esc(detail.projectName || '')}</a>` : '—';
   document.getElementById('f-client').disabled = locked;
 
   document.getElementById('opening').innerHTML = detail.openingHTML;
   const body = document.getElementById('letter-body');
   if (document.activeElement !== body && body.innerHTML !== l.bodyHTML) body.innerHTML = l.bodyHTML;
   editor.setEditable(!locked);
-  document.getElementById('back-link').href = l.projectId ? `letters.html?project=${encodeURIComponent(l.projectId)}` : 'letters.html';
+  // Back to the project's Letters.
+  const back = document.getElementById('back-link');
+  back.href = detail.projectNumber ? `project-detail.html?number=${encodeURIComponent(detail.projectNumber)}&tab=letters` : 'letters.html';
+  back.innerHTML = detail.projectNumber ? '&larr; Back to project' : '&larr; All letters';
 }
 
 // ---- saving ----
@@ -123,9 +126,7 @@ async function init() {
 
   editor = window.createRichEditor(document.getElementById('letter-body'), document.getElementById('rt-toolbar'), { onChange: queueBodySave });
 
-  const [projects, clients] = await Promise.all([window.api.projects.list(), window.api.clients.list()]);
-  document.getElementById('f-project').innerHTML = '<option value="">— None (a general letter) —</option>' +
-    (projects || []).map((p) => `<option value="${esc(p.id)}">${esc(p.projectNumber)} — ${esc(p.name)}</option>`).join('');
+  const clients = await window.api.clients.list();
   const clientList = (clients || []).filter((c) => !c.isArchived);
   document.getElementById('f-client').innerHTML = '<option value="">Choose a client…</option>' +
     clientList.map((c) => `<option value="${esc(c.id)}">${esc(c.companyName)}</option>`).join('');
@@ -139,7 +140,6 @@ async function init() {
     document.getElementById(id).addEventListener('change', (e) => saveField({ [key]: e.target.value }));
   }
   document.getElementById('f-date').addEventListener('change', (e) => { if (e.target.value) saveField({ letterDate: e.target.value }); });
-  document.getElementById('f-project').addEventListener('change', (e) => saveField({ projectId: e.target.value || null }));
   document.getElementById('f-client').addEventListener('change', async (e) => {
     const c = clientList.find((x) => x.id === e.target.value);
     e.target.value = '';

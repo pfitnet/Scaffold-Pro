@@ -235,6 +235,32 @@ async function refreshDeliveryNoteList() {
   selections.delivery.afterRender();
 }
 
+// Letters on the letterhead, numbered from the project code (L26001-001…).
+async function refreshLetterList() {
+  const letters = (await window.api.letters.list(currentProject.id)) || [];
+  setCount('letters', letters.length);
+  const container = document.getElementById('letter-list');
+  if (letters.length === 0) {
+    container.innerHTML = `<div class="empty-state"><h2>No letters yet</h2><p>Use “+ New Letter” to write one on the letterhead.</p></div>`;
+    return;
+  }
+  const pill = { Issued: 'pill-success', Cancelled: 'pill-danger' };
+  container.innerHTML = `<table>
+    <thead><tr><th>Number</th><th>Status</th><th>Date</th><th>Subject</th><th>To</th></tr></thead>
+    <tbody>${letters.map((l) => `<tr style="cursor:pointer" data-id="${esc(l.id)}">
+      <td>${esc(l.letterNumber)}</td><td><span class="status-pill ${pill[l.status] || ''}">${esc(l.status)}</span></td>
+      <td>${formatDay(l.letterDate)}</td><td>${esc(l.subject || '—')}</td><td>${esc(l.recipientName || '—')}</td></tr>`).join('')}</tbody></table>`;
+  for (const tr of container.querySelectorAll('tr[data-id]')) {
+    tr.addEventListener('click', () => { location.href = `letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`; });
+  }
+}
+
+async function createNewLetter() {
+  const r = await window.api.letters.create({ projectId: currentProject.id });
+  if (!r || !r.ok) { alert((r && r.error) || 'The letter couldn’t be created.'); return; }
+  location.href = `letter-editor.html?id=${encodeURIComponent(r.id)}`;
+}
+
 /// Shared renderer for both the Drawings list and the Documents list —
 /// same shape (name/type/size/uploaded/description + actions), differing
 /// only in whether a Category column shows and which API namespace the
@@ -738,11 +764,13 @@ async function init() {
   document.getElementById('new-quotation-btn').addEventListener('click', createNewQuotation);
   document.getElementById('new-invoice-btn').addEventListener('click', createNewInvoice);
   document.getElementById('new-delivery-note-btn').addEventListener('click', createNewDeliveryNote);
+  document.getElementById('new-letter-btn').addEventListener('click', createNewLetter);
 
   await refreshBOQList();
   await refreshQuotationList();
   await refreshInvoiceList();
   await refreshDeliveryNoteList();
+  await refreshLetterList();
   await refreshDrawingList();
   await refreshDocumentList();
   await refreshHistory();

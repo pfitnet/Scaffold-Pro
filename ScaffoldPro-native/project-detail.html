@@ -35,6 +35,7 @@
         <button data-tab="quotations">Quotations <span class="tab-count" id="count-quotations"></span></button>
         <button data-tab="invoices">Invoices <span class="tab-count" id="count-invoices"></span></button>
         <button data-tab="delivery">Delivery Notes <span class="tab-count" id="count-delivery"></span></button>
+        <button data-tab="letters">Letters <span class="tab-count" id="count-letters"></span></button>
         <button data-tab="files">Drawings &amp; Documents <span class="tab-count" id="count-files"></span></button>
         <button data-tab="history">History</button>
       </nav>
@@ -106,6 +107,16 @@
           </div>
         </div>
         <div id="delivery-note-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="letters">
+        <div class="section-toolbar">
+          <h2>Letters</h2>
+          <div class="toolbar-actions">
+            <button class="primary" id="new-letter-btn">+ New Letter</button>
+          </div>
+        </div>
+        <div id="letter-list"></div>
       </section>
 
       <section class="tab-panel" data-panel="files">
