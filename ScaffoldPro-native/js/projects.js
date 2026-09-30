@@ -15,7 +15,7 @@ function renderProjects(projects) {
   }
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th>Number</th><th>Name</th><th>Client</th><th>Site</th><th>Status</th></tr></thead>
+    <thead><tr><th>Number</th><th>Name</th><th>Client</th><th>Site</th><th>Status</th><th>Created By</th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const p of projects) {
@@ -34,7 +34,8 @@ function renderProjects(projects) {
       <td>${p.name}</td>
       <td>${p.clientName || '—'}</td>
       <td>${p.siteName || '—'}</td>
-      <td><span class="status-pill">${p.status}</span></td>`;
+      <td><span class="status-pill">${p.status}</span></td>
+      ${window.createdByCell(p)}`;
     tbody.appendChild(tr);
   }
   container.innerHTML = '';

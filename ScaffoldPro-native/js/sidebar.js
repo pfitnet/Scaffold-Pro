@@ -138,6 +138,16 @@ async function renderUserTab(link) {
     return `<span class="person" data-person="${esc(n)}" style="--person:${window.personColor(n)}">${esc(n)}</span>`;
   };
 
+  // A list's "Created By" cell: who made it, and under it who last worked
+  // on it when that was someone else.
+  window.createdByCell = function createdByCell(row) {
+    const made = row && row.createdBy;
+    const last = row && row.lastEditedBy;
+    if (!made && !last) return '<td class="created-by"><span class="muted">—</span></td>';
+    const lastLine = last && last !== made ? `<div class="sub">last: ${window.personTag(last)}</div>` : '';
+    return `<td class="created-by">${made ? window.personTag(made) : '<span class="muted">—</span>'}${lastLine}</td>`;
+  };
+
   // Loads everyone's chosen colours, then re-colours any names already shown.
   window.loadPersonColors = function loadPersonColors(force) {
     if (loading && !force) return loading;

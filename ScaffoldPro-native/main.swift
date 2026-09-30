@@ -147,6 +147,7 @@ struct MyProject: Codable {
     var clientName: String?
     var status: String
     var lastWorkedAt: String
+    var createdBy: String? = nil
 }
 
 struct SearchResult: Codable {
@@ -332,6 +333,9 @@ struct ProjectListEntry: Codable {
     var createdAt: String
     var clientName: String?
     var siteName: String?
+    /// Who made it, and who last worked on it (their names).
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
 }
 
 struct ProjectDetail: Codable {
@@ -895,6 +899,9 @@ struct BOQSummary: Codable {
     var createdAt: String
     /// What the scaffold is for, e.g. "Access platform for louvres".
     var structure: String? = nil
+    /// Who made it, and who last worked on it (their names).
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
 }
 
 struct BOQDetail: Codable {
@@ -1082,6 +1089,9 @@ struct LetterSummary: Codable {
     var projectNumber: String?
     var projectName: String?
     var updatedAt: String
+    /// Who made it, and who last worked on it (their names).
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
 }
 
 struct LetterDetail: Codable {
@@ -1245,6 +1255,9 @@ struct QuotationSummary: Codable {
     var subject: String? = nil
     var pricingMode: String? = nil
     var charges: ChargeSplit? = nil
+    /// Who made it, and who last worked on it (their names).
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
 }
 
 struct QuotationDetail: Codable {
@@ -1400,6 +1413,9 @@ struct InvoiceSummary: Codable {
     var amountPaid: Double
     var dueDate: String?
     var createdAt: String
+    /// Who made it, and who last worked on it (their names).
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
 }
 
 struct InvoiceDetail: Codable {
@@ -1496,6 +1512,9 @@ struct DeliveryNoteSummary: Codable {
     var itemCount: Int
     var deliveryDate: String
     var createdAt: String
+    /// Who made it, and who last worked on it (their names).
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
 }
 
 struct DeliveryNoteDetail: Codable {
@@ -2642,6 +2661,12 @@ final class AppDatabase {
         return DocAuthors(createdBy: created, lastEditedBy: nil, lastEditedAt: nil, mine: true)
     }
 
+    /// Every record's names in one store (e.g. "quotations.json"), by id —
+    /// for the lists.
+    func authorsByRecord(_ file: String) -> [String: DocAuthors] {
+        authorsIndex(file, history: activityAuthors())
+    }
+
     /// One document's (or project's) names, for its page.
     func documentAuthors(kind: String, id rawId: String, number: String? = nil) -> DocAuthors {
         // A project can be asked for by its code.
@@ -2674,7 +2699,8 @@ final class AppDatabase {
         }
         return projects.compactMap { p -> MyProject? in
             guard let at = touched[p.projectNumber] else { return nil }
-            return MyProject(id: p.id, projectNumber: p.projectNumber, name: p.name, clientName: clients[p.clientId], status: p.status, lastWorkedAt: at)
+            return MyProject(id: p.id, projectNumber: p.projectNumber, name: p.name, clientName: clients[p.clientId], status: p.status, lastWorkedAt: at,
+                             createdBy: projectAuthors[p.id]?.createdBy)
         }
         .sorted { ($0.status == "Active" ? 0 : 1, $1.lastWorkedAt) < ($1.status == "Active" ? 0 : 1, $0.lastWorkedAt) }
         .prefix(limit).map { $0 }
@@ -3662,7 +3688,8 @@ final class AppDatabase {
     }
 
     func listBOQSummaries(projectId: String) -> [BOQSummary] {
-        boqsStore.readAll()
+        let names = authorsByRecord("boqs.json")
+        return boqsStore.readAll()
             .filter { $0.projectId == projectId }
             .sorted { $0.boqNumber > $1.boqNumber }
             .map { boq in
@@ -3675,6 +3702,8 @@ final class AppDatabase {
                     grandTotal: total, totalWeightKg: totalWeight(for: items), createdAt: boq.createdAt
                 )
                 summary.structure = nonBlank(boq.structure)
+                summary.createdBy = names[boq.id]?.createdBy
+                summary.lastEditedBy = names[boq.id]?.lastEditedBy
                 return summary
             }
     }
@@ -4252,7 +4281,8 @@ final class AppDatabase {
     var minimumMonthlyRental: Double { getCompanySettings().minimumMonthlyRental ?? 1000 }
 
     func listQuotationSummaries(projectId: String) -> [QuotationSummary] {
-        quotationsStore.readAll()
+        let names = authorsByRecord("quotations.json")
+        return quotationsStore.readAll()
             .filter { $0.projectId == projectId }
             .sorted { $0.quotationNumber > $1.quotationNumber }
             .map { q in
@@ -4267,6 +4297,8 @@ final class AppDatabase {
                 summary.subject = nonBlank(q.subject)
                 summary.pricingMode = q.pricingMode
                 summary.charges = totals.charges
+                summary.createdBy = names[q.id]?.createdBy
+                summary.lastEditedBy = names[q.id]?.lastEditedBy
                 return summary
             }
     }
@@ -5299,14 +5331,18 @@ final class AppDatabase {
 
     func listLetters(projectId: String?) -> [LetterSummary] {
         let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let names = authorsByRecord("letters.json")
         return lettersStore.readAll()
             .filter { projectId == nil || $0.projectId == projectId }
             .sorted { ($0.letterDate, $0.createdAt) > ($1.letterDate, $1.createdAt) }
             .map { l in
                 let p = l.projectId.flatMap { projects[$0] }
-                return LetterSummary(id: l.id, letterNumber: l.letterNumber, status: l.status, letterDate: l.letterDate, subject: l.subject,
-                                     recipientName: l.recipientName, projectId: l.projectId, projectNumber: p?.projectNumber,
-                                     projectName: p?.name, updatedAt: l.updatedAt)
+                var summary = LetterSummary(id: l.id, letterNumber: l.letterNumber, status: l.status, letterDate: l.letterDate, subject: l.subject,
+                                            recipientName: l.recipientName, projectId: l.projectId, projectNumber: p?.projectNumber,
+                                            projectName: p?.name, updatedAt: l.updatedAt)
+                summary.createdBy = names[l.id]?.createdBy
+                summary.lastEditedBy = names[l.id]?.lastEditedBy
+                return summary
             }
     }
 
@@ -5438,6 +5474,7 @@ final class AppDatabase {
 
     func listInvoiceSummaries(projectId: String) -> [InvoiceSummary] {
         let today = todayYMD()
+        let names = authorsByRecord("invoices.json")
         return invoicesStore.readAll()
             .filter { $0.projectId == projectId }
             .sorted { $0.invoiceNumber > $1.invoiceNumber }
@@ -5445,7 +5482,10 @@ final class AppDatabase {
                 let items = invoiceLineItems(for: inv.id)
                 let totals = invoiceTotals(inv, lineItems: items)
                 let status = isInvoiceOverdue(inv, balanceDue: totals.balanceDue, today: today) ? "Overdue" : inv.status
-                return InvoiceSummary(id: inv.id, invoiceNumber: inv.invoiceNumber, status: status, itemCount: items.count, total: totals.total, amountPaid: inv.amountPaid, dueDate: inv.dueDate, createdAt: inv.createdAt)
+                var summary = InvoiceSummary(id: inv.id, invoiceNumber: inv.invoiceNumber, status: status, itemCount: items.count, total: totals.total, amountPaid: inv.amountPaid, dueDate: inv.dueDate, createdAt: inv.createdAt)
+                summary.createdBy = names[inv.id]?.createdBy
+                summary.lastEditedBy = names[inv.id]?.lastEditedBy
+                return summary
             }
     }
 
@@ -5736,12 +5776,16 @@ final class AppDatabase {
     }
 
     func listDeliveryNoteSummaries(projectId: String) -> [DeliveryNoteSummary] {
-        deliveryNotesStore.readAll()
+        let names = authorsByRecord("delivery_notes.json")
+        return deliveryNotesStore.readAll()
             .filter { $0.projectId == projectId }
             .sorted { $0.deliveryNoteNumber > $1.deliveryNoteNumber }
             .map { dn in
                 let items = deliveryNoteLineItems(for: dn.id)
-                return DeliveryNoteSummary(id: dn.id, deliveryNoteNumber: dn.deliveryNoteNumber, status: dn.status, itemCount: items.count, deliveryDate: dn.deliveryDate, createdAt: dn.createdAt)
+                var summary = DeliveryNoteSummary(id: dn.id, deliveryNoteNumber: dn.deliveryNoteNumber, status: dn.status, itemCount: items.count, deliveryDate: dn.deliveryDate, createdAt: dn.createdAt)
+                summary.createdBy = names[dn.id]?.createdBy
+                summary.lastEditedBy = names[dn.id]?.lastEditedBy
+                return summary
             }
     }
 
@@ -12790,13 +12834,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // still show who they belong to.
         let clients = db.allClients()
         let sites = db.allSites()
+        let names = db.authorsByRecord("projects.json")
         return db.listProjectsRaw().map { p in
-            ProjectListEntry(
+            var entry = ProjectListEntry(
                 id: p.id, projectNumber: p.projectNumber, name: p.name,
                 clientId: p.clientId, siteId: p.siteId, status: p.status, createdAt: p.createdAt,
                 clientName: clients.first { $0.id == p.clientId }?.companyName,
                 siteName: sites.first { $0.id == p.siteId }?.name
             )
+            entry.createdBy = names[p.id]?.createdBy
+            entry.lastEditedBy = names[p.id]?.lastEditedBy
+            return entry
         }
     }
 

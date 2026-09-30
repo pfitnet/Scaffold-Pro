@@ -1793,3 +1793,20 @@ under "Letterhead layout".
   - Two-way questions now have named buttons instead of "OK = … / Cancel
     = …": Rental / Sale, From BOQ / Start Blank, Replace & Link / Add Below.
   - The update check uses the same dialog.
+
+## Batch 72 — Who made each project and document, in every list
+
+- **A "Created By" column in every list**, showing the maker's name tag in
+  their colour. When someone else was the last to work on it, "last:" and
+  their name are shown under it. The lists are:
+  - Projects
+  - each project's BOQ, Quotations, Invoices, Delivery Notes and Letters tabs
+  - the Letters page
+  - the documents on client and site pages.
+- **Dashboard:** every row in My Active & Recent Projects, My Quotations
+  Awaiting Reply, Unpaid Invoices, My Recently Changed Documents and My
+  Recent Delivery Notes says "Created by …". So does the User page's list of
+  documents.
+- The list data now carries `createdBy` / `lastEditedBy`
+  (`authorsByRecord` in main.swift); `window.createdByCell` in sidebar.js
+  draws the cell.

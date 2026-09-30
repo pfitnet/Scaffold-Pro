@@ -81,10 +81,11 @@ function initPartyPage(config) {
         }</tbody></table>`;
     const docs = detail.documents.length === 0
       ? '<p class="small-note">No documents yet.</p>'
-      : `<table><thead><tr><th>Document</th><th>Type</th><th>Project</th><th>Status</th><th class="num">Amount</th></tr></thead><tbody>${
+      : `<table><thead><tr><th>Document</th><th>Type</th><th>Project</th><th>Status</th><th>Created By</th><th class="num">Amount</th></tr></thead><tbody>${
           detail.documents.slice(0, 30).map((d) => `<tr class="link-row" data-url="${d.url}">
             <td>${escapeHTML(d.number)}</td><td>${d.kind}</td><td>${d.projectNumber}</td>
             <td><span class="status-pill ${d.isOverdue ? 'pill-danger' : ''}">${d.status}</span></td>
+            ${window.createdByCell(d)}
             <td class="num">${d.amount == null ? '—' : moneyText(d.amount)}</td></tr>`).join('')
         }</tbody></table>`;
     $('related').innerHTML = `<h3 class="related-title">Projects</h3>${projects}<h3 class="related-title">Documents</h3>${docs}`;

@@ -48,6 +48,11 @@ function table(container, rows, columns, emptyText) {
 
 let projectsCache = [];
 
+// "Created by Harry" (in Harry's colour) under a row's number.
+function madeBy(r) {
+  return r && r.createdBy ? `<div class="sub made-by">Created by ${window.personTag(r.createdBy)}</div>` : '';
+}
+
 // A quotation's charges: the monthly charge (rental) over the one-time
 // charge (delivery and one-off charges; all of a Sale quotation).
 function chargeCell(r, cur) {
@@ -74,7 +79,7 @@ function renderAwaitingQuotations(summary) {
   }
   list.innerHTML = `<table class="compact"><tbody>${rows.map((r) => `
     <tr class="link-row quote-row" data-id="${esc(r.id)}" data-url="${esc(r.url)}" title="Drop the client’s signed copy (PDF or photo) here to file it">
-      <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div></td>
+      <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>${madeBy(r)}</td>
       <td>${r.status === 'Invoiced'
         ? '<span class="status-pill pill-warning" title="Already invoiced — going ahead without a signed copy on file">Invoiced, not signed</span>'
         : `<span class="muted">${r.dueDate ? `Valid to ${day(r.dueDate)}` : `Sent ${day(r.date)}`}</span>`}</td>
@@ -146,7 +151,7 @@ async function loadDashboard() {
   awaitingCard = grid.appendChild(statCard(summary.awaitingSignedCopyCount || 0, 'Quotations Awaiting Reply'));
 
   table('unpaid-list', summary.unpaidInvoices, [
-    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>` },
+    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>${madeBy(r)}` },
     { value: (r) => r.isOverdue ? `<span class="status-pill pill-danger">Overdue</span>` : `<span class="muted">Due ${day(r.dueDate)}</span>` },
     { cls: 'num', value: (r) => `${cur} ${money(r.balance)}` },
   ], 'No unpaid invoices.');
@@ -157,19 +162,19 @@ async function loadDashboard() {
   const recentProjects = (summary.myProjects || [])
     .map((p) => Object.assign({ url: `project-detail.html?number=${encodeURIComponent(p.projectNumber)}` }, p));
   table('recent-projects', recentProjects, [
-    { value: (p) => `<strong>${esc(p.projectNumber)}</strong><div class="sub">${esc(p.name)}</div>` },
+    { value: (p) => `<strong>${esc(p.projectNumber)}</strong><div class="sub">${esc(p.name)}</div>${madeBy(p)}` },
     { value: (p) => `<span class="muted">${esc(p.clientName || '—')}</span><div class="sub">${when(p.lastWorkedAt)}</div>` },
     { value: (p) => `<span class="status-pill">${esc(p.status)}</span>` },
   ], projects.length ? 'None yet — projects you work on show here.' : 'No projects yet — press New Project to start.');
 
   table('recent-docs', summary.recentDocuments, [
-    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.kind)} · ${esc(r.projectNumber)}</div>` },
+    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.kind)} · ${esc(r.projectNumber)}</div>${madeBy(r)}` },
     { value: (r) => `<span class="status-pill ${r.isOverdue ? 'pill-danger' : ''}">${esc(r.status)}</span>` },
     { cls: 'muted num', value: (r) => when(r.lastEditedAt || r.updatedAt) },
   ], 'None yet — documents you work on show here.');
 
   table('delivery-list', summary.recentDeliveryNotes, [
-    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectName)}</div>` },
+    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectName)}</div>${madeBy(r)}` },
     { value: (r) => `<span class="status-pill">${esc(r.status)}</span>` },
     { cls: 'muted num', value: (r) => day(r.date) },
   ], 'None yet — delivery notes you work on show here.');
