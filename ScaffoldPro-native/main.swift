@@ -1176,6 +1176,9 @@ struct DeliveryNoteDetail: Codable {
     var siteName: String?
     var lineItems: [DeliveryNoteLineItem]
     var contactPerson: String? = nil
+    var projectId: String? = nil
+    /// The quotation its items were first taken from (if any).
+    var sourceQuotationId: String? = nil
 }
 
 struct DeliveryNoteActionResult: Codable {
@@ -4596,6 +4599,51 @@ final class AppDatabase {
         return (combined.id, nil)
     }
 
+    /// A quotation's materials copied into a Draft delivery note: items
+    /// already on the note get the quotation's quantity added (or, with
+    /// `replaceExisting`, the note's items are cleared first).
+    func importQuotationIntoDeliveryNote(deliveryNoteId: String, quotationId: String, replaceExisting: Bool) -> (added: Int, error: String?) {
+        guard let dn = getDeliveryNote(id: deliveryNoteId) else { return (0, "Delivery note not found.") }
+        guard dn.status == "Draft" else { return (0, "This delivery note is issued and can no longer be edited.") }
+        guard let quotation = quotationsStore.readAll().first(where: { $0.id == quotationId }) else { return (0, "Quotation not found.") }
+        guard quotation.projectId == dn.projectId else { return (0, "The quotation must be from the same project.") }
+        let source = quotationLineItemsStore.readAll()
+            .filter { $0.quotationId == quotationId && isMaterialLine($0) }
+            .sorted { $0.sortOrder < $1.sortOrder }
+        guard !source.isEmpty else { return (0, "\(quotation.quotationNumber) has no materials to import.") }
+
+        var items = deliveryNoteLineItemsStore.readAll()
+        if replaceExisting { items.removeAll { $0.deliveryNoteId == deliveryNoteId } }
+        let key: (String?, String, String, String) -> String = { id, code, description, unit in id ?? "\(code)|\(description)|\(unit)" }
+        var nextSort = (items.filter { $0.deliveryNoteId == deliveryNoteId }.map { $0.sortOrder }.max() ?? -1) + 1
+        var added = 0
+        for line in source {
+            let k = key(line.priceListItemId, line.itemCode, line.itemDescription, line.unit)
+            if let i = items.firstIndex(where: { $0.deliveryNoteId == deliveryNoteId && key($0.priceListItemId, $0.itemCode, $0.itemDescription, $0.unit) == k }) {
+                items[i].quantity += line.quantity.rounded()
+            } else {
+                items.append(DeliveryNoteLineItem(
+                    id: makeId("dnitem"), deliveryNoteId: deliveryNoteId, sourceKey: line.sourceKey,
+                    priceListItemId: line.priceListItemId, itemCode: line.itemCode,
+                    itemDescription: line.itemDescription, unit: line.unit, quantity: line.quantity.rounded(),
+                    section: line.section, sortOrder: nextSort, notes: nil
+                ))
+                nextSort += 1
+            }
+            added += 1
+        }
+        deliveryNoteLineItemsStore.writeAll(items)
+
+        var notesArr = deliveryNotesStore.readAll()
+        if let i = notesArr.firstIndex(where: { $0.id == deliveryNoteId }) {
+            if notesArr[i].sourceQuotationId == nil { notesArr[i].sourceQuotationId = quotationId }
+            notesArr[i].updatedAt = nowISO()
+            deliveryNotesStore.writeAll(notesArr)
+        }
+        logActivity(projectId: dn.projectId, "Materials imported from \(quotation.quotationNumber)", reference: dn.deliveryNoteNumber)
+        return (added, nil)
+    }
+
     func getDeliveryNote(id: String) -> DeliveryNote? {
         deliveryNotesStore.readAll().first { $0.id == id }
     }
@@ -4612,7 +4660,7 @@ final class AppDatabase {
             notes: dn.notes, createdAt: dn.createdAt, updatedAt: dn.updatedAt,
             projectNumber: project.projectNumber, projectName: project.name,
             clientName: client?.companyName, siteName: site?.name, lineItems: items,
-            contactPerson: dn.contactPerson
+            contactPerson: dn.contactPerson, projectId: dn.projectId, sourceQuotationId: dn.sourceQuotationId
         )
     }
 
@@ -6518,6 +6566,11 @@ struct ProjectRef: Codable {
     var id: String
     var projectNumber: String
     var name: String
+    /// Where its materials are (Stock › By Site), and the company it's for.
+    var siteId: String? = nil
+    var siteName: String? = nil
+    var siteAddress: String? = nil
+    var clientName: String? = nil
 }
 
 struct StockProjectQuantity: Codable {
@@ -6647,7 +6700,18 @@ extension AppDatabase {
     }
 
     func projectRefs() -> [ProjectRef] {
-        projectsStore.readAll().map { ProjectRef(id: $0.id, projectNumber: $0.projectNumber, name: $0.name) }
+        let siteById = Dictionary(sitesStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let clientById = Dictionary(clientsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return projectsStore.readAll().map { p -> ProjectRef in
+            var ref = ProjectRef(id: p.id, projectNumber: p.projectNumber, name: p.name)
+            if let site = siteById[p.siteId] {
+                ref.siteId = site.id
+                ref.siteName = site.name
+                ref.siteAddress = [site.address, site.city].compactMap { nonBlank($0) }.joined(separator: ", ")
+            }
+            ref.clientName = clientById[p.clientId]?.companyName
+            return ref
+        }
             .sorted { $0.projectNumber > $1.projectNumber }
     }
 
@@ -8862,6 +8926,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "deliveryNotes:combine":
             let r = db.combineDeliveryNotes(ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: CombinedDocumentResult(ok: r.error == nil, error: r.error, id: r.id))
+        case "deliveryNotes:importQuotation":
+            let r = db.importQuotationIntoDeliveryNote(
+                deliveryNoteId: (payload["id"] as? String) ?? "",
+                quotationId: (payload["quotationId"] as? String) ?? "",
+                replaceExisting: (payload["replaceExisting"] as? Bool) ?? false
+            )
+            respond(id: id, encodable: DroppedFilesResult(ok: r.error == nil, added: r.added, error: r.error))
         case "boq:create":
             handleCreateBOQ(id: id, payload: payload)
         case "boq:get":

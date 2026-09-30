@@ -11,6 +11,12 @@
     .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
     .header-fields label { font-size: 11px; color: var(--text-secondary); }
     .picker-results { max-height: 320px; overflow-y: auto; }
+    .quotation-import {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+    }
+    .quotation-import label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    .quotation-import-note { font-size: 12px; color: var(--text-secondary); margin-left: 4px; }
   </style>
 </head>
 <body data-page="project-detail">
@@ -38,6 +44,13 @@
           <button id="delete-doc-btn" class="danger-btn">Delete…</button>
         </div>
         <a id="back-link" href="#">&larr; Back to project</a>
+      </div>
+
+      <div class="quotation-import" id="quotation-import">
+        <label for="quotation-import-select">Import from Quotation</label>
+        <select id="quotation-import-select"></select>
+        <button id="import-quotation-btn">Import Items</button>
+        <span class="quotation-import-note" id="quotation-import-note"></span>
       </div>
 
       <div class="header-fields">

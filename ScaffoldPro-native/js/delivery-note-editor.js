@@ -84,7 +84,47 @@ function render() {
   if (document.activeElement !== notesBox) notesBox.value = d.notes || '';
   notesBox.disabled = isLocked;
 
+  document.getElementById('quotation-import').classList.toggle('hidden', isLocked);
   renderLineItems();
+}
+
+// "Import from Quotation": the project's quotations (not cancelled ones),
+// newest first, with the one this note was made from chosen to start with.
+let projectQuotations = [];
+
+async function loadQuotationChoices() {
+  const select = document.getElementById('quotation-import-select');
+  const button = document.getElementById('import-quotation-btn');
+  const note = document.getElementById('quotation-import-note');
+  const all = currentDetail.projectId ? await window.api.quotations.listForProject(currentDetail.projectId) : [];
+  projectQuotations = (all || []).filter((q) => q.status !== 'Cancelled')
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const escapeHTML = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  select.innerHTML = projectQuotations.map((q) => {
+    const subject = q.subject ? ` — ${q.subject.length > 60 ? `${q.subject.slice(0, 60)}…` : q.subject}` : '';
+    return `<option value="${escapeHTML(q.id)}">${escapeHTML(q.quotationNumber)}${escapeHTML(subject)} (${escapeHTML(q.status)})</option>`;
+  }).join('');
+  if (projectQuotations.some((q) => q.id === currentDetail.sourceQuotationId)) select.value = currentDetail.sourceQuotationId;
+  select.disabled = button.disabled = projectQuotations.length === 0;
+  if (projectQuotations.length === 0) {
+    select.innerHTML = '<option value="">No quotations in this project</option>';
+    note.textContent = '';
+  } else {
+    note.textContent = 'Copies the quotation’s materials (not delivery or other charges). Items already here get the quantity added.';
+  }
+}
+
+async function importFromQuotation() {
+  const quotationId = document.getElementById('quotation-import-select').value;
+  if (!quotationId) return;
+  let replaceExisting = false;
+  if (currentDetail.lineItems.length > 0) {
+    replaceExisting = confirm(
+      'This delivery note already has items.\n\nOK = replace them with the quotation\'s materials\nCancel = add the quotation\'s quantities to the existing items');
+  }
+  const result = await window.api.deliveryNotes.importQuotation(deliveryNoteId, quotationId, replaceExisting);
+  if (!result || !result.ok) { alert((result && result.error) || 'The quotation couldn’t be imported.'); return; }
+  await loadDetail();
 }
 
 function renderLineItems() {
@@ -210,6 +250,8 @@ async function init() {
 
   await loadDetail();
   if (!currentDetail) return;
+  await loadQuotationChoices();
+  document.getElementById('import-quotation-btn').addEventListener('click', importFromQuotation);
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
     if (!allowStatusChange(currentDetail.status, e.target.value, 'delivery note')) {
