@@ -1618,3 +1618,29 @@ under "Letterhead layout".
     總重量, 單位租價 / 總租價 or 售價.
   - A quotation stays an English letter; only its item names change.
   - The PDF and the Word copy both follow the choice.
+
+## Batch 67 — Delivery schedule for quotations
+
+- **Quotation › Delivery Schedule** (under the quotation) plans and records
+  how the quoted materials go to site.
+  - The quotation's materials are listed down the side (not delivery
+    charges or extra sections), with **Day 1, Day 2…** across ("+ Add Day").
+    Type in how many of each material go that day.
+  - Each day can have a **date**, be ticked **Delivered**, and have a note
+    (e.g. "Truck 1").
+  - "Fill the rest" puts everything not yet scheduled on that day.
+  - The totals show each day's pieces and weight (from the material list's
+    unit weights) and, per item, what's **scheduled** and what's **left**
+    (or how many over).
+  - Removing a day moves the later days up (Day 3 becomes Day 2).
+  - **Export CSV** saves the schedule in the project's Quotations folder
+    and opens it.
+  - It can be changed on issued quotations too. It's deleted with its
+    quotation.
+- It is **not connected to the stock list** (or to delivery notes) yet.
+- Data: `quotation_deliveries.json`, one record per day, synced like every
+  other store; `quotations:deliverySchedule`, `addDeliveryDay`,
+  `updateDeliveryDay`, `deleteDeliveryDay`.
+- `accounts.saveCSV` can now save into a project's subfolder or an
+  Administration folder; the employee list goes to Administration ›
+  Employees.

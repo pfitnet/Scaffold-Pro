@@ -69,6 +69,7 @@ async function loadDetail() {
   document.getElementById('quotation-body').classList.remove('hidden');
   render();
   window.docLanguage.show(currentDetail);
+  window.deliverySchedule.refresh(currentDetail);
 }
 
 function render() {
@@ -683,6 +684,7 @@ async function init() {
     document.getElementById('not-found').classList.remove('hidden');
     return;
   }
+  window.deliverySchedule.setup(quotationId);
   const settings = await window.api.settings.get();
   currencyLabel = settings.currency === 'HKD' ? 'HK$' : settings.currency;
 
