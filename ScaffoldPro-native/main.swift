@@ -980,6 +980,58 @@ struct QuotationLineItem: Codable {
     var blockId: String? = nil
 }
 
+/// A letter on the letterhead, written in the letter editor. The app prints
+/// its opening (recipient, references, date and "Re:" line) from the fields;
+/// the rest is the body as typed, with its formatting (`bodyHTML`).
+struct Letter: Codable {
+    var id: String
+    /// Built from Settings' letter number format (default L{YY}{SEQ}, e.g. L26001).
+    var letterNumber: String
+    var projectId: String?
+    var clientId: String?
+    /// "Draft", "Issued" or "Cancelled".
+    var status: String
+    /// ISO timestamp (the day shown on the letter).
+    var letterDate: String
+    var recipientName: String?
+    /// One line per line of the address.
+    var recipientAddress: String?
+    var attention: String?
+    var yourRef: String?
+    var subject: String?
+    var bodyHTML: String
+    var pdfPath: String?
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct LetterSummary: Codable {
+    var id: String
+    var letterNumber: String
+    var status: String
+    var letterDate: String
+    var subject: String?
+    var recipientName: String?
+    var projectId: String?
+    var projectNumber: String?
+    var projectName: String?
+    var updatedAt: String
+}
+
+struct LetterDetail: Codable {
+    var letter: Letter
+    var projectNumber: String?
+    var projectName: String?
+    /// The PDF's opening as it will print (for the editor's page).
+    var openingHTML: String
+}
+
+struct LetterActionResult: Codable {
+    var ok: Bool
+    var error: String?
+    var id: String?
+}
+
 /// One day of a quotation's delivery schedule: how many of each of the
 /// quotation's materials go to site that day (by quotation line id). Just a
 /// plan / record for now — not connected to the stock list.
@@ -1370,6 +1422,7 @@ struct CompanySettings: Codable {
     var numberFormatQuotation: String?
     var numberFormatInvoice: String?
     var numberFormatDeliveryNote: String?
+    var numberFormatLetter: String? = nil
     /// Default days until an invoice is due.
     var defaultInvoiceDueDays: Int?
     // ---- Standard quotation (from Qt26193) ----
@@ -1450,6 +1503,8 @@ let defaultNumberFormats: [String: String] = [
     "QT": "Qt{YY}{SEQ}",
     "INV": "H{YY}{SEQ}",
     "DN": "{PROJECT}-DN-{SEQ}",
+    // Letters: L26001, L26002… (like Qt26193 and H26001).
+    "LT": "L{YY}{SEQ}",
 ]
 
 /// Makes the next number for a template, looking at every existing
@@ -2285,6 +2340,7 @@ final class AppDatabase {
     let expensesStore: JSONStore<Expense>
     let liabilitiesStore: JSONStore<Liability>
     let quotationDeliveriesStore: JSONStore<QuotationDeliveryDay>
+    let lettersStore: JSONStore<Letter>
     let liabilityPaymentsStore: JSONStore<LiabilityPayment>
     let employeesStore: JSONStore<Employee>
 
@@ -2316,6 +2372,7 @@ final class AppDatabase {
         expensesStore = JSONStore(fileURL: dataDir.appendingPathComponent("expenses.json"))
         liabilitiesStore = JSONStore(fileURL: dataDir.appendingPathComponent("liabilities.json"))
         quotationDeliveriesStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_deliveries.json"))
+        lettersStore = JSONStore(fileURL: dataDir.appendingPathComponent("letters.json"))
         liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
     }
@@ -2485,6 +2542,10 @@ final class AppDatabase {
         }
         for d in documentRows() where matches(d.number, d.projectNumber, d.projectName, d.clientName) {
             results.append(SearchResult(kind: d.kind, title: d.number, subtitle: "\(d.projectNumber) — \(d.projectName) · \(d.status)", url: d.url))
+        }
+        for l in lettersStore.readAll() where matches(l.letterNumber, l.subject, l.recipientName) {
+            results.append(SearchResult(kind: "Letter", title: l.letterNumber, subtitle: [l.subject, l.recipientName, l.status].compactMap { nonBlank($0) }.joined(separator: " · "),
+                                        url: "letter-editor.html?id=\(l.id)"))
         }
         for w in workersStore.readAll() where matches(w.name, w.workerNumber, w.position, w.phone) {
             results.append(SearchResult(kind: "Worker", title: "\(w.workerNumber) \(w.name)", subtitle: w.position ?? "", url: "admin.html?worker=\(w.id)"))
@@ -4545,6 +4606,103 @@ final class AppDatabase {
         return nil
     }
 
+    // ---- Letters ----
+
+    func listLetters(projectId: String?) -> [LetterSummary] {
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return lettersStore.readAll()
+            .filter { projectId == nil || $0.projectId == projectId }
+            .sorted { ($0.letterDate, $0.createdAt) > ($1.letterDate, $1.createdAt) }
+            .map { l in
+                let p = l.projectId.flatMap { projects[$0] }
+                return LetterSummary(id: l.id, letterNumber: l.letterNumber, status: l.status, letterDate: l.letterDate, subject: l.subject,
+                                     recipientName: l.recipientName, projectId: l.projectId, projectNumber: p?.projectNumber,
+                                     projectName: p?.name, updatedAt: l.updatedAt)
+            }
+    }
+
+    func getLetter(id: String) -> Letter? { lettersStore.readAll().first { $0.id == id } }
+
+    func nextLetterNumber(projectNumber: String?) -> String {
+        nextDocumentNumber(template: numberFormat("LT"), projectNumber: projectNumber ?? "GEN",
+                           existing: lettersStore.readAll().map { $0.letterNumber },
+                           startAt: getCompanySettings().numberStarts?["LT"] ?? 1)
+    }
+
+    /// A new Draft letter, numbered, with the body started as a letter
+    /// ("Dear Sirs," … "Yours faithfully," and who signs, from Settings).
+    func createLetter(projectId: String?, clientId: String?, recipientName: String?, recipientAddress: String?, attention: String?) -> Letter {
+        let project = projectId.flatMap { getProject(id: $0) }
+        let settings = getCompanySettings()
+        let esc: (String) -> String = { $0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;") }
+        var body = "<p>Dear Sirs,</p><p><br></p><p>Should you have any questions, please do not hesitate to contact us.</p><p><br></p><p>Yours faithfully,</p>"
+        body += "<p>For and on behalf of<br><b>\(esc(settings.companyName))</b></p><p><br></p><p><br></p>"
+        let signer = [settings.signatoryName, settings.signatoryTitle].compactMap { nonBlank($0) }.map(esc)
+        if !signer.isEmpty { body += "<p>\(signer.joined(separator: "<br>"))</p>" }
+        let letter = Letter(id: makeId("letter"), letterNumber: nextLetterNumber(projectNumber: project?.projectNumber),
+                            projectId: project?.id, clientId: clientId ?? project?.clientId, status: "Draft", letterDate: nowISO(),
+                            recipientName: nonBlank(recipientName), recipientAddress: nonBlank(recipientAddress), attention: nonBlank(attention),
+                            yourRef: nil, subject: nil, bodyHTML: body, pdfPath: nil, createdAt: nowISO(), updatedAt: nowISO())
+        lettersStore.insert(letter)
+        logActivity(projectId: project?.id, "Letter created", reference: letter.letterNumber)
+        return letter
+    }
+
+    /// Changes a Draft letter's fields (those given) and/or its body.
+    func updateLetter(id: String, payload: [String: Any]) -> String? {
+        var all = lettersStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "Letter not found." }
+        guard all[i].status == "Draft" else { return "This letter is issued and can no longer be edited. Set it back to Draft first." }
+        if let day = payload["letterDate"] as? String {
+            guard let iso = isoFromDay(day) else { return "Enter a valid date." }
+            all[i].letterDate = iso
+        }
+        for key in ["recipientName", "recipientAddress", "attention", "yourRef", "subject"] where payload.keys.contains(key) {
+            let v = nonBlank(payload[key] as? String)
+            switch key {
+            case "recipientName": all[i].recipientName = v
+            case "recipientAddress": all[i].recipientAddress = v
+            case "attention": all[i].attention = v
+            case "yourRef": all[i].yourRef = v
+            default: all[i].subject = v
+            }
+        }
+        if payload.keys.contains("projectId") {
+            let pid = nonBlank(payload["projectId"] as? String)
+            if let pid = pid, getProject(id: pid) == nil { return "Project not found." }
+            all[i].projectId = pid
+        }
+        if payload.keys.contains("clientId") { all[i].clientId = nonBlank(payload["clientId"] as? String) }
+        if let html = payload["bodyHTML"] as? String { all[i].bodyHTML = html }
+        all[i].updatedAt = nowISO()
+        lettersStore.writeAll(all)
+        return nil
+    }
+
+    func updateLetterStatus(id: String, status: String) -> String? {
+        var all = lettersStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "Letter not found." }
+        guard ["Draft", "Issued", "Cancelled"].contains(status) else { return "Invalid status." }
+        if all[i].status == "Cancelled" && status != "Cancelled" { return "This letter is cancelled and can't be reopened." }
+        let changed = all[i].status != status
+        all[i].status = status
+        all[i].updatedAt = nowISO()
+        lettersStore.writeAll(all)
+        if changed { logActivity(projectId: all[i].projectId, "Letter \(status.lowercased())", reference: all[i].letterNumber) }
+        return nil
+    }
+
+    /// A Draft letter; an issued one only with `force` (the page asks twice).
+    func deleteLetter(id: String, force: Bool) -> String? {
+        var all = lettersStore.readAll()
+        guard let letter = all.first(where: { $0.id == id }) else { return "Letter not found." }
+        guard letter.status == "Draft" || force else { return "Only draft letters can be deleted." }
+        all.removeAll { $0.id == id }
+        lettersStore.writeAll(all)
+        logActivity(projectId: letter.projectId, "Letter deleted", reference: letter.letterNumber)
+        return nil
+    }
+
     /// Removes a day; the days after it move up (Day 3 becomes Day 2…).
     func deleteDeliveryDay(id: String) -> String? {
         var all = quotationDeliveriesStore.readAll()
@@ -5189,6 +5347,11 @@ final class AppDatabase {
             guard let i = all.firstIndex(where: { $0.quotationNumber == documentNumber }) else { return }
             all[i].pdfPath = path
             quotationsStore.writeAll(all)
+        case "Letter":
+            var all = lettersStore.readAll()
+            guard let i = all.firstIndex(where: { $0.letterNumber == documentNumber }) else { return }
+            all[i].pdfPath = path
+            lettersStore.writeAll(all)
         case "Invoice":
             var all = invoicesStore.readAll()
             guard let i = all.firstIndex(where: { $0.invoiceNumber == documentNumber }) else { return }
@@ -5262,6 +5425,7 @@ final class AppDatabase {
         if let v = format("numberFormatQuotation") { settings.numberFormatQuotation = v }
         if let v = format("numberFormatInvoice") { settings.numberFormatInvoice = v }
         if let v = format("numberFormatDeliveryNote") { settings.numberFormatDeliveryNote = v }
+        if let v = format("numberFormatLetter") { settings.numberFormatLetter = v }
         if let v = optionalText("signatoryName") { settings.signatoryName = v }
         if let v = optionalText("signatoryTitle") { settings.signatoryTitle = v }
         if let v = optionalText("termsURL") { settings.termsURL = v }
@@ -5317,6 +5481,7 @@ final class AppDatabase {
         case "BOQ": custom = s.numberFormatBOQ
         case "QT": custom = s.numberFormatQuotation
         case "INV": custom = s.numberFormatInvoice
+        case "LT": custom = s.numberFormatLetter
         default: custom = s.numberFormatDeliveryNote
         }
         return custom ?? defaultNumberFormats[type] ?? "{PROJECT}-\(type)-{SEQ}"
@@ -6068,8 +6233,8 @@ final class PDFGenerator {
 
     /// The letterhead and footer (without the page number, which Word adds
     /// as a field) as a transparent, page-sized PNG at 300 dpi.
-    static func letterheadPNG(paperSize: String) -> Data? {
-        guard let generator = PDFGenerator(bitmapPaperSize: paperSize, scale: 300.0 / 72.0) else { return nil }
+    static func letterheadPNG(paperSize: String, dpi: CGFloat = 300) -> Data? {
+        guard let generator = PDFGenerator(bitmapPaperSize: paperSize, scale: dpi / 72.0) else { return nil }
         generator.showPageNumber = false
         generator.drawLetterhead()
         generator.drawFooter()
@@ -6913,6 +7078,46 @@ final class PDFGenerator {
             receiptRows: doc.receiptRows.map { [$0.0, $0.1] },
             receiptNewPage: receiptNewPage
         )
+    }
+
+    /// A letter from the letter editor: formatted text (with any tables)
+    /// laid out over as many pages as it needs, each on the letterhead with
+    /// the footer and page number.
+    func generateRichText(_ text: NSAttributedString) -> Data {
+        let storage = NSTextStorage(attributedString: text)
+        let layout = NSLayoutManager()
+        storage.addLayoutManager(layout)
+        // Below the letterhead's lower rule; above the footer's.
+        let top: CGFloat = 100
+        var containers: [NSTextContainer] = []
+        repeat {
+            let container = NSTextContainer(size: NSSize(width: textWidth, height: contentBottom - top))
+            container.lineFragmentPadding = 0
+            layout.addTextContainer(container)
+            containers.append(container)
+            let range = layout.glyphRange(for: container)
+            if NSMaxRange(range) >= layout.numberOfGlyphs || (range.length == 0 && containers.count > 1) { break }
+        } while containers.count < 500
+        pageNumber = 0
+        for container in containers {
+            let range = layout.glyphRange(for: container)
+            if range.length == 0 && pageNumber > 0 { break }
+            beginPage()
+            NSGraphicsContext.saveGraphicsState()
+            context.saveGState()
+            // AppKit text drawing: origin at the page's top left, y down.
+            context.translateBy(x: 0, y: pageHeight)
+            context.scaleBy(x: 1, y: -1)
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+            let origin = NSPoint(x: textLeft, y: top)
+            layout.drawBackground(forGlyphRange: range, at: origin)
+            layout.drawGlyphs(forGlyphRange: range, at: origin)
+            context.restoreGState()
+            NSGraphicsContext.restoreGraphicsState()
+            endPage()
+        }
+        context.closePDF()
+        return mutableData as Data
     }
 
     private func layOut(_ doc: LetterDocument) -> Data {
@@ -9759,6 +9964,36 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
             }
+        case "letters:list":
+            respond(id: id, encodable: db.listLetters(projectId: nonBlank(payload["projectId"] as? String)))
+        case "letters:create":
+            handleCreateLetter(id: id, payload: payload)
+        case "letters:get":
+            if let letter = db.getLetter(id: (payload["id"] as? String) ?? "") {
+                let project = letter.projectId.flatMap { db.getProject(id: $0) }
+                respond(id: id, encodable: LetterDetail(letter: letter, projectNumber: project?.projectNumber, projectName: project?.name,
+                                                        openingHTML: letterOpeningHTML(letter)))
+            } else {
+                respondNull(id: id)
+            }
+        case "letters:update":
+            let error = db.updateLetter(id: (payload["id"] as? String) ?? "", payload: payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "letters:updateStatus":
+            let error = db.updateLetterStatus(id: (payload["id"] as? String) ?? "", status: (payload["status"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "letters:delete":
+            let error = db.deleteLetter(id: (payload["id"] as? String) ?? "", force: (payload["force"] as? Bool) ?? false)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "letters:exportPDF":
+            handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: .export)
+        case "letters:print":
+            handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: .print)
+        case "letters:letterhead":
+            // The letterhead and footer as a page-sized picture, for the editor's page.
+            struct LetterheadPicture: Encodable { var png: String?; var paperSize: String }
+            let paper = db.getCompanySettings().paperSize ?? "A4"
+            respond(id: id, encodable: LetterheadPicture(png: PDFGenerator.letterheadPNG(paperSize: paper, dpi: 144)?.base64EncodedString(), paperSize: paper))
         case "quotations:deliverySchedule":
             respond(id: id, encodable: db.deliverySchedule(quotationId: (payload["id"] as? String) ?? ""))
         case "quotations:addDeliveryDay":
@@ -11520,6 +11755,103 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Address / Site Reference / Project / Contact Person, the materials
     /// with their weights and the total weight, and lines for the person
     /// receiving them to fill in.
+    // ---- Letters ----
+
+    /// A new letter, addressed to the client given (or the project's client).
+    private func handleCreateLetter(id: String, payload: [String: Any]) {
+        let projectId = nonBlank(payload["projectId"] as? String)
+        let project = projectId.flatMap { db.getProject(id: $0) }
+        let clientId = nonBlank(payload["clientId"] as? String) ?? project?.clientId
+        var name: String? = nil, address: String? = nil, attention: String? = nil
+        if let client = clientId.flatMap({ db.getClient(id: $0) }) {
+            let block = clientBlock(client)
+            name = block.name
+            address = block.lines.joined(separator: "\n")
+            attention = client.contactPerson
+        }
+        let letter = db.createLetter(projectId: project?.id, clientId: clientId, recipientName: name, recipientAddress: address, attention: attention)
+        respond(id: id, encodable: LetterActionResult(ok: true, error: nil, id: letter.id))
+    }
+
+    private func htmlEscaped(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
+    /// The letter's opening, as printed: the recipient (bold name, address,
+    /// "Attn:") on the left; Our Ref., Your Ref. and the date on the right;
+    /// then the "Re:" line, bold and underlined.
+    private func letterOpeningHTML(_ letter: Letter) -> String {
+        var left = ""
+        if let name = nonBlank(letter.recipientName) { left += "<b>\(htmlEscaped(name))</b><br>" }
+        for line in (letter.recipientAddress ?? "").components(separatedBy: "\n") where nonBlank(line) != nil {
+            left += "\(htmlEscaped(line.trimmingCharacters(in: .whitespaces)))<br>"
+        }
+        if let attn = nonBlank(letter.attention) { left += "<br>Attn: \(htmlEscaped(attn))" }
+        var right = "Our Ref.: \(htmlEscaped(letter.letterNumber))<br>"
+        if let yours = nonBlank(letter.yourRef) { right += "Your Ref.: \(htmlEscaped(yours))<br>" }
+        right += "Date: \(htmlEscaped(letterDate(letter.letterDate)))"
+        var html = "<table class=\"opening\" style=\"width:100%;border-collapse:collapse\"><tr>" +
+            "<td style=\"width:62%;vertical-align:top;padding:0\">\(left)</td>" +
+            "<td style=\"vertical-align:top;padding:0\">\(right)</td></tr></table><p><br></p>"
+        if let subject = nonBlank(letter.subject) { html += "<p><b><u>Re: \(htmlEscaped(subject))</u></b></p><p><br></p>" }
+        return html
+    }
+
+    /// The whole letter as formatted text for the PDF. Sizes typed in the
+    /// editor are points; AppKit's HTML reader takes CSS px as points, so
+    /// "11pt" is passed as "11px".
+    private func letterAttributedText(_ letter: Letter) -> NSAttributedString? {
+        let css = """
+        body { font-family: 'EB Garamond', Georgia, serif; font-size: 11pt; }
+        p { margin: 0 0 3pt 0; }
+        h1 { font-size: 18pt; margin: 8pt 0 4pt 0; } h2 { font-size: 15pt; margin: 6pt 0 3pt 0; } h3 { font-size: 13pt; margin: 4pt 0 2pt 0; }
+        ul, ol { margin: 0 0 3pt 0; }
+        table.grid { border-collapse: collapse; }
+        table.grid td, table.grid th { border: 0.75pt solid #000; padding: 3pt 5pt; vertical-align: top; }
+        """
+        let raw = "<html><head><meta charset=\"utf-8\"><style>\(css)</style></head><body>\(letterOpeningHTML(letter))\(letter.bodyHTML)</body></html>"
+        let html = (try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)pt\b"#))
+            .map { $0.stringByReplacingMatches(in: raw, range: NSRange(raw.startIndex..., in: raw), withTemplate: "$1px") } ?? raw
+        guard let data = html.data(using: .utf8) else { return nil }
+        return try? NSAttributedString(data: data, options: [.documentType: NSAttributedString.DocumentType.html,
+                                                             .characterEncoding: String.Encoding.utf8.rawValue], documentAttributes: nil)
+    }
+
+    /// Saves the letter as a PDF (in its project's Letters folder, or
+    /// Administration › Letters) and opens it, or prints it.
+    private func handleExportLetter(id: String, letterId: String, mode: PDFMode) {
+        guard let letter = db.getLetter(id: letterId) else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Letter not found.", path: nil))
+            return
+        }
+        let paper = db.getCompanySettings().paperSize ?? "A4"
+        guard let generator = PDFGenerator(paperSize: paper), let text = letterAttributedText(letter) else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letter.", path: nil))
+            return
+        }
+        let data = generator.generateRichText(text)
+        let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
+        let project = letter.projectId.flatMap { db.getProject(id: $0) }
+        if project != nil || mode == .print {
+            deliverPDF(id: id, mode: mode, data: data, paperSize: size, projectNumber: project?.projectNumber ?? "",
+                       subfolder: "Letters", documentNumber: letter.letterNumber, docTypeTag: "Letter")
+            return
+        }
+        let safe = letter.letterNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let folder = storage.administrationCategoryFolder("Letters")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let destination = folder.appendingPathComponent("Letter_\(safe).pdf")
+            try data.write(to: destination, options: .atomic)
+            db.recordGeneratedPDF(docTypeTag: "Letter", documentNumber: letter.letterNumber, path: destination.path)
+            NSWorkspace.shared.open(destination)
+            respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
+        } catch {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved: \(error.localizedDescription)", path: nil))
+        }
+    }
+
     private func handleExportDeliveryNotePDF(id: String, deliveryNoteId: String, mode: PDFMode = .export) {
         guard let detail = db.getDeliveryNoteDetail(id: deliveryNoteId), let note = db.getDeliveryNote(id: deliveryNoteId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Delivery note not found.", path: nil))
@@ -13748,12 +14080,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         addSubmenu(main, "Edit", edit)
 
-        // Go — ⌘1…⌘9 for the sidebar sections, ⌘[ / ⌘] for back/forward.
+        // Go — ⌘1…⌘9 for the sidebar sections (Settings is ⌘,), ⌘[ / ⌘] for back/forward.
         let go = NSMenu(title: "Go")
         let sections: [(String, String)] = [("Dashboard", "index.html"), ("Material List", "price-lists.html"), ("Sites", "sites.html"),
-                                            ("Clients", "clients.html"), ("Projects", "projects.html"), ("Stock", "stock.html"),
-                                            ("Accounts", "accounts.html"), ("Admin", "admin.html"),
-                                            ("Settings", "settings.html")]
+                                            ("Clients", "clients.html"), ("Projects", "projects.html"), ("Letters", "letters.html"),
+                                            ("Stock", "stock.html"), ("Accounts", "accounts.html"), ("Admin", "admin.html")]
         for (index, entry) in sections.enumerated() {
             let i = item(entry.0, #selector(goToPage(_:)), "\(index + 1)", page: entry.1)
             i.target = self

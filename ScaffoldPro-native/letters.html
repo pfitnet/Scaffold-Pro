@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Letters — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="letters">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Letters</h1>
+    <div class="subtitle">Letters on the company letterhead, each with its own letter number — written with a Google Docs–style editor</div>
+
+    <div class="toolbar">
+      <input type="text" id="search-box" placeholder="Search by number, subject or recipient" />
+      <select id="project-filter"><option value="">All letters</option></select>
+      <span class="toolbar-spacer"></span>
+      <button class="primary" id="new-letter-btn">+ New Letter</button>
+    </div>
+
+    <div id="list-container"></div>
+  </main>
+
+  <div class="modal-backdrop hidden" id="new-letter-modal">
+    <div class="modal">
+      <h2>New Letter</h2>
+      <div class="field"><label for="nl-project">Project (optional)</label><select id="nl-project"></select></div>
+      <div class="field"><label for="nl-client">To (a client — optional; you can type the address in the letter)</label><select id="nl-client"></select></div>
+      <p class="small-note" id="nl-number-note"></p>
+      <div class="error-text hidden" id="nl-error"></div>
+      <div class="actions">
+        <button id="nl-cancel">Cancel</button>
+        <button class="primary" id="nl-create">Create Letter</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/letters.js"></script>
+</body>
+</html>
