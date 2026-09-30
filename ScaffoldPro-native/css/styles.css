@@ -749,3 +749,6 @@ input.ds-note { width: 120px; font-size: 12px; }
 .ds-done { color: var(--success); }
 table.ds tfoot td { font-weight: 600; }
 table.ds tr.ds-notes td { font-weight: normal; }
+
+/* "Created by … · Last worked on by …" under a document's title */
+.doc-authors { font-size: 12px; color: var(--text-secondary); margin: -6px 0 12px; }

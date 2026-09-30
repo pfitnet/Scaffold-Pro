@@ -76,6 +76,12 @@ struct DocRow: Codable {
     var url: String
     /// Quotations: monthly / one-time split (see ChargeSplit).
     var charges: ChargeSplit? = nil
+    /// Who made it and who last worked on it; `mine` when that was this
+    /// Mac's user.
+    var createdBy: String? = nil
+    var lastEditedBy: String? = nil
+    var lastEditedAt: String? = nil
+    var mine = true
 }
 
 struct PartyDetail: Codable {
@@ -101,6 +107,20 @@ struct DashboardSummary: Codable {
     /// first; "Invoiced" ones — already going ahead — first of all).
     var awaitingSignedCopy: [DocRow] = []
     var awaitingSignedCopyCount = 0
+    /// The Dashboard is personal: the projects this Mac's user worked on,
+    /// and the team's activity apart from theirs.
+    var myProjects: [MyProject] = []
+    var teamActivity: [ActivityRow] = []
+    var userName = ""
+}
+
+struct MyProject: Codable {
+    var id: String
+    var projectNumber: String
+    var name: String
+    var clientName: String?
+    var status: String
+    var lastWorkedAt: String
 }
 
 struct SearchResult: Codable {
@@ -593,8 +613,9 @@ struct ActivityEntry: Codable {
     var action: String
     var reference: String?
     var createdAt: String
-    /// Who did it, when several people share the data (TeamSync).
+    /// Who did it (this Mac's user), and on which Mac.
     var by: String? = nil
+    var device: String? = nil
 }
 
 /// What the History list and Dashboard show — the entry plus its
@@ -607,6 +628,8 @@ struct ActivityRow: Codable {
     var reference: String?
     var createdAt: String
     var by: String? = nil
+    /// Done by this Mac's user (or not known).
+    var mine = true
 }
 
 // ---- Backward-compatible decoding ----
@@ -1025,6 +1048,57 @@ struct LetterDetail: Codable {
     var projectName: String?
     /// The PDF's opening as it will print (for the editor's page).
     var openingHTML: String
+}
+
+/// Who made each project and document, and who last worked on it — kept
+/// in the records themselves (added as they're saved; see JSONStore), so
+/// every Mac sharing the data sees the same names.
+enum Authorship {
+    static let stores: Set<String> = ["projects.json", "boqs.json", "quotations.json", "invoices.json", "delivery_notes.json", "letters.json"]
+    static let keys = ["createdBy", "createdByDevice", "lastEditedBy", "lastEditedByDevice", "lastEditedAt"]
+
+    /// The records being saved, with the names carried over from the file
+    /// (the app's own record types don't keep them) and this Mac's user as
+    /// the last to work on each record that changed (and the maker of any
+    /// new one).
+    static func stamp(_ new: Data, previous: Data?) -> Data {
+        guard let list = (try? JSONSerialization.jsonObject(with: new)) as? [[String: Any]] else { return new }
+        var before: [String: [String: Any]] = [:]
+        if let old = previous.flatMap({ (try? JSONSerialization.jsonObject(with: $0)) as? [[String: Any]] }) {
+            for r in old { if let id = r["id"] as? String { before[id] = r } }
+        }
+        func canonical(_ r: [String: Any]) -> Data? {
+            var c = r
+            for k in keys { c.removeValue(forKey: k) }
+            return try? JSONSerialization.data(withJSONObject: c, options: [.sortedKeys])
+        }
+        let me = TeamSync.memberName, device = TeamSync.deviceId, now = nowISO()
+        let out: [[String: Any]] = list.map { record in
+            var r = record
+            guard let id = r["id"] as? String else { return r }
+            if let old = before[id] {
+                for k in keys where r[k] == nil { if let v = old[k] { r[k] = v } }
+                guard canonical(record) != canonical(old) else { return r }
+            } else {
+                r["createdBy"] = me
+                r["createdByDevice"] = device
+            }
+            r["lastEditedBy"] = me
+            r["lastEditedByDevice"] = device
+            r["lastEditedAt"] = now
+            return r
+        }
+        return (try? JSONSerialization.data(withJSONObject: out, options: [.withoutEscapingSlashes])) ?? new
+    }
+}
+
+/// Who made a document and who last worked on it; `mine` when that was
+/// this Mac's user (or it isn't known).
+struct DocAuthors: Codable {
+    var createdBy: String?
+    var lastEditedBy: String?
+    var lastEditedAt: String?
+    var mine: Bool
 }
 
 /// A letter's opening for the PDF (drawn as on the quotations).
@@ -2085,7 +2159,7 @@ final class JSONStore<T: Codable> {
     }
 
     func writeAll(_ items: [T]) {
-        guard let data = try? JSONEncoder().encode(items) else { return }
+        guard var data = try? JSONEncoder().encode(items) else { return }
         try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         // Sharing a folder with other Macs: what changed goes into this
         // Mac's log there too (TeamSync).
@@ -2095,7 +2169,10 @@ final class JSONStore<T: Codable> {
         let team = [TeamSync.current, TeamSync.material].compactMap { $0 }.first {
             $0.localData.standardizedFileURL == folder && $0.handles(fileURL.lastPathComponent)
         }
-        let previous: Data? = team == nil ? nil : (try? Data(contentsOf: fileURL))
+        let stamped = Authorship.stores.contains(fileURL.lastPathComponent)
+        let previous: Data? = team == nil && !stamped ? nil : (try? Data(contentsOf: fileURL))
+        // Projects and documents: who made each one, and who last worked on it.
+        if stamped { data = Authorship.stamp(data, previous: previous) }
         // Atomic: written to a temporary file and swapped in, so a crash
         // or power cut mid-save can never leave a half-written database
         // file behind (section 48).
@@ -2398,7 +2475,7 @@ final class AppDatabase {
 
     /// Every BOQ, quotation, invoice and delivery note — optionally only
     /// for a set of projects — as display rows with totals worked out.
-    func documentRows(projectIds: Set<String>? = nil) -> [DocRow] {
+    func documentRows(projectIds: Set<String>? = nil, withAuthors: Bool = true) -> [DocRow] {
         let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
         let today = todayYMD()
@@ -2440,7 +2517,108 @@ final class AppDatabase {
                                projectName: p.name, clientName: clients[p.clientId], date: dn.deliveryDate, updatedAt: dn.updatedAt,
                                amount: nil, balance: nil, dueDate: nil, isOverdue: false, url: "delivery-note-editor.html?id=\(dn.id)"))
         }
+        // Who made each one and who last worked on it (not needed for search).
+        guard withAuthors else { return rows }
+        let files = ["BOQ": "boqs.json", "Quotation": "quotations.json", "Invoice": "invoices.json", "Delivery Note": "delivery_notes.json"]
+        var indexes: [String: [String: DocAuthors]] = [:]
+        let history = activityAuthors()
+        for i in rows.indices {
+            guard let file = files[rows[i].kind] else { continue }
+            if indexes[file] == nil { indexes[file] = authorsIndex(file, history: history) }
+            let a = indexes[file]?[rows[i].id] ?? authors(nil, number: rows[i].number, history: history)
+            rows[i].createdBy = a.createdBy
+            rows[i].lastEditedBy = a.lastEditedBy
+            rows[i].lastEditedAt = a.lastEditedAt
+            rows[i].mine = a.mine
+        }
         return rows
+    }
+
+    // ---- Who made / last worked on what ----
+
+    /// This Mac's user: by the Mac (when recorded), else by name. Records
+    /// from before names were kept count as everyone's.
+    func isMine(device: String?, name: String?) -> Bool {
+        if let d = device { return d == TeamSync.deviceId }
+        if let n = nonBlank(name) { return n == TeamSync.memberName }
+        return true
+    }
+
+    /// From the History (older documents, saved before names were kept):
+    /// document number → who first and who last did something with it.
+    func activityAuthors() -> [String: (first: String?, last: String?, lastDevice: String?, lastAt: String)] {
+        var out: [String: (first: String?, last: String?, lastDevice: String?, lastAt: String)] = [:]
+        for e in activityStore.readAll().sorted(by: { $0.createdAt < $1.createdAt }) {
+            guard let ref = nonBlank(e.reference), nonBlank(e.by) != nil else { continue }
+            let first = out[ref]?.first ?? e.by
+            out[ref] = (first, e.by, e.device, e.createdAt)
+        }
+        return out
+    }
+
+    /// The names kept in a store's records (by record id).
+    func authorsIndex(_ file: String, history: [String: (first: String?, last: String?, lastDevice: String?, lastAt: String)]) -> [String: DocAuthors] {
+        guard let data = try? Data(contentsOf: dataDir.appendingPathComponent(file)),
+              let list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return [:] }
+        let numberKey = ["boqs.json": "boqNumber", "quotations.json": "quotationNumber", "invoices.json": "invoiceNumber",
+                         "delivery_notes.json": "deliveryNoteNumber", "letters.json": "letterNumber", "projects.json": "projectNumber"][file] ?? "number"
+        var out: [String: DocAuthors] = [:]
+        for r in list {
+            guard let id = r["id"] as? String else { continue }
+            out[id] = authors(r, number: r[numberKey] as? String, history: history)
+        }
+        return out
+    }
+
+    func authors(_ record: [String: Any]?, number: String?, history: [String: (first: String?, last: String?, lastDevice: String?, lastAt: String)]) -> DocAuthors {
+        let fromHistory = number.flatMap { history[$0] }
+        let created = nonBlank(record?["createdBy"] as? String) ?? fromHistory?.first
+        if let last = nonBlank(record?["lastEditedBy"] as? String) {
+            return DocAuthors(createdBy: created, lastEditedBy: last, lastEditedAt: record?["lastEditedAt"] as? String,
+                              mine: isMine(device: record?["lastEditedByDevice"] as? String, name: last))
+        }
+        if let h = fromHistory {
+            return DocAuthors(createdBy: created, lastEditedBy: h.last, lastEditedAt: h.lastAt, mine: isMine(device: h.lastDevice, name: h.last))
+        }
+        return DocAuthors(createdBy: created, lastEditedBy: nil, lastEditedAt: nil, mine: true)
+    }
+
+    /// One document's (or project's) names, for its page.
+    func documentAuthors(kind: String, id rawId: String, number: String? = nil) -> DocAuthors {
+        // A project can be asked for by its code.
+        let id = kind == "project" && rawId.isEmpty ? (number.flatMap { getProjectByNumber($0)?.id } ?? "") : rawId
+        let file = ["boq": "boqs.json", "quotation": "quotations.json", "invoice": "invoices.json", "deliveryNote": "delivery_notes.json",
+                    "letter": "letters.json", "project": "projects.json"][kind] ?? ""
+        let history = activityAuthors()
+        return authorsIndex(file, history: history)[id] ?? DocAuthors(createdBy: nil, lastEditedBy: nil, lastEditedAt: nil, mine: true)
+    }
+
+    /// The projects this Mac's user has worked on, most recent first: made
+    /// or last changed by them, or with a document or History entry of theirs.
+    func myRecentProjects(rows: [DocRow], limit: Int) -> [MyProject] {
+        let projects = projectsStore.readAll()
+        let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
+        let history = activityAuthors()
+        let projectAuthors = authorsIndex("projects.json", history: history)
+        var touched: [String: String] = [:]   // project number → latest time
+        func touch(_ number: String?, _ at: String?) {
+            guard let n = number, let at = at else { return }
+            if (touched[n] ?? "") < at { touched[n] = at }
+        }
+        for p in projects {
+            if let a = projectAuthors[p.id], a.mine, a.lastEditedBy != nil { touch(p.projectNumber, a.lastEditedAt) }
+        }
+        for r in rows where r.mine && r.lastEditedBy != nil { touch(r.projectNumber, r.lastEditedAt ?? r.updatedAt) }
+        let byId = Dictionary(projects.map { ($0.id, $0.projectNumber) }, uniquingKeysWith: { a, _ in a })
+        for e in activityStore.readAll() where e.by != nil && isMine(device: e.device, name: e.by) {
+            touch(e.projectId.flatMap { byId[$0] }, e.createdAt)
+        }
+        return projects.compactMap { p -> MyProject? in
+            guard let at = touched[p.projectNumber] else { return nil }
+            return MyProject(id: p.id, projectNumber: p.projectNumber, name: p.name, clientName: clients[p.clientId], status: p.status, lastWorkedAt: at)
+        }
+        .sorted { ($0.status == "Active" ? 0 : 1, $1.lastWorkedAt) < ($1.status == "Active" ? 0 : 1, $0.lastWorkedAt) }
+        .prefix(limit).map { $0 }
     }
 
     /// Projects and documents for a client (section 10) or site (section 9).
@@ -2483,13 +2661,19 @@ final class AppDatabase {
             unpaidTotal: doubleOf(unpaidTotal),
             overdueCount: overdue.count,
             overdueTotal: doubleOf(overdueTotal),
-            recentDeliveryNotes: Array(rows.filter { $0.kind == "Delivery Note" }.sorted { $0.date > $1.date }.prefix(5)),
-            recentDocuments: Array(rows.sorted { $0.updatedAt > $1.updatedAt }.prefix(8)),
-            recentActivity: listActivity(projectId: nil, limit: 10)
+            // Mine: the ones this Mac's user last worked on (the others are
+            // in the team's activity).
+            recentDeliveryNotes: Array(rows.filter { $0.kind == "Delivery Note" && $0.mine }
+                .sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(5)),
+            recentDocuments: Array(rows.filter { $0.mine }.sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(8)),
+            recentActivity: Array(listActivity(projectId: nil, limit: 200).filter { $0.mine }.prefix(10))
         )
+        summary.teamActivity = Array(listActivity(projectId: nil, limit: 200).filter { !$0.mine }.prefix(10))
+        summary.myProjects = myRecentProjects(rows: rows, limit: 6)
+        summary.userName = TeamSync.memberName
         let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let unsigned = rows.filter { r in
-            guard r.kind == "Quotation", r.status == "Issued", let q = quotations[r.id] else { return false }
+            guard r.kind == "Quotation", r.status == "Issued", r.mine, let q = quotations[r.id] else { return false }
             return q.signedCopyNotNeeded != true && !(q.signedCopyPath.map { fileIsPresent($0) } ?? false)
         }.map { r -> DocRow in
             var row = r
@@ -2550,7 +2734,7 @@ final class AppDatabase {
         for st in sites where !st.isArchived && matches(st.name, st.address, st.city, st.siteReference, st.contactPerson) {
             results.append(SearchResult(kind: "Site", title: st.name, subtitle: [st.address, st.city].compactMap { $0 }.joined(separator: ", "), url: "sites.html?id=\(st.id)"))
         }
-        for d in documentRows() where matches(d.number, d.projectNumber, d.projectName, d.clientName) {
+        for d in documentRows(withAuthors: false) where matches(d.number, d.projectNumber, d.projectName, d.clientName) {
             results.append(SearchResult(kind: d.kind, title: d.number, subtitle: "\(d.projectNumber) — \(d.projectName) · \(d.status)", url: d.url))
         }
         for l in lettersStore.readAll() where matches(l.letterNumber, l.subject, l.recipientName) {
@@ -2588,7 +2772,7 @@ final class AppDatabase {
 
     func logActivity(projectId: String?, _ action: String, reference: String? = nil) {
         activityStore.insert(ActivityEntry(id: makeId("act"), projectId: projectId, action: action, reference: reference, createdAt: nowISO(),
-                                           by: TeamSync.current == nil ? nil : TeamSync.memberName))
+                                           by: TeamSync.memberName, device: TeamSync.deviceId))
     }
 
     func listActivity(projectId: String?, limit: Int) -> [ActivityRow] {
@@ -2599,7 +2783,8 @@ final class AppDatabase {
             .prefix(limit)
             .map { e in
                 let p = projects.first { $0.id == e.projectId }
-                return ActivityRow(id: e.id, projectNumber: p?.projectNumber, projectName: p?.name, action: e.action, reference: e.reference, createdAt: e.createdAt, by: e.by)
+                return ActivityRow(id: e.id, projectNumber: p?.projectNumber, projectName: p?.name, action: e.action, reference: e.reference, createdAt: e.createdAt, by: e.by,
+                                   mine: isMine(device: e.device, name: e.by))
             }
     }
 
@@ -10035,6 +10220,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
             }
+        case "documents:authors":
+            respond(id: id, encodable: db.documentAuthors(kind: (payload["kind"] as? String) ?? "", id: (payload["id"] as? String) ?? "",
+                                                          number: payload["number"] as? String))
         case "letters:list":
             respond(id: id, encodable: db.listLetters(projectId: nonBlank(payload["projectId"] as? String)))
         case "letters:create":
