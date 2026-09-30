@@ -74,6 +74,8 @@
         projectNumber: options.projectNumber, target: 'drawing',
         options: () => ({ linkedKind: options.kind, linkedId: options.id }),
         done: refresh,
+        hint: 'Drop drawings here',
+        hintSub: 'PDF, DWG, DXF or images — dragged from Finder. They’re linked to this ' + (options.kind === 'BOQ' ? 'BOQ' : 'quotation') + '.',
       });
     }
 

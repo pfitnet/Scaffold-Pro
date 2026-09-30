@@ -694,11 +694,15 @@ async function init() {
       return { linkedKind: linkedKind, linkedId: linkedId };
     },
     done: async () => { await refreshDrawingList(); await refreshHistory(); },
+    hint: 'Drop drawings here',
+    hintSub: 'PDF, DWG, DXF or images, dragged from Finder. They’re linked to the BOQ or quotation chosen above.',
   });
   window.fileDrop(document.getElementById('documents-drop'), {
     projectNumber: project.projectNumber, target: 'document',
     options: () => ({ category: document.getElementById('document-category-select').value }),
     done: async () => { await refreshDocumentList(); await refreshHistory(); },
+    hint: 'Drop documents here',
+    hintSub: 'Any files, dragged from Finder. They go under the category chosen above.',
   });
 
   document.getElementById('upload-document-btn').addEventListener('click', async () => {

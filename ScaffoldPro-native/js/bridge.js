@@ -73,6 +73,8 @@
       duplicateItem: (id) => callNative('priceListItems:duplicate', { id: id }),
       // One category's item ids in their new order (dragged in the Material List).
       reorderItems: (ids) => callNative('priceListItems:reorder', { ids: ids }),
+      // Pinned items come first when picking items for a document.
+      setPinned: (id, pinned) => callNative('priceListItems:setPinned', { id: id, pinned: !!pinned }),
       importPreview: (sourceKey) => callNative('priceLists:importPreview', { sourceKey: sourceKey }),
       importApply: (token) => callNative('priceLists:importApply', { token: token }),
       exportCSV: (sourceKey) => callNative('priceLists:exportCSV', { sourceKey: sourceKey }),
