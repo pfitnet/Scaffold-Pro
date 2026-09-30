@@ -219,6 +219,10 @@
       exportWord: (id) => callNative('invoices:exportWord', { id: id }),
       print: (id) => callNative('invoices:print', { id: id }),
     },
+    // Who made a project or document and who last worked on it → { createdBy, lastEditedBy, lastEditedAt, mine }.
+    authors: {
+      get: (kind, id, number) => callNative('documents:authors', { kind: kind, id: id || '', number: number || null }),
+    },
     // Letters on the letterhead (the letter editor).
     letters: {
       list: (projectId) => callNative('letters:list', { projectId: projectId || null }),

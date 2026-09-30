@@ -150,34 +150,37 @@ async function loadDashboard() {
 
   renderAwaitingQuotations(summary);
 
-  const recentProjects = projects
-    .slice()
-    .sort((a, b) => (a.status === 'Active' ? 0 : 1) - (b.status === 'Active' ? 0 : 1) || b.projectNumber.localeCompare(a.projectNumber))
-    .slice(0, 6)
-    .map((p) => Object.assign({ url: `project-detail.html?number=${p.projectNumber}` }, p));
+  // The projects I've worked on (made, changed, or worked on their documents), most recent first.
+  const recentProjects = (summary.myProjects || [])
+    .map((p) => Object.assign({ url: `project-detail.html?number=${encodeURIComponent(p.projectNumber)}` }, p));
   table('recent-projects', recentProjects, [
     { value: (p) => `<strong>${esc(p.projectNumber)}</strong><div class="sub">${esc(p.name)}</div>` },
-    { value: (p) => `<span class="muted">${esc(p.clientName || '—')}</span>` },
+    { value: (p) => `<span class="muted">${esc(p.clientName || '—')}</span><div class="sub">${when(p.lastWorkedAt)}</div>` },
     { value: (p) => `<span class="status-pill">${esc(p.status)}</span>` },
-  ], 'No projects yet — press New Project to start.');
+  ], projects.length ? 'None yet — projects you work on show here.' : 'No projects yet — press New Project to start.');
 
   table('recent-docs', summary.recentDocuments, [
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.kind)} · ${esc(r.projectNumber)}</div>` },
     { value: (r) => `<span class="status-pill ${r.isOverdue ? 'pill-danger' : ''}">${esc(r.status)}</span>` },
-    { cls: 'muted num', value: (r) => when(r.updatedAt) },
-  ], 'No documents yet.');
+    { cls: 'muted num', value: (r) => when(r.lastEditedAt || r.updatedAt) },
+  ], 'None yet — documents you work on show here.');
 
   table('delivery-list', summary.recentDeliveryNotes, [
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectName)}</div>` },
     { value: (r) => `<span class="status-pill">${esc(r.status)}</span>` },
     { cls: 'muted num', value: (r) => day(r.date) },
-  ], 'No delivery notes yet.');
+  ], 'None yet — delivery notes you work on show here.');
 
-  const activity = summary.recentActivity.map((a) => Object.assign({ url: a.projectNumber ? `project-detail.html?number=${a.projectNumber}&tab=history` : 'index.html' }, a));
-  table('activity-list', activity, [
-    { value: (a) => `${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference, a.by].filter(Boolean).join(' · '))}</div>` },
+  const activityRows = (list) => list.map((a) => Object.assign({ url: a.projectNumber ? `project-detail.html?number=${a.projectNumber}&tab=history` : 'index.html' }, a));
+  table('activity-list', activityRows(summary.recentActivity), [
+    { value: (a) => `${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference].filter(Boolean).join(' · '))}</div>` },
     { cls: 'muted num', value: (a) => when(a.createdAt) },
-  ], 'Nothing recorded yet.');
+  ], 'Nothing yet.');
+  // Everyone else's, with who did it.
+  table('team-activity-list', activityRows(summary.teamActivity || []), [
+    { value: (a) => `<strong>${esc(a.by || 'Someone')}</strong> · ${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference].filter(Boolean).join(' · '))}</div>` },
+    { cls: 'muted num', value: (a) => when(a.createdAt) },
+  ], 'Nothing from the rest of the team yet.');
 
   // Expired / expiring worker and company documents (sections 42-43).
   const expiring = await window.api.adminDocuments.expiring(30);

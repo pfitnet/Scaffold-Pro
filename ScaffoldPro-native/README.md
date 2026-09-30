@@ -1720,3 +1720,28 @@ under "Letterhead layout".
   with "this SDK is not supported by the compiler", so there's no need to
   set SDKROOT by hand. If none works, it says to update the Command Line
   Tools. The in-app updater runs `install.sh`, so it gets this too.
+
+## Batch 70 — Who made it, who last worked on it, and a personal Dashboard
+
+- **Every project and document now records who made it and who last
+  worked on it:** BOQs, quotations, invoices, delivery notes and letters.
+  - The names are added as records are saved (`Authorship.stamp` in
+    `JSONStore.writeAll`): the user's name (Settings › Sharing) and their
+    Mac.
+  - They're kept in the records themselves, so they travel with the shared
+    data and every Mac sees the same names. Records saved before this take
+    their names from the History.
+- Each editor and project page shows it under the title, e.g. "Created by
+  William · Last worked on by Harry, 2 hours ago"
+  (`js/doc-authors.js`, `documents:authors`).
+- History entries now always record who did it (and on which Mac), not
+  only while sharing a folder. Your own entries now show your name too.
+- **The Dashboard is personal:**
+  - **My Active & Recent Projects** lists the projects you made, changed,
+    or worked on documents in, most recent first.
+  - **My Quotations Awaiting Reply**, **My Recently Changed Documents** and
+    **My Recent Delivery Notes** list the ones you last worked on. If
+    William last worked on DN26001, it isn't here; it's in his activity.
+  - **My Recent Activity** shows your own History entries. The new
+    **Recent Team Activity** shows everyone else's, with their names.
+  - Unpaid invoices and the totals are still company-wide.
