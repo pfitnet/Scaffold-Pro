@@ -25,6 +25,8 @@
     select: svg('<rect x="3" y="3" width="14" height="14" rx="3"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>'),
     // A tray with an arrow going in: add a file.
     upload: svg('<path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 12.5V3.5"/><path d="M6.5 7 10 3.5 13.5 7"/>'),
+    // A tray with an arrow coming down into it: import (e.g. a BOQ's items).
+    import: svg('<path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 3.5v9"/><path d="M6.5 9 10 12.5 13.5 9"/>'),
     // A crossed circle: not needed / take off the list.
     dismiss: svg('<circle cx="10" cy="10" r="6.5"/><path d="m7.5 7.5 5 5M12.5 7.5l-5 5"/>'),
   };

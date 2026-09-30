@@ -2,13 +2,13 @@
 
 // Section 25: issued documents are protected. Cancelled is final, and
 // reopening an issued document for editing asks first.
-function allowStatusChange(from, to, label) {
+async function allowStatusChange(from, to, label) {
   if (from === 'Cancelled' && to !== 'Cancelled') return false;
   if (from !== 'Draft' && to === 'Draft') {
-    return confirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
+    return await appConfirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
   }
   if (to === 'Cancelled' && from !== 'Cancelled') {
-    return confirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
+    return await appConfirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
   }
   return true;
 }
@@ -93,9 +93,20 @@ function render() {
 
   document.getElementById('boq-reference-select').disabled = isLocked;
   document.getElementById('import-boq-btn').disabled = isLocked;
-  document.getElementById('boq-reference-note').textContent = d.sourceBOQNumber
-    ? `Currently referencing ${d.sourceBOQNumber}`
-    : 'Not linked to a BOQ';
+  // Linked: kept the same as the BOQ, both ways, until the link is removed.
+  const note = document.getElementById('boq-reference-note');
+  note.classList.toggle('linked', !!d.boqLinked);
+  note.textContent = d.boqLinked
+    ? `Linked to ${d.sourceBOQNumber} — a change to either is made to the other${d.sourceBOQStatus && d.sourceBOQStatus !== 'Draft' ? ` (while both are Drafts; ${d.sourceBOQNumber} is ${d.sourceBOQStatus.toLowerCase()})` : ''}${isLocked ? ' (while this quotation is a Draft)' : ''}`
+    : d.sourceBOQNumber ? `Items from ${d.sourceBOQNumber} — not linked` : 'Not linked to a BOQ';
+  document.getElementById('unlink-boq-btn').classList.toggle('hidden', !d.boqLinked);
+  // Linked: it follows that BOQ only — no importing from another one
+  // (remove the link first).
+  const toggle = document.getElementById('boq-import-toggle');
+  toggle.classList.toggle('hidden', !!d.boqLinked);
+  toggle.disabled = isLocked;
+  if (d.boqLinked || isLocked) setImportOpen(false);
+  document.getElementById('link-boq-btn').disabled = isLocked;
 
   const docDateInput = document.getElementById('doc-date-input');
   if (document.activeElement !== docDateInput) docDateInput.value = localDay(d.quotationDate);
@@ -410,9 +421,9 @@ function renderBlocks() {
     const note = q('.block-note');
     note.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { note: note.value })));
     const remove = q('.block-remove');
-    if (remove) remove.addEventListener('click', () => {
+    if (remove) remove.addEventListener('click', async () => {
       const what = block.kind === 'Note' ? 'this note' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;
-      if (confirm(`Remove ${what}?`)) blockCall(window.api.quotations.removeBlock(block.id));
+      if (await appConfirm(`Remove ${what}?`)) blockCall(window.api.quotations.removeBlock(block.id));
     });
     for (const tr of card.querySelectorAll('tr[data-id]')) {
       const lineId = tr.dataset.id;
@@ -641,13 +652,43 @@ async function populateBOQReference() {
   }
 }
 
+// The BOQ import controls, behind the import button until wanted.
+function setImportOpen(open) {
+  document.getElementById('boq-import-controls').classList.toggle('hidden', !open);
+  document.getElementById('boq-import-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+// Links this quotation to the chosen BOQ: its items become the BOQ's, and
+// from then on a change to either is made to the other.
+async function linkToBOQ() {
+  const select = document.getElementById('boq-reference-select');
+  const boqId = select.value;
+  if (!boqId) return;
+  const boqNumber = (select.selectedOptions[0] && select.selectedOptions[0].textContent.split(' · ')[0]) || 'the BOQ';
+  if (!await appConfirm(`Link this quotation to ${boqNumber}?\n\nIts items become ${boqNumber}'s (items that aren't on the BOQ come off; delivery charges and extra sections stay). From then on, a change to either one is made to the other — until you remove the link.`)) return;
+  const r = await window.api.quotations.linkBOQ(quotationId, boqId);
+  if (r && r.ok === false) { alert(r.error); return; }
+  await loadDetail();
+}
+
+async function unlinkBOQ() {
+  const d = currentDetail;
+  if (!await appConfirm(`Remove the link to ${d.sourceBOQNumber}?\n\nBoth stay as they are now; after this, changing one no longer changes the other.`)) return;
+  const r = await window.api.quotations.unlinkBOQ(quotationId);
+  if (r && r.ok === false) { alert(r.error); return; }
+  await loadDetail();
+}
+
 async function importFromBOQ() {
   const boqId = document.getElementById('boq-reference-select').value;
   if (!boqId) return;
-  let replaceExisting = false;
+  // Into an empty quotation: its items are the BOQ's, linked.
+  let replaceExisting = currentDetail.lineItems.length === 0;
   if (currentDetail.lineItems.length > 0) {
-    replaceExisting = confirm(
-      'This quotation already has items.\n\nOK = replace them with the BOQ\'s items\nCancel = add the BOQ\'s items below the existing ones');
+    const pick = await window.appChoose('This quotation already has items.\n\nReplace them with the BOQ’s items (and link the two, so a change to either is made to the other), or add the BOQ’s items below them (not linked)?', [
+      { label: 'Add Below', value: 'add' }, { label: 'Replace & Link', value: 'replace', primary: true }]);
+    if (!pick) return;
+    replaceExisting = pick === 'replace';
   }
   const result = await window.api.quotations.importFromBOQ(quotationId, boqId, replaceExisting);
   if (!result.ok) { alert(result.error); return; }
@@ -669,11 +710,11 @@ async function init() {
   const keyTermsInput = document.getElementById('key-terms-input');
   window.attachParagraphFormatting(keyTermsInput, { fallback: () => (currentDetail ? currentDetail.standardKeyTerms : '') });
   keyTermsInput.addEventListener('change', () => saveLetterField('keyTerms', keyTermsInput.value));
-  document.getElementById('key-terms-standard-btn').addEventListener('click', () => {
+  document.getElementById('key-terms-standard-btn').addEventListener('click', async () => {
     const standard = currentDetail.standardKeyTerms || '';
     const current = keyTermsInput.value.trim();
     if (current && current !== standard.trim() &&
-        !confirm('Replace this quotation\'s key terms with the standard key terms from Settings?')) return;
+        !await appConfirm('Replace this quotation\'s key terms with the standard key terms from Settings?')) return;
     keyTermsInput.value = standard;
     window.refreshParagraphPreview(keyTermsInput);
     keyTermsInput.focus();
@@ -694,7 +735,7 @@ async function init() {
   window.setupLinkedDrawings({ kind: 'Quotation', id: quotationId, projectNumber: currentDetail.projectNumber });
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
-    if (!allowStatusChange(currentDetail.status, e.target.value, 'quotation')) {
+    if (!await allowStatusChange(currentDetail.status, e.target.value, 'quotation')) {
       e.target.value = currentDetail.status;
       return;
     }
@@ -770,12 +811,17 @@ async function init() {
 
   await populateBOQReference();
   document.getElementById('import-boq-btn').addEventListener('click', importFromBOQ);
+  document.getElementById('link-boq-btn').addEventListener('click', linkToBOQ);
+  document.getElementById('boq-import-toggle').addEventListener('click', () => {
+    setImportOpen(document.getElementById('boq-import-controls').classList.contains('hidden'));
+  });
+  document.getElementById('unlink-boq-btn').addEventListener('click', unlinkBOQ);
 
   // Switching Sale ↔ Rental re-prices the items already on the quotation.
   document.getElementById('pricing-mode-select').addEventListener('change', async (e) => {
     const to = e.target.value;
     const fromList = currentDetail.lineItems.some((i) => i.priceListItemId);
-    if (fromList && !confirm(`Change this quotation to ${to} pricing?\n\nEvery item from the material list will be re-priced at its ${to.toLowerCase()} price. Prices you typed in by hand are kept.`)) {
+    if (fromList && !await appConfirm(`Change this quotation to ${to} pricing?\n\nEvery item from the material list will be re-priced at its ${to.toLowerCase()} price. Prices you typed in by hand are kept.`)) {
       e.target.value = currentDetail.pricingMode;
       return;
     }

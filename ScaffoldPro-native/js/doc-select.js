@@ -118,7 +118,7 @@
         const list = chosen();
         if (list.length < 2) return;
         const names = opts.numberOf ? list.map(opts.numberOf).join(', ') : `${list.length} ${plural}`;
-        if (!confirm(`${opts.combine.label}?\n\nA new draft is made from ${names}, with each item's quantities added together. They stay as they are.`)) return;
+        if (!await appConfirm(`${opts.combine.label}?\n\nA new draft is made from ${names}, with each item's quantities added together. They stay as they are.`)) return;
         const r = await opts.combine.run(list);
         if (!r || !r.ok) { alert((r && r.error) || 'They couldn’t be combined.'); return; }
         setSelecting(false);

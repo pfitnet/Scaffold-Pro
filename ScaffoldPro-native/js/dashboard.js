@@ -134,6 +134,9 @@ async function loadDashboard() {
   const [summary, projects] = await Promise.all([window.api.dashboard.summary(), window.api.projects.list()]);
   projectsCache = projects;
   const cur = summary.currency;
+  if (summary.userName) {
+    document.getElementById('today-line').insertAdjacentHTML('beforeend', ` · <a href="user.html" class="plain-link">${window.personTag(summary.userName)}</a>`);
+  }
 
   const grid = document.getElementById('stat-grid');
   grid.appendChild(statCard(summary.activeProjects, 'Active Projects'));
@@ -178,7 +181,7 @@ async function loadDashboard() {
   ], 'Nothing yet.');
   // Everyone else's, with who did it.
   table('team-activity-list', activityRows(summary.teamActivity || []), [
-    { value: (a) => `<strong>${esc(a.by || 'Someone')}</strong> · ${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference].filter(Boolean).join(' · '))}</div>` },
+    { value: (a) => `${a.by ? window.personTag(a.by) : '<strong>Someone</strong>'} ${esc(a.action)}<div class="sub">${esc([a.projectNumber, a.reference].filter(Boolean).join(' · '))}</div>` },
     { cls: 'muted num', value: (a) => when(a.createdAt) },
   ], 'Nothing from the rest of the team yet.');
 

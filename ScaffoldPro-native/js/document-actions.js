@@ -23,12 +23,12 @@
     const label = LABELS[kind] || 'document';
     const issued = status && status !== 'Draft';
     if (!issued) {
-      if (!confirm(`Delete ${label} ${number}? This can’t be undone.`)) return false;
+      if (!await appConfirm(`Delete ${label} ${number}? This can’t be undone.`)) return false;
     } else {
-      if (!confirm(`${number} is ${status}. Deleting it removes the ${label} from ScaffoldPro for good` +
-        `${kind === 'Invoice' ? ', with its payments in Accounts' : kind === 'DeliveryNote' ? ', and its items go back into the stock list' : ''}.` +
-        ' Any PDF or Word file already saved stays in the project folder.\n\nContinue?')) return false;
-      const typed = prompt(`To delete it, type its number: ${number}`);
+      if (!await appConfirm(`${number} is ${status}. Deleting it removes the ${label} from ScaffoldPro for good` +
+        `${kind === 'Invoice' ? ', with its payments in Accounting' : kind === 'DeliveryNote' ? ', and its items go back into the stock list' : ''}.` +
+        ' Any PDF or Word file already saved stays in the project folder.\n\nContinue?', { danger: true, ok: 'Continue' })) return false;
+      const typed = await window.appPrompt(`Delete ${number}\n\nTo delete it, type its number: ${number}`, '', { ok: 'Delete', placeholder: number });
       if (typed === null) return false;
       if (typed.trim() !== number) {
         alert('The number didn’t match, so nothing was deleted.');

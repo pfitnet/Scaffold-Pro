@@ -2,13 +2,13 @@
 
 // Section 25: issued documents are protected. Cancelled is final, and
 // reopening an issued document for editing asks first.
-function allowStatusChange(from, to, label) {
+async function allowStatusChange(from, to, label) {
   if (from === 'Cancelled' && to !== 'Cancelled') return false;
   if (from !== 'Draft' && to === 'Draft') {
-    return confirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
+    return await appConfirm(`Return this ${label} to Draft?\n\nIt has already been issued. Editing it afterwards means the copy you sent no longer matches — consider cancelling it and creating a new one instead.`);
   }
   if (to === 'Cancelled' && from !== 'Cancelled') {
-    return confirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
+    return await appConfirm(`Cancel this ${label}?\n\nIt will be kept for your records but can't be reopened.`);
   }
   return true;
 }
@@ -319,7 +319,7 @@ async function init() {
   if (!currentDetail) return;
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
-    if (!allowStatusChange(currentDetail.status, e.target.value, 'invoice')) {
+    if (!await allowStatusChange(currentDetail.status, e.target.value, 'invoice')) {
       e.target.value = currentDetail.status;
       return;
     }

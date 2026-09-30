@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>User — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .user-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+    .user-big-avatar { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 21px; font-weight: 700; letter-spacing: 0.02em; flex-shrink: 0; background: #8a8f98; }
+    .user-head h1 { margin: 0; }
+    .user-settings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; margin-bottom: 14px; }
+    .name-row { display: flex; gap: 8px; align-items: center; }
+    .name-row input { flex: 1; max-width: 260px; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 10px; }
+    .swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
+    .swatch.on { border-color: var(--text); }
+    .swatch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+    .custom-colour { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+    .custom-colour input[type="color"] { width: 30px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; }
+    .preview-line { font-size: 13px; color: var(--text-secondary); }
+    .team-list { display: flex; flex-direction: column; gap: 6px; }
+    .team-list .member { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .team-list .member .muted { font-size: 12px; }
+    @media (max-width: 900px) { .user-settings { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body data-page="user">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div class="user-head">
+      <div class="user-big-avatar" id="big-avatar"></div>
+      <div>
+        <h1 id="user-name">User</h1>
+        <div class="subtitle" id="user-sub"></div>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="user-stats"></div>
+
+    <div class="user-settings">
+      <section class="panel">
+        <h3 class="panel-title">Your Name</h3>
+        <p class="small-note">Shown on everything you make or work on (“Created by…”, “Last worked on by…”, History, the team’s Dashboards). Use the same name on every Mac you use.</p>
+        <div class="name-row">
+          <input type="text" id="name-input" autocomplete="off" spellcheck="false" />
+          <button class="primary" id="name-save">Save</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Your Colour</h3>
+        <p class="small-note">Your name is shown in this colour everywhere in ScaffoldPro, on every Mac sharing the data.</p>
+        <div class="swatches" id="swatches"></div>
+        <div class="preview-line">Looks like: <span id="colour-preview"></span> <button class="link-btn" id="colour-auto">Use the automatic colour</button></div>
+      </section>
+    </div>
+
+    <div class="dash-grid">
+      <section class="panel">
+        <h3 class="panel-title">My Projects</h3>
+        <div id="my-projects"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">Documents I Last Worked On</h3>
+        <div id="my-documents"></div>
+      </section>
+      <section class="panel">
+        <h3 class="panel-title">My Activity</h3>
+        <div id="my-activity"></div>
+      </section>
+      <section class="panel" id="team-panel">
+        <h3 class="panel-title">The Team</h3>
+        <div id="team-list" class="team-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/user.js"></script>
+</body>
+</html>

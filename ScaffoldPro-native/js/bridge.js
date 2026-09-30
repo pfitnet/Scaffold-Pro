@@ -121,6 +121,11 @@
       reveal: (id) => callNative('documents:reveal', { id: id }),
     },
     boq: {
+      // The BOQ's own delivery schedule (Day 1, Day 2…); a quotation can copy it.
+      deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
+      addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
+      updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
+      deleteDeliveryDay: (dayId) => callNative('quotations:deleteDeliveryDay', { id: dayId }),
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('boq:setLanguage', { id: id, language: language || null }),
       // Several BOQs added together into one new Draft BOQ → { ok, error, id }.
@@ -162,6 +167,11 @@
       // changes: { date?, sent?, note?, quantities?: { lineId: qty } }
       updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
       deleteDeliveryDay: (dayId) => callNative('quotations:deleteDeliveryDay', { id: dayId }),
+      // The BOQ's delivery schedule onto this quotation (replacing its own) → { ok, error, skipped }.
+      copyScheduleFromBOQ: (quotationId, boqId) => callNative('quotations:copyScheduleFromBOQ', { quotationId: quotationId, boqId: boqId }),
+      // Kept in step with a BOQ both ways (its items become the BOQ's), or not.
+      linkBOQ: (quotationId, boqId) => callNative('quotations:linkBOQ', { quotationId: quotationId, boqId: boqId }),
+      unlinkBOQ: (id) => callNative('quotations:unlinkBOQ', { id: id }),
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('quotations:setLanguage', { id: id, language: language || null }),
       listForProject: (projectId) => callNative('quotations:listForProject', { projectId: projectId }),
@@ -322,6 +332,14 @@
       reveal: () => callNative('cloudBackup:reveal'),
     },
     // Sharing the data with other Macs through a shared (iCloud Drive) folder.
+    // This Mac's user: their page, and everyone's name colours.
+    users: {
+      page: () => callNative('users:page'),
+      profiles: () => callNative('users:profiles'),
+      // '#RRGGBB', or '' for the automatic colour.
+      setColor: (color) => callNative('users:setColor', { color: color }),
+      setName: (name) => callNative('users:setName', { name: name }),
+    },
     team: {
       status: () => callNative('team:status'),
       // Makes a shared folder from this Mac's data (asks where).

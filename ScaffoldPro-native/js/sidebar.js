@@ -18,6 +18,7 @@ const ICONS = {
   letters: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
+  user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.5-3.3 2.9-5 6-5s5.5 1.7 6 5"/>',
 };
 
 function icon(name) {
@@ -32,7 +33,7 @@ const NAV_ITEMS = [
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '5' },
   { page: 'letters', label: 'Letters', href: 'letters.html', key: '6' },
   { page: 'stock', label: 'Stock', href: 'stock.html', key: '7' },
-  { page: 'accounts', label: 'Accounts', href: 'accounts.html', key: '8' },
+  { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '8' },
   { page: 'admin', label: 'Admin', href: 'admin.html', key: '9' },
   { page: 'settings', label: 'Settings', href: 'settings.html', key: ',' },
 ];
@@ -77,8 +78,86 @@ function renderSidebar(activePage) {
     }
     sidebar.appendChild(link);
   }
-  renderTeamIndicator(sidebar);
+  // Pinned to the bottom left: the sharing status, then the User tab.
+  const foot = document.createElement('div');
+  foot.className = 'sidebar-foot';
+  sidebar.appendChild(foot);
+  const user = document.createElement('a');
+  user.href = 'user.html';
+  user.className = 'sidebar-user';
+  user.title = 'User — your name, colour and work (⌘0)';
+  user.innerHTML = `<span class="user-avatar">${icon('user')}</span><span class="user-label">User</span>`;
+  if (activePage === 'user') { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
+  foot.appendChild(user);
+  renderUserTab(user);
+  renderTeamIndicator(foot);
 }
+
+// The User tab shows who's using this Mac, with their initials in their colour.
+async function renderUserTab(link) {
+  if (!window.api || !window.api.users) return;
+  let page;
+  try { page = await window.api.users.page(); } catch (e) { return; }
+  if (!page || !page.name) return;
+  await window.loadPersonColors();
+  const initials = page.name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const avatar = link.querySelector('.user-avatar');
+  avatar.textContent = initials;
+  avatar.classList.add('has-initials');
+  avatar.style.background = window.personColor(page.name);
+  const label = link.querySelector('.user-label');
+  label.textContent = page.name;
+  label.insertAdjacentHTML('afterend', '<span class="user-sub">User</span>');
+}
+
+// ---------------------------------------------------------------------
+// People's names in colour: each person has their own colour (chosen on
+// the User page, else one worked out from their name), the same on every
+// Mac. window.personTag(name) gives the name as a coloured tag.
+// ---------------------------------------------------------------------
+
+(function setupPersonColors() {
+  // Distinct, readable on white and in Dark mode.
+  const PALETTE = ['#2F6FED', '#D9480F', '#2B8A3E', '#AE3EC9', '#C2255C', '#0C8599', '#B7791F', '#5F3DC4', '#087F5B', '#E03131'];
+  let chosen = {};
+  let loading = null;
+  const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  window.personColor = function personColor(name) {
+    const key = String(name || '').trim().toLowerCase();
+    if (!key) return '#8a8f98';
+    if (chosen[key]) return chosen[key];
+    let h = 0;
+    for (const ch of key) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  };
+
+  window.personTag = function personTag(name) {
+    const n = String(name || '').trim();
+    if (!n) return '';
+    return `<span class="person" data-person="${esc(n)}" style="--person:${window.personColor(n)}">${esc(n)}</span>`;
+  };
+
+  // Loads everyone's chosen colours, then re-colours any names already shown.
+  window.loadPersonColors = function loadPersonColors(force) {
+    if (loading && !force) return loading;
+    loading = (async () => {
+      if (!window.api || !window.api.users) return;
+      try {
+        const list = await window.api.users.profiles();
+        chosen = {};
+        for (const p of list || []) if (p && p.id && p.color) chosen[p.id] = p.color;
+      } catch (e) { return; }
+      for (const el of document.querySelectorAll('.person[data-person]')) el.style.setProperty('--person', window.personColor(el.dataset.person));
+      for (const el of document.querySelectorAll('.user-avatar.has-initials')) {
+        const label = el.parentElement && el.parentElement.querySelector('.user-label');
+        if (label) el.style.background = window.personColor(label.textContent);
+      }
+    })();
+    return loading;
+  };
+  document.addEventListener('DOMContentLoaded', () => window.loadPersonColors());
+})();
 
 // "Shared with Tom, Anna" at the foot of the sidebar while this Mac uses
 // a shared folder (Settings › Share with Other Macs).
@@ -97,7 +176,7 @@ async function renderTeamIndicator(sidebar) {
   el.title = s.enabled ? `Working in the shared folder ${s.folderDisplay}. Changes from the other Macs appear by themselves.`
     : 'The shared folder couldn’t be found, so this Mac’s own data is open. See Settings.';
   el.addEventListener('click', () => { location.href = 'settings.html#team'; });
-  sidebar.appendChild(el);
+  sidebar.prepend(el);
 }
 
 // ---------------------------------------------------------------------
@@ -333,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'price-lists.html', 'sites.html', 'clients.html', 'projects.html', 'letters.html', 'stock.html', 'accounts.html', 'admin.html', 'settings.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'price-lists.html', 'sites.html', 'clients.html', 'projects.html', 'letters.html', 'stock.html', 'accounts.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

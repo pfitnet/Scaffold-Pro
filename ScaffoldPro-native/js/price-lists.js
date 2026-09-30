@@ -151,7 +151,7 @@ function renderDisplayRow(tr, item) {
     await applyFilters();
   });
   tr.querySelector('.del-btn').addEventListener('click', async () => {
-    if (!confirm(`Delete "${item.itemName}" from the material list?\n\nExisting BOQs, quotations and invoices keep their copy of it.`)) return;
+    if (!await appConfirm(`Delete "${item.itemName}" from the material list?\n\nExisting BOQs, quotations and invoices keep their copy of it.`)) return;
     const r = await window.api.priceLists.archiveItem(item.id);
     if (!r.ok) { alert(r.error); return; }
     await applyFilters();

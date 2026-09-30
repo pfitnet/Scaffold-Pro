@@ -23,6 +23,11 @@
     .sheet-extras-head label { font-size: 12px; color: var(--text-secondary); }
     .sheet-extras textarea { width: 100%; }
     .sheet-extras .inline-check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-top: 10px; }
+    .linked-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 12px;
+      border: 1px solid var(--border); border-radius: 6px; background: var(--panel); font-size: 12px; color: var(--text-secondary); }
+    .linked-bar strong { color: var(--success); font-weight: 600; }
+    .linked-bar .linked-doc { display: inline-flex; align-items: center; gap: 4px; }
+    .linked-bar button { font-size: 11px; padding: 1px 8px; }
   </style>
 </head>
 <body data-page="project-detail">
@@ -72,6 +77,8 @@
       </div>
       <p class="small-note hidden" id="boq-markup-note"></p>
       <p class="small-note hidden" id="boq-client-markup"></p>
+      <!-- Quotations kept the same as this BOQ (a change to either is made to the other) -->
+      <div class="linked-bar hidden" id="linked-bar"></div>
 
       <div class="boq-grid">
         <div>
@@ -130,9 +137,24 @@
           </div>
         </div>
       </div>
+
+      <!-- Delivery schedule: how many of each item go to site on Day 1,
+           Day 2… (a plan / record; a quotation can copy it) -->
+      <section class="delivery-schedule" id="delivery-schedule">
+        <div class="section-toolbar">
+          <h2>Delivery Schedule</h2>
+          <div class="controls">
+            <button id="ds-csv-btn" title="Save the schedule as a spreadsheet (CSV)">Export CSV</button>
+            <button class="primary" id="ds-add-day-btn">+ Add Day</button>
+          </div>
+        </div>
+        <p class="small-note">Plan which of the BOQ’s items go to site on each day, and tick a day once it’s been delivered. A quotation made from this BOQ starts with this schedule, and any quotation from it can copy it (“Copy from BOQ”). Not linked to the stock list.</p>
+        <div id="ds-table"></div>
+      </section>
     </div>
   </main>
 
+  <script src="js/dialogs.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/doc-authors.js"></script>
   <script src="js/icons.js"></script>
@@ -146,6 +168,7 @@
   <script src="js/file-drop.js"></script>
   <script src="js/linked-drawings.js"></script>
   <script src="js/docx-export.js"></script>
+  <script src="js/delivery-schedule.js"></script>
   <script src="js/boq-editor.js"></script>
 </body>
 </html>

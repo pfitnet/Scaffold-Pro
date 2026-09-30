@@ -147,7 +147,7 @@ async function refreshQuotationList() {
     const sub = q.structure || q.subject;
     tr.innerHTML = `${selections.quotation.cell(q.id)}
       <td>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</td>
-      <td>${q.boqNumber ? esc(q.boqNumber) : '<span class="muted">—</span>'}</td>
+      <td>${q.boqNumber ? `${esc(q.boqNumber)}${q.boqLinked ? ' <span class="status-pill pill-success" title="Kept the same as the BOQ, both ways">Linked</span>' : ''}` : '<span class="muted">—</span>'}</td>
       <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
       <td>${q.itemCount}</td>
       <td class="num">${q.pricingMode === 'Sale' || !split(q).monthly ? '<span class="muted">—</span>' : money(split(q).monthly)}</td>
@@ -337,14 +337,14 @@ function renderFileList(containerId, items, api, opts) {
       });
       actionsCell.querySelector('.rename-btn').addEventListener('click', async () => {
         const current = shownName.replace(/\.[^.]+$/, '');
-        const newName = prompt('New name for this file:', current);
+        const newName = await window.appPrompt('Rename File\n\nNew name for this file:', current, { ok: 'Rename' });
         if (!newName) return;
         const result = await api.rename(item.id, newName);
         if (!result.ok) alert(result.error);
         await opts.refresh();
       });
       actionsCell.querySelector('.archive-btn').addEventListener('click', async () => {
-        if (!confirm(`Archive "${shownName}"? It will no longer show in this list.`)) return;
+        if (!await appConfirm(`Archive "${shownName}"? It will no longer show in this list.`)) return;
         await api.archive(item.id);
         await opts.refresh();
       });
@@ -356,7 +356,7 @@ function renderFileList(containerId, items, api, opts) {
         await opts.refresh();
       });
       actionsCell.querySelector('.remove-ref-btn').addEventListener('click', async () => {
-        if (!confirm("Remove this reference? This only removes it from ScaffoldPro's records, not any file on disk.")) return;
+        if (!await appConfirm("Remove this reference? This only removes it from ScaffoldPro's records, not any file on disk.")) return;
         await api.removeReference(item.id);
         await opts.refresh();
       });
@@ -406,8 +406,15 @@ async function refreshDocumentList() {
   });
 }
 
+// Rental or Sale prices for a new document (null if cancelled).
+function choosePricing(what) {
+  return window.appChoose(`New ${what}\n\nWhich prices should it use?`, [
+    { label: 'Sale', value: 'Sale' }, { label: 'Rental', value: 'Rental', primary: true }]);
+}
+
 async function createNewBOQ() {
-  const pricingMode = confirm('Use Rental pricing? (Cancel for Sale pricing)') ? 'Rental' : 'Sale';
+  const pricingMode = await choosePricing('BOQ');
+  if (!pricingMode) return;
   const boq = await window.api.boq.create(currentProject.id, currentProject.projectNumber, pricingMode);
   location.href = `boq-editor.html?id=${boq.id}`;
 }
@@ -417,11 +424,14 @@ async function createNewQuotation() {
   let pricingMode = 'Rental';
   if (currentBOQs.length > 0) {
     const mostRecent = currentBOQs[0];
-    const useBoq = confirm(`Create this quotation from BOQ ${mostRecent.boqNumber}? Cancel to start blank instead.`);
-    if (useBoq) sourceBOQId = mostRecent.id;
+    const pick = await window.appChoose(`New Quotation\n\nMake it from BOQ ${mostRecent.boqNumber}? The two stay linked: a change to either is made to the other (until you remove the link).`, [
+      { label: 'Start Blank', value: 'blank' }, { label: `From ${mostRecent.boqNumber}`, value: 'boq', primary: true }]);
+    if (!pick) return;
+    if (pick === 'boq') sourceBOQId = mostRecent.id;
   }
   if (!sourceBOQId) {
-    pricingMode = confirm('Use Rental pricing for this quotation? (Cancel for Sale pricing)') ? 'Rental' : 'Sale';
+    pricingMode = await choosePricing('Quotation');
+    if (!pricingMode) return;
   }
   const quotation = await window.api.quotations.create(currentProject.id, currentProject.projectNumber, sourceBOQId, pricingMode);
   location.href = `quotation-editor.html?id=${quotation.id}`;
@@ -517,15 +527,17 @@ function setupInvoiceSheet() {
 async function createNewDeliveryNote() {
   let sourceQuotationId = null;
   let sourceInvoiceId = null;
-  if (currentInvoices.length > 0) {
-    const mostRecent = currentInvoices[0];
-    const useInvoice = confirm(`Create this delivery note from Invoice ${mostRecent.invoiceNumber}? Cancel to choose another source.`);
-    if (useInvoice) sourceInvoiceId = mostRecent.id;
-  }
-  if (!sourceInvoiceId && currentQuotations.length > 0) {
-    const mostRecent = currentQuotations[0];
-    const useQuotation = confirm(`Create this delivery note from Quotation ${mostRecent.quotationNumber}? Cancel to start blank instead.`);
-    if (useQuotation) sourceQuotationId = mostRecent.id;
+  // From the latest invoice, the latest quotation, or blank.
+  const inv = currentInvoices[0];
+  const quo = currentQuotations[0];
+  if (inv || quo) {
+    const choices = [{ label: 'Start Blank', value: 'blank' }];
+    if (quo) choices.push({ label: `From ${quo.quotationNumber}`, value: 'quotation', primary: !inv });
+    if (inv) choices.push({ label: `From ${inv.invoiceNumber}`, value: 'invoice', primary: true });
+    const pick = await window.appChoose('New Delivery Note\n\nWhat should it start from?', choices);
+    if (!pick) return;
+    if (pick === 'invoice') sourceInvoiceId = inv.id;
+    if (pick === 'quotation') sourceQuotationId = quo.id;
   }
   const note = await window.api.deliveryNotes.create(currentProject.id, currentProject.projectNumber, sourceQuotationId, sourceInvoiceId);
   location.href = `delivery-note-editor.html?id=${note.id}`;
@@ -625,7 +637,7 @@ async function refreshHistory() {
   const render = (list) => list.length === 0
     ? '<div class="empty-state compact"><p>No activity recorded yet.</p></div>'
     : `<table class="history"><thead><tr><th>When</th><th>What</th><th>Reference</th></tr></thead><tbody>${
-        list.map((e) => `<tr><td class="nowrap muted">${formatWhen(e.createdAt)}</td><td>${esc(e.action)}${e.by ? ` <span class="muted">— ${esc(e.by)}</span>` : ''}</td><td>${esc(e.reference || '')}</td></tr>`).join('')
+        list.map((e) => `<tr><td class="nowrap muted">${formatWhen(e.createdAt)}</td><td>${esc(e.action)}${e.by ? ` ${window.personTag(e.by)}` : ''}</td><td>${esc(e.reference || '')}</td></tr>`).join('')
       }</tbody></table>`;
   document.getElementById('history-list').innerHTML = render(entries);
   document.getElementById('overview-activity').innerHTML = render(entries.slice(0, 5));
@@ -663,7 +675,7 @@ function setupEditSheet() {
     const oldCode = currentProject.projectNumber;
     const newCode = $('e-projectNumber').value.trim();
     if (newCode && newCode !== oldCode) {
-      if (!confirm(`Change the project code from ${oldCode} to ${newCode}?\n\nIts folder is renamed to Projects/${newCode}, and draft documents numbered with ${oldCode} are renumbered. Issued documents keep their numbers.`)) return;
+      if (!await appConfirm(`Change the project code from ${oldCode} to ${newCode}?\n\nIts folder is renamed to Projects/${newCode}, and draft documents numbered with ${oldCode} are renumbered. Issued documents keep their numbers.`)) return;
       const changed = await window.api.projects.changeNumber(currentProject.id, newCode);
       if (!changed.ok) return showError(changed.error);
       location.href = `project-detail.html?number=${encodeURIComponent(newCode)}`;
