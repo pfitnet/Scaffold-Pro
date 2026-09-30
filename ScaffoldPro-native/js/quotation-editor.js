@@ -68,6 +68,7 @@ async function loadDetail() {
   }
   document.getElementById('quotation-body').classList.remove('hidden');
   render();
+  window.docLanguage.show(currentDetail);
 }
 
 function render() {
@@ -653,6 +654,8 @@ async function importFromBOQ() {
 }
 
 async function init() {
+  // Item names on the PDF in English or Chinese.
+  window.docLanguage.init((language) => window.api.quotations.setLanguage(quotationId, language));
   window.setupDocumentActions('Quotation', () => ({
     id: quotationId, number: currentDetail ? currentDetail.quotationNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
     projectNumber: currentDetail ? currentDetail.projectNumber : '',

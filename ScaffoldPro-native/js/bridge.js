@@ -121,6 +121,8 @@
       reveal: (id) => callNative('documents:reveal', { id: id }),
     },
     boq: {
+      // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
+      setLanguage: (id, language) => callNative('boq:setLanguage', { id: id, language: language || null }),
       // Several BOQs added together into one new Draft BOQ → { ok, error, id }.
       combine: (ids) => callNative('boq:combine', { ids: ids }),
       // The landscape sheet's Terms box and signature box: { terms?, signatureSection? }.
@@ -154,6 +156,8 @@
       print: (id) => callNative('boq:print', { id: id }),
     },
     quotations: {
+      // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
+      setLanguage: (id, language) => callNative('quotations:setLanguage', { id: id, language: language || null }),
       listForProject: (projectId) => callNative('quotations:listForProject', { projectId: projectId }),
       create: (projectId, projectNumber, boqId, pricingMode) =>
         callNative('quotations:create', { projectId: projectId, projectNumber: projectNumber, boqId: boqId || null, pricingMode: pricingMode || 'Rental' }),
@@ -210,6 +214,8 @@
       print: (id) => callNative('invoices:print', { id: id }),
     },
     deliveryNotes: {
+      // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
+      setLanguage: (id, language) => callNative('deliveryNotes:setLanguage', { id: id, language: language || null }),
       // Several delivery notes added together into one new Draft note → { ok, error, id }.
       combine: (ids) => callNative('deliveryNotes:combine', { ids: ids }),
       // A quotation's materials into a Draft note (quantities added to items already on it) → { ok, added, error }.

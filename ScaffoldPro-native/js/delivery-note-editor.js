@@ -51,6 +51,7 @@ async function loadDetail() {
   }
   document.getElementById('dn-body').classList.remove('hidden');
   render();
+  window.docLanguage.show(currentDetail);
 }
 
 function render() {
@@ -244,6 +245,8 @@ async function populateCategories() {
 }
 
 async function init() {
+  // Item names on the PDF in English or Chinese.
+  window.docLanguage.init((language) => window.api.deliveryNotes.setLanguage(deliveryNoteId, language));
   window.setupDocumentActions('DeliveryNote', () => ({
     id: deliveryNoteId, number: currentDetail ? currentDetail.deliveryNoteNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
     projectNumber: currentDetail ? currentDetail.projectNumber : '',

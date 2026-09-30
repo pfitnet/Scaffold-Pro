@@ -241,18 +241,11 @@ func chineseMaterialName(_ english: String) -> String? {
     return nil
 }
 
-/// "2.07m Ledger" with its Chinese name → "2.07m Ledger  橫杆": the size
-/// isn't said twice when the Chinese name starts with it.
-func withChineseName(_ description: String, _ chinese: String?) -> String {
-    guard let zh = chinese?.trimmingCharacters(in: .whitespacesAndNewlines), !zh.isEmpty,
-          !description.contains(zh) else { return description }
-    // The part before the first Chinese character, e.g. "0.90m x 1.0m".
-    let lead = String(zh.prefix { $0.isASCII }).trimmingCharacters(in: .whitespaces)
-    var shown = zh
-    if lead.contains(where: { $0.isNumber }), description.lowercased().hasPrefix(lead.lowercased()), lead.count < zh.count {
-        shown = String(zh.dropFirst(zh.prefix { $0.isASCII }.count)).trimmingCharacters(in: .whitespaces)
-    }
-    return "\(description)  \(shown)"
+/// An item's name on a document in the language chosen for it: its Chinese
+/// name when Chinese is chosen and it has one, otherwise the English one.
+func documentItemName(_ description: String, _ chinese: String?, inChinese: Bool) -> String {
+    guard inChinese, let zh = chinese?.trimmingCharacters(in: .whitespacesAndNewlines), !zh.isEmpty else { return description }
+    return zh
 }
 
 struct PriceListItemActionResult: Codable {
@@ -651,6 +644,7 @@ extension Quotation {
         signedCopyPath = try c.decodeIfPresent(String.self, forKey: .signedCopyPath)
         signedCopyAt = try c.decodeIfPresent(String.self, forKey: .signedCopyAt)
         signedCopyNotNeeded = try c.decodeIfPresent(Bool.self, forKey: .signedCopyNotNeeded)
+        language = try c.decodeIfPresent(String.self, forKey: .language)
     }
 }
 
@@ -793,6 +787,8 @@ struct BillOfQuantities: Codable {
     /// signature box at the end (company and client).
     var terms: String? = nil
     var signatureSection: Bool? = nil
+    /// Item names on the PDF: "English" or "Chinese"; nil = Settings' choice.
+    var language: String? = nil
 }
 
 struct BOQCharge: Codable {
@@ -890,6 +886,9 @@ struct BOQDetail: Codable {
     var terms: String? = nil
     var signatureSection = false
     var standardTerms: String? = nil
+    /// Item names on the PDF: the BOQ's own choice (nil = Settings'), and Settings'.
+    var language: String? = nil
+    var defaultLanguage = "English"
 }
 
 struct BOQActionResult: Codable {
@@ -938,6 +937,8 @@ struct Quotation: Codable {
     /// Rental: the monthly rental charge is at least Settings' minimum
     /// (HK$1,000 unless changed) when ticked.
     var minimumMonthlyChargeEnabled: Bool? = nil
+    /// Item names on the PDF: "English" or "Chinese"; nil = Settings' choice.
+    var language: String? = nil
     /// Markup on every item's unit price (e.g. 30 = +30%), each marked-up
     /// price rounded to the nearest 0.1. Delivery charges aren't marked up.
     var markupPercent: Double?
@@ -1108,6 +1109,9 @@ struct QuotationDetail: Codable {
     var signedCopyNotNeeded = false
     /// The client's default markup (a hint in the editor).
     var clientMarkupPercent: Double? = nil
+    /// Item names on the PDF: the quotation's own choice (nil = Settings'), and Settings'.
+    var language: String? = nil
+    var defaultLanguage = "English"
 }
 
 struct QuotationActionResult: Codable {
@@ -1248,6 +1252,8 @@ struct DeliveryNote: Codable {
     /// Who to contact on site ("Contact Person" on the note); the site's
     /// contact person when the note is made.
     var contactPerson: String? = nil
+    /// Item names on the PDF: "English" or "Chinese"; nil = Settings' choice.
+    var language: String? = nil
 }
 
 /// No pricing fields on purpose — section 23 lists delivery notes as
@@ -1297,6 +1303,9 @@ struct DeliveryNoteDetail: Codable {
     var sourceQuotationId: String? = nil
     /// Each line's Chinese name, by line id.
     var chineseNames: [String: String]? = nil
+    /// Item names on the PDF: the note's own choice (nil = Settings'), and Settings'.
+    var language: String? = nil
+    var defaultLanguage = "English"
 }
 
 struct DeliveryNoteActionResult: Codable {
@@ -1371,8 +1380,9 @@ struct CompanySettings: Codable {
     var defaultBOQItems: [DefaultBOQItem]? = nil
     /// The minimum monthly rental charge a quotation can apply (nil = 1,000).
     var minimumMonthlyRental: Double? = nil
-    /// Materials' Chinese names shown on delivery notes and BOQs (nil = yes).
-    var chineseNamesOnDocuments: Bool? = nil
+    /// The language item names are printed in on delivery notes and BOQs
+    /// unless a document says otherwise: "English" (nil) or "Chinese".
+    var documentLanguage: String? = nil
     /// Standard terms for the landscape BOQ's Terms box (Settings → BOQ Defaults).
     var boqTerms: String? = nil
 }
@@ -2752,8 +2762,10 @@ final class AppDatabase {
         if changed { priceListItemsStore.writeAll(items) }
     }
 
-    /// Whether documents show materials' Chinese names (Settings; default yes).
-    var chineseNamesOnDocuments: Bool { getCompanySettings().chineseNamesOnDocuments ?? true }
+    /// A document's item names in Chinese: its own choice, or else Settings'.
+    func printsInChinese(_ own: String?) -> Bool {
+        (own ?? getCompanySettings().documentLanguage) == "Chinese"
+    }
 
     /// Each line's Chinese name (by line id), from its material-list item or,
     /// for a line typed in, from its description.
@@ -3382,6 +3394,8 @@ final class AppDatabase {
         detail.terms = boq.terms
         detail.signatureSection = boq.signatureSection == true
         detail.standardTerms = getCompanySettings().boqTerms
+        detail.language = boq.language
+        detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         return detail
     }
 
@@ -3626,6 +3640,29 @@ final class AppDatabase {
         if let on = payload["signatureSection"] as? Bool { boqs[i].signatureSection = on ? true : nil }
         boqs[i].updatedAt = nowISO()
         boqsStore.writeAll(boqs)
+        return nil
+    }
+
+    /// The language of a document's item names ("English", "Chinese", or
+    /// nil for Settings' choice): only how it's printed, so issued ones too.
+    func setDocumentLanguage(kind: String, id: String, language: String?) -> String? {
+        let value = ["English", "Chinese"].contains(language ?? "") ? language : nil
+        if kind == "quotation" {
+            var all = quotationsStore.readAll()
+            guard let i = all.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+            all[i].language = value
+            quotationsStore.writeAll(all)
+        } else if kind == "boq" {
+            var all = boqsStore.readAll()
+            guard let i = all.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
+            all[i].language = value
+            boqsStore.writeAll(all)
+        } else {
+            var all = deliveryNotesStore.readAll()
+            guard let i = all.firstIndex(where: { $0.id == id }) else { return "Delivery note not found." }
+            all[i].language = value
+            deliveryNotesStore.writeAll(all)
+        }
         return nil
     }
 
@@ -4042,6 +4079,8 @@ final class AppDatabase {
         detail.minimumMonthlyApplied = totals.minimumApplied
         detail.monthlyRental = totals.monthlyRental
         detail.charges = totals.charges
+        detail.language = q.language
+        detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         return detail
     }
 
@@ -4936,7 +4975,8 @@ final class AppDatabase {
             projectNumber: project.projectNumber, projectName: project.name,
             clientName: client?.companyName, siteName: site?.name, lineItems: items,
             contactPerson: dn.contactPerson, projectId: dn.projectId, sourceQuotationId: dn.sourceQuotationId,
-            chineseNames: chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription })
+            chineseNames: chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }),
+            language: dn.language, defaultLanguage: getCompanySettings().documentLanguage ?? "English"
         )
     }
 
@@ -5153,7 +5193,7 @@ final class AppDatabase {
             }
         }
         if let v = payload["minimumMonthlyRental"] as? Double { settings.minimumMonthlyRental = max(0, v) }
-        if let v = payload["chineseNamesOnDocuments"] as? Bool { settings.chineseNamesOnDocuments = v }
+        if let v = payload["documentLanguage"] as? String { settings.documentLanguage = v == "Chinese" ? "Chinese" : nil }
         if payload.keys.contains("boqTerms") { settings.boqTerms = nonBlank(payload["boqTerms"] as? String) }
         if let list = payload["defaultBOQItems"] as? [[String: Any]] {
             var seen = Set<String>()
@@ -7577,7 +7617,7 @@ enum BQSheet {
                        info: (projectCode: String, client: String, jobSite: String, structure: String),
                        lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double,
                        ratesSection: BOQRatesSection? = nil, charges: [BOQCharge] = [], notes: String? = nil,
-                       terms: String? = nil,
+                       terms: String? = nil, chinese: Bool = false,
                        signature: (company: String, name: String, title: String, client: String)? = nil) -> SheetLayout {
         let pageWidth: Double = landscape ? 842.88 : 595.92
         let pageHeight: Double = landscape ? 595.92 : 842.88
@@ -7611,9 +7651,15 @@ enum BQSheet {
             ], repeats: true))
         }
         let rateWord = pricingMode == "Sale" ? "Sale Price" : "Rental Rate"
-        let titles = landscape
-            ? ["No.", "Item Name", "Weight", "Quantity", "Unit \(rateWord) (\(currencyCode))", "Total \(rateWord) (\(currencyCode))", "Total Weight"]
-            : ["No.", "Item Name", "Weight", "Quantity", "Total Weight"]
+        // The item table's headings in Chinese when the item names are.
+        let zhRate = pricingMode == "Sale" ? "售價" : "租價"
+        let titles = chinese
+            ? (landscape
+                ? ["編號", "物料名稱", "重量", "數量", "單位\(zhRate) (\(currencyCode))", "總\(zhRate) (\(currencyCode))", "總重量"]
+                : ["編號", "物料名稱", "重量", "數量", "總重量"])
+            : (landscape
+                ? ["No.", "Item Name", "Weight", "Quantity", "Unit \(rateWord) (\(currencyCode))", "Total \(rateWord) (\(currencyCode))", "Total Weight"]
+                : ["No.", "Item Name", "Weight", "Quantity", "Total Weight"])
         rows.append(SheetRow(kind: "header", height: 19.5, fill: blue,
                              cells: titles.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element, 13, "center", 4.875) },
                              repeats: true))
@@ -7645,7 +7691,7 @@ enum BQSheet {
             totals.append(cell(edges[0], edges[n - 2], label, 28.99, "center", 8.625))
             totals.append(cell(edges[n - 2], edges[n - 1], formatMoney(grandTotal), 12, "money", 15.375))
         } else {
-            totals.append(cell(edges[0], edges[n - 1], "Total Weight :", 28.99, "center", 8.625))
+            totals.append(cell(edges[0], edges[n - 1], chinese ? "總重量 :" : "Total Weight :", 28.99, "center", 8.625))
         }
         totals.append(cell(edges[n - 1], edges[n], kg(totalWeightKg), 12, "right", 15.375))
         rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
@@ -9627,6 +9673,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
             }
+        case "boq:setLanguage", "deliveryNotes:setLanguage", "quotations:setLanguage":
+            let kind = action.hasPrefix("boq") ? "boq" : action.hasPrefix("quotations") ? "quotation" : "dn"
+            let error = db.setDocumentLanguage(kind: kind, id: (payload["id"] as? String) ?? "",
+                                               language: payload["language"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "boq:updateSheetExtras":
             let error = db.updateBOQSheetExtras(id: (payload["id"] as? String) ?? "", payload: payload)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -11022,13 +11073,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let projectCode = [detail.projectNumber, detail.projectName, detail.pricingMode, clientName]
             .compactMap { nonBlank($0) }.joined(separator: " - ")
         // Printed at their discounted rates; the discount itself isn't shown.
-        // Materials' Chinese names follow the English ones.
-        let zh = db.chineseNamesOnDocuments
+        // Item names in English or in Chinese, as chosen.
+        let inChinese = db.printsInChinese(detail.language)
+        let zh = inChinese
             ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         let lines = detail.lineItems.map { line -> BOQLineItem in
             var copy = line
             copy.appliedUnitPrice = detail.effectiveRates[line.id] ?? line.appliedUnitPrice
-            copy.itemDescription = withChineseName(line.itemDescription, zh[line.id])
+            copy.itemDescription = documentItemName(line.itemDescription, zh[line.id], inChinese: inChinese)
             return copy
         }
         return BQSheet.layout(
@@ -11036,7 +11088,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
             lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
             ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes,
-            terms: detail.terms,
+            terms: detail.terms, chinese: inChinese,
             signature: detail.signatureSection
                 ? (company: company.companyName, name: company.signatoryName ?? "", title: company.signatoryTitle ?? "",
                    client: client?.companyName ?? "") : nil)
@@ -11072,22 +11124,23 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     private func boqLetter(_ detail: BOQDetail) -> LetterDocument {
         let company = db.getCompanySettings()
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: nil)
+        let inChinese = db.printsInChinese(detail.language)
         let columns = [
-            LetterColumn(title: "No", width: 29.25, kind: .center),
-            LetterColumn(title: "Item Description", width: 219.75, kind: .left),
-            LetterColumn(title: "Unit", width: 50.0, kind: .center),
-            LetterColumn(title: "Qty", width: 50.0, kind: .center),
-            LetterColumn(title: "Unit Wt (kg)", width: 75.0, kind: .right),
-            LetterColumn(title: "Total Wt (kg)", width: 83.0, kind: .right),
+            LetterColumn(title: inChinese ? "編號" : "No", width: 29.25, kind: .center),
+            LetterColumn(title: inChinese ? "物料名稱" : "Item Description", width: 219.75, kind: .left),
+            LetterColumn(title: inChinese ? "單位" : "Unit", width: 50.0, kind: .center),
+            LetterColumn(title: inChinese ? "數量" : "Qty", width: 50.0, kind: .center),
+            LetterColumn(title: inChinese ? "單位重量 (kg)" : "Unit Wt (kg)", width: 75.0, kind: .right),
+            LetterColumn(title: inChinese ? "總重量 (kg)" : "Total Wt (kg)", width: 83.0, kind: .right),
         ]
-        let zh = db.chineseNamesOnDocuments
+        let zh = inChinese
             ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
-            .item([String(index + 1), lineDescription(withChineseName(item.itemDescription, zh[item.id]), notes: item.notes), item.unit, formatQuantity(item.quantity),
+            .item([String(index + 1), lineDescription(documentItemName(item.itemDescription, zh[item.id], inChinese: inChinese), notes: item.notes), item.unit, formatQuantity(item.quantity),
                    item.weightKg.map { formatMoney($0) } ?? "—",
                    item.weightKg.map { formatMoney($0 * item.quantity.rounded()) } ?? "—"])
         }
-        rows.append(.summary(label: "Total Weight:", value: "\(formatMoney(detail.totalWeightKg)) kg", emphasized: true))
+        rows.append(.summary(label: inChinese ? "總重量:" : "Total Weight:", value: "\(formatMoney(detail.totalWeightKg)) kg", emphasized: true))
 
         return LetterDocument(
             number: detail.boqNumber, status: detail.status, title: "BILL OF QUANTITIES",
@@ -11125,8 +11178,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let isRental = detail.pricingMode == "Rental"
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
 
+        // Item names in English or in Chinese, as chosen for the quotation.
+        let inChinese = db.printsInChinese(detail.language)
+        let zh = inChinese
+            ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         // Unit prices as charged: with the quotation's markup, if any.
-        let priced = pricedRows(detail.lineItems.filter { $0.blockId == nil }.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
+        let priced = pricedRows(detail.lineItems.filter { $0.blockId == nil }.map { (description: documentItemName($0.itemDescription, zh[$0.id], inChinese: inChinese),
+                                                         unit: $0.unit, quantity: $0.quantity,
                                                          price: detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
                                 currency: currencySymbol(company), rateSuffix: { _ in isRental ? " /Month" : "" })
@@ -11387,23 +11445,25 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if !projectLine.isEmpty { info.append(LetterInfoRow(label: "Project", value: projectLine)) }
         if let contact = nonBlank(detail.contactPerson) { info.append(LetterInfoRow(label: "Contact Person", value: contact, boldValue: true)) }
 
+        // Item names (and the table's headings) in English or in Chinese,
+        // for workers who read Chinese.
+        let inChinese = db.printsInChinese(note.language)
         let columns = [
-            LetterColumn(title: "No", width: 29.25, kind: .center),
-            LetterColumn(title: "Item Description", width: 290.75, kind: .left),
-            LetterColumn(title: "Unit Weight", width: 75.0, kind: .weight),
-            LetterColumn(title: "Qty", width: 39.0, kind: .center),
-            LetterColumn(title: "Total Weight", width: 76.0, kind: .weight),
+            LetterColumn(title: inChinese ? "編號" : "No", width: 29.25, kind: .center),
+            LetterColumn(title: inChinese ? "物料名稱" : "Item Description", width: 290.75, kind: .left),
+            LetterColumn(title: inChinese ? "單位重量" : "Unit Weight", width: 75.0, kind: .weight),
+            LetterColumn(title: inChinese ? "數量" : "Qty", width: 39.0, kind: .center),
+            LetterColumn(title: inChinese ? "總重量" : "Total Weight", width: 76.0, kind: .weight),
         ]
         let priceItems = db.allPriceListItems()
-        // Chinese names too, for the workers who read Chinese.
-        let zh = db.chineseNamesOnDocuments
+        let zh = inChinese
             ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         var totalKg = Decimal(0)
         var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
             let qty = item.quantity.rounded()
             let kg = db.deliveryNoteWeight(item, in: priceItems)
             if let kg = kg { totalKg += decimalOf(kg) * decimalOf(qty) }
-            return .item([String(index + 1), lineDescription(withChineseName(item.itemDescription, zh[item.id]), notes: item.notes),
+            return .item([String(index + 1), lineDescription(documentItemName(item.itemDescription, zh[item.id], inChinese: inChinese), notes: item.notes),
                           kg.map { String(format: "%.1f", $0) } ?? "", formatQuantity(qty),
                           kg.map { String(format: "%.1f", $0 * qty) } ?? ""])
         }
@@ -11413,7 +11473,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             formatter.minimumFractionDigits = 1
             formatter.maximumFractionDigits = 1
             let total = formatter.string(from: NSDecimalNumber(decimal: totalKg)) ?? String(format: "%.1f", doubleOf(totalKg))
-            rows.append(.summary(label: "Total Weight:", value: total, emphasized: false))
+            rows.append(.summary(label: inChinese ? "總重量:" : "Total Weight:", value: total, emphasized: false))
         }
 
         var letter = LetterDocument(

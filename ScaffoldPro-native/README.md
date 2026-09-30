@@ -1599,3 +1599,22 @@ under "Letterhead layout".
   - These items have the same id on every Mac (`item_sp_<GH code>`), so Macs
     adding them at the same time — sharing a folder, or keeping the material
     list in step through iCloud Drive — end up with one copy.
+
+## Batch 66 — Item names in English or Chinese, not both
+
+- Delivery notes, quotations and BOQs print their item names in **one
+  language**: English, or Chinese (中文, the materials' Chinese names from
+  the Material List). They no longer print both side by side.
+  - Each editor's toolbar has **Items in: Default / English / 中文 Chinese**
+    (`deliveryNotes:setLanguage`, `quotations:setLanguage`,
+    `boq:setLanguage`). It can be changed on issued documents too, since it
+    only changes how the document is printed.
+  - "Default" follows Settings › BOQ Defaults › "Item names on delivery
+    notes, quotations and BOQs" (`documentLanguage`), which is English
+    unless changed.
+- In Chinese, an item with no Chinese name keeps its English one.
+  - On delivery notes and BOQs (letterhead and landscape BQ sheet), the item
+    table's headings are in Chinese too: 編號, 物料名稱, 單位重量, 數量,
+    總重量, 單位租價 / 總租價 or 售價.
+  - A quotation stays an English letter; only its item names change.
+  - The PDF and the Word copy both follow the choice.

@@ -47,6 +47,8 @@
             <option value="Landscape">Landscape — with prices</option>
             <option value="Portrait">Portrait — letterhead, no prices</option>
           </select>
+          <label style="font-size:12px; color:var(--text-secondary);" for="language-select">Items in</label>
+          <select id="language-select" title="The language the item names are printed in on the PDF and Word copy"></select>
           <button id="export-pdf-btn">Export PDF</button>
           <button id="export-word-btn" title="A Word copy laid out like the PDF, saved next to it">Export Word</button>
           <button id="print-btn">Print…</button>
@@ -136,6 +138,7 @@
   <script src="js/qty-tab.js"></script>
   <script src="js/keep-focus.js"></script>
   <script src="js/item-picker.js"></script>
+  <script src="js/doc-language.js"></script>
   <script src="js/document-actions.js"></script>
   <script src="js/line-discount.js"></script>
   <script src="js/drag-reorder.js"></script>
