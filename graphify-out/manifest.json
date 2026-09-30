@@ -36,10 +36,10 @@
     "semantic_hash": "6a6b771f48aaf88bd54c303304fd20c9"
   },
   "ScaffoldPro-native/js/accounts.js": {
-    "mtime": 1790664889.629224,
-    "seen": 1790736804.3727145,
-    "ast_hash": "5baebb34b919ba8fa4e7edcb1e44160f",
-    "semantic_hash": "5baebb34b919ba8fa4e7edcb1e44160f"
+    "mtime": 1790752727.2647018,
+    "seen": 1790752754.2261417,
+    "ast_hash": "9aa7048717ad14f8ab9557f9acb4359f",
+    "semantic_hash": ""
   },
   "ScaffoldPro-native/js/admin.js": {
     "mtime": 1790677063.4985383,
@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1790752262.108173,
-    "seen": 1790752322.2745361,
-    "ast_hash": "fac04c3af21b85a400bb29e15c4a0da7",
+    "mtime": 1790752461.28356,
+    "seen": 1790752693.4854453,
+    "ast_hash": "bc3a5f42360822b7149056264c2125d8",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -66,8 +66,8 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/delivery-note-editor.js": {
-    "mtime": 1790752274.567836,
-    "seen": 1790752322.274538,
+    "mtime": 1790752326.8496702,
+    "seen": 1790752693.485447,
     "ast_hash": "0be37c66a0e5e1f047f87d7348e99bc4",
     "semantic_hash": ""
   },
@@ -180,15 +180,15 @@
     "semantic_hash": "0fb2a509489f2e32d746f090e85dcc4b"
   },
   "ScaffoldPro-native/js/stock.js": {
-    "mtime": 1790752080.1198306,
-    "seen": 1790752322.2745543,
+    "mtime": 1790752326.8496702,
+    "seen": 1790752693.4854667,
     "ast_hash": "e2d24081510e37f3c26d6f609cf8a7d0",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1790752256.1616733,
-    "seen": 1790752322.2745552,
-    "ast_hash": "7f73148b8b0c04fb7682cd734fa627ef",
+    "mtime": 1790752461.2816641,
+    "seen": 1790752693.4854674,
+    "ast_hash": "b63c6064ebb8eca3dfbc6b4a8dfad43b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,22 +252,22 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790752318.8936706,
-    "seen": 1790752322.2745628,
-    "ast_hash": "4155d31dc8e1c69f3d69775b4af8b797",
+    "mtime": 1790752690.635329,
+    "seen": 1790752693.4854755,
+    "ast_hash": "2efed648e656a02c8e534994be8fbaf1",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
-    "mtime": 1790708152.5883567,
-    "seen": 1790736804.3727453,
-    "ast_hash": "b93b41149b8775080dd37fdd52a51e5e",
-    "semantic_hash": "b93b41149b8775080dd37fdd52a51e5e"
+    "mtime": 1790752659.3559833,
+    "seen": 1790752693.4854763,
+    "ast_hash": "60456e3b02455962320a60353e4dcf4c",
+    "semantic_hash": ""
   },
   "ScaffoldPro-native/admin.html": {
-    "mtime": 1790708152.5869145,
-    "seen": 1790736804.3727458,
-    "ast_hash": "b93930132e1551ecc68e79dcb37ab0be",
-    "semantic_hash": "b93930132e1551ecc68e79dcb37ab0be"
+    "mtime": 1790752690.635329,
+    "seen": 1790752693.4854772,
+    "ast_hash": "5e0c6483778a367c64cd5b8fb345cfda",
+    "semantic_hash": ""
   },
   "ScaffoldPro-native/boq-editor.html": {
     "mtime": 1790737960.684035,
@@ -282,8 +282,8 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/delivery-note-editor.html": {
-    "mtime": 1790752312.1459618,
-    "seen": 1790752322.2745664,
+    "mtime": 1790752326.8496702,
+    "seen": 1790752693.4854796,
     "ast_hash": "bee2d421a8ca4a0070552db7bd61e273",
     "semantic_hash": ""
   },
@@ -336,8 +336,8 @@
     "semantic_hash": "c27fa035fb21b8e82b578938d2c10d0f"
   },
   "ScaffoldPro-native/stock.html": {
-    "mtime": 1790752073.7982097,
-    "seen": 1790752322.274573,
+    "mtime": 1790752326.8536701,
+    "seen": 1790752693.4854867,
     "ast_hash": "084b32a63d4206708f331a6f0c5522de",
     "semantic_hash": ""
   },
@@ -411,6 +411,12 @@
     "mtime": 1790751175.8162336,
     "seen": 1790751197.8645,
     "ast_hash": "1ac8d27596952583931789ff3f8be139",
+    "semantic_hash": ""
+  },
+  "ScaffoldPro-native/js/employees.js": {
+    "mtime": 1790752671.4563231,
+    "seen": 1790752693.4854507,
+    "ast_hash": "ef7574b7a68c88a105931acee459d30b",
     "semantic_hash": ""
   }
 }

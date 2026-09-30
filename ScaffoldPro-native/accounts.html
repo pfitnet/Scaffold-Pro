@@ -13,6 +13,14 @@
     table.money tfoot td { font-weight: 600; border-top: 2px solid var(--border); }
     table.money tr.clickable { cursor: pointer; }
     .neg { color: var(--danger); }
+    .liability-summary { display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 13px; }
+    .liability-summary b { font-variant-numeric: tabular-nums; }
+    .liability-payments { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .liability-payments h3 { margin: 0 0 8px; font-size: 13px; }
+    .liability-payments table { margin-bottom: 10px; }
+    .payment-add { display: grid; grid-template-columns: 150px 120px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+    .payment-add input { min-width: 0; width: 100%; }
+    .liability-balance { font-size: 13px; margin-bottom: 8px; }
   </style>
 </head>
 <body data-page="accounts">
@@ -42,6 +50,7 @@
       <button data-tab="receivables" class="active">Receivables</button>
       <button data-tab="payments">Payments Received</button>
       <button data-tab="expenses">Expenses</button>
+      <button data-tab="liabilities">Liabilities</button>
       <button data-tab="projects">By Project</button>
       <button data-tab="monthly">By Month</button>
     </div>
@@ -49,8 +58,10 @@
     <div class="toolbar" id="tab-toolbar">
       <input type="text" id="search-box" placeholder="Search" />
       <label class="small-note hidden" id="unpaid-only-label"><input type="checkbox" id="unpaid-only" checked /> Unpaid only</label>
+      <label class="small-note hidden" id="show-settled-label"><input type="checkbox" id="show-settled" /> Show paid off</label>
       <span class="toolbar-spacer"></span>
       <button class="primary hidden" id="add-expense-btn">+ Add Expense</button>
+      <button class="primary hidden" id="add-liability-btn">+ Add Liability</button>
       <button id="export-btn">Export CSV</button>
     </div>
     <div id="tab-content"></div>
@@ -73,6 +84,41 @@
         <button id="ex-delete" class="left hidden">Delete</button>
         <button id="ex-cancel">Cancel</button>
         <button class="primary" id="ex-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="liability-modal">
+    <div class="modal wide" role="dialog" aria-labelledby="li-title">
+      <h2 id="li-title">Add Liability</h2>
+      <div class="form-grid">
+        <div class="field span-2"><label for="li-name">What is it</label><input type="text" id="li-name" placeholder="e.g. Bank loan – lorry, Supplier bill – Scafom May delivery" /></div>
+        <div class="field"><label for="li-kind">Type</label><select id="li-kind"></select></div>
+        <div class="field"><label for="li-creditor">Owed to</label><input type="text" id="li-creditor" placeholder="e.g. HSBC, Scafom-rux" /></div>
+        <div class="field"><label for="li-amount">Amount owed</label><input type="number" id="li-amount" min="0" step="0.01" /></div>
+        <div class="field"><label for="li-start">Taken on</label><input type="date" id="li-start" /></div>
+        <div class="field"><label for="li-due">Due by (optional)</label><input type="date" id="li-due" /></div>
+        <div class="field"><label for="li-monthly">Monthly repayment (optional)</label><input type="number" id="li-monthly" min="0" step="0.01" /></div>
+        <div class="field"><label for="li-rate">Interest % a year (optional)</label><input type="number" id="li-rate" min="0" step="0.01" /></div>
+        <div class="field"><label for="li-reference">Reference</label><input type="text" id="li-reference" placeholder="e.g. loan account or bill no." /></div>
+        <div class="field span-2"><label for="li-notes">Notes</label><input type="text" id="li-notes" /></div>
+      </div>
+      <div class="liability-payments hidden" id="li-payments">
+        <h3>Payments made</h3>
+        <div class="liability-balance" id="li-balance"></div>
+        <div id="li-payment-list"></div>
+        <div class="payment-add">
+          <input type="date" id="lp-date" title="Payment date" />
+          <input type="number" id="lp-amount" min="0" step="0.01" placeholder="Amount" />
+          <input type="text" id="lp-note" placeholder="Note (optional), e.g. cheque no." />
+          <button id="lp-add">Record Payment</button>
+        </div>
+      </div>
+      <div class="error-text hidden" id="li-error"></div>
+      <div class="actions">
+        <button id="li-delete" class="left hidden">Delete</button>
+        <button id="li-cancel">Close</button>
+        <button class="primary" id="li-save">Save</button>
       </div>
     </div>
   </div>

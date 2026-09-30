@@ -262,6 +262,19 @@
       saveExpense: (expense) => callNative('accounts:saveExpense', expense),
       deleteExpense: (id) => callNative('accounts:deleteExpense', { id: id }),
       saveCSV: (fileName, csv) => callNative('accounts:saveCSV', { fileName: fileName, csv: csv }),
+      // Liabilities: money the company owes, and payments made towards it.
+      saveLiability: (liability) => callNative('accounts:saveLiability', liability),
+      deleteLiability: (id) => callNative('accounts:deleteLiability', { id: id }),
+      addLiabilityPayment: (payment) => callNative('accounts:addLiabilityPayment', payment),
+      deleteLiabilityPayment: (id) => callNative('accounts:deleteLiabilityPayment', { id: id }),
+    },
+    employees: {
+      list: () => callNative('employees:list'),
+      // Adds (no id) or changes an employee → { ok, error, id }.
+      save: (employee) => callNative('employees:save', employee),
+      remove: (id) => callNative('employees:delete', { id: id }),
+      // A month's pay into Expenses: { month: 'yyyy-mm', date, lines: [{ employeeId, pay, mpf }] } → { ok, error, recorded, skipped }.
+      recordPayroll: (input) => callNative('employees:recordPayroll', input),
     },
     // Automatic backup into the shared iCloud folder (Proficiency › William's Work).
     cloudBackup: {

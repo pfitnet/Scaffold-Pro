@@ -153,6 +153,34 @@ function tableFor(f) {
       foot: ['Total', '', '', '', '', '', money(list.reduce((a, e) => a + e.amount, 0))],
     };
   }
+  if (tab === 'liabilities') {
+    const showSettled = document.getElementById('show-settled').checked;
+    const list = data.liabilities.filter((x) => (showSettled || x.balance > 0.004) &&
+      matches(`${x.liability.name} ${x.liability.kind} ${x.liability.creditor || ''} ${x.liability.reference || ''} ${x.liability.notes || ''}`));
+    const status = (x) => (x.balance <= 0.004 ? '<span class="status-pill pill-success">Paid off</span>'
+      : x.isOverdue ? '<span class="status-pill pill-danger">Overdue</span>' : '<span class="status-pill pill-warning">Owing</span>');
+    return {
+      note: `Everything the company owes, as of today (the period above doesn’t apply). Click one to record a payment or change it.`,
+      summary: liabilitySummary(),
+      head: ['Liability', 'Type', 'Owed To', 'Taken On', 'Due', 'Monthly', 'Amount', 'Paid', 'Balance', 'Status'],
+      csvHead: ['Liability', 'Type', 'Owed To', 'Taken On', 'Due', 'Monthly Repayment', 'Interest %', 'Reference', 'Amount', 'Paid', 'Balance', 'Status'],
+      numeric: [5, 6, 7, 8],
+      rows: list.map((x) => {
+        const l = x.liability;
+        return {
+          liability: l.id,
+          cells: [`${esc(l.name)}${l.reference ? `<div class="small-note">${esc(l.reference)}</div>` : ''}`, esc(l.kind), esc(l.creditor || '—'),
+            l.startDate, l.dueDate ? `<span class="${x.isOverdue ? 'neg' : ''}">${l.dueDate}</span>` : '—',
+            l.monthlyPayment ? money(l.monthlyPayment) : '—', money(l.amount), money(x.paid), money(x.balance), status(x)],
+          csv: [l.name, l.kind, l.creditor || '', l.startDate, l.dueDate || '', l.monthlyPayment || '', l.interestRatePercent || '', l.reference || '',
+            l.amount, x.paid, x.balance, x.balance <= 0.004 ? 'Paid off' : x.isOverdue ? 'Overdue' : 'Owing'],
+        };
+      }),
+      foot: ['Total', '', '', '', '', money(list.filter((x) => x.balance > 0.004).reduce((a, x) => a + (x.liability.monthlyPayment || 0), 0)),
+        money(list.reduce((a, x) => a + x.liability.amount, 0)), money(list.reduce((a, x) => a + x.paid, 0)),
+        money(list.reduce((a, x) => a + x.balance, 0)), ''],
+    };
+  }
   if (tab === 'projects') {
     const rows = data.projects.map((p) => {
       const invoiced = f.invoices.filter((i) => i.projectId === p.id).reduce((a, i) => a + i.total, 0);
@@ -211,19 +239,24 @@ function render() {
   const f = figures();
   renderStats(f);
   document.getElementById('unpaid-only-label').classList.toggle('hidden', tab !== 'receivables');
+  document.getElementById('show-settled-label').classList.toggle('hidden', tab !== 'liabilities');
   document.getElementById('add-expense-btn').classList.toggle('hidden', tab !== 'expenses');
+  document.getElementById('add-liability-btn').classList.toggle('hidden', tab !== 'liabilities');
   const t = tableFor(f);
   const content = document.getElementById('tab-content');
   if (!t.rows.length) {
-    content.innerHTML = `<p class="small-note">${t.note}</p><div class="empty-state"><h2>Nothing here for this period</h2>
-      ${tab === 'expenses' ? '<p>Use “+ Add Expense” to record money spent.</p>' : ''}</div>`;
+    content.innerHTML = `<p class="small-note">${t.note}</p>${t.summary || ''}<div class="empty-state"><h2>${tab === 'liabilities' ? 'Nothing owed' : 'Nothing here for this period'}</h2>
+      ${tab === 'expenses' ? '<p>Use “+ Add Expense” to record money spent.</p>' : ''}
+      ${tab === 'liabilities' ? '<p>Use “+ Add Liability” to record a loan, a supplier’s bill, hire purchase or anything else the company owes.</p>' : ''}</div>`;
     return;
   }
   const cls = (i) => (t.numeric.includes(i) ? ' class="num"' : '');
-  content.innerHTML = `<p class="small-note">${t.note}</p>
+  const attrs = (r) => [r.href ? `data-href="${esc(r.href)}"` : '', r.expense ? `data-expense="${esc(r.expense)}"` : '',
+    r.liability ? `data-liability="${esc(r.liability)}"` : ''].join(' ');
+  content.innerHTML = `<p class="small-note">${t.note}</p>${t.summary || ''}
     <table class="money">
       <thead><tr>${t.head.map((h, i) => `<th${cls(i)}>${h}</th>`).join('')}</tr></thead>
-      <tbody>${t.rows.map((r) => `<tr class="${r.href || r.expense ? 'clickable' : ''}" ${r.href ? `data-href="${esc(r.href)}"` : ''} ${r.expense ? `data-expense="${esc(r.expense)}"` : ''}>
+      <tbody>${t.rows.map((r) => `<tr class="${r.href || r.expense || r.liability ? 'clickable' : ''}" ${attrs(r)}>
         ${r.cells.map((c, i) => `<td${cls(i)}>${c}</td>`).join('')}</tr>`).join('')}</tbody>
       <tfoot><tr>${t.foot.map((c, i) => `<td${cls(i)}>${c}</td>`).join('')}</tr></tfoot>
     </table>`;
@@ -231,6 +264,128 @@ function render() {
   for (const tr of content.querySelectorAll('tr[data-expense]')) {
     tr.addEventListener('click', () => openExpense(data.expenses.find((e) => e.id === tr.dataset.expense)));
   }
+  for (const tr of content.querySelectorAll('tr[data-liability]')) tr.addEventListener('click', () => openLiability(tr.dataset.liability));
+}
+
+// ---------- Liabilities ----------
+
+let editingLiability = null;
+
+function liabilitySummary() {
+  const owing = data.liabilities.filter((x) => x.balance > 0.004);
+  const overdue = owing.filter((x) => x.isOverdue);
+  const monthly = owing.reduce((a, x) => a + (x.liability.monthlyPayment || 0), 0);
+  const total = (list) => list.reduce((a, x) => a + x.balance, 0);
+  return `<div class="liability-summary">
+    <span>Owing: <b>${currency} ${money(total(owing))}</b> (${owing.length})</span>
+    <span class="${overdue.length ? 'neg' : ''}">Overdue: <b>${currency} ${money(total(overdue))}</b> (${overdue.length})</span>
+    <span>Monthly repayments: <b>${currency} ${money(monthly)}</b></span>
+  </div>`;
+}
+
+function openLiability(id) {
+  const x = id ? data.liabilities.find((l) => l.liability.id === id) : null;
+  editingLiability = x ? x.liability.id : null;
+  const l = x ? x.liability : {};
+  document.getElementById('li-title').textContent = x ? l.name : 'Add Liability';
+  document.getElementById('li-name').value = l.name || '';
+  document.getElementById('li-kind').innerHTML = data.liabilityKinds.map((k) => `<option>${esc(k)}</option>`).join('');
+  document.getElementById('li-kind').value = l.kind || data.liabilityKinds[0];
+  document.getElementById('li-creditor').value = l.creditor || '';
+  document.getElementById('li-amount').value = l.amount ?? '';
+  document.getElementById('li-start').value = l.startDate || ymd(new Date());
+  document.getElementById('li-due').value = l.dueDate || '';
+  document.getElementById('li-monthly').value = l.monthlyPayment ?? '';
+  document.getElementById('li-rate').value = l.interestRatePercent ?? '';
+  document.getElementById('li-reference').value = l.reference || '';
+  document.getElementById('li-notes').value = l.notes || '';
+  document.getElementById('li-delete').classList.toggle('hidden', !x);
+  document.getElementById('li-error').classList.add('hidden');
+  document.getElementById('li-payments').classList.toggle('hidden', !x);
+  if (x) renderLiabilityPayments(x);
+  document.getElementById('liability-modal').classList.remove('hidden');
+  document.getElementById(x ? 'lp-amount' : 'li-name').focus();
+}
+
+function renderLiabilityPayments(x) {
+  document.getElementById('li-balance').innerHTML = `Amount ${currency} ${money(x.liability.amount)} · Paid ${currency} ${money(x.paid)} · ` +
+    `<b class="${x.isOverdue ? 'neg' : ''}">Balance ${currency} ${money(x.balance)}</b>${x.balance <= 0.004 ? ' — paid off' : ''}`;
+  const list = document.getElementById('li-payment-list');
+  list.innerHTML = x.payments.length === 0 ? '<p class="small-note">No payments recorded yet.</p>' : `<table class="money">
+    <thead><tr><th>Date</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody>${x.payments.map((p) => `<tr><td>${p.date}</td><td>${esc(p.note || '')}</td><td class="num">${money(p.amount)}</td>
+      <td><button class="remove-btn" data-payment="${esc(p.id)}">Remove</button></td></tr>`).join('')}</tbody></table>`;
+  for (const b of list.querySelectorAll('[data-payment]')) {
+    b.addEventListener('click', async () => {
+      if (!confirm('Remove this payment?')) return;
+      const r = await window.api.accounts.deleteLiabilityPayment(b.dataset.payment);
+      if (!r.ok) { alert(r.error); return; }
+      await reloadLiability();
+    });
+  }
+  document.getElementById('lp-date').value = ymd(new Date());
+  document.getElementById('lp-amount').value = x.balance > 0.004 ? (x.liability.monthlyPayment && x.liability.monthlyPayment < x.balance ? x.liability.monthlyPayment : x.balance) : '';
+  document.getElementById('lp-note').value = '';
+}
+
+async function reloadLiability() {
+  await load();
+  const x = data.liabilities.find((l) => l.liability.id === editingLiability);
+  if (x) renderLiabilityPayments(x);
+}
+
+function closeLiability() {
+  document.getElementById('liability-modal').classList.add('hidden');
+  editingLiability = null;
+}
+
+function liabilityError(message) {
+  const err = document.getElementById('li-error');
+  err.textContent = message;
+  err.classList.remove('hidden');
+}
+
+async function saveLiability() {
+  const num = (id) => (document.getElementById(id).value === '' ? null : Number(document.getElementById(id).value));
+  const r = await window.api.accounts.saveLiability({
+    id: editingLiability,
+    name: document.getElementById('li-name').value,
+    kind: document.getElementById('li-kind').value,
+    creditor: document.getElementById('li-creditor').value,
+    amount: num('li-amount') || 0,
+    startDate: document.getElementById('li-start').value,
+    dueDate: document.getElementById('li-due').value,
+    monthlyPayment: num('li-monthly'),
+    interestRatePercent: num('li-rate'),
+    reference: document.getElementById('li-reference').value,
+    notes: document.getElementById('li-notes').value,
+  });
+  if (!r.ok) { liabilityError(r.error); return; }
+  closeLiability();
+  await load();
+}
+
+async function addLiabilityPayment() {
+  if (!editingLiability) return;
+  const r = await window.api.accounts.addLiabilityPayment({
+    liabilityId: editingLiability,
+    date: document.getElementById('lp-date').value,
+    amount: Number(document.getElementById('lp-amount').value) || 0,
+    note: document.getElementById('lp-note').value,
+  });
+  if (!r.ok) { liabilityError(r.error); return; }
+  document.getElementById('li-error').classList.add('hidden');
+  await reloadLiability();
+}
+
+async function deleteLiability() {
+  if (!editingLiability) return;
+  const x = data.liabilities.find((l) => l.liability.id === editingLiability);
+  if (!confirm(`Delete “${x ? x.liability.name : 'this liability'}” and the payments recorded against it?`)) return;
+  const r = await window.api.accounts.deleteLiability(editingLiability);
+  if (!r.ok) { alert(r.error); return; }
+  closeLiability();
+  await load();
 }
 
 // ---------- Expenses ----------
@@ -300,7 +455,7 @@ function csvLine(cells) {
 async function exportCSV() {
   const f = figures();
   const t = tableFor(f);
-  const names = { receivables: 'Receivables', payments: 'Payments Received', expenses: 'Expenses', projects: 'By Project', monthly: 'By Month' };
+  const names = { receivables: 'Receivables', payments: 'Payments Received', expenses: 'Expenses', liabilities: 'Liabilities', projects: 'By Project', monthly: 'By Month' };
   const head = t.csvHead || (tab === 'receivables'
     ? ['Invoice', 'Date', 'Due', 'Project No.', 'Project', 'Client', 'Total', 'Paid', 'Balance', 'Status'] : t.head);
   const lines = [csvLine(head)].concat(t.rows.map((r) => csvLine(r.csv)));
@@ -312,6 +467,8 @@ async function exportCSV() {
 
 async function load() {
   data = await window.api.accounts.data();
+  data.liabilities = data.liabilities || [];
+  data.liabilityKinds = data.liabilityKinds && data.liabilityKinds.length ? data.liabilityKinds : ['Other'];
   currency = data.currency === 'HKD' ? 'HK$' : data.currency;
   render();
 }
@@ -324,7 +481,7 @@ async function init() {
     document.getElementById('period-to').classList.toggle('hidden', !custom);
     render();
   });
-  for (const id of ['period-from', 'period-to', 'unpaid-only']) document.getElementById(id).addEventListener('change', render);
+  for (const id of ['period-from', 'period-to', 'unpaid-only', 'show-settled']) document.getElementById(id).addEventListener('change', render);
   document.getElementById('search-box').addEventListener('input', render);
   for (const b of document.querySelectorAll('#account-tabs button')) {
     b.addEventListener('click', () => {
@@ -342,6 +499,20 @@ async function init() {
     if (e.key === 'Escape') closeExpense();
     if (e.key === 'Enter') saveExpense();
   });
+  document.getElementById('add-liability-btn').addEventListener('click', () => openLiability(null));
+  document.getElementById('li-cancel').addEventListener('click', closeLiability);
+  document.getElementById('li-save').addEventListener('click', saveLiability);
+  document.getElementById('li-delete').addEventListener('click', deleteLiability);
+  document.getElementById('lp-add').addEventListener('click', addLiabilityPayment);
+  document.getElementById('liability-modal').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLiability();
+    if (e.key === 'Enter' && e.target.closest('.payment-add')) { e.preventDefault(); addLiabilityPayment(); return; }
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') saveLiability();
+  });
+  // Accounts › Liabilities from a link (accounts.html?tab=liabilities).
+  const wanted = new URLSearchParams(location.search).get('tab');
+  const wantedButton = wanted && document.querySelector(`#account-tabs button[data-tab="${CSS.escape(wanted)}"]`);
+  if (wantedButton) wantedButton.click();
 }
 
 init();

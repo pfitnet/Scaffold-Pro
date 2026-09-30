@@ -2122,6 +2122,9 @@ final class AppDatabase {
     let stockMovementsStore: JSONStore<StockMovement>
     let invoicePaymentsStore: JSONStore<InvoicePayment>
     let expensesStore: JSONStore<Expense>
+    let liabilitiesStore: JSONStore<Liability>
+    let liabilityPaymentsStore: JSONStore<LiabilityPayment>
+    let employeesStore: JSONStore<Employee>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -2149,6 +2152,9 @@ final class AppDatabase {
         stockMovementsStore = JSONStore(fileURL: dataDir.appendingPathComponent("stock_movements.json"))
         invoicePaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("invoice_payments.json"))
         expensesStore = JSONStore(fileURL: dataDir.appendingPathComponent("expenses.json"))
+        liabilitiesStore = JSONStore(fileURL: dataDir.appendingPathComponent("liabilities.json"))
+        liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
+        employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
     }
 
     // ---- Document rows (client/site pages, Dashboard, search) ----
@@ -6639,8 +6645,102 @@ struct Expense: Codable {
     var createdAt: String
 }
 
-let expenseCategories = ["Materials purchase", "Transport", "Labour / subcontract", "Equipment & repairs",
+let expenseCategories = ["Materials purchase", "Transport", "Labour / subcontract", "Salaries & MPF", "Equipment & repairs",
                          "Rent & storage", "Office & admin", "Insurance & licences", "Other"]
+
+/// Money the company owes: a loan, a supplier's bill, hire purchase, a
+/// credit card, tax… Paid off by the payments recorded against it.
+struct Liability: Codable {
+    var id: String
+    var name: String
+    /// One of `liabilityKinds`.
+    var kind: String
+    /// Who it's owed to.
+    var creditor: String?
+    var amount: Double
+    /// yyyy-MM-dd: when it was taken on.
+    var startDate: String
+    /// yyyy-MM-dd: when it must be paid off (or the next payment is due).
+    var dueDate: String?
+    var monthlyPayment: Double?
+    var interestRatePercent: Double?
+    var reference: String?
+    var notes: String?
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct LiabilityPayment: Codable {
+    var id: String
+    var liabilityId: String
+    /// yyyy-MM-dd
+    var date: String
+    var amount: Double
+    var note: String?
+    var createdAt: String
+}
+
+let liabilityKinds = ["Loan", "Supplier bill", "Hire purchase / lease", "Credit card", "Tax", "MPF / wages payable", "Deposit held", "Other"]
+
+/// A liability with what's been paid and what's left.
+struct AccountsLiability: Codable {
+    var liability: Liability
+    var payments: [LiabilityPayment]
+    var paid: Double
+    var balance: Double
+    /// Past its due date with money still owing.
+    var isOverdue: Bool
+}
+
+/// Someone on the payroll, full-time or part-time: their pay and MPF.
+struct Employee: Codable {
+    var id: String
+    /// "E001", "E002", ... never reused.
+    var employeeNumber: String
+    var name: String
+    var chineseName: String?
+    var position: String?
+    var phone: String?
+    /// The worker record (Admin › Workers) for the same person, if any.
+    var workerId: String?
+    /// "Full-time" or "Part-time".
+    var employmentType: String
+    /// "Monthly", "Daily" or "Hourly".
+    var payBasis: String
+    /// The monthly salary, or the daily / hourly rate.
+    var payRate: Double
+    /// Days (daily) or hours (hourly) usually worked in a month, for
+    /// working out a month's pay.
+    var usualUnitsPerMonth: Double?
+    /// Fixed monthly allowances (travel, meals, phone…).
+    var monthlyAllowance: Double?
+    /// The employer's MPF contribution is paid (5%, up to HK$1,500 a month).
+    var mpfEnabled: Bool
+    var annualLeaveDays: Double?
+    var bankAccount: String?
+    /// yyyy-MM-dd
+    var startDate: String?
+    var endDate: String?
+    var notes: String?
+    /// Left the company: kept for the records, off the payroll.
+    var isArchived: Bool
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct EmployeeActionResult: Codable {
+    var ok: Bool
+    var error: String?
+    var id: String?
+}
+
+struct PayrollResult: Codable {
+    var ok: Bool
+    var error: String?
+    var recorded: Int
+    /// Employees whose pay for that month was already in Expenses.
+    var skipped: [String]
+}
 
 struct AccountsInvoice: Codable {
     var id: String
@@ -6678,6 +6778,8 @@ struct AccountsData: Codable {
     var expenses: [Expense]
     var projects: [ProjectRef]
     var categories: [String]
+    var liabilities: [AccountsLiability] = []
+    var liabilityKinds: [String] = []
 }
 
 /// "2026-09-28" from a date field or an ISO timestamp; nil if it isn't one.
@@ -6888,7 +6990,8 @@ extension AppDatabase {
                             invoices: invoices.sorted { $0.invoiceDate > $1.invoiceDate },
                             payments: payments.sorted { $0.date > $1.date },
                             expenses: expensesStore.readAll().sorted { ($0.date, $0.createdAt) > ($1.date, $1.createdAt) },
-                            projects: projects, categories: expenseCategories)
+                            projects: projects, categories: expenseCategories,
+                            liabilities: accountsLiabilities(today: today), liabilityKinds: liabilityKinds)
     }
 
     /// Adds an expense, or changes one when `id` is given.
@@ -6921,6 +7024,197 @@ extension AppDatabase {
         all.removeAll { $0.id == id }
         expensesStore.writeAll(all)
         return nil
+    }
+
+    // ---- Liabilities ----
+
+    func accountsLiabilities(today: String) -> [AccountsLiability] {
+        let payments = Dictionary(grouping: liabilityPaymentsStore.readAll(), by: { $0.liabilityId })
+        return liabilitiesStore.readAll().map { l in
+            let list = (payments[l.id] ?? []).sorted { ($0.date, $0.createdAt) > ($1.date, $1.createdAt) }
+            let paid = roundToCents(list.reduce(Decimal(0)) { $0 + decimalOf($1.amount) })
+            let balance = roundToCents(decimalOf(l.amount) - paid)
+            let overdue = balance > 0.004 && (validDay(l.dueDate).map { $0 < today } ?? false)
+            return AccountsLiability(liability: l, payments: list, paid: doubleOf(paid), balance: doubleOf(balance), isOverdue: overdue)
+        }.sorted { a, b in
+            // Still owing first, then by due date (none last), then newest.
+            let owingA = a.balance > 0.004, owingB = b.balance > 0.004
+            if owingA != owingB { return owingA }
+            let dueA = validDay(a.liability.dueDate) ?? "9999", dueB = validDay(b.liability.dueDate) ?? "9999"
+            if dueA != dueB { return dueA < dueB }
+            return a.liability.startDate > b.liability.startDate
+        }
+    }
+
+    /// Adds a liability, or changes one when `id` is given.
+    func saveLiability(_ payload: [String: Any]) -> String? {
+        let name = ((payload["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return "Enter what the liability is (e.g. “Bank loan – truck”)." }
+        let amount = (payload["amount"] as? Double) ?? 0
+        guard amount > 0 else { return "Enter the amount owed, greater than zero." }
+        guard let start = validDay(payload["startDate"] as? String) else { return "Enter the date it was taken on." }
+        let dueText = nonBlank(payload["dueDate"] as? String)
+        let due = validDay(dueText)
+        if dueText != nil && due == nil { return "Enter a valid due date, or leave it empty." }
+        let kind = nonBlank(payload["kind"] as? String).flatMap { liabilityKinds.contains($0) ? $0 : nil } ?? "Other"
+        let positive: (String) -> Double? = { key in (payload[key] as? Double).flatMap { $0 > 0 ? doubleOf(roundToCents(decimalOf($0))) : nil } }
+        let rate = (payload["interestRatePercent"] as? Double).flatMap { $0 > 0 ? $0 : nil }
+        var all = liabilitiesStore.readAll()
+        if let id = nonBlank(payload["id"] as? String) {
+            guard let i = all.firstIndex(where: { $0.id == id }) else { return "Liability not found." }
+            all[i].name = name; all[i].kind = kind; all[i].creditor = nonBlank(payload["creditor"] as? String)
+            all[i].amount = doubleOf(roundToCents(decimalOf(amount))); all[i].startDate = start; all[i].dueDate = due
+            all[i].monthlyPayment = positive("monthlyPayment"); all[i].interestRatePercent = rate
+            all[i].reference = nonBlank(payload["reference"] as? String); all[i].notes = nonBlank(payload["notes"] as? String)
+            all[i].updatedAt = nowISO()
+            liabilitiesStore.writeAll(all)
+        } else {
+            liabilitiesStore.insert(Liability(
+                id: makeId("liability"), name: name, kind: kind, creditor: nonBlank(payload["creditor"] as? String),
+                amount: doubleOf(roundToCents(decimalOf(amount))), startDate: start, dueDate: due,
+                monthlyPayment: positive("monthlyPayment"), interestRatePercent: rate,
+                reference: nonBlank(payload["reference"] as? String), notes: nonBlank(payload["notes"] as? String),
+                createdAt: nowISO(), updatedAt: nowISO()))
+        }
+        return nil
+    }
+
+    /// Deletes a liability and the payments recorded against it.
+    func deleteLiability(id: String) -> String? {
+        var all = liabilitiesStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Liability not found." }
+        all.removeAll { $0.id == id }
+        liabilitiesStore.writeAll(all)
+        var payments = liabilityPaymentsStore.readAll()
+        let before = payments.count
+        payments.removeAll { $0.liabilityId == id }
+        if payments.count != before { liabilityPaymentsStore.writeAll(payments) }
+        return nil
+    }
+
+    func addLiabilityPayment(_ payload: [String: Any]) -> String? {
+        let liabilityId = (payload["liabilityId"] as? String) ?? ""
+        guard liabilitiesStore.readAll().contains(where: { $0.id == liabilityId }) else { return "Liability not found." }
+        guard let date = validDay(payload["date"] as? String) else { return "Enter the payment date." }
+        let amount = (payload["amount"] as? Double) ?? 0
+        guard amount > 0 else { return "Enter an amount greater than zero." }
+        liabilityPaymentsStore.insert(LiabilityPayment(
+            id: makeId("lpay"), liabilityId: liabilityId, date: date, amount: doubleOf(roundToCents(decimalOf(amount))),
+            note: nonBlank(payload["note"] as? String), createdAt: nowISO()))
+        return nil
+    }
+
+    func deleteLiabilityPayment(id: String) -> String? {
+        var all = liabilityPaymentsStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Payment not found." }
+        all.removeAll { $0.id == id }
+        liabilityPaymentsStore.writeAll(all)
+        return nil
+    }
+
+    // ---- Employees & payroll ----
+
+    func listEmployees() -> [Employee] {
+        employeesStore.readAll().sorted { $0.employeeNumber < $1.employeeNumber }
+    }
+
+    /// Adds an employee, or changes one when `id` is given.
+    func saveEmployee(_ payload: [String: Any]) -> (id: String?, error: String?) {
+        let name = ((payload["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return (nil, "Enter the employee’s name.") }
+        let type = (payload["employmentType"] as? String) == "Part-time" ? "Part-time" : "Full-time"
+        let basis = ["Monthly", "Daily", "Hourly"].contains((payload["payBasis"] as? String) ?? "") ? (payload["payBasis"] as! String) : "Monthly"
+        let rate = (payload["payRate"] as? Double) ?? 0
+        guard rate >= 0 else { return (nil, "The pay can’t be negative.") }
+        let positive: (String) -> Double? = { key in (payload[key] as? Double).flatMap { $0 > 0 ? $0 : nil } }
+        for key in ["startDate", "endDate"] {
+            if nonBlank(payload[key] as? String) != nil && validDay(payload[key] as? String) == nil { return (nil, "Enter valid dates, or leave them empty.") }
+        }
+        let workerId = nonBlank(payload["workerId"] as? String).flatMap { id in workersStore.readAll().contains { $0.id == id } ? id : nil }
+        func fill(_ e: inout Employee) {
+            e.name = name
+            e.chineseName = nonBlank(payload["chineseName"] as? String)
+            e.position = nonBlank(payload["position"] as? String)
+            e.phone = nonBlank(payload["phone"] as? String)
+            e.workerId = workerId
+            e.employmentType = type
+            e.payBasis = basis
+            e.payRate = doubleOf(roundToCents(decimalOf(rate)))
+            e.usualUnitsPerMonth = basis == "Monthly" ? nil : positive("usualUnitsPerMonth")
+            e.monthlyAllowance = positive("monthlyAllowance").map { doubleOf(roundToCents(decimalOf($0))) }
+            e.mpfEnabled = (payload["mpfEnabled"] as? Bool) ?? true
+            e.annualLeaveDays = positive("annualLeaveDays")
+            e.bankAccount = nonBlank(payload["bankAccount"] as? String)
+            e.startDate = validDay(payload["startDate"] as? String)
+            e.endDate = validDay(payload["endDate"] as? String)
+            e.notes = nonBlank(payload["notes"] as? String)
+            if let archived = payload["isArchived"] as? Bool { e.isArchived = archived }
+            e.updatedAt = nowISO()
+        }
+        var all = employeesStore.readAll()
+        if let id = nonBlank(payload["id"] as? String) {
+            guard let i = all.firstIndex(where: { $0.id == id }) else { return (nil, "Employee not found.") }
+            fill(&all[i])
+            employeesStore.writeAll(all)
+            return (id, nil)
+        }
+        let next = (all.compactMap { Int($0.employeeNumber.dropFirst()) }.max() ?? 0) + 1
+        var e = Employee(id: makeId("employee"), employeeNumber: "E" + String(format: "%03d", next), name: name,
+                         chineseName: nil, position: nil, phone: nil, workerId: nil, employmentType: type, payBasis: basis,
+                         payRate: 0, usualUnitsPerMonth: nil, monthlyAllowance: nil, mpfEnabled: true, annualLeaveDays: nil,
+                         bankAccount: nil, startDate: nil, endDate: nil, notes: nil, isArchived: false,
+                         createdAt: nowISO(), updatedAt: nowISO())
+        fill(&e)
+        employeesStore.insert(e)
+        return (e.id, nil)
+    }
+
+    func deleteEmployee(id: String) -> String? {
+        var all = employeesStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Employee not found." }
+        all.removeAll { $0.id == id }
+        employeesStore.writeAll(all)
+        return nil
+    }
+
+    /// A month's pay put into Expenses ("Salaries & MPF"): one expense per
+    /// employee, for their pay plus the employer's MPF. An employee whose
+    /// pay for that month is already there is skipped.
+    func recordPayroll(_ payload: [String: Any]) -> PayrollResult {
+        guard let month = payload["month"] as? String, month.count == 7, validDay(month + "-01") != nil else {
+            return PayrollResult(ok: false, error: "Choose the month.", recorded: 0, skipped: [])
+        }
+        let lines = (payload["lines"] as? [[String: Any]]) ?? []
+        guard !lines.isEmpty else { return PayrollResult(ok: false, error: "Tick at least one employee.", recorded: 0, skipped: []) }
+        let employees = Dictionary(employeesStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let date = validDay(payload["date"] as? String) ?? todayYMD()
+        let existing = Set(expensesStore.readAll().compactMap { $0.reference })
+        let monthName: String = {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_GB")
+            f.dateFormat = "MMMM yyyy"
+            let p = DateFormatter()
+            p.locale = Locale(identifier: "en_US_POSIX")
+            p.dateFormat = "yyyy-MM-dd"
+            return p.date(from: month + "-01").map { f.string(from: $0) } ?? month
+        }()
+        var new: [Expense] = []
+        var skipped: [String] = []
+        for line in lines {
+            guard let e = employees[(line["employeeId"] as? String) ?? ""] else { continue }
+            let reference = "PAY \(month) \(e.employeeNumber)"
+            if existing.contains(reference) { skipped.append(e.name); continue }
+            let pay = roundToCents(decimalOf((line["pay"] as? Double) ?? 0))
+            let mpf = roundToCents(decimalOf((line["mpf"] as? Double) ?? 0))
+            guard pay + mpf > 0 else { continue }
+            var description = "Salary \(monthName) — \(e.name) (\(e.employeeNumber), \(e.employmentType.lowercased()))"
+            if mpf > 0 { description += ": pay \(formatMoney(doubleOf(pay))) + employer MPF \(formatMoney(doubleOf(mpf)))" }
+            new.append(Expense(id: makeId("expense"), date: date, category: "Salaries & MPF", supplier: e.name,
+                               description: description, amount: doubleOf(pay + mpf), projectId: nil,
+                               reference: reference, createdAt: nowISO()))
+        }
+        if !new.isEmpty { expensesStore.insertMany(new) }
+        return PayrollResult(ok: true, error: nil, recorded: new.count, skipped: skipped)
     }
 }
 
@@ -9208,6 +9502,28 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "accounts:saveCSV":
             handleSaveAccountsCSV(id: id, payload: payload)
+        case "accounts:saveLiability":
+            let error = db.saveLiability(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "accounts:deleteLiability":
+            let error = db.deleteLiability(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "accounts:addLiabilityPayment":
+            let error = db.addLiabilityPayment(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "accounts:deleteLiabilityPayment":
+            let error = db.deleteLiabilityPayment(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "employees:list":
+            respond(id: id, encodable: db.listEmployees())
+        case "employees:save":
+            let r = db.saveEmployee(payload)
+            respond(id: id, encodable: EmployeeActionResult(ok: r.error == nil, error: r.error, id: r.id))
+        case "employees:delete":
+            let error = db.deleteEmployee(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "employees:recordPayroll":
+            respond(id: id, encodable: db.recordPayroll(payload))
         case "boq:updateLineDiscount":
             let error = db.updateBOQLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
                                                  value: payload["discountValue"] as? Double)
