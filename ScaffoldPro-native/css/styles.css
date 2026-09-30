@@ -692,3 +692,16 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .pin-btn.pinned { opacity: 1; color: #e0a800; }
 .picker-pinned { border-color: rgba(224, 168, 0, 0.55); }
 .picker-pinned .picker-group-head { background: rgba(224, 168, 0, 0.10); }
+
+/* Dashboard: a quotation's monthly and one-time charges. */
+.charge-line { white-space: nowrap; line-height: 1.35; }
+.charge-line .charge-label { font-size: 11px; color: var(--text-tertiary); margin-right: 4px; }
+.charge-split { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.charge-split > div { flex: 1 1 140px; padding: 8px 10px; border-radius: var(--radius); background: var(--row-hover); border: 1px solid var(--border); }
+.charge-split span { display: block; font-size: 11px; color: var(--text-secondary); }
+.charge-split strong { font-size: 14px; }
+
+/* Back, top left of pages opened from another page (js/sidebar.js). */
+.page-back { display: inline-flex; align-items: center; gap: 4px; margin: -18px 0 12px -6px; padding: 4px 10px 4px 6px;
+  border: 0; background: transparent; box-shadow: none; color: var(--accent); font-weight: 500; cursor: pointer; border-radius: var(--radius); }
+.page-back:hover { background: var(--accent-soft); }

@@ -12,6 +12,8 @@ let currentDeliveryNotes = [];
 const selections = {
   boq: window.createDocumentSelection({
     kind: 'BOQ', noun: 'BOQ', plural: 'BOQs', drawings: true, drawingsLabel: 'Include each BOQ\u2019s drawings after it',
+    combine: { label: 'Combine into One BOQ', title: 'A new BOQ with the chosen BOQs\u2019 quantities added together',
+      run: (ids) => window.api.boq.combine(ids), open: (id) => { location.href = `boq-editor.html?id=${encodeURIComponent(id)}`; } },
     toolbar: document.getElementById('boq-actions'), container: document.getElementById('boq-list'),
     order: () => currentBOQs.map((b) => b.id), numberOf: (id) => (currentBOQs.find((b) => b.id === id) || {}).boqNumber,
   }),
@@ -27,6 +29,8 @@ const selections = {
   }),
   delivery: window.createDocumentSelection({
     kind: 'DeliveryNote', noun: 'delivery note',
+    combine: { label: 'Combine into One Delivery Note', title: 'A new delivery note with the chosen notes\u2019 quantities added together',
+      run: (ids) => window.api.deliveryNotes.combine(ids), open: (id) => { location.href = `delivery-note-editor.html?id=${encodeURIComponent(id)}`; } },
     toolbar: document.getElementById('delivery-actions'), container: document.getElementById('delivery-note-list'),
     order: () => currentDeliveryNotes.map((d) => d.id), numberOf: (id) => (currentDeliveryNotes.find((d) => d.id === id) || {}).deliveryNoteNumber,
   }),
@@ -97,6 +101,12 @@ async function refreshBOQList() {
   selections.boq.afterRender();
 }
 
+// Sections charged per day / week, under the one-time charge: "+ 500.00 per week".
+function recurringNote(recurring) {
+  const parts = Object.entries(recurring || {}).filter(([, v]) => v).map(([k, v]) => `+ ${money(v)} per ${k.toLowerCase()}`);
+  return parts.length ? `<div class="sub">${parts.join('<br>')}</div>` : '';
+}
+
 async function refreshQuotationList() {
   currentQuotations = await window.api.quotations.listForProject(currentProject.id);
   setCount('quotations', currentQuotations.length);
@@ -111,15 +121,22 @@ async function refreshQuotationList() {
     return;
   }
 
-  // Project total: every quotation except cancelled ones.
+  // Project total: every quotation except cancelled ones, split into the
+  // monthly charge (rental) and the one-time charge (delivery and one-off
+  // charges; all of a Sale quotation).
   const counted = currentQuotations.filter((q) => q.status !== 'Cancelled');
-  const total = counted.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+  const split = (q) => q.charges || { monthly: 0, oneTime: Number(q.total) || 0, recurring: {} };
+  const monthlyTotal = counted.reduce((sum, q) => sum + (Number(split(q).monthly) || 0), 0);
+  const oneTimeTotal = counted.reduce((sum, q) => sum + (Number(split(q).oneTime) || 0), 0);
+  const recurringTotal = {};
+  for (const q of counted) for (const [k, v] of Object.entries(split(q).recurring || {})) recurringTotal[k] = (recurringTotal[k] || 0) + v;
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr>${selections.quotation.headerCell()}<th>Number</th><th>BOQ</th><th>Status</th><th>Items</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr>${selections.quotation.headerCell()}<th>Number</th><th>BOQ</th><th>Status</th><th>Items</th><th class="num" title="Monthly rental (and anything charged per month)">Monthly Charge</th><th class="num" title="Delivery and one-off charges — all of a Sale quotation">One-time Charge</th><th></th></tr></thead>
     <tbody></tbody>
     <tfoot><tr class="project-total">${selections.quotation.footerCell()}<td colspan="4">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
-      <td class="num">${money(total)}</td><td></td></tr></tfoot>`;
+      <td class="num">${monthlyTotal ? `${money(monthlyTotal)}<div class="sub">per month</div>` : '<span class="muted">—</span>'}</td>
+      <td class="num">${money(oneTimeTotal)}${recurringNote(recurringTotal)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
   for (const q of currentQuotations) {
     const tr = document.createElement('tr');
@@ -133,7 +150,8 @@ async function refreshQuotationList() {
       <td>${q.boqNumber ? esc(q.boqNumber) : '<span class="muted">—</span>'}</td>
       <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
       <td>${q.itemCount}</td>
-      <td class="num">${money(q.total)}</td>`;
+      <td class="num">${q.pricingMode === 'Sale' || !split(q).monthly ? '<span class="muted">—</span>' : money(split(q).monthly)}</td>
+      <td class="num">${money(split(q).oneTime)}${recurringNote(split(q).recurring)}</td>`;
     tr.appendChild(window.documentRowActions('Quotation', { id: q.id, number: q.quotationNumber, status: q.status }, refreshQuotationList));
     tbody.appendChild(tr);
   }

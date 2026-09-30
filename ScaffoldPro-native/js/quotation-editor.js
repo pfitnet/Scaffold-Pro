@@ -286,6 +286,7 @@ function renderTotals() {
   const rows = [];
   if (d.pricingMode === 'Rental') {
     rows.push(['Subtotal of Monthly Rental Charge', money(d.materialsSubtotal)]);
+    if (d.minimumMonthlyApplied) rows.push(['Minimum Monthly Rental Charge', money(d.monthlyRental)]);
     // Only when it changes the amount: ticked, and more than one month.
     if (d.minimumHireEnabled && d.hireMonths > 1) {
       rows.push([`Minimum Hire of ${d.hireMonths} Month${d.hireMonths === 1 ? '' : 's'}`, money(d.materialsCharge)]);
@@ -297,7 +298,8 @@ function renderTotals() {
   for (const block of d.blocks.filter((b) => b.kind === 'Priced')) {
     const lines = d.lineItems.filter((i) => i.blockId === block.id);
     if (lines.length === 0) continue;
-    rows.push([esc(block.title || 'Other Charges'), money(lines.reduce((sum, i) => sum + (d.lineTotals[i.id] || 0), 0))]);
+    const per = block.chargePeriod ? ` (per ${block.chargePeriod.toLowerCase()})` : '';
+    rows.push([esc(block.title || 'Other Charges') + per, money(lines.reduce((sum, i) => sum + (d.lineTotals[i.id] || 0), 0))]);
   }
   if (d.discountAmount > 0) {
     rows.push([d.discountType === 'Percent' ? `Less ${d.discountValue}% Discount` : 'Less Discount', `-${money(d.discountAmount)}`]);
@@ -306,8 +308,15 @@ function renderTotals() {
   const markupNote = d.markupPercent > 0
     ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1 (Settings › Standard Quotation). Delivery charges aren't marked up.</p>`
     : '';
+  // As on the Dashboard: what's charged each month, and what's charged once.
+  const c = d.charges;
+  const split = c ? `<div class="charge-split">
+      <div><span>Monthly Charge</span><strong>${c.monthly ? `${currencyLabel} ${money(c.monthly)}` : '—'}</strong></div>
+      <div><span>One-time Charge</span><strong>${currencyLabel} ${money(c.oneTime)}</strong></div>
+      ${Object.entries(c.recurring || {}).filter(([, v]) => v).map(([k, v]) => `<div><span>Per ${esc(k.toLowerCase())}</span><strong>${currencyLabel} ${money(v)}</strong></div>`).join('')}
+    </div>` : '';
   box.innerHTML = markupNote + rows.map(([k, v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('') +
-    `<div class="row grand"><span>Total Amount</span><span>${currencyLabel} ${money(d.total)}</span></div>`;
+    `<div class="row grand"><span>Total Amount</span><span>${currencyLabel} ${money(d.total)}</span></div>` + split;
 }
 
 // ---------- Extra sections: priced rows, rates-only rows, notes ----------
@@ -363,6 +372,10 @@ function renderBlocks() {
         <div class="extra-title-row">
           <input type="text" class="block-title" placeholder="Title row (optional), e.g. Design Fees" value="${esc(block.title)}" ${locked ? 'disabled' : ''} />
           <label class="small-note">Rows <input type="text" class="block-prefix" maxlength="4" value="${esc(block.prefix)}" title="Row numbers, e.g. A → A1, A2" ${locked ? 'disabled' : ''} /></label>
+          ${rates ? '' : `<label class="small-note" title="Charged once (a one-time charge), or per day / week / month (a recurring charge)">Charged
+            <select class="block-period" ${locked ? 'disabled' : ''}>
+              ${[['', 'Once'], ['Day', 'Per day'], ['Week', 'Per week'], ['Month', 'Per month']].map(([v, t]) => `<option value="${v}" ${(block.chargePeriod || '') === v ? 'selected' : ''}>${t}</option>`).join('')}
+            </select></label>`}
         </div>
         ${lines.length ? `<table class="compact"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>` : '<p class="small-note">No rows yet.</p>'}
         ${locked ? '' : `<div class="extra-add-row">
@@ -390,6 +403,8 @@ function renderBlocks() {
     if (title) title.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { title: title.value })));
     const prefix = q('.block-prefix');
     if (prefix) prefix.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { prefix: prefix.value })));
+    const period = q('.block-period');
+    if (period) period.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { chargePeriod: period.value || null })));
     const note = q('.block-note');
     note.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { note: note.value })));
     const remove = q('.block-remove');
@@ -453,6 +468,12 @@ function renderLetterFields() {
   if (document.activeElement !== hire) hire.value = d.minimumHireMonths;
   hire.disabled = locked || !d.minimumHireEnabled;
   document.getElementById('q-hire-field').classList.toggle('hidden', d.pricingMode !== 'Rental');
+  // Minimum monthly rental charge (Settings › Quotations).
+  document.getElementById('q-min-monthly-field').classList.toggle('hidden', d.pricingMode !== 'Rental');
+  const minOn = document.getElementById('q-minimumMonthlyChargeEnabled');
+  minOn.checked = !!d.minimumMonthlyChargeEnabled;
+  minOn.disabled = locked;
+  document.getElementById('q-min-monthly-label').textContent = `Apply (${currencyLabel} ${money(d.minimumMonthlyCharge ?? 1000)})`;
   document.getElementById('add-delivery-btn').disabled = locked;
 }
 
@@ -731,6 +752,8 @@ async function init() {
   }
   document.getElementById('q-minimumHireEnabled').addEventListener('change', (e) =>
     saveLetterField('minimumHireEnabled', e.target.checked));
+  document.getElementById('q-minimumMonthlyChargeEnabled').addEventListener('change', (e) =>
+    saveLetterField('minimumMonthlyChargeEnabled', e.target.checked));
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);

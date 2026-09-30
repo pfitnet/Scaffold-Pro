@@ -1420,3 +1420,28 @@ under "Letterhead layout".
   ★ Pinned box at the top of the list, in every editor. Pins are kept with
   the material list (`PriceListItem.isPinned`, `priceListItems:setPinned`),
   so every Mac sees them.
+
+## Batch 60 — Combine counts, monthly vs one-time charges, minimum monthly rental, Back button
+
+- **Combine into one BOQ / delivery note:** in Select mode on a project's
+  BOQ or Delivery Notes tab, tick two or more and press **Combine into One
+  BOQ** (or Delivery Note). A new Draft opens, with each item once and its
+  quantities added together (`boq:combine`, `deliveryNotes:combine`). The
+  originals are unchanged, and the new one's notes say where it came from.
+- **Monthly charge vs one-time charge** (`ChargeSplit`):
+  - Monthly: the monthly rental, plus any priced section charged per month.
+  - One-time: delivery, plus priced sections charged once.
+  - Sections charged per day or week show separately ("+ 500.00 per week").
+  - A Sale quotation has no monthly charge: it's all one-time.
+  - Shown on the Dashboard's Quotations Awaiting Reply, on the project's
+    Quotations tab (two columns and the project total bar), and under a
+    quotation's totals.
+- **Charged once / per day / per week / per month** on each priced section
+  of a quotation. The PDF's section title says "(per week)" etc.
+- **Minimum monthly rental charge:** Settings › Quotations sets the amount
+  (HK$1,000 by default), and "Minimum Monthly Rental Charge › Apply" on a
+  rental quotation lifts a smaller monthly rental to it. The PDF shows the
+  subtotal, then the minimum. An invoice made from the quotation gets an
+  adjustment line, so it charges the same.
+- **Back** (top left) on the project page and in the BOQ, quotation,
+  invoice and delivery note editors: back to the page it was opened from.

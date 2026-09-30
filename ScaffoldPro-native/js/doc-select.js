@@ -4,7 +4,8 @@
 // notes. The tick boxes only appear after pressing Select; then clicking a
 // row ticks it (instead of opening it), and the toolbar offers:
 //   Select All · Export PDF (all of them in one PDF, optionally each with
-//   its drawings) · Locate Files (one Finder window with their files) · Done
+//   its drawings) · Locate Files (one Finder window with their files) ·
+//   Combine (opts.combine: one new document with their quantities added up) · Done
 //
 //   const sel = window.createDocumentSelection({ kind: 'Quotation', noun: 'quotation', drawings: true,
 //     toolbar: el, container: el, order: () => ids });
@@ -47,6 +48,7 @@
         <button class="sel-all" data-no-icon>Select All</button>
         <button class="sel-export" data-no-icon disabled>${window.ICONS ? window.ICONS.pdf : ''}<span>Export PDF</span></button>
         <button class="sel-locate" disabled>Locate Files</button>
+        ${opts.combine ? `<button class="sel-combine" data-no-icon disabled title="${opts.combine.title}">${opts.combine.label}</button>` : ''}
         <button class="primary sel-done" data-no-icon>Done</button>
       </span>`;
     opts.toolbar.prepend(controls);
@@ -64,6 +66,7 @@
       $('.sel-count').textContent = n === 0 ? `Tick the ${plural} you want` : `${n} selected`;
       $('.sel-export').disabled = n === 0;
       $('.sel-locate').disabled = n === 0;
+      if (opts.combine) $('.sel-combine').disabled = n < 2;
       const all = ids().length > 0 && n === ids().length;
       $('.sel-all').textContent = all ? 'Select None' : 'Select All';
       for (const box of opts.container.querySelectorAll('input.doc-select')) {
@@ -108,6 +111,20 @@
       if (r && !r.ok) alert(r.error);
       else if (r && r.note) alert(r.note);
     });
+
+    // Combine: one new document with the chosen ones' quantities added up.
+    if (opts.combine) {
+      $('.sel-combine').addEventListener('click', async () => {
+        const list = chosen();
+        if (list.length < 2) return;
+        const names = opts.numberOf ? list.map(opts.numberOf).join(', ') : `${list.length} ${plural}`;
+        if (!confirm(`${opts.combine.label}?\n\nA new draft is made from ${names}, with each item's quantities added together. They stay as they are.`)) return;
+        const r = await opts.combine.run(list);
+        if (!r || !r.ok) { alert((r && r.error) || 'They couldn’t be combined.'); return; }
+        setSelecting(false);
+        if (opts.combine.open) opts.combine.open(r.id);
+      });
+    }
 
     $('.sel-export').addEventListener('click', () => {
       const list = chosen();
