@@ -1,0 +1,7 @@
+# Left out of the graphify knowledge graph (graphify-out/).
+# graphify's own skill and instructions — about the tool, not ScaffoldPro.
+.claude/
+# Smaller copies of AppIcon-1024.png.
+ScaffoldPro-native/icon/AppIcon.iconset/
+# Font licence texts.
+ScaffoldPro-native/resources/fonts/*-OFL.txt
