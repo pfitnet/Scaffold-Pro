@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Calendar — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .cal-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .cal-bar h2 { margin: 0 8px 0 4px; min-width: 170px; }
+    .cal-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+    .cal-filter { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 9px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; user-select: none; }
+    .cal-filter input { margin: 0; }
+    .cal-filter.off { opacity: 0.5; }
+    .cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--border); gap: 1px; }
+    .cal-head { background: var(--header-bg); font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 6px 8px; text-align: left; }
+    .cal-day { background: var(--panel); min-height: 104px; padding: 4px 5px 6px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cal-day.other { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); }
+    .cal-day.other .cal-num { color: var(--text-tertiary); }
+    .cal-day.today .cal-num { background: var(--accent); color: #fff; }
+    .cal-day.selected { box-shadow: inset 0 0 0 2px var(--accent); }
+    .cal-num { font-size: 12px; font-weight: 600; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 50%; margin-bottom: 2px; }
+    .cal-ev { font-size: 11px; line-height: 1.35; padding: 1px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: color-mix(in srgb, var(--k) 12%, transparent); color: color-mix(in srgb, var(--k) 60%, var(--text)); border-left: 2px solid color-mix(in srgb, var(--k) 70%, transparent); }
+    .cal-ev.done { opacity: 0.55; text-decoration: line-through; }
+    .cal-ev.overdue { background: var(--danger-soft); color: var(--danger); border-left-color: var(--danger); }
+    .cal-more { font-size: 11px; color: var(--text-tertiary); padding-left: 5px; }
+    .cal-side { position: sticky; top: 12px; }
+    .cal-side .panel { margin-bottom: 12px; }
+    .ev-item { display: block; padding: 7px 8px; border-radius: 6px; color: var(--text); text-decoration: none; border-left: 3px solid color-mix(in srgb, var(--k) 70%, transparent); margin-bottom: 6px; background: color-mix(in srgb, var(--k) 6%, transparent); }
+    .ev-item:hover { text-decoration: none; background: color-mix(in srgb, var(--k) 11%, transparent); }
+    .ev-item .ev-kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-tertiary); }
+    .ev-item .ev-title { font-size: 13px; font-weight: 500; }
+    .ev-item.done .ev-title { text-decoration: line-through; color: var(--text-tertiary); }
+    .ev-item.overdue { border-left-color: var(--danger); }
+    .ev-item .sub { font-size: 12px; }
+    .ev-day { font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 10px 0 4px; }
+    @media (max-width: 1100px) { .cal-layout { grid-template-columns: 1fr; } .cal-side { position: static; } }
+  </style>
+</head>
+<body data-page="calendar">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <h1>Calendar</h1>
+    <div class="subtitle">Deliveries, scaffold inspections, tasks, quotations running out, payments due, lead follow-ups and certificates expiring — all in one place.</div>
+
+    <div class="cal-bar">
+      <button id="cal-prev" data-no-icon title="Previous month">‹</button>
+      <button id="cal-today" data-no-icon>Today</button>
+      <button id="cal-next" data-no-icon title="Next month">›</button>
+      <h2 id="cal-title"></h2>
+      <div class="cal-filters" id="cal-filters"></div>
+    </div>
+
+    <div class="cal-layout">
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-side">
+        <section class="panel">
+          <h3 class="panel-title" id="day-title">Today</h3>
+          <div id="day-events"></div>
+        </section>
+        <section class="panel">
+          <h3 class="panel-title">Next 14 Days</h3>
+          <div id="agenda"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/calendar.js"></script>
+</body>
+</html>

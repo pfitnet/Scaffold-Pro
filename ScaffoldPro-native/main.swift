@@ -112,6 +112,92 @@ struct DashboardSummary: Codable {
     var myProjects: [MyProject] = []
     var teamActivity: [ActivityRow] = []
     var userName = ""
+    /// Scaffold inspections due within 3 days or overdue; my open tasks.
+    var inspectionsDue: [InspectionDue] = []
+    var myTasks: [TaskRow] = []
+}
+
+/// A scaffold inspection by a competent person (Construction Sites
+/// (Safety) Regulations: before first use, then at least every 14 days,
+/// recorded on Form 5). One structure of a project per record.
+struct ScaffoldInspection: Codable {
+    var id: String
+    var projectId: String
+    /// What was inspected, e.g. "Truss-out at 5/F".
+    var structure: String
+    var location: String?
+    /// yyyy-MM-dd
+    var inspectedOn: String
+    /// The competent person.
+    var inspector: String
+    /// "Safe", "Safe with remarks" or "Unsafe".
+    var result: String
+    var remarks: String?
+    var actionTaken: String?
+    /// yyyy-MM-dd — 14 days on unless changed; nil once dismantled.
+    var nextDue: String?
+    /// Taken down: no further inspections are due for it.
+    var dismantled: Bool?
+    var createdBy: String?
+    var createdAt: String
+    var updatedAt: String
+}
+
+/// A structure's next inspection (the latest record for it).
+struct InspectionDue: Codable {
+    var projectId: String
+    var projectNumber: String
+    var projectName: String
+    var structure: String
+    var lastInspected: String
+    var lastResult: String
+    var nextDue: String
+    /// Negative: overdue.
+    var daysLeft: Int
+    var url: String
+}
+
+/// A to-do for someone in the team, optionally for a project.
+struct TeamTask: Codable {
+    var id: String
+    var title: String
+    var notes: String?
+    var projectId: String?
+    /// Who it's for (a user's name); nil = anyone.
+    var assignee: String?
+    /// yyyy-MM-dd
+    var dueDate: String?
+    /// "High" or nil (normal).
+    var priority: String?
+    var done: Bool
+    var doneAt: String?
+    var doneBy: String?
+    var createdBy: String?
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct TaskRow: Codable {
+    var task: TeamTask
+    var projectNumber: String?
+    var projectName: String?
+    /// For this Mac's user (or for anyone and made by them).
+    var mine: Bool
+    var overdue: Bool
+}
+
+/// One thing on the Calendar.
+struct CalendarEvent: Codable {
+    /// yyyy-MM-dd
+    var date: String
+    /// Delivery, Inspection, Task, Quotation, Invoice, Lead, Expiry, Project
+    var kind: String
+    var title: String
+    var detail: String?
+    var url: String?
+    var done: Bool = false
+    var person: String? = nil
+    var overdue: Bool = false
 }
 
 /// A possible customer being worked on (Marketing › Leads) — not a
@@ -2610,6 +2696,8 @@ final class AppDatabase {
     let lettersStore: JSONStore<Letter>
     let userProfilesStore: JSONStore<UserProfile>
     let leadsStore: JSONStore<Lead>
+    let inspectionsStore: JSONStore<ScaffoldInspection>
+    let tasksStore: JSONStore<TeamTask>
     let liabilityPaymentsStore: JSONStore<LiabilityPayment>
     let employeesStore: JSONStore<Employee>
 
@@ -2644,6 +2732,8 @@ final class AppDatabase {
         lettersStore = JSONStore(fileURL: dataDir.appendingPathComponent("letters.json"))
         userProfilesStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_profiles.json"))
         leadsStore = JSONStore(fileURL: dataDir.appendingPathComponent("leads.json"))
+        inspectionsStore = JSONStore(fileURL: dataDir.appendingPathComponent("scaffold_inspections.json"))
+        tasksStore = JSONStore(fileURL: dataDir.appendingPathComponent("tasks.json"))
         liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
     }
@@ -2862,6 +2952,8 @@ final class AppDatabase {
         summary.teamActivity = Array(listActivity(projectId: nil, limit: 200).filter { !$0.mine }.prefix(10))
         summary.myProjects = myRecentProjects(rows: rows, limit: 6)
         summary.userName = TeamSync.memberName
+        summary.inspectionsDue = inspectionsDue(withinDays: 3)
+        summary.myTasks = Array(listTasks().filter { $0.mine && !$0.task.done }.prefix(8))
         let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let unsigned = rows.filter { r in
             guard r.kind == "Quotation", r.status == "Issued", r.mine, let q = quotations[r.id] else { return false }
@@ -2874,6 +2966,261 @@ final class AppDatabase {
         summary.awaitingSignedCopy = Array(unsigned.prefix(8))
         summary.awaitingSignedCopyCount = unsigned.count
         return summary
+    }
+
+    // ---- Scaffold inspections ----
+
+    static let inspectionResults = ["Safe", "Safe with remarks", "Unsafe"]
+
+    private func dayFormatter() -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }
+
+    /// yyyy-MM-dd plus `days`.
+    func addDays(_ day: String, _ days: Int) -> String? {
+        let f = dayFormatter()
+        guard let d = f.date(from: String(day.prefix(10))), let next = Calendar(identifier: .gregorian).date(byAdding: .day, value: days, to: d) else { return nil }
+        return f.string(from: next)
+    }
+
+    /// Days from today to a yyyy-MM-dd (negative = past).
+    func daysFromToday(_ day: String) -> Int {
+        let f = dayFormatter()
+        guard let d = f.date(from: String(day.prefix(10))), let t = f.date(from: todayYMD()) else { return 0 }
+        return Calendar(identifier: .gregorian).dateComponents([.day], from: t, to: d).day ?? 0
+    }
+
+    func listInspections(projectId: String) -> [ScaffoldInspection] {
+        inspectionsStore.readAll().filter { $0.projectId == projectId }
+            .sorted { ($0.inspectedOn, $0.createdAt) > ($1.inspectedOn, $1.createdAt) }
+    }
+
+    /// Records an inspection (no id) or changes one. The next one is due
+    /// 14 days on unless another date is given; none once dismantled.
+    func saveInspection(_ payload: [String: Any]) -> LeadSaveResult {
+        guard let projectId = text(payload, "projectId"), let project = getProject(id: projectId) else { return LeadSaveResult(ok: false, error: "Project not found.") }
+        guard let structure = text(payload, "structure") else { return LeadSaveResult(ok: false, error: "Say what was inspected (e.g. the truss-out at 5/F).") }
+        guard let day = validDay(text(payload, "inspectedOn")) else { return LeadSaveResult(ok: false, error: "Enter the date of the inspection.") }
+        guard let inspector = text(payload, "inspector") else { return LeadSaveResult(ok: false, error: "Enter the competent person who inspected it.") }
+        let result = text(payload, "result") ?? "Safe"
+        guard AppDatabase.inspectionResults.contains(result) else { return LeadSaveResult(ok: false, error: "Choose the result.") }
+        let dismantled = (payload["dismantled"] as? Bool) == true
+        let nextText = text(payload, "nextDue")
+        if nextText != nil && validDay(nextText) == nil { return LeadSaveResult(ok: false, error: "Enter a valid date for the next inspection.") }
+        let next = dismantled ? nil : (validDay(nextText) ?? addDays(day, 14))
+        var all = inspectionsStore.readAll()
+        if let id = text(payload, "id"), let i = all.firstIndex(where: { $0.id == id }) {
+            all[i].structure = structure
+            all[i].location = text(payload, "location")
+            all[i].inspectedOn = day
+            all[i].inspector = inspector
+            all[i].result = result
+            all[i].remarks = text(payload, "remarks")
+            all[i].actionTaken = text(payload, "actionTaken")
+            all[i].nextDue = next
+            all[i].dismantled = dismantled ? true : nil
+            all[i].updatedAt = nowISO()
+            inspectionsStore.writeAll(all)
+            return LeadSaveResult(ok: true, error: nil, id: id)
+        }
+        let record = ScaffoldInspection(id: makeId("inspection"), projectId: project.id, structure: structure, location: text(payload, "location"),
+                                        inspectedOn: day, inspector: inspector, result: result, remarks: text(payload, "remarks"),
+                                        actionTaken: text(payload, "actionTaken"), nextDue: next, dismantled: dismantled ? true : nil,
+                                        createdBy: TeamSync.memberName, createdAt: nowISO(), updatedAt: nowISO())
+        inspectionsStore.insert(record)
+        logActivity(projectId: project.id, dismantled ? "Scaffold dismantled — \(structure)" : "Scaffold inspected (\(result)) — \(structure)", reference: day)
+        return LeadSaveResult(ok: true, error: nil, id: record.id)
+    }
+
+    func deleteInspection(id: String) -> String? {
+        var all = inspectionsStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Inspection not found." }
+        all.removeAll { $0.id == id }
+        inspectionsStore.writeAll(all)
+        return nil
+    }
+
+    /// Each structure's next inspection (from its latest record) on active
+    /// projects — all of them, or only those due within `withinDays`.
+    func inspectionsDue(withinDays: Int? = nil) -> [InspectionDue] {
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var latest: [String: ScaffoldInspection] = [:]
+        for r in inspectionsStore.readAll() {
+            let key = "\(r.projectId)|\(r.structure.lowercased())"
+            if let cur = latest[key], (cur.inspectedOn, cur.createdAt) >= (r.inspectedOn, r.createdAt) { continue }
+            latest[key] = r
+        }
+        return latest.values.compactMap { r -> InspectionDue? in
+            guard r.dismantled != true, let due = r.nextDue, let p = projects[r.projectId], p.status == "Active" else { return nil }
+            let left = daysFromToday(due)
+            if let w = withinDays, left > w { return nil }
+            return InspectionDue(projectId: p.id, projectNumber: p.projectNumber, projectName: p.name, structure: r.structure,
+                                 lastInspected: r.inspectedOn, lastResult: r.result, nextDue: due, daysLeft: left,
+                                 url: "project-detail.html?number=\(p.projectNumber)&tab=inspections")
+        }.sorted { ($0.daysLeft, $0.projectNumber) < ($1.daysLeft, $1.projectNumber) }
+    }
+
+    // ---- Tasks ----
+
+    func isForMe(_ t: TeamTask) -> Bool {
+        if let a = nonBlank(t.assignee) { return a.lowercased() == TeamSync.memberName.lowercased() }
+        return (t.createdBy ?? "").lowercased() == TeamSync.memberName.lowercased()
+    }
+
+    func listTasks(projectId: String? = nil) -> [TaskRow] {
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let today = todayYMD()
+        return tasksStore.readAll().filter { projectId == nil || $0.projectId == projectId }
+            .map { t in
+                let p = t.projectId.flatMap { projects[$0] }
+                return TaskRow(task: t, projectNumber: p?.projectNumber, projectName: p?.name, mine: isForMe(t),
+                               overdue: !t.done && (t.dueDate.map { $0 < today } ?? false))
+            }
+            .sorted { a, b in
+                if a.task.done != b.task.done { return !a.task.done }
+                if a.task.done { return (a.task.doneAt ?? "") > (b.task.doneAt ?? "") }
+                let ha = a.task.priority == "High", hb = b.task.priority == "High"
+                if ha != hb { return ha }
+                return (a.task.dueDate ?? "9999", a.task.createdAt) < (b.task.dueDate ?? "9999", b.task.createdAt)
+            }
+    }
+
+    func saveTask(_ payload: [String: Any]) -> LeadSaveResult {
+        guard let title = text(payload, "title") else { return LeadSaveResult(ok: false, error: "Say what needs doing.") }
+        let due = text(payload, "dueDate")
+        if due != nil && validDay(due) == nil { return LeadSaveResult(ok: false, error: "Enter a valid due date.") }
+        let projectId = text(payload, "projectId")
+        if let pid = projectId, getProject(id: pid) == nil { return LeadSaveResult(ok: false, error: "Project not found.") }
+        let priority = text(payload, "priority") == "High" ? "High" : nil
+        var all = tasksStore.readAll()
+        if let id = text(payload, "id"), let i = all.firstIndex(where: { $0.id == id }) {
+            all[i].title = title
+            all[i].notes = text(payload, "notes")
+            all[i].projectId = projectId
+            all[i].assignee = text(payload, "assignee")
+            all[i].dueDate = validDay(due)
+            all[i].priority = priority
+            all[i].updatedAt = nowISO()
+            tasksStore.writeAll(all)
+            return LeadSaveResult(ok: true, error: nil, id: id)
+        }
+        let t = TeamTask(id: makeId("task"), title: title, notes: text(payload, "notes"), projectId: projectId, assignee: text(payload, "assignee"),
+                         dueDate: validDay(due), priority: priority, done: false, doneAt: nil, doneBy: nil,
+                         createdBy: TeamSync.memberName, createdAt: nowISO(), updatedAt: nowISO())
+        tasksStore.insert(t)
+        return LeadSaveResult(ok: true, error: nil, id: t.id)
+    }
+
+    func setTaskDone(id: String, done: Bool) -> String? {
+        var all = tasksStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "Task not found." }
+        all[i].done = done
+        all[i].doneAt = done ? nowISO() : nil
+        all[i].doneBy = done ? TeamSync.memberName : nil
+        all[i].updatedAt = nowISO()
+        tasksStore.writeAll(all)
+        if done, let pid = all[i].projectId { logActivity(projectId: pid, "Task done — \(all[i].title)") }
+        return nil
+    }
+
+    func deleteTask(id: String) -> String? {
+        var all = tasksStore.readAll()
+        guard all.contains(where: { $0.id == id }) else { return "Task not found." }
+        all.removeAll { $0.id == id }
+        tasksStore.writeAll(all)
+        return nil
+    }
+
+    /// The people tasks can be given to: everyone with a colour, in the
+    /// shared folder, or already given a task.
+    func teamNames() -> [String] {
+        var names = Set<String>([TeamSync.memberName])
+        for p in userProfilesStore.readAll() { names.insert(p.name) }
+        for m in TeamSync.current?.members() ?? [] { names.insert(m.name) }
+        for t in tasksStore.readAll() { if let a = nonBlank(t.assignee) { names.insert(a) } }
+        return names.filter { !$0.isEmpty }.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    // ---- Calendar ----
+
+    /// Everything dated between `from` and `to` (yyyy-MM-dd, inclusive).
+    func calendarEvents(from: String, to: String) -> [CalendarEvent] {
+        let inRange: (String?) -> String? = { d in
+            guard let d = d.map({ String($0.prefix(10)) }), d.count == 10, d >= from, d <= to else { return nil }
+            return d
+        }
+        let today = todayYMD()
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let boqs = Dictionary(boqsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var events: [CalendarEvent] = []
+        // Delivery schedule days (quotations' and BOQs').
+        for d in quotationDeliveriesStore.readAll() {
+            guard let day = inRange(d.date) else { continue }
+            let q = quotations[d.quotationId], b = boqs[d.quotationId]
+            let number = q?.quotationNumber ?? b?.boqNumber ?? ""
+            let pid = q?.projectId ?? b?.projectId
+            let pcs = Int(d.quantities.values.reduce(0, +))
+            events.append(CalendarEvent(date: day, kind: "Delivery", title: "Day \(d.day) — \(number)",
+                                        detail: [pid.flatMap { projects[$0] }.map { "\($0.projectNumber) \($0.name)" }, "\(pcs) pcs", nonBlank(d.note)].compactMap { $0 }.joined(separator: " · "),
+                                        url: q != nil ? "quotation-editor.html?id=\(d.quotationId)" : "boq-editor.html?id=\(d.quotationId)", done: d.sent == true))
+        }
+        for dn in deliveryNotesStore.readAll() where dn.status != "Cancelled" {
+            guard let day = inRange(dn.deliveryDate) else { continue }
+            let p = projects[dn.projectId]
+            events.append(CalendarEvent(date: day, kind: "Delivery", title: "\(dn.deliveryNoteNumber) delivered",
+                                        detail: p.map { "\($0.projectNumber) \($0.name)" }, url: "delivery-note-editor.html?id=\(dn.id)", done: dn.status != "Draft"))
+        }
+        // Inspections done, and due.
+        for r in inspectionsStore.readAll() {
+            guard let day = inRange(r.inspectedOn), let p = projects[r.projectId] else { continue }
+            events.append(CalendarEvent(date: day, kind: "Inspection", title: "Inspected — \(r.structure)", detail: "\(p.projectNumber) · \(r.result) · \(r.inspector)",
+                                        url: "project-detail.html?number=\(p.projectNumber)&tab=inspections", done: true))
+        }
+        for due in inspectionsDue() {
+            // Overdue ones show on today.
+            let shownOn = due.daysLeft < 0 ? today : due.nextDue
+            guard let day = inRange(shownOn) else { continue }
+            events.append(CalendarEvent(date: day, kind: "Inspection", title: "Inspection due — \(due.structure)",
+                                        detail: "\(due.projectNumber) \(due.projectName)\(due.daysLeft < 0 ? " · overdue since \(due.nextDue)" : "")",
+                                        url: due.url, overdue: due.daysLeft < 0))
+        }
+        for row in listTasks() {
+            guard let day = inRange(row.task.dueDate) else { continue }
+            events.append(CalendarEvent(date: day, kind: "Task", title: row.task.title, detail: row.projectNumber.map { "\($0) \(row.projectName ?? "")" },
+                                        url: "tasks.html?task=\(row.task.id)", done: row.task.done, person: row.task.assignee, overdue: row.overdue))
+        }
+        for r in documentRows(withAuthors: false) {
+            if r.kind == "Quotation", r.status == "Issued", let day = inRange(r.dueDate) {
+                events.append(CalendarEvent(date: day, kind: "Quotation", title: "\(r.number) valid until", detail: [r.clientName, r.projectNumber].compactMap { $0 }.joined(separator: " · "), url: r.url))
+            }
+            if r.kind == "Invoice", (r.balance ?? 0) > 0, !["Draft", "Paid", "Cancelled"].contains(r.status), let day = inRange(r.dueDate) {
+                events.append(CalendarEvent(date: day, kind: "Invoice", title: "\(r.number) payment due", detail: [r.clientName, "\(formatMoney(r.balance ?? 0)) owed"].compactMap { $0 }.joined(separator: " · "),
+                                            url: r.url, overdue: r.isOverdue))
+            }
+        }
+        for l in leadsStore.readAll() where !["Won", "Lost"].contains(l.status) {
+            guard let day = inRange(l.nextFollowUp) else { continue }
+            events.append(CalendarEvent(date: day, kind: "Lead", title: "Follow up — \(l.company)", detail: [l.contactPerson, l.status].compactMap { nonBlank($0) }.joined(separator: " · "),
+                                        url: "marketing.html?tab=leads&lead=\(l.id)", person: l.owner))
+        }
+        let workers = Dictionary(workersStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        for d in workerDocumentsStore.readAll() where !d.isArchived {
+            guard let day = inRange(d.expiryDate), let w = workers[d.workerId], !w.isArchived else { continue }
+            events.append(CalendarEvent(date: day, kind: "Expiry", title: "\(d.category) expires — \(w.name)", detail: d.originalName, url: "admin.html?worker=\(w.id)"))
+        }
+        for d in adminDocumentsStore.readAll() where !d.isArchived {
+            guard let day = inRange(d.expiryDate) else { continue }
+            events.append(CalendarEvent(date: day, kind: "Expiry", title: "\(d.category) expires", detail: d.originalName, url: "admin.html"))
+        }
+        for p in projects.values {
+            if let day = inRange(p.startDate) { events.append(CalendarEvent(date: day, kind: "Project", title: "\(p.projectNumber) starts", detail: p.name, url: "project-detail.html?number=\(p.projectNumber)")) }
+            if let day = inRange(p.expectedCompletionDate) { events.append(CalendarEvent(date: day, kind: "Project", title: "\(p.projectNumber) due to finish", detail: p.name, url: "project-detail.html?number=\(p.projectNumber)")) }
+        }
+        return events.sorted { ($0.date, $0.kind, $0.title) < ($1.date, $1.kind, $1.title) }
     }
 
     // ---- Marketing ----
@@ -11511,6 +11858,29 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let name = ((payload["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if let sync = TeamSync.current { sync.setMemberName(name) } else { TeamSync.memberName = name }
             respond(id: id, encodable: teamStatus())
+        case "inspections:list":
+            respond(id: id, encodable: db.listInspections(projectId: (payload["projectId"] as? String) ?? ""))
+        case "inspections:save":
+            respond(id: id, encodable: db.saveInspection(payload))
+        case "inspections:delete":
+            let error = db.deleteInspection(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "inspections:due":
+            respond(id: id, encodable: db.inspectionsDue(withinDays: payload["withinDays"] as? Int))
+        case "tasks:list":
+            respond(id: id, encodable: db.listTasks(projectId: payload["projectId"] as? String))
+        case "tasks:save":
+            respond(id: id, encodable: db.saveTask(payload))
+        case "tasks:setDone":
+            let error = db.setTaskDone(id: (payload["id"] as? String) ?? "", done: (payload["done"] as? Bool) ?? true)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "tasks:delete":
+            let error = db.deleteTask(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "tasks:people":
+            respond(id: id, encodable: db.teamNames())
+        case "calendar:events":
+            respond(id: id, encodable: db.calendarEvents(from: (payload["from"] as? String) ?? "", to: (payload["to"] as? String) ?? ""))
         case "marketing:summary":
             respond(id: id, encodable: db.marketingSummary())
         case "marketing:leads":
@@ -15341,9 +15711,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             i.target = self
             go.addItem(i)
         }
-        let marketing = item("Marketing", #selector(goToPage(_:)), "", page: "marketing.html")
-        marketing.target = self
-        go.addItem(marketing)
+        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Marketing", "marketing.html")] {
+            let extra = item(title, #selector(goToPage(_:)), "", page: page)
+            extra.target = self
+            go.addItem(extra)
+        }
         // The user's own page, pinned at the foot of the sidebar.
         let user = item("User", #selector(goToPage(_:)), "0", page: "user.html")
         user.target = self

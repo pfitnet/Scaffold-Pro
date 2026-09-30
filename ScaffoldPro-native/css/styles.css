@@ -814,3 +814,21 @@ table.file-groups tbody.file-group:first-of-type tr.file-group-head td { border-
 .file-group-title { font-weight: 600; color: var(--text); }
 .file-group-count { float: right; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 table.file-groups tbody.file-group tr:not(.file-group-head) td:first-child { padding-left: 20px; }
+
+/* Scaffold inspections: each structure's next inspection, then the register. */
+.insp-due { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.insp-due-card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); padding: 10px 12px; font-size: 13px; }
+.insp-due-card .insp-structure { font-weight: 600; }
+.insp-due-card.soon { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); background: var(--warning-soft); }
+.insp-due-card.overdue { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); background: var(--danger-soft); }
+.insp-due-card button { margin-top: 8px; font-size: 12px; padding: 2px 10px; }
+
+/* Tasks */
+table.task-table td { vertical-align: top; }
+tr.task-row { cursor: pointer; }
+td.task-check { width: 28px; }
+td.task-check input { margin-top: 2px; }
+tr.task-done .task-title { text-decoration: line-through; color: var(--text-tertiary); }
+.task-overdue { color: var(--danger); font-weight: 500; }
+.status-pill.task-high { font-size: 10px; padding: 0 6px; }
+.panel-title .panel-link { float: right; font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; }

@@ -37,6 +37,8 @@
         <button data-tab="delivery">Delivery Notes <span class="tab-count" id="count-delivery"></span></button>
         <button data-tab="letters">Letters <span class="tab-count" id="count-letters"></span></button>
         <button data-tab="files">Drawings &amp; Documents <span class="tab-count" id="count-files"></span></button>
+        <button data-tab="inspections">Inspections <span class="tab-count" id="count-inspections"></span></button>
+        <button data-tab="tasks">Tasks <span class="tab-count" id="count-tasks"></span></button>
         <button data-tab="history">History</button>
       </nav>
 
@@ -143,12 +145,58 @@
         </div>
       </section>
 
+      <section class="tab-panel" data-panel="inspections">
+        <div class="section-toolbar">
+          <h2>Scaffold Inspections</h2>
+          <div class="toolbar-actions">
+            <button id="inspection-csv-btn" title="The inspection register as a spreadsheet, saved in the project’s Documents folder">Export Register</button>
+            <button class="primary" id="record-inspection-btn">+ Record Inspection</button>
+          </div>
+        </div>
+        <p class="small-note">Each scaffold inspected by a competent person before it’s first used and at least every 14 days (Form 5). Due and overdue inspections show on the Dashboard and the Calendar.</p>
+        <div id="inspection-list"></div>
+      </section>
+
+      <section class="tab-panel" data-panel="tasks">
+        <div class="section-toolbar">
+          <h2>Tasks</h2>
+          <div class="toolbar-actions">
+            <button id="task-show-done" data-no-icon>Show Done</button>
+            <button class="primary" id="new-task-btn">+ New Task</button>
+          </div>
+        </div>
+        <div id="task-list"></div>
+      </section>
+
       <section class="tab-panel" data-panel="history">
         <div class="section-toolbar"><h2>History</h2></div>
         <div id="history-list"></div>
       </section>
     </div>
   </main>
+
+  <div class="modal-backdrop hidden" id="inspection-modal">
+    <div class="modal wide" role="dialog" aria-labelledby="in-title">
+      <h2 id="in-title">Record Inspection</h2>
+      <div class="form-grid">
+        <div class="field span-2"><label for="in-structure">Scaffold inspected</label><input type="text" id="in-structure" list="in-structures" placeholder="e.g. Truss-out at 5/F" /><datalist id="in-structures"></datalist></div>
+        <div class="field"><label for="in-location">Location</label><input type="text" id="in-location" placeholder="e.g. G/F South, grid G-015" /></div>
+        <div class="field"><label for="in-date">Inspected on</label><input type="date" id="in-date" /></div>
+        <div class="field"><label for="in-inspector">Competent person</label><input type="text" id="in-inspector" /></div>
+        <div class="field"><label for="in-result">Result</label><select id="in-result"><option>Safe</option><option>Safe with remarks</option><option>Unsafe</option></select></div>
+        <div class="field span-2"><label for="in-remarks">Remarks</label><input type="text" id="in-remarks" placeholder="e.g. Toe boards missing on 3rd lift" /></div>
+        <div class="field span-2"><label for="in-action">Action taken</label><input type="text" id="in-action" placeholder="e.g. Toe boards fitted, re-checked" /></div>
+        <div class="field"><label for="in-next">Next inspection due</label><input type="date" id="in-next" /><div class="small-note" id="in-next-hint"></div></div>
+        <div class="field"><label>&nbsp;</label><label class="inline-check"><input type="checkbox" id="in-dismantled" /> Dismantled (no more inspections)</label></div>
+      </div>
+      <div class="error-text hidden" id="in-error"></div>
+      <div class="actions">
+        <button id="in-delete" class="left hidden" data-no-icon>Delete</button>
+        <button id="in-cancel">Cancel</button>
+        <button class="primary" id="in-save">Save</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-backdrop hidden" id="edit-modal">
     <div class="modal wide">
@@ -205,6 +253,8 @@
   <script src="js/doc-select.js"></script>
   <script src="js/file-drop.js"></script>
   <script src="js/keep-focus.js"></script>
+  <script src="js/task-editor.js"></script>
+  <script src="js/project-work.js"></script>
   <script src="js/project-detail.js"></script>
 </body>
 </html>

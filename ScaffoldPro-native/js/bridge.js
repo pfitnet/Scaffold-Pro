@@ -334,6 +334,27 @@
       reveal: () => callNative('cloudBackup:reveal'),
     },
     // Sharing the data with other Macs through a shared (iCloud Drive) folder.
+    // Scaffold inspections (Form 5 register): each project's records, and what's due.
+    inspections: {
+      list: (projectId) => callNative('inspections:list', { projectId: projectId }),
+      // { id?, projectId, structure, location, inspectedOn, inspector, result, remarks, actionTaken, nextDue, dismantled } → { ok, error, id }
+      save: (record) => callNative('inspections:save', record),
+      remove: (id) => callNative('inspections:delete', { id: id }),
+      due: (withinDays) => callNative('inspections:due', withinDays == null ? {} : { withinDays: withinDays }),
+    },
+    // The team's to-dos.
+    tasks: {
+      list: (projectId) => callNative('tasks:list', projectId ? { projectId: projectId } : {}),
+      // { id?, title, notes, projectId, assignee, dueDate, priority } → { ok, error, id }
+      save: (task) => callNative('tasks:save', task),
+      setDone: (id, done) => callNative('tasks:setDone', { id: id, done: done }),
+      remove: (id) => callNative('tasks:delete', { id: id }),
+      people: () => callNative('tasks:people'),
+    },
+    // Everything dated between two days (yyyy-MM-dd).
+    calendar: {
+      events: (from, to) => callNative('calendar:events', { from: from, to: to }),
+    },
     // Marketing: the overview / follow-ups / references, and leads.
     marketing: {
       summary: () => callNative('marketing:summary'),
