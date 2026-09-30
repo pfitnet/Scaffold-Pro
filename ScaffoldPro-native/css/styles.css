@@ -710,3 +710,9 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .rates-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 8px 12px;
   border: 1px solid var(--accent); border-radius: var(--radius-lg); background: var(--accent-soft); font-size: 13px; }
 #table-container.selecting tr[data-id] { cursor: pointer; }
+
+/* Stock › By Site */
+.site-holding { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 14px; overflow: hidden; }
+.site-holding-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; padding: 10px 14px; background: var(--header-bg); border-bottom: 1px solid var(--border); }
+.site-holding-meta { font-size: 12px; color: var(--text-secondary); }
+.site-holding table { margin: 0; }

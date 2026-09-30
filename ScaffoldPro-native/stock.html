@@ -28,6 +28,7 @@
     <div class="tabs" id="stock-tabs">
       <button data-tab="items" class="active">Stock List</button>
       <button data-tab="movements">Movements</button>
+      <button data-tab="sites">By Site</button>
     </div>
 
     <section id="tab-items">
@@ -48,6 +49,17 @@
         <button id="export-items-btn">Export CSV</button>
       </div>
       <div id="items-container" class="no-sort"></div>
+    </section>
+
+    <!-- Materials out on hire, by the site they're at and the company they're with -->
+    <section id="tab-sites" class="hidden">
+      <div class="toolbar">
+        <select id="site-filter"><option value="">All sites</option></select>
+        <input type="text" id="site-search" placeholder="Search item, project or company" />
+        <span class="toolbar-spacer"></span>
+        <button id="export-sites-btn">Export CSV</button>
+      </div>
+      <div id="sites-container" class="no-sort"></div>
     </section>
 
     <section id="tab-movements" class="hidden">

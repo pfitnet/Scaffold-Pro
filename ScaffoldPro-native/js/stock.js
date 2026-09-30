@@ -42,6 +42,7 @@ async function load() {
   renderStats();
   renderItems();
   renderMovements();
+  if (!document.getElementById('tab-sites').classList.contains('hidden')) renderSites();
 }
 
 function renderStats() {
@@ -278,6 +279,16 @@ async function exportCSV(which) {
       .concat(filteredItems().map((i) => [i.itemCode, i.itemName, i.unit, Math.round(i.inYard), Math.round(i.onHire), Math.round(i.owned),
         i.weightKg ? (i.weightKg * i.owned).toFixed(1) : '', i.onHireByProject.map((p) => `${p.projectNumber}: ${Math.round(p.quantity)}`).join('; ')]));
     name = `Stock List ${today()}.csv`;
+  } else if (which === 'sites') {
+    const select = document.getElementById('site-filter').value;
+    rows = [['Site', 'Site Address', 'Code', 'Item', 'Unit', 'Qty on Site', 'Weight (kg)', 'Project', 'Managed by']];
+    for (const site of siteHoldings().filter((s) => !select || s.key === select)) {
+      for (const r of site.rows) {
+        rows.push([site.name, site.address, r.item.itemCode, r.item.itemName, r.item.unit, Math.round(r.quantity),
+          r.item.weightKg ? (r.item.weightKg * r.quantity).toFixed(1) : '', r.project.projectNumber, r.project.clientName || '']);
+      }
+    }
+    name = `Stock by Site ${today()}.csv`;
   } else {
     rows = [['Date', 'Movement', 'Code', 'Item', 'Unit', 'Quantity', 'Project', 'Reference', 'Notes']]
       .concat(filteredMovements().map((m) => [m.movement.date, KIND_LABELS[m.movement.kind] || m.movement.kind, m.movement.itemCode,
@@ -290,6 +301,60 @@ async function exportCSV(which) {
 
 // ---------- Page ----------
 
+// ---------- By Site: what's out on hire at each site, and with whom ----------
+
+// Site → [{ item, quantity, project }], from each item's quantities on hire per project.
+function siteHoldings() {
+  const projects = new Map(data.projects.map((p) => [p.id, p]));
+  const sites = new Map();
+  for (const item of data.items) {
+    for (const h of item.onHireByProject) {
+      if (Math.abs(h.quantity) < 0.0001) continue;
+      const project = projects.get(h.projectId) || { id: h.projectId, projectNumber: h.projectNumber, name: h.projectName };
+      const key = project.siteId || `project:${project.id}`;
+      if (!sites.has(key)) sites.set(key, { key, name: project.siteName || 'Site not set', address: project.siteAddress || '', rows: [] });
+      sites.get(key).rows.push({ item, quantity: h.quantity, project });
+    }
+  }
+  return [...sites.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderSites() {
+  const all = siteHoldings();
+  const select = document.getElementById('site-filter');
+  const keep = select.value;
+  select.innerHTML = '<option value="">All sites</option>' + all.map((s) => `<option value="${esc(s.key)}">${esc(s.name)}</option>`).join('');
+  if (all.some((s) => s.key === keep)) select.value = keep;
+  const q = document.getElementById('site-search').value.trim().toLowerCase();
+  const shown = all.filter((s) => !select.value || s.key === select.value).map((s) => Object.assign({}, s, {
+    rows: s.rows.filter((r) => !q || `${r.item.itemCode} ${r.item.itemName} ${r.project.projectNumber} ${r.project.name} ${r.project.clientName || ''}`.toLowerCase().includes(q)),
+  })).filter((s) => s.rows.length);
+  const container = document.getElementById('sites-container');
+  if (shown.length === 0) {
+    container.innerHTML = `<div class="empty-state"><h2>${all.length ? 'Nothing matches' : 'Nothing is out on hire'}</h2><p>Materials appear here, by site, once delivery notes for them are issued.</p></div>`;
+    return;
+  }
+  container.innerHTML = shown.map((site) => {
+    const companies = [...new Set(site.rows.map((r) => r.project.clientName).filter(Boolean))];
+    const weight = site.rows.reduce((a, r) => a + (r.item.weightKg || 0) * r.quantity, 0);
+    const rows = site.rows.slice().sort((a, b) => String(a.project.projectNumber).localeCompare(String(b.project.projectNumber)) ||
+      String(a.item.itemCode).localeCompare(String(b.item.itemCode), undefined, { numeric: true }));
+    return `<section class="site-holding">
+      <div class="site-holding-head">
+        <div><strong>${esc(site.name)}</strong>${site.address ? `<div class="sub">${esc(site.address)}</div>` : ''}</div>
+        <div class="site-holding-meta">${companies.length ? `Managed by <strong>${companies.map(esc).join('</strong>, <strong>')}</strong> · ` : ''}${qty(site.rows.reduce((a, r) => a + r.quantity, 0))} pcs${weight ? ` · ${(weight / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} t` : ''}</div>
+      </div>
+      <table class="compact stock-table"><thead><tr><th>Item</th><th class="num">Qty on site</th><th class="num">Weight (kg)</th><th>Project</th><th>Managed by</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr>
+        <td>${esc(r.item.itemName)}<div class="sub">${esc([r.item.itemCode, r.item.category].filter(Boolean).join(' · '))}</div></td>
+        <td class="num">${qty(r.quantity)} ${esc(r.item.unit || '')}</td>
+        <td class="num">${r.item.weightKg ? (r.item.weightKg * r.quantity).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'}</td>
+        <td><a href="project-detail.html?number=${encodeURIComponent(r.project.projectNumber)}">${esc(r.project.projectNumber)}</a><div class="sub">${esc(r.project.name || '')}</div></td>
+        <td>${esc(r.project.clientName || '—')}</td></tr>`).join('')}
+      </tbody></table></section>`;
+  }).join('');
+}
+
 async function init() {
   await load();
   for (const b of document.querySelectorAll('#stock-tabs button')) {
@@ -297,8 +362,15 @@ async function init() {
       for (const x of document.querySelectorAll('#stock-tabs button')) x.classList.toggle('active', x === b);
       document.getElementById('tab-items').classList.toggle('hidden', b.dataset.tab !== 'items');
       document.getElementById('tab-movements').classList.toggle('hidden', b.dataset.tab !== 'movements');
+      document.getElementById('tab-sites').classList.toggle('hidden', b.dataset.tab !== 'sites');
+      if (b.dataset.tab === 'sites') renderSites();
     });
   }
+  for (const id of ['site-filter', 'site-search']) {
+    document.getElementById(id).addEventListener('input', renderSites);
+    document.getElementById(id).addEventListener('change', renderSites);
+  }
+  document.getElementById('export-sites-btn').addEventListener('click', () => exportCSV('sites'));
   for (const id of ['search-box', 'list-filter', 'only-held']) {
     document.getElementById(id).addEventListener('input', renderItems);
     document.getElementById(id).addEventListener('change', renderItems);

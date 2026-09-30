@@ -1462,3 +1462,21 @@ under "Letterhead layout".
   Settings' 0.1 rounding) and Unit. List and category names aren't shown.
   It's saved in the company folder's "Unit Rates" folder, then opened
   (`priceLists:unitRatesPDF`).
+
+## Batch 62 — Stock by site, and delivery notes from a quotation
+
+- **Stock › By Site** is a new subtab listing what's out on hire at each
+  site. Each site gets a card showing which companies manage the materials
+  there (each project's client), the piece count and the tonnage. Each
+  row shows the item, the quantity on site, its weight, the project (a
+  link) and the company managing it. You can filter by site, and search
+  by item, project or company. **Export CSV** saves the list shown.
+  Projects without a site are listed on their own. (`ProjectRef` now
+  includes the project's site and client.)
+- **Delivery note › Import from Quotation** lets you pick one of the
+  project's quotations (not cancelled ones; newest first; the one the
+  note was made from is chosen to start with). It copies that
+  quotation's materials into a Draft note. Delivery and other charges
+  aren't copied. If the note already has items, you choose either to
+  replace them or to add the quotation's quantities to the matching
+  items (`deliveryNotes:importQuotation`).

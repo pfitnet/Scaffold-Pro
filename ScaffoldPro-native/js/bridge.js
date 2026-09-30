@@ -208,6 +208,9 @@
     deliveryNotes: {
       // Several delivery notes added together into one new Draft note → { ok, error, id }.
       combine: (ids) => callNative('deliveryNotes:combine', { ids: ids }),
+      // A quotation's materials into a Draft note (quantities added to items already on it) → { ok, added, error }.
+      importQuotation: (id, quotationId, replaceExisting) =>
+        callNative('deliveryNotes:importQuotation', { id: id, quotationId: quotationId, replaceExisting: !!replaceExisting }),
       listForProject: (projectId) => callNative('deliveryNotes:listForProject', { projectId: projectId }),
       create: (projectId, projectNumber, quotationId, invoiceId) =>
         callNative('deliveryNotes:create', { projectId: projectId, projectNumber: projectNumber, quotationId: quotationId || null, invoiceId: invoiceId || null }),
