@@ -1,5 +1,11 @@
 'use strict';
 
+// A line's Chinese name (from the material list), shown after its description.
+function zhName(item) {
+  const zh = currentDetail && currentDetail.chineseNames && currentDetail.chineseNames[item.id];
+  return zh ? ` <span class="zh-name">${String(zh).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>` : '';
+}
+
 // Section 25: issued documents are protected. Cancelled is final, and
 // reopening an issued document for editing asks first.
 function allowStatusChange(from, to, label) {
@@ -147,7 +153,7 @@ function renderLineItems() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num row-no">${index + 1}</td>
-      <td>${item.itemDescription}</td>
+      <td>${item.itemDescription}${zhName(item)}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;

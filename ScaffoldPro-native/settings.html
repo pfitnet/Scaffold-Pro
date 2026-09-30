@@ -130,7 +130,7 @@
       </details>
 
       <details class="settings-section" id="boq-defaults">
-        <summary><span class="section-title">BOQ Defaults</span><span class="section-desc">Materials every new BOQ starts with</span></summary>
+        <summary><span class="section-title">BOQ Defaults</span><span class="section-desc">Materials every new BOQ starts with, standard terms, Chinese names</span></summary>
         <div class="section-body">
     <div class="small-note" style="margin-bottom:10px; max-width:780px;">These items are put into every new BOQ, with these quantities, priced for the BOQ’s Sale or Rental mode. They can be changed or removed in the BOQ like any other item. BOQs already made aren’t changed.</div>
     <div class="default-items-add">
@@ -143,6 +143,12 @@
           <button id="default-item-add-btn">Add Item</button>
     </div>
     <div id="default-items-list"></div>
+    <div class="settings-grid" style="margin-top:16px;">
+          <div class="field" style="grid-column: 1 / -1;"><label>Standard terms for the landscape BOQ (put in with “Use Standard Terms” in a BOQ)</label>
+            <textarea id="boqTerms-input" rows="5" placeholder="e.g. 1. Rental is charged monthly from the date of delivery.&#10;2. Lost or damaged materials are charged at the sale price."></textarea></div>
+          <div class="field"><label>Chinese names of materials on delivery notes and BOQs</label>
+            <select id="chineseNamesOnDocuments-input"><option value="yes">Show (e.g. “2.07m Ledger  橫杆”)</option><option value="no">Don’t show</option></select></div>
+    </div>
         </div>
       </details>
 

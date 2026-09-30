@@ -716,3 +716,12 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .site-holding-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; padding: 10px 14px; background: var(--header-bg); border-bottom: 1px solid var(--border); }
 .site-holding-meta { font-size: 12px; color: var(--text-secondary); }
 .site-holding table { margin: 0; }
+
+/* Material List: how it's kept the same on every Mac */
+.sync-note { font-size: 12px; color: var(--text-secondary); margin: -6px 0 12px; display: flex; align-items: center; gap: 6px; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex: none; }
+.sync-dot.off { background: var(--warning); }
+
+/* A material's Chinese name, after its English one */
+.zh-name { color: var(--text-secondary); font-size: 0.92em; margin-left: 4px; white-space: nowrap; }
+.edit-field.edit-chinese { margin-top: 4px; }

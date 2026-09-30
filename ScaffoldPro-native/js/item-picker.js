@@ -81,6 +81,10 @@
         first.classList.add('picker-name-cell');
         first.prepend(pin);
       }
+      // The Chinese name, for workers who read Chinese.
+      if (first && item.chineseName && !first.querySelector('.zh-name')) {
+        first.insertAdjacentHTML('beforeend', ` <span class="zh-name">${esc(item.chineseName)}</span>`);
+      }
       tbody.appendChild(tr);
     }
     return box;

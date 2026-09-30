@@ -1,5 +1,11 @@
 'use strict';
 
+// A line's Chinese name (from the material list), shown after its description.
+function zhName(item) {
+  const zh = currentDetail && currentDetail.chineseNames && currentDetail.chineseNames[item.id];
+  return zh ? ` <span class="zh-name">${String(zh).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>` : '';
+}
+
 let boqId = null;
 let currentDetail = null;
 // "HK$" for HKD (from Settings), as on the documents.
@@ -97,6 +103,15 @@ function render() {
   if (document.activeElement !== notesBox) {
     notesBox.value = d.notes || '';
   }
+
+  // Terms and signature boxes: only on the landscape sheet.
+  document.getElementById('sheet-extras').classList.toggle('hidden', (d.orientation || 'Landscape') !== 'Landscape');
+  const termsBox = document.getElementById('terms-box');
+  if (document.activeElement !== termsBox) termsBox.value = d.terms || '';
+  document.getElementById('signature-check').checked = !!d.signatureSection;
+  const standardBtn = document.getElementById('standard-terms-btn');
+  standardBtn.disabled = !d.standardTerms;
+  standardBtn.title = d.standardTerms ? 'Put in the standard terms from Settings › BOQ Defaults' : 'No standard terms yet: add them in Settings › BOQ Defaults';
   notesBox.disabled = isIssued;
 }
 
@@ -142,7 +157,7 @@ function renderLineItems() {
     tr.innerHTML = `
       <td class="drag-col">${isIssued || items.length < 2 ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
       <td class="num row-no">${index + 1}</td>
-      <td>${item.itemDescription}
+      <td>${item.itemDescription}${zhName(item)}
         ${isIssued
           ? (item.notes ? `<div class="line-note">${item.notes}</div>` : '')
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>
@@ -449,6 +464,25 @@ async function init() {
 
   document.getElementById('notes-box').addEventListener('change', async (e) => {
     await window.api.boq.updateNotes(boqId, e.target.value);
+  });
+  document.getElementById('terms-box').addEventListener('change', async (e) => {
+    const r = await window.api.boq.updateSheetExtras(boqId, { terms: e.target.value });
+    if (r && !r.ok) alert(r.error);
+    currentDetail.terms = e.target.value;
+  });
+  document.getElementById('signature-check').addEventListener('change', async (e) => {
+    const r = await window.api.boq.updateSheetExtras(boqId, { signatureSection: e.target.checked });
+    if (r && !r.ok) alert(r.error);
+    currentDetail.signatureSection = e.target.checked;
+  });
+  document.getElementById('standard-terms-btn').addEventListener('click', async () => {
+    const box = document.getElementById('terms-box');
+    const standard = currentDetail.standardTerms || '';
+    if (!standard) return;
+    if (box.value.trim() && box.value.trim() !== standard.trim() &&
+        !confirm('Replace this BOQ’s terms with the standard terms from Settings?')) return;
+    box.value = standard;
+    box.dispatchEvent(new Event('change'));
   });
 
   // BOQ settings: switching Sale/Rental or the mark-up re-prices the lines.

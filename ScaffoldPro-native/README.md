@@ -1519,3 +1519,50 @@ under "Letterhead layout".
     `PAY yyyy-mm E00n`).
   - Data: `employees.json` (synced); `employees:list`, `save`, `delete`,
     `recordPayroll`.
+
+## Batch 64 — Chinese material names, the material list always in step, and signature/terms on the landscape BOQ
+
+- **Chinese names for every material.** Items have a Chinese name (中文名稱)
+  for workers who don't read English. It is worked out from the English name
+  using the wording of the official SP Material List (速拼國際 報價): for
+  example 橫杆, 加固橫杆, 企柱(帶駁芯) / 企柱(無駁芯), 斜杆, 踏板, 窄踏板
+  (160/190), 踢腳板, 揭蓋板, 鋁樓梯, 輔助梯, 斜梯, 掛梯, 外扶手 / 內扶手,
+  短底座, 頂積, 腳套, 雙尖扣/雙接手扣, 駁芯手扣, 三角架, 三角板, 轉角板,
+  轉彎板, 扣牆通 and 桁條.
+  - All 217 SP and SCAFOM items get one (`chineseMaterialName`). Items added
+    later get one when they're created, and existing items are filled in
+    once at launch.
+  - The name can be typed or changed in the Material List (Edit, or Add
+    Item). Clearing it leaves the item without one.
+  - It shows in the Material List, the item pickers (search finds Chinese
+    too), the BOQ and delivery note editors, and on **delivery note and BOQ
+    PDFs and Word copies**, after the English name (e.g. "2.07m Ledger  橫杆";
+    the size isn't repeated).
+  - Settings › BOQ Defaults can turn it off on documents.
+- **The material list is always kept the same on every Mac.** In a shared
+  folder it already was. A Mac working on its own data now keeps its
+  material list (both price lists and every item, including pins, order and
+  Chinese names) in step through iCloud Drive: in "Proficiency › ScaffoldPro
+  Material List", or at the top of iCloud Drive if the Proficiency folder
+  isn't there.
+  - This uses the same per-record change logs as team sharing
+    (`TeamSync(…, only: materialStores)`, `TeamSync.material`).
+  - The first time, list and item ids are made the same on every Mac (from
+    the list's source and each item's code and name), and every reference
+    to them is updated. The same list made on two Macs then lines up
+    instead of appearing twice.
+  - A Mac's list goes in as of when it was last changed there, so newer
+    changes made elsewhere win. A list the app has only just created never
+    replaces anyone's.
+  - The Material List page says how it's kept in step (`priceLists:syncStatus`).
+- **Landscape BOQ: Terms and Signature.**
+  - A **Terms & Conditions** box goes after the Notes box, in the same
+    style. "Use Standard Terms" fills it from Settings › BOQ Defaults.
+  - A **Signature section** can be ticked. It goes under the table as on
+    the company's own sheet (Mr. Law's): "For and On Behalf of" the company,
+    with the signatory and title from Settings › Quotations, and "Accepted
+    By" the client, with "Date :". Each has a line to sign on and no box.
+  - Both are in the PDF and the Word copy, and can be changed on an issued
+    BOQ too, like the notes (`boq:updateSheetExtras`).
+  - `tools/pdf-preview/sheet.py law --sign` checks the result against the
+    original.
