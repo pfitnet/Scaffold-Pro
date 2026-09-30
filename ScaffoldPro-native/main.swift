@@ -212,6 +212,12 @@ struct UploadDrawingResult: Codable {
     var destination: String
 }
 
+struct DroppedFilesResult: Codable {
+    var ok: Bool
+    var added: Int
+    var error: String?
+}
+
 // ---- Drawings & Documents (Phase 11) ----
 
 /// Metadata section 14 asks the app to keep alongside every uploaded
@@ -1201,6 +1207,14 @@ struct CompanySettings: Codable {
     /// Marked-up unit prices (quotation and BOQ markup %) are rounded up to
     /// the next 0.1 (true) or off to the nearest 0.1 (nil / false).
     var markupRoundUp: Bool? = nil
+    /// Materials every new BOQ starts with (Settings → BOQ Defaults).
+    var defaultBOQItems: [DefaultBOQItem]? = nil
+}
+
+/// A price-list item and quantity put into every new BOQ.
+struct DefaultBOQItem: Codable {
+    var priceListItemId: String
+    var quantity: Double
 }
 
 /// A worker type and its day rate, e.g. "Scaffolder CP", 2,300 per "md".
@@ -2954,8 +2968,26 @@ final class AppDatabase {
         // Starts with the client's default markup.
         boq.markupPercent = clientDefaultMarkup(projectId: projectId)
         boqsStore.insert(boq)
+        addDefaultBOQItems(to: boq)
         logActivity(projectId: projectId, "BOQ created (\(boq.pricingMode))", reference: boq.boqNumber)
         return boq
+    }
+
+    /// The materials from Settings → BOQ Defaults, priced for the BOQ's
+    /// Sale / Rental mode as if picked from the list. Items since deleted
+    /// from the material list are skipped.
+    private func addDefaultBOQItems(to boq: BillOfQuantities) {
+        let defaults = getCompanySettings().defaultBOQItems ?? []
+        guard !defaults.isEmpty else { return }
+        let items = Dictionary(priceListItemsStore.readAll().filter { !$0.isArchived }.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let rates = conversionRates()
+        for d in defaults {
+            guard let item = items[d.priceListItemId] else { continue }
+            let price = basePrice(item, mode: boq.pricingMode, rates: rates) ?? 0
+            _ = addBOQLineItem(boqId: boq.id, sourceKey: item.sourceKey, priceListItemId: item.id, itemCode: item.itemCode,
+                               description: item.itemName, unit: item.unit, quantity: d.quantity,
+                               priceListUnitPrice: price, appliedUnitPrice: price, weightKg: item.weightKg, section: item.category)
+        }
     }
 
     func getBOQ(id: String) -> BillOfQuantities? {
@@ -3404,7 +3436,8 @@ final class AppDatabase {
             quotationNumber: nextQuotationNumber(projectNumber: projectNumber, projectId: projectId),
             status: "Draft", quotationDate: nowISO(), pricingMode: resolvedPricingMode, validUntil: nil,
             paymentTerms: settings.defaultPaymentTerms,
-            discountType: "None", discountValue: 0, taxRatePercent: settings.defaultTaxRatePercent,
+            // No sales tax in Hong Kong: new quotations carry none.
+            discountType: "None", discountValue: 0, taxRatePercent: 0,
             notes: settings.defaultNotes,
             createdAt: nowISO(), updatedAt: nowISO()
         )
@@ -4593,6 +4626,15 @@ final class AppDatabase {
                 let unit = ((item["unit"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 return ManpowerRate(name: name, rate: max(0, (item["rate"] as? Double) ?? 0), unit: unit.isEmpty ? "md" : unit)
             }
+        }
+        if let list = payload["defaultBOQItems"] as? [[String: Any]] {
+            var seen = Set<String>()
+            let items: [DefaultBOQItem] = list.compactMap { item in
+                guard let itemId = item["priceListItemId"] as? String, !itemId.isEmpty, seen.insert(itemId).inserted else { return nil }
+                let quantity = ((item["quantity"] as? Double) ?? 1).rounded()
+                return DefaultBOQItem(priceListItemId: itemId, quantity: max(1, quantity))
+            }
+            settings.defaultBOQItems = items.isEmpty ? nil : items
         }
         if let rates = payload["exchangeRates"] as? [String: Any] {
             var clean: [String: Double] = settings.exchangeRates ?? [:]
@@ -8593,6 +8635,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             storage.revealInFinder(folder)
             respondNull(id: id)
+        case "files:dropIntoProject":
+            handleDroppedProjectFiles(id: id, payload: payload)
         case "projects:uploadDrawing":
             let number = (payload["projectNumber"] as? String) ?? ""
             handleUploadDrawing(id: id, projectNumber: number, linkedKind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
@@ -10462,15 +10506,81 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 return
             }
             self.addEachFile(id: id, urls: panel.urls) { sourceURL -> UploadDrawingResult in
-                let originalName = sourceURL.lastPathComponent
-                let destination = try self.storage.copyFileIntoProject(
-                    source: sourceURL, projectNumber: projectNumber,
-                    subfolder: "Drawings", meaningfulFilename: "\(projectNumber)_Drawing_\(originalName)"
-                )
-                self.db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination, linkedKind: linkedKind, linkedId: linkedId)
-                return UploadDrawingResult(originalName: originalName, destination: destination.path)
+                try self.addDrawingFile(sourceURL, project: project, linkedKind: linkedKind, linkedId: linkedId)
             }
         }
+    }
+
+    /// Copies a drawing into the project's Drawings folder and records it.
+    private func addDrawingFile(_ sourceURL: URL, project: Project, linkedKind: String?, linkedId: String?) throws -> UploadDrawingResult {
+        let originalName = sourceURL.lastPathComponent
+        let destination = try storage.copyFileIntoProject(
+            source: sourceURL, projectNumber: project.projectNumber,
+            subfolder: "Drawings", meaningfulFilename: "\(project.projectNumber)_Drawing_\(originalName)"
+        )
+        db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination, linkedKind: linkedKind, linkedId: linkedId)
+        return UploadDrawingResult(originalName: originalName, destination: destination.path)
+    }
+
+    /// Copies a document into the project's Documents folder and records it.
+    private func addDocumentFile(_ sourceURL: URL, project: Project, category: String) throws -> ProjectDocument {
+        let originalName = sourceURL.lastPathComponent
+        let destination = try storage.copyFileIntoProject(
+            source: sourceURL, projectNumber: project.projectNumber, subfolder: "Documents",
+            meaningfulFilename: "\(project.projectNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
+        )
+        return db.recordDocument(projectId: project.id, originalName: originalName, category: category, storedURL: destination)
+    }
+
+    /// Files dropped onto a Drawings or Documents section. A web page can't
+    /// see where a dropped file is, so each comes as base64; it's written
+    /// to a temporary folder under its own name, then added like a chosen
+    /// file. Drawings must be PDF, DWG, DXF or an image.
+    private func handleDroppedProjectFiles(id: String, payload: [String: Any]) {
+        guard let project = db.getProjectByNumber((payload["projectNumber"] as? String) ?? "") else {
+            respond(id: id, encodable: DroppedFilesResult(ok: false, added: 0, error: "Project not found."))
+            return
+        }
+        let isDrawing = (payload["target"] as? String) != "document"
+        let category = (payload["category"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Miscellaneous"
+        let linkedKind = (payload["linkedKind"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let linkedId = (payload["linkedId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-drop-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: temp) }
+        var added = 0
+        var failed: [String] = []
+        for (index, file) in ((payload["files"] as? [[String: Any]]) ?? []).enumerated() {
+            let name = ((file["name"] as? String) ?? "").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+            guard !name.isEmpty, let base64 = file["base64"] as? String, let data = Data(base64Encoded: base64) else {
+                failed.append("\(name.isEmpty ? "A file" : name): couldn't be read")
+                continue
+            }
+            if isDrawing {
+                let type = UTType(filenameExtension: (name as NSString).pathExtension.lowercased())
+                guard let type = type, drawingContentTypes.contains(where: { type.conforms(to: $0) }) else {
+                    failed.append("\(name): not a drawing (PDF, DWG, DXF or an image)")
+                    continue
+                }
+            }
+            do {
+                // A folder each, so two dropped files with the same name don't clash.
+                let folder = temp.appendingPathComponent("\(index)", isDirectory: true)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                let url = folder.appendingPathComponent(name)
+                try data.write(to: url)
+                if isDrawing {
+                    _ = try addDrawingFile(url, project: project, linkedKind: linkedKind, linkedId: linkedId)
+                } else {
+                    _ = try addDocumentFile(url, project: project, category: category)
+                }
+                added += 1
+            } catch {
+                failed.append("\(name): \(error.localizedDescription)")
+            }
+        }
+        respond(id: id, encodable: DroppedFilesResult(
+            ok: failed.isEmpty, added: added,
+            error: failed.isEmpty ? nil : "\(added) file\(added == 1 ? "" : "s") added. These couldn't be:\n\(failed.joined(separator: "\n"))"))
     }
 
     private func handleUploadDocument(id: String, projectNumber: String, category: String) {
@@ -10497,12 +10607,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 return
             }
             self.addEachFile(id: id, urls: panel.urls) { sourceURL -> ProjectDocument in
-                let originalName = sourceURL.lastPathComponent
-                let destination = try self.storage.copyFileIntoProject(
-                    source: sourceURL, projectNumber: projectNumber, subfolder: "Documents",
-                    meaningfulFilename: "\(projectNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"
-                )
-                return self.db.recordDocument(projectId: project.id, originalName: originalName, category: category, storedURL: destination)
+                try self.addDocumentFile(sourceURL, project: project, category: category)
             }
         }
     }

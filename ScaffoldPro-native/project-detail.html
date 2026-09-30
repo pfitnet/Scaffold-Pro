@@ -109,6 +109,7 @@
       </section>
 
       <section class="tab-panel" data-panel="files">
+        <div class="drop-section" id="drawings-drop">
         <div class="section-toolbar" id="drawings">
           <h2>Drawings</h2>
           <div class="controls">
@@ -117,8 +118,11 @@
           </div>
         </div>
         <div id="drawing-list"></div>
+        <p class="small-note drop-note">You can also drag drawings from Finder onto this section.</p>
+        </div>
 
-        <div class="section-toolbar" id="documents" style="margin-top: 28px;">
+        <div class="drop-section" id="documents-drop" style="margin-top: 28px;">
+        <div class="section-toolbar" id="documents">
           <h2>Documents</h2>
           <div class="controls">
             <select id="document-category-select"></select>
@@ -126,6 +130,8 @@
           </div>
         </div>
         <div id="document-list"></div>
+        <p class="small-note drop-note">You can also drag files from Finder onto this section; they go under the category chosen above.</p>
+        </div>
       </section>
 
       <section class="tab-panel" data-panel="history">
@@ -186,6 +192,8 @@
   <script src="js/icons.js"></script>
   <script src="js/document-actions.js"></script>
   <script src="js/doc-select.js"></script>
+  <script src="js/file-drop.js"></script>
+  <script src="js/keep-focus.js"></script>
   <script src="js/project-detail.js"></script>
 </body>
 </html>

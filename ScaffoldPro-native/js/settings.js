@@ -2,8 +2,8 @@
 
 const SETTINGS_FIELDS = [
   'companyName', 'website', 'addressLine1', 'addressLine2', 'phone', 'email',
-  'registrationNumber', 'vatNumber', 'bankDetails', 'currency',
-  'defaultTaxRatePercent', 'defaultPaymentTerms', 'defaultNotes',
+  'registrationNumber', 'bankDetails', 'currency',
+  'defaultPaymentTerms', 'defaultNotes',
 ];
 
 const NUMBER_FIELDS = ['numberFormatBOQ', 'numberFormatQuotation', 'numberFormatInvoice', 'numberFormatDeliveryNote'];
@@ -44,6 +44,91 @@ function readManpowerRates() {
 }
 let currentAppearance = 'System';
 
+// ---------- BOQ Defaults: materials every new BOQ starts with ----------
+
+let defaultBOQItems = []; // [{ priceListItemId, quantity }]
+const materialCache = {}; // sourceKey → items
+
+async function materials(sourceKey) {
+  if (!materialCache[sourceKey]) materialCache[sourceKey] = await window.api.priceLists.searchItems({ sourceKey: sourceKey });
+  return materialCache[sourceKey];
+}
+
+async function allMaterials() {
+  const [sp, scafom] = await Promise.all([materials('SP'), materials('SCAFOM')]);
+  return new Map(sp.concat(scafom).map((i) => [i.id, i]));
+}
+
+// The item list of the chosen material list, a group per category.
+async function populateDefaultItemSelect() {
+  const items = await materials(document.getElementById('default-item-source').value);
+  const groups = new Map();
+  for (const i of items) {
+    const c = i.category || 'Other Items';
+    if (!groups.has(c)) groups.set(c, []);
+    groups.get(c).push(i);
+  }
+  const byCode = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+  const ordered = [...groups].sort((a, b) => byCode(a[1][0].itemCode, b[1][0].itemCode));
+  document.getElementById('default-item-select').innerHTML = ordered.map(([c, list]) =>
+    `<optgroup label="${escAttr(c)}">${list.map((i) => `<option value="${escAttr(i.id)}">${escAttr(i.itemName)}</option>`).join('')}</optgroup>`).join('');
+}
+
+async function renderDefaultItems() {
+  const box = document.getElementById('default-items-list');
+  if (defaultBOQItems.length === 0) {
+    box.innerHTML = '<p class="small-note">No default items: new BOQs start empty.</p>';
+    return;
+  }
+  const byId = await allMaterials();
+  box.innerHTML = `<table class="compact default-items-table">
+    <thead><tr><th>Item</th><th>Category</th><th>List</th><th class="num">Qty</th><th></th></tr></thead>
+    <tbody>${defaultBOQItems.map((d, i) => {
+      const item = byId.get(d.priceListItemId);
+      return `<tr>
+        <td>${item ? escAttr(item.itemName) : '<span class="status-pill pill-danger">No longer on the material list — skipped</span>'}</td>
+        <td class="muted">${item ? escAttr(item.category || '') : ''}</td>
+        <td class="muted">${item ? escAttr(item.sourceKey) : ''}</td>
+        <td class="num"><input type="number" class="default-item-qty" data-index="${i}" min="1" step="1" value="${escAttr(d.quantity)}" /></td>
+        <td class="row-actions"><button class="default-item-remove" data-index="${i}">Remove</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  for (const input of box.querySelectorAll('.default-item-qty')) {
+    input.addEventListener('change', () => {
+      defaultBOQItems[Number(input.dataset.index)].quantity = Math.max(1, Math.round(Number(input.value) || 1));
+      input.value = defaultBOQItems[Number(input.dataset.index)].quantity;
+    });
+  }
+  for (const b of box.querySelectorAll('.default-item-remove')) {
+    b.addEventListener('click', async () => {
+      defaultBOQItems.splice(Number(b.dataset.index), 1);
+      settingsDirty = true;
+      await renderDefaultItems();
+    });
+  }
+}
+
+function readDefaultItems() {
+  return defaultBOQItems.map((d) => ({ priceListItemId: d.priceListItemId, quantity: Math.max(1, Math.round(Number(d.quantity) || 1)) }));
+}
+
+async function setupDefaultItems() {
+  await populateDefaultItemSelect();
+  document.getElementById('default-item-source').addEventListener('change', populateDefaultItemSelect);
+  document.getElementById('default-item-add-btn').addEventListener('click', async () => {
+    const id = document.getElementById('default-item-select').value;
+    if (!id) return;
+    const qtyBox = document.getElementById('default-item-qty');
+    const quantity = Math.max(1, Math.round(Number(qtyBox.value) || 1));
+    const existing = defaultBOQItems.find((d) => d.priceListItemId === id);
+    if (existing) existing.quantity = quantity;
+    else defaultBOQItems.push({ priceListItemId: id, quantity: quantity });
+    qtyBox.value = 1;
+    settingsDirty = true;
+    await renderDefaultItems();
+  });
+}
+
 async function loadSettings() {
   const settings = await window.api.settings.get();
   for (const field of SETTINGS_FIELDS.concat(NUMBER_FIELDS, ['paperSize', 'defaultInvoiceDueDays'])) {
@@ -63,7 +148,8 @@ async function loadSettings() {
     document.getElementById(`start-${k}`).value = (settings.numberStarts && settings.numberStarts[k]) || '';
   }
   if (settings.defaultInvoiceDueDays == null) document.getElementById('defaultInvoiceDueDays-input').value = 30;
-  document.getElementById('pricesIncludeTax-input').checked = !!settings.pricesIncludeTax;
+  defaultBOQItems = (settings.defaultBOQItems || []).map((d) => ({ priceListItemId: d.priceListItemId, quantity: d.quantity }));
+  await renderDefaultItems();
   setAppearanceButtons(settings.appearance || 'System');
   for (const f of NUMBER_FIELDS) updateNumberExample(f);
 }
@@ -73,11 +159,7 @@ async function saveSettings() {
   for (const field of SETTINGS_FIELDS) {
     const el = document.getElementById(`${field}-input`);
     if (!el) continue;
-    if (field === 'defaultTaxRatePercent') {
-      payload[field] = parseFloat(el.value) || 0;
-    } else {
-      payload[field] = el.value || null;
-    }
+    payload[field] = el.value || null;
   }
   for (const f of NUMBER_FIELDS) {
     const v = document.getElementById(`${f}-input`).value.trim();
@@ -104,7 +186,7 @@ async function saveSettings() {
   }
   payload.paperSize = document.getElementById('paperSize-input').value;
   payload.defaultInvoiceDueDays = Math.max(0, Math.round(Number(document.getElementById('defaultInvoiceDueDays-input').value) || 0));
-  payload.pricesIncludeTax = document.getElementById('pricesIncludeTax-input').checked;
+  payload.defaultBOQItems = readDefaultItems();
   payload.appearance = currentAppearance;
   await window.api.settings.update(payload);
   const note = document.getElementById('saved-note');
@@ -437,6 +519,7 @@ async function init() {
     });
   }
   setupSections();
+  await setupDefaultItems();
 
   document.getElementById('create-backup-btn').addEventListener('click', createBackup);
   document.getElementById('restore-other-btn').addEventListener('click', restoreFromOtherFolder);

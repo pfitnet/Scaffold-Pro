@@ -642,3 +642,31 @@ th.check-col, td.check-col { display: none; }
 .selecting th.check-col, .selecting td.check-col { display: table-cell; }
 .selecting tr[data-id] { cursor: default !important; }
 tr.row-selected td { background: var(--accent-soft) !important; }
+
+/* "Add Materials": a box per category (js/item-picker.js). */
+.picker-group { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px; overflow: hidden; }
+.picker-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 10px; background: var(--header-bg); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12.5px; }
+.picker-group-count { font-weight: 400; font-size: 11px; color: var(--text-tertiary); }
+.picker-group-table { width: 100%; margin: 0; table-layout: fixed; }
+/* The same column widths in every box, so they line up. */
+.picker-group-table th.num { width: 96px; }
+.picker-group-table th:last-child { width: 78px; }
+.picker-group-table td:first-child { overflow-wrap: anywhere; }
+.picker-group-table thead th { font-size: 10.5px; padding-top: 3px; padding-bottom: 3px; color: var(--text-tertiary); background: transparent; }
+.picker-group-table td { border-bottom-color: var(--hairline); }
+.picker-group-table tbody tr:last-child td { border-bottom: 0; }
+
+/* Drawings / Documents sections that take files dragged from Finder (js/file-drop.js). */
+.file-drop-zone { border-radius: var(--radius-lg); transition: background 0.12s; }
+.drop-note { margin-top: 6px; }
+
+/* Dashboard: quotations awaiting reply (and their signed copies). */
+.quote-actions { white-space: nowrap; text-align: right; width: 1%; }
+.quote-actions .icon-btn { padding: 2px 5px; }
+.quote-pill { margin-left: 6px; }
+
+/* Settings → BOQ Defaults. */
+.default-items-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.default-items-add select { width: auto; max-width: 320px; }
+.default-items-add input[type=number], .default-items-table input[type=number] { width: 72px; }
+.default-items-table { max-width: 780px; }

@@ -9,7 +9,8 @@
 //   window.setupLinkedDrawings({ kind: 'BOQ' | 'Quotation', id, projectNumber })
 //
 // Needs an element with id="linked-drawings" and a button with
-// id="upload-linked-drawing-btn" on the page.
+// id="upload-linked-drawing-btn" on the page. Drawings can also be dragged
+// onto the panel (js/file-drop.js).
 
 (function () {
   function esc(value) {
@@ -24,7 +25,7 @@
     async function refresh() {
       const drawings = await window.api.drawings.listForDocument(options.kind, options.id);
       if (drawings.length === 0) {
-        container.innerHTML = `<p class="small-note">No drawings linked to this ${options.kind === 'BOQ' ? 'BOQ' : 'quotation'} yet. Upload one here, or link an existing drawing from the project's Drawings &amp; Documents tab.</p>`;
+        container.innerHTML = `<p class="small-note">No drawings linked to this ${options.kind === 'BOQ' ? 'BOQ' : 'quotation'} yet. Upload one here or drag the files onto this box, or link an existing drawing from the project's Drawings &amp; Documents tab.</p>`;
         return;
       }
       const appended = drawings.filter((d) => d.appended).length;
@@ -65,6 +66,15 @@
           if (!r.ok) alert(r.error);
         });
       }
+    }
+
+    // Drawings dragged from Finder onto the panel are added the same way.
+    if (window.fileDrop) {
+      window.fileDrop(container.closest('.linked-drawings-panel') || container, {
+        projectNumber: options.projectNumber, target: 'drawing',
+        options: () => ({ linkedKind: options.kind, linkedId: options.id }),
+        done: refresh,
+      });
     }
 
     button.addEventListener('click', async () => {

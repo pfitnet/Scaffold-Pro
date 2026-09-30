@@ -379,11 +379,8 @@ async function renderPickerResults() {
     return;
   }
 
-  const table = document.createElement('table');
-  table.innerHTML = `<thead><tr><th>Item</th><th class="num">Weight (kg)</th><th></th></tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector('tbody');
-
-  for (const item of items) {
+  // A box per category (Base Items, Standards (with Spigots), …).
+  window.renderPickerGroups(container, items, '<th>Item</th><th class="num">Weight (kg)</th><th></th>', (item) => {
     const price = priceForMode(item, currentDetail.pricingMode);
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -391,11 +388,8 @@ async function renderPickerResults() {
       <td class="num">${weight(item.weightKg)}</td>
       <td><button class="add-btn" ${currentDetail.status === 'Issued' ? 'disabled' : ''}>+ Add</button></td>`;
     tr.querySelector('.add-btn').addEventListener('click', () => addFromPicker(item, price));
-    tbody.appendChild(tr);
-  }
-
-  container.innerHTML = '';
-  container.appendChild(table);
+    return tr;
+  });
 }
 
 async function addFromPicker(item, price) {

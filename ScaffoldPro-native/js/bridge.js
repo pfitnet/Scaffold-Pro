@@ -233,6 +233,11 @@
       locateDocuments: (kind, ids) => callNative('files:locateDocuments', { kind: kind, ids: ids }),
       // Several quotations or BOQs ('Quotation' | 'BOQ') in one PDF, optionally each with its drawings.
       combinePDF: (kind, ids, includeDrawings) => callNative('documents:combinePDF', { kind: kind, ids: ids, includeDrawings: !!includeDrawings }),
+      // Files dropped onto a project's Drawings or Documents section.
+      // target: 'drawing' (options: linkedKind, linkedId) or 'document'
+      // (options: category); files: [{ name, base64 }].
+      dropIntoProject: (projectNumber, target, options, files) => callNative('files:dropIntoProject',
+        Object.assign({ projectNumber: projectNumber, target: target, files: files }, options || {})),
     },
     // Stock list: what's in the yard, on hire and owned; movements.
     stock: {
