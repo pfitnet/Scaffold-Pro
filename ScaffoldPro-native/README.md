@@ -1445,3 +1445,20 @@ under "Letterhead layout".
   adjustment line, so it charges the same.
 - **Back** (top left) on the project page and in the BOQ, quotation,
   invoice and delivery note editors: back to the page it was opened from.
+
+## Batch 61 — Unit Rates for a client, from the Material List
+
+- **Material List › Unit Rates…** switches the list into picking mode:
+  tick items (or click their rows). Switching between SP and SCAFOM keeps
+  the ticks, so one sheet can have items from both lists. **Make Unit
+  Rates PDF…** then asks:
+  - who it's for (any client, or none); choosing a client fills in their
+    default markup
+  - the markup / markdown %
+  - an optional "Re:" line and remarks
+- The PDF is laid out like a quotation, on the letterhead, titled **UNIT
+  RATES**. Its columns are No., Item Description, Unit Weight (kg), Unit
+  Monthly Rental (HK$, SCAFOM converted from EUR, with the markup and
+  Settings' 0.1 rounding) and Unit. List and category names aren't shown.
+  It's saved in the company folder's "Unit Rates" folder, then opened
+  (`priceLists:unitRatesPDF`).

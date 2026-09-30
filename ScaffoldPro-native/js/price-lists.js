@@ -29,19 +29,118 @@ function weightText(value) {
 // search is typed in (only some of the items are showing then).
 let canReorder = true;
 
-function handleCell() {
+function handleCell(item) {
+  if (ratesSelecting && item) {
+    return `<td class="drag-col"><input type="checkbox" class="rate-pick" ${ratesPicked.has(item.id) ? 'checked' : ''} tabindex="-1" /></td>`;
+  }
   return `<td class="drag-col">${canReorder ? window.dragHandleHTML('Drag to move this item (or focus and press ↑ / ↓)') : ''}</td>`;
 }
 
+// ---------- Unit Rates: items picked from either list, for a client ----------
+
+let ratesSelecting = false;
+const ratesPicked = new Map(); // id → { sourceKey, itemCode, itemName }
+
+function updateRatesBar() {
+  document.getElementById('rates-bar').classList.toggle('hidden', !ratesSelecting);
+  document.getElementById('rates-select-btn').classList.toggle('hidden', ratesSelecting);
+  document.getElementById('table-container').classList.toggle('selecting', ratesSelecting);
+  const n = ratesPicked.size;
+  const lists = new Set([...ratesPicked.values()].map((i) => i.sourceKey));
+  document.getElementById('rates-count').textContent = n === 0
+    ? 'Tick the items for the Unit Rates sheet — from either list (switch lists above; ticks are kept).'
+    : `${n} item${n === 1 ? '' : 's'} chosen${lists.size > 1 ? ` (from ${[...lists].join(' and ')})` : ''}`;
+  document.getElementById('rates-make-btn').disabled = n === 0;
+  for (const tr of document.querySelectorAll('#table-container tr[data-id]')) {
+    const box = tr.querySelector('input.rate-pick');
+    if (box) box.checked = ratesPicked.has(tr.dataset.id);
+    tr.classList.toggle('row-selected', ratesPicked.has(tr.dataset.id));
+  }
+}
+
+function toggleRatePick(item) {
+  if (ratesPicked.has(item.id)) ratesPicked.delete(item.id);
+  else ratesPicked.set(item.id, { sourceKey: item.sourceKey, itemCode: item.itemCode, itemName: item.itemName });
+  updateRatesBar();
+}
+
+let ratesClients = [];
+
+async function openRatesModal() {
+  ratesClients = (await window.api.clients.list(false)).slice().sort((a, b) => a.companyName.localeCompare(b.companyName));
+  const select = document.getElementById('rates-client');
+  select.innerHTML = '<option value="">— No particular client —</option>' +
+    ratesClients.map((c) => `<option value="${c.id}">${c.companyName.replace(/</g, '&lt;')}</option>`).join('');
+  const lists = new Set([...ratesPicked.values()].map((i) => i.sourceKey));
+  document.getElementById('rates-summary').textContent = `${ratesPicked.size} item${ratesPicked.size === 1 ? '' : 's'}${lists.size > 1 ? `, from ${[...lists].join(' and ')}` : ''}.`;
+  document.getElementById('rates-markup').value = 0;
+  updateRatesMarkupNote();
+  document.getElementById('rates-modal').classList.remove('hidden');
+  select.focus();
+}
+
+// Choosing a client fills in their default markup.
+function updateRatesMarkupNote() {
+  const client = ratesClients.find((c) => c.id === document.getElementById('rates-client').value);
+  const m = client && Number(client.defaultMarkupPercent);
+  document.getElementById('rates-markup-note').textContent = m ? `${client.companyName}’s default markup is ${m}%.` : 'Unit rates are rounded to 0.1 as set in Settings.';
+}
+
+async function makeUnitRates() {
+  // The lists in their usual order (SP, then SCAFOM); by item code within each.
+  const listIndex = (key) => { const i = priceListsMeta.findIndex((pl) => pl.sourceKey === key); return i < 0 ? 99 : i; };
+  const order = [...ratesPicked.entries()].sort((a, b) =>
+    listIndex(a[1].sourceKey) - listIndex(b[1].sourceKey) || String(a[1].itemCode).localeCompare(String(b[1].itemCode), undefined, { numeric: true }));
+  const go = document.getElementById('rates-go-btn');
+  go.disabled = true;
+  go.textContent = 'Making PDF…';
+  const clientId = document.getElementById('rates-client').value || null;
+  const r = await window.api.priceLists.unitRatesPDF({
+    itemIds: order.map(([id]) => id), clientId: clientId,
+    markupPercent: Number(document.getElementById('rates-markup').value) || 0,
+    subject: document.getElementById('rates-subject').value.trim() || null,
+    notes: document.getElementById('rates-notes').value.trim() || null,
+  });
+  go.disabled = false;
+  go.textContent = 'Make PDF';
+  if (!r || !r.ok) { alert((r && r.error) || 'The PDF couldn’t be made.'); return; }
+  document.getElementById('rates-modal').classList.add('hidden');
+}
+
+function setupUnitRates() {
+  document.getElementById('rates-select-btn').addEventListener('click', () => { ratesSelecting = true; applyFilters().then(updateRatesBar); });
+  document.getElementById('rates-done-btn').addEventListener('click', () => { ratesSelecting = false; ratesPicked.clear(); applyFilters().then(updateRatesBar); });
+  document.getElementById('rates-clear-btn').addEventListener('click', () => { ratesPicked.clear(); updateRatesBar(); });
+  document.getElementById('rates-all-btn').addEventListener('click', () => {
+    for (const item of lastShownItems) ratesPicked.set(item.id, { sourceKey: item.sourceKey, itemCode: item.itemCode, itemName: item.itemName });
+    updateRatesBar();
+  });
+  document.getElementById('rates-make-btn').addEventListener('click', openRatesModal);
+  document.getElementById('rates-cancel-btn').addEventListener('click', () => document.getElementById('rates-modal').classList.add('hidden'));
+  document.getElementById('rates-go-btn').addEventListener('click', makeUnitRates);
+  document.getElementById('rates-client').addEventListener('change', () => {
+    const client = ratesClients.find((c) => c.id === document.getElementById('rates-client').value);
+    if (client && Number(client.defaultMarkupPercent)) document.getElementById('rates-markup').value = Number(client.defaultMarkupPercent);
+    updateRatesMarkupNote();
+  });
+}
+
+let lastShownItems = [];
+
 function renderDisplayRow(tr, item) {
   tr.dataset.id = item.id;
-  tr.innerHTML = `${handleCell()}
+  tr.innerHTML = `${handleCell(item)}
     <td>${item.itemName}</td>
     <td class="num">${weightText(item.weightKg)}</td>
     <td class="num">${money(item.unitRentalPrice)}</td>
     <td class="num">${money(item.unitSalePrice)}</td>
     <td class="row-actions"><button class="edit-btn">Edit</button> <button class="dup-btn" title="Duplicate">Duplicate</button> <button class="del-btn" title="Delete">Delete</button></td>`;
   tr.querySelector('.edit-btn').addEventListener('click', () => renderEditRow(tr, item));
+  // Picking items for Unit Rates: clicking the row ticks it.
+  tr.addEventListener('click', (e) => {
+    if (!ratesSelecting || e.target.closest('button, a, input:not(.rate-pick), select')) return;
+    toggleRatePick(item);
+  });
   tr.querySelector('.dup-btn').addEventListener('click', async () => {
     const r = await window.api.priceLists.duplicateItem(item.id);
     if (!r.ok) { alert(r.error); return; }
@@ -142,8 +241,10 @@ async function applyFilters() {
   const query = document.getElementById('search-box').value;
   const category = document.getElementById('category-select').value;
   const items = await window.api.priceLists.searchItems({ sourceKey: currentSourceKey, query, category: category || null });
-  canReorder = !query.trim();
+  canReorder = !query.trim() && !ratesSelecting;
+  lastShownItems = items;
   renderTable(items);
+  if (ratesSelecting) updateRatesBar();
 }
 
 async function selectList(sourceKey) {
@@ -162,7 +263,11 @@ async function selectList(sourceKey) {
   categorySelect.innerHTML = '<option value="">All Categories</option>' +
     categories.map((c) => `<option value="${c}">${c}</option>`).join('');
 
+  // Switching lists keeps any items ticked for Unit Rates.
+  lastShownItems = allItemsForCurrentList;
+  canReorder = !ratesSelecting;
   renderTable(allItemsForCurrentList);
+  if (ratesSelecting) updateRatesBar();
 }
 
 // ---------- Add item (section 8) ----------
@@ -252,6 +357,7 @@ async function init() {
     pendingImportToken = null;
     document.getElementById('import-modal').classList.add('hidden');
   });
+  setupUnitRates();
   document.getElementById('export-btn').addEventListener('click', async () => {
     const r = await window.api.priceLists.exportCSV(currentSourceKey);
     if (r && !r.ok) alert(r.error);

@@ -8799,6 +8799,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "priceListItems:archive":
             let error = db.archivePriceListItem(id: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "priceLists:unitRatesPDF":
+            handleExportUnitRates(id: id, payload: payload)
         case "priceListItems:setPinned":
             let error = db.setPriceListItemPinned(id: (payload["id"] as? String) ?? "", pinned: (payload["pinned"] as? Bool) ?? false)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -10057,6 +10059,88 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         if let v = nonBlank(c.contactPerson) { lines.append("Attn: \(v)") }
         return (c.companyName, lines)
+    }
+
+    /// A client's name and address lines for the letterhead.
+    private func clientBlock(_ c: Client) -> (name: String, lines: [String]) {
+        var lines: [String] = []
+        if let billing = nonBlank(c.billingInfo) {
+            lines = billing.components(separatedBy: "\n").compactMap { nonBlank($0) }
+        } else {
+            for line in [c.address, c.addressLine2, c.addressLine3] {
+                if let v = nonBlank(line) { lines.append(v) }
+            }
+            let cityLine = [c.city, c.postalCode].compactMap { nonBlank($0) }.joined(separator: " ")
+            if !cityLine.isEmpty { lines.append(cityLine) }
+            if let v = nonBlank(c.country) { lines.append(v) }
+        }
+        if let v = nonBlank(c.contactPerson) { lines.append("Attn: \(v)") }
+        return (c.companyName, lines)
+    }
+
+    /// "Unit Rates" for a client: chosen items from the material lists
+    /// (either or both), laid out like a quotation, with each item's unit
+    /// weight and monthly rental (with the markup chosen) and no list
+    /// names. Saved in the company folder's "Unit Rates" folder and opened.
+    private func handleExportUnitRates(id: String, payload: [String: Any]) {
+        let ids = (payload["itemIds"] as? [String]) ?? []
+        let markup = payload["markupPercent"] as? Double
+        let byId = Dictionary(db.inBaseCurrency(db.allPriceListItems()).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let items = ids.compactMap { byId[$0] }
+        guard !items.isEmpty else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Choose the items to include first.", path: nil))
+            return
+        }
+        let company = db.getCompanySettings()
+        let client = (payload["clientId"] as? String).flatMap { db.getClient(id: $0) }
+        let block = client.map { clientBlock($0) } ?? (name: nonBlank(payload["clientName"] as? String) ?? "", lines: [])
+        let roundUp = db.markupRoundsUp
+        let rows: [LetterTableRow] = items.enumerated().map { index, item in
+            let weight = item.weightKg.map { String(format: "%.2f", $0) } ?? "—"
+            let rental = item.unitRentalPrice.map { formatMoney(markedUpPrice($0, markupPercent: markup, roundUp: roundUp)) } ?? "—"
+            return .item(["\(index + 1)", item.itemName, weight, rental, item.unit])
+        }
+        let columns = [
+            LetterColumn(title: "No.", width: 29.25, kind: .center),
+            LetterColumn(title: "Item Description", width: 219.75, kind: .left),
+            LetterColumn(title: "Unit Weight (kg)", width: 86.0, kind: .right),
+            LetterColumn(title: "Unit Monthly Rental", width: 117.0, kind: .money),
+            LetterColumn(title: "Unit", width: 55.0, kind: .center),
+        ]
+        let today = nowISO()
+        let letter = LetterDocument(
+            number: "Unit Rates", status: "Issued", title: "UNIT RATES",
+            clientName: block.name, clientLines: block.lines,
+            refRows: [("Date", letterDate(today))],
+            deliveryMethod: nil, salutation: block.name.isEmpty ? nil : "Dear Sir / Madam,",
+            subject: nonBlank(payload["subject"] as? String).map { "Re: \($0)" },
+            intro: "We are pleased to provide our unit rates for the following items.",
+            currencySymbol: currencySymbol(company), columns: columns, rows: rows,
+            sections: remarks(nonBlank(payload["notes"] as? String)),
+            signatures: [companySignature(company)], closingLine: nil
+        )
+        guard let generator = PDFGenerator(paperSize: company.paperSize ?? "A4") else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document.", path: nil))
+            return
+        }
+        let data = generator.generate(letter)
+        let folder = storage.appRoot.appendingPathComponent("Unit Rates", isDirectory: true)
+        let who = block.name.isEmpty ? "" : " - \(block.name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-"))"
+        let base = "Unit Rates\(who) - \(String(today.prefix(10)))"
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            var url = folder.appendingPathComponent("\(base).pdf")
+            var n = 2
+            while FileManager.default.fileExists(atPath: url.path) {
+                url = folder.appendingPathComponent("\(base) (\(n)).pdf")
+                n += 1
+            }
+            try data.write(to: url, options: .atomic)
+            NSWorkspace.shared.open(url)
+            respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: url.path))
+        } catch {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved: \(error.localizedDescription)", path: nil))
+        }
     }
 
     /// The site's own reference, or its name.

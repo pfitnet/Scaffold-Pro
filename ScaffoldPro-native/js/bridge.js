@@ -78,6 +78,8 @@
       importPreview: (sourceKey) => callNative('priceLists:importPreview', { sourceKey: sourceKey }),
       importApply: (token) => callNative('priceLists:importApply', { token: token }),
       exportCSV: (sourceKey) => callNative('priceLists:exportCSV', { sourceKey: sourceKey }),
+      // "Unit Rates" PDF for a client: { itemIds, clientId, clientName, markupPercent, subject, notes }.
+      unitRatesPDF: (input) => callNative('priceLists:unitRatesPDF', input),
     },
     projects: {
       list: () => callNative('projects:list'),
