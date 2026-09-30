@@ -79,6 +79,8 @@
       importApply: (token) => callNative('priceLists:importApply', { token: token }),
       exportCSV: (sourceKey) => callNative('priceLists:exportCSV', { sourceKey: sourceKey }),
       // "Unit Rates" PDF for a client: { itemIds, clientId, clientName, markupPercent, subject, notes }.
+      // How the list is kept the same on every Mac → { mode: 'team' | 'icloud' | 'off', folder, otherMacs }.
+      syncStatus: () => callNative('priceLists:syncStatus'),
       unitRatesPDF: (input) => callNative('priceLists:unitRatesPDF', input),
     },
     projects: {
@@ -121,6 +123,8 @@
     boq: {
       // Several BOQs added together into one new Draft BOQ → { ok, error, id }.
       combine: (ids) => callNative('boq:combine', { ids: ids }),
+      // The landscape sheet's Terms box and signature box: { terms?, signatureSection? }.
+      updateSheetExtras: (id, changes) => callNative('boq:updateSheetExtras', Object.assign({ id: id }, changes)),
       listForProject: (projectId) => callNative('boq:listForProject', { projectId: projectId }),
       setOrientation: (id, orientation) => callNative('boq:setOrientation', { id: id, orientation: orientation }),
       // A discount on an item's unit rate: 'None' | 'Percent' | 'Amount' (off each unit).

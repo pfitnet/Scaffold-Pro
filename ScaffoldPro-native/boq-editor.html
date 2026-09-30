@@ -18,7 +18,12 @@
     .boq-rates .narrow { width: 70px; }
     .boq-rates .actions-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
     .boq-rates textarea { width: 100%; box-sizing: border-box; margin-top: 8px; }
-</style>
+    .sheet-extras { margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+    .sheet-extras-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+    .sheet-extras-head label { font-size: 12px; color: var(--text-secondary); }
+    .sheet-extras textarea { width: 100%; }
+    .sheet-extras .inline-check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin-top: 10px; }
+  </style>
 </head>
 <body data-page="project-detail">
   <nav id="sidebar"></nav>
@@ -104,6 +109,16 @@
           <div style="margin-top: 20px;">
             <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
             <textarea id="notes-box" rows="3"></textarea>
+          </div>
+
+          <!-- The landscape BQ sheet's Terms box and signature box -->
+          <div class="sheet-extras" id="sheet-extras">
+            <div class="sheet-extras-head">
+              <label for="terms-box">Terms &amp; Conditions <span class="small-note">(a box after the Notes on the landscape BOQ)</span></label>
+              <button id="standard-terms-btn" title="Put in the standard terms from Settings › BOQ Defaults">Use Standard Terms</button>
+            </div>
+            <textarea id="terms-box" rows="4" placeholder="e.g. 1. Rental is charged monthly from the date of delivery…"></textarea>
+            <label class="inline-check"><input type="checkbox" id="signature-check" /> Signature section under the table — “For and On Behalf of” the company (signed by the signatory in Settings › Quotations) and “Accepted By” the client, with a date</label>
           </div>
 
           <!-- Drawings this document is based on (PDF, DWG, DXF, images) -->

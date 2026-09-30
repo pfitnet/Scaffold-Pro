@@ -48,5 +48,6 @@ python3 sheet.py law "Mr. Law - Container Access Platform - Google Sheets.pdf"
 the "Subtotal Amount", then "Total Amount" and the Notes box. It writes our
 sheet (`out/law.png`), the original (`out/law_original.png`), the difference
 (`out/law_diff.png`) and the Word copy (`out/word_law.png`). The original was
-printed with its signature block at 76.75%, but ours has no signatures and
-shrinks only as far as it needs to fit one page, so the two differ in scale.
+printed with its signature block at 76.75%. `python3 sheet.py law --sign <pdf>`
+adds ours (a BOQ's "Signature section"), which then shrinks to about 75%, so
+the two differ slightly in scale.

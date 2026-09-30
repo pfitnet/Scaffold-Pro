@@ -5,6 +5,10 @@ let currentCurrency = 'HKD';
 let priceListsMeta = [];
 let allItemsForCurrentList = [];
 
+function esc(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function money(value) {
   return value === null || value === undefined ? '—'
     : Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -130,7 +134,7 @@ let lastShownItems = [];
 function renderDisplayRow(tr, item) {
   tr.dataset.id = item.id;
   tr.innerHTML = `${handleCell(item)}
-    <td>${item.itemName}</td>
+    <td>${item.itemName}${item.chineseName ? ` <span class="zh-name">${esc(item.chineseName)}</span>` : ''}</td>
     <td class="num">${weightText(item.weightKg)}</td>
     <td class="num">${money(item.unitRentalPrice)}</td>
     <td class="num">${money(item.unitSalePrice)}</td>
@@ -158,6 +162,7 @@ function renderEditRow(tr, item) {
   tr.innerHTML = `<td class="drag-col"></td>
     <td>
       <input type="text" class="edit-field edit-name" value="${(item.itemName || '').replace(/"/g, '&quot;')}" placeholder="Item name" />
+      <input type="text" class="edit-field edit-chinese" value="${esc(item.chineseName || '')}" placeholder="Chinese name 中文名稱" />
       <input type="text" class="edit-field edit-category" value="${(item.category || '').replace(/"/g, '&quot;')}" placeholder="Category" />
       <input type="text" class="edit-field edit-unit" value="${(item.unit || '').replace(/"/g, '&quot;')}" placeholder="Unit" />
     </td>
@@ -176,6 +181,7 @@ function renderEditRow(tr, item) {
     const weightValue = tr.querySelector('.edit-weight').value;
     const changes = {
       itemName: tr.querySelector('.edit-name').value,
+      chineseName: tr.querySelector('.edit-chinese').value,
       category: tr.querySelector('.edit-category').value || null,
       unit: tr.querySelector('.edit-unit').value,
       unitSalePrice: saleValue === '' ? null : parseFloat(saleValue),
@@ -273,7 +279,7 @@ async function selectList(sourceKey) {
 // ---------- Add item (section 8) ----------
 
 function openAddItem() {
-  for (const f of ['itemName', 'category', 'unit', 'weightKg', 'unitSalePrice', 'unitRentalPrice']) {
+  for (const f of ['itemName', 'chineseName', 'category', 'unit', 'weightKg', 'unitSalePrice', 'unitRentalPrice']) {
     document.getElementById(`n-${f}`).value = '';
   }
   document.getElementById('n-category').value = document.getElementById('category-select').value || '';
@@ -291,6 +297,7 @@ async function saveNewItem() {
   };
   const result = await window.api.priceLists.createItem(currentSourceKey, {
     itemName: document.getElementById('n-itemName').value,
+    chineseName: document.getElementById('n-chineseName').value,
     category: document.getElementById('n-category').value,
     unit: document.getElementById('n-unit').value || 'pc',
     weightKg: numberOrNull('n-weightKg'),
@@ -339,6 +346,19 @@ async function applyImport() {
   await selectList(currentSourceKey);
 }
 
+// Where the list is kept the same on every Mac.
+async function showSyncStatus() {
+  const note = document.getElementById('material-sync-note');
+  let st = null;
+  try { st = await window.api.priceLists.syncStatus(); } catch (e) { st = null; }
+  if (!st || !note) return;
+  const others = st.otherMacs ? ` with ${st.otherMacs} other Mac${st.otherMacs === 1 ? '' : 's'}` : '';
+  if (st.mode === 'team') note.innerHTML = `<span class="sync-dot"></span>Kept the same on every Mac${others}, through the shared folder “${esc(st.folder)}”.`;
+  else if (st.mode === 'icloud') note.innerHTML = `<span class="sync-dot"></span>Kept the same on every Mac${others}, through iCloud Drive (“${esc(st.folder)}”).`;
+  else note.innerHTML = '<span class="sync-dot off"></span>Only on this Mac: turn on iCloud Drive to keep the material list the same on every Mac.';
+  note.classList.remove('hidden');
+}
+
 async function init() {
   const priceLists = await window.api.priceLists.list();
   priceListsMeta = priceLists;
@@ -358,6 +378,7 @@ async function init() {
     document.getElementById('import-modal').classList.add('hidden');
   });
   setupUnitRates();
+  showSyncStatus();
   document.getElementById('export-btn').addEventListener('click', async () => {
     const r = await window.api.priceLists.exportCSV(currentSourceKey);
     if (r && !r.ok) alert(r.error);

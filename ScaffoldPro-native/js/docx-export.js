@@ -718,7 +718,16 @@
         const shade = row.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${row.fill}"/>` : '';
         // Centred text needs no side padding (and so never wraps).
         const side = c.align === 'center' ? 0 : PAD - HALF;
-        const joins = (joinedAbove ? '<w:top w:val="nil"/>' : '') + (row.joinNext ? '<w:bottom w:val="nil"/>' : '');
+        let joins = (joinedAbove ? '<w:top w:val="nil"/>' : '') + (row.joinNext ? '<w:bottom w:val="nil"/>' : '');
+        if (row.borderless) {
+          // Below the table (the signature block): no rules but the lines to
+          // sign on. The first such row keeps the table's bottom rule above it.
+          const above = r > 0 ? d.rows[r - 1] : null;
+          const lineAbove = above && above.borderless && above.cells.some((o) => o.lineBelow && Math.abs(o.x0 - c.x0) < 0.01);
+          const top = above && above.borderless && !lineAbove ? NO_BORDER('top') : '';
+          // (In the schema's order: top, left, bottom, right.)
+          joins = top + NO_BORDER('left') + (c.lineBelow ? border('bottom', 0.75 * k) : NO_BORDER('bottom')) + NO_BORDER('right');
+        }
         const pr = `<w:tcW w:w="${TW(c.x1 - c.x0)}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}` +
           `${joins ? `<w:tcBorders>${joins}</w:tcBorders>` : ''}${shade}<w:noWrap/>` +
           `<w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="${TW(side)}" w:type="dxa"/>` +

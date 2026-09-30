@@ -157,6 +157,102 @@ struct PriceListItem: Codable {
     /// Pinned: shown first, in a "Pinned" box, when picking items for a
     /// document. Kept with the material list, so every Mac sees it.
     var isPinned: Bool? = nil
+    /// The name in Chinese, for workers who read Chinese (shown with the
+    /// English name on delivery notes and BOQs). "" = deliberately none.
+    var chineseName: String? = nil
+}
+
+/// The Chinese name for a material, from the words used on the official SP
+/// Material List (e.g. "2.07m Ledger" → "2.07m橫杆", "0.90m x 1.0m Face
+/// Brace" → "0.90m x 1.0m斜杆"). nil when it isn't a material it knows.
+func chineseMaterialName(_ english: String) -> String? {
+    let name = english.trimmingCharacters(in: .whitespacesAndNewlines)
+        .split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    guard !name.isEmpty else { return nil }
+    let exact: [String: String] = [
+        "600mm base jack": "600mm 短底座",
+        "60mm u jack": "頂積",
+        "600mm u jack": "600mm 頂積",
+        "base jack (with wheels)": "底座(帶轆)",
+        "angle turning steel deck": "轉角板",
+        "turning steel deck": "轉彎板",
+        "twin ledger end coupler": "雙尖扣/雙接手扣",
+        "tube connector with semi coupler": "駁芯手扣",
+        "0.36m triangular rack": "360三角架",
+        "732 bracket": "732 三角架",
+        "lattice gridder coupler": "桁條扣",
+        "lattice girder coupler": "桁條扣",
+        "spigot clamp": "駁芯夾",
+        "spigot": "駁芯",
+        "round spigot": "圓形駁心",
+        "ra coupler": "直角手扣",
+        "right angle coupler": "直角手扣 (死扣)",
+        "swivel coupler": "活動手扣 (生扣)",
+        "swivel bolt coupler": "活動手扣",
+        "ledger end to ra tube coupler": "橫杆頭直角手扣",
+        "ledger end to swivel tube coupler": "橫杆頭活動手扣",
+        "sole board": "木墊板",
+        "wood sole board": "木墊板",
+        "l bolt": "L 曲",
+    ]
+    if let hit = exact[name.lowercased()] { return hit }
+    let size = #"(\d+(?:\.\d+)?\s?(?:mm|m)?)"#
+    let rules: [(String, String)] = [
+        ("^\(size) standard with double[- ]bolted spigot$", "$1企柱(雙螺栓駁芯)"),
+        ("^\(size) standard with spigot$", "$1企柱(帶駁芯)"),
+        ("^\(size) standard without spigot$", "$1企柱(無駁芯)"),
+        ("^\(size) standard$", "$1企柱"),
+        ("^\(size) rei?nforced ledger$", "$1加固橫杆"),
+        ("^\(size) double ledger$", "$1雙橫杆"),
+        ("^\(size) ledger$", "$1橫杆"),
+        ("^\(size) ?x ?\(size) face brace$", "$1 x $2斜杆"),
+        ("^\(size) ?x ?0\\.32m steel deck$", "$1踏板"),
+        ("^\(size) ?x ?0\\.16m steel deck$", "$1窄踏板 (160)"),
+        ("^\(size) ?x ?0\\.19m steel deck$", "$1窄踏板 (190)"),
+        ("^\(size) steel deck$", "$1踏板"),
+        ("^\(size) triangular steel deck$", "$1三角板"),
+        ("^\(size) wood toe board$", "$1木踢腳板"),
+        ("^\(size) (?:steel )?toe board$", "$1踢腳板"),
+        ("^\(size) ?x ?\(size) alu(?:minium)? ?\\+ ?wood flip board \\(with ladder\\)$", "$1 x $2 鋁木揭蓋板(連梯)"),
+        ("^\(size) flip board$", "$1揭蓋板"),
+        ("^\(size) alumin\\w* stai?r?case$", "$1鋁樓梯"),
+        ("^\(size) ?x ?\(size) assistant stai?r?case$", "$1 x $2輔助梯"),
+        ("^\(size) iron diagonal stai?r?case$", "$1鐵斜梯"),
+        ("^\(size) diagonal stai?r?case$", "$1 斜梯"),
+        ("^\(size) cat ladder$", "$1掛梯"),
+        ("^\(size) outer guard rail$", "$1外扶手"),
+        ("^\(size) inner guard rail \\(extended\\)$", "$1內扶手(加長)"),
+        ("^\(size) inner guard rail$", "$1內扶手"),
+        ("^\(size) (?:bracket|triangular rack)$", "$1三角架"),
+        ("^\(size) anchor tube$", "$1扣牆通"),
+        ("^\(size) lattice (?:gri?dd?er|girder) w/ middle spigot$", "$1桁條(帶中駁芯)"),
+        ("^\(size) lattice (?:gri?dd?er|girder)$", "$1桁條"),
+        ("^\(size) base jack$", "$1 底座"),
+        ("^\(size) u jack$", "$1 頂積"),
+        ("^\(size) base collar$", "$1腳套"),
+        ("^\(size) tube$", "$1喉通"),
+    ]
+    let range = NSRange(name.startIndex..., in: name)
+    for (pattern, template) in rules {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              regex.firstMatch(in: name, range: range) != nil else { continue }
+        return regex.stringByReplacingMatches(in: name, range: range, withTemplate: template)
+    }
+    return nil
+}
+
+/// "2.07m Ledger" with its Chinese name → "2.07m Ledger  橫杆": the size
+/// isn't said twice when the Chinese name starts with it.
+func withChineseName(_ description: String, _ chinese: String?) -> String {
+    guard let zh = chinese?.trimmingCharacters(in: .whitespacesAndNewlines), !zh.isEmpty,
+          !description.contains(zh) else { return description }
+    // The part before the first Chinese character, e.g. "0.90m x 1.0m".
+    let lead = String(zh.prefix { $0.isASCII }).trimmingCharacters(in: .whitespaces)
+    var shown = zh
+    if lead.contains(where: { $0.isNumber }), description.lowercased().hasPrefix(lead.lowercased()), lead.count < zh.count {
+        shown = String(zh.dropFirst(zh.prefix { $0.isASCII }.count)).trimmingCharacters(in: .whitespaces)
+    }
+    return "\(description)  \(shown)"
 }
 
 struct PriceListItemActionResult: Codable {
@@ -684,6 +780,10 @@ struct BillOfQuantities: Codable {
     /// rates shown and printed (rounded to 0.1, like a quotation's). nil:
     /// an older BOQ whose stored prices already include its mark-up.
     var markupOnRates: Bool? = nil
+    /// The landscape BQ sheet's Terms box (after the Notes), and a
+    /// signature box at the end (company and client).
+    var terms: String? = nil
+    var signatureSection: Bool? = nil
 }
 
 struct BOQCharge: Codable {
@@ -774,6 +874,13 @@ struct BOQDetail: Codable {
     var markupOnRates = false
     /// Marked-up rates round up to the next 0.1 (else off to the nearest).
     var markupRoundUp = false
+    /// Each line's Chinese name, by line id.
+    var chineseNames: [String: String]? = nil
+    /// The landscape BQ sheet's Terms box, and whether it ends with a
+    /// signature box; the standard terms from Settings.
+    var terms: String? = nil
+    var signatureSection = false
+    var standardTerms: String? = nil
 }
 
 struct BOQActionResult: Codable {
@@ -1179,6 +1286,8 @@ struct DeliveryNoteDetail: Codable {
     var projectId: String? = nil
     /// The quotation its items were first taken from (if any).
     var sourceQuotationId: String? = nil
+    /// Each line's Chinese name, by line id.
+    var chineseNames: [String: String]? = nil
 }
 
 struct DeliveryNoteActionResult: Codable {
@@ -1253,6 +1362,10 @@ struct CompanySettings: Codable {
     var defaultBOQItems: [DefaultBOQItem]? = nil
     /// The minimum monthly rental charge a quotation can apply (nil = 1,000).
     var minimumMonthlyRental: Double? = nil
+    /// Materials' Chinese names shown on delivery notes and BOQs (nil = yes).
+    var chineseNamesOnDocuments: Bool? = nil
+    /// Standard terms for the landscape BOQ's Terms box (Settings → BOQ Defaults).
+    var boqTerms: String? = nil
 }
 
 /// A price-list item and quantity put into every new BOQ.
@@ -1868,7 +1981,12 @@ final class JSONStore<T: Codable> {
         try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         // Sharing a folder with other Macs: what changed goes into this
         // Mac's log there too (TeamSync).
-        let team = TeamSync.current.flatMap { $0.localData.standardizedFileURL == fileURL.deletingLastPathComponent().standardizedFileURL ? $0 : nil }
+        // The material list also goes to iCloud Drive when this Mac isn't
+        // sharing a folder (TeamSync.material).
+        let folder = fileURL.deletingLastPathComponent().standardizedFileURL
+        let team = [TeamSync.current, TeamSync.material].compactMap { $0 }.first {
+            $0.localData.standardizedFileURL == folder && $0.handles(fileURL.lastPathComponent)
+        }
         let previous: Data? = team == nil ? nil : (try? Data(contentsOf: fileURL))
         // Atomic: written to a temporary file and swapped in, so a crash
         // or power cut mid-save can never leave a half-written database
@@ -2613,6 +2731,92 @@ final class AppDatabase {
     // ---- Price lists ----
     var priceListsAreSeeded: Bool { !priceListsStore.isEmpty }
 
+    /// Items with no Chinese name yet get one from `chineseMaterialName`
+    /// (the words on the official SP Material List). Names typed in, or
+    /// cleared on purpose, are left alone.
+    func fillChineseNamesIfNeeded() {
+        var items = priceListItemsStore.readAll()
+        var changed = false
+        for i in items.indices where items[i].chineseName == nil {
+            if let zh = chineseMaterialName(items[i].itemName) { items[i].chineseName = zh; changed = true }
+        }
+        if changed { priceListItemsStore.writeAll(items) }
+    }
+
+    /// Whether documents show materials' Chinese names (Settings; default yes).
+    var chineseNamesOnDocuments: Bool { getCompanySettings().chineseNamesOnDocuments ?? true }
+
+    /// Each line's Chinese name (by line id), from its material-list item or,
+    /// for a line typed in, from its description.
+    func chineseNames<Line>(for lines: [Line], id: (Line) -> String, itemId: (Line) -> String?, description: (Line) -> String) -> [String: String] {
+        let byId = Dictionary(priceListItemsStore.readAll().map { ($0.id, $0.chineseName) }, uniquingKeysWith: { a, _ in a })
+        var out: [String: String] = [:]
+        for line in lines {
+            let fromItem = itemId(line).flatMap { byId[$0] ?? nil }
+            // "" on the item: no Chinese name, on purpose.
+            if let zh = fromItem { if !zh.isEmpty { out[id(line)] = zh }; continue }
+            if let zh = chineseMaterialName(description(line)) { out[id(line)] = zh }
+        }
+        return out
+    }
+
+    /// Gives the price lists, and the items on them, ids made from what
+    /// they are (a list: its source; an item: its source, code and name), so
+    /// they're the same on every Mac, and changes every reference to them in
+    /// the other stores. Done before this Mac's material list first goes to
+    /// iCloud Drive: the same list made on different Macs then lines up,
+    /// item by item, instead of appearing twice.
+    func canonicalizePriceListIds() {
+        func stableHash(_ text: String) -> String {
+            var h: UInt64 = 0xcbf29ce484222325
+            for b in text.utf8 { h ^= UInt64(b); h = h &* 0x100000001b3 }
+            return String(h, radix: 36)
+        }
+        func norm(_ text: String) -> String {
+            text.lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        }
+        var map: [String: String] = [:]
+        var lists = priceListsStore.readAll()
+        var taken = Set<String>()
+        for i in lists.indices {
+            let wanted = "pricelist_" + stableHash(norm(lists[i].sourceKey))
+            guard !taken.contains(wanted) else { taken.insert(lists[i].id); continue }
+            taken.insert(wanted)
+            if lists[i].id != wanted { map[lists[i].id] = wanted; lists[i].id = wanted }
+        }
+        var items = priceListItemsStore.readAll()
+        taken = []
+        for i in items.indices {
+            let key = [items[i].sourceKey, items[i].itemCode, items[i].itemName].map(norm).joined(separator: "|")
+            let wanted = "item_" + stableHash(key)
+            guard !taken.contains(wanted) else { taken.insert(items[i].id); continue }
+            taken.insert(wanted)
+            if items[i].id != wanted { map[items[i].id] = wanted; items[i].id = wanted }
+        }
+        guard !map.isEmpty else { return }
+        priceListsStore.writeAll(lists)
+        priceListItemsStore.writeAll(items)
+        // Every other store: a value that is exactly an old id becomes the new one.
+        func replaced(_ value: Any) -> Any {
+            switch value {
+            case let text as String: return map[text] ?? text
+            case let dict as [String: Any]: return dict.mapValues(replaced)
+            case let array as [Any]: return array.map(replaced)
+            default: return value
+            }
+        }
+        let files = ((try? FileManager.default.contentsOfDirectory(at: dataDir, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "json" && !TeamSync.materialStores.contains($0.lastPathComponent) && !$0.lastPathComponent.contains(".unreadable-") }
+        for url in files {
+            guard let data = try? Data(contentsOf: url), let json = try? JSONSerialization.jsonObject(with: data) else { continue }
+            let changed = replaced(json)
+            let before = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys, .withoutEscapingSlashes])
+            guard let out = try? JSONSerialization.data(withJSONObject: changed, options: [.sortedKeys, .withoutEscapingSlashes]),
+                  out != before else { continue }
+            try? out.write(to: url, options: .atomic)
+        }
+    }
+
     func seedPriceList(sourceKey: String, displayName: String, currency: String, items: [SeedPriceItem]) {
         let priceList = PriceList(id: makeId("pricelist"), sourceKey: sourceKey, displayName: displayName, currency: currency, createdAt: nowISO())
         priceListsStore.insert(priceList)
@@ -2638,7 +2842,8 @@ final class AppDatabase {
         return priceListItemsStore.readAll()
             .filter { $0.sourceKey == sourceKey && !$0.isArchived }
             .filter { category == nil || category == "" || $0.category == category }
-            .filter { q.isEmpty || $0.itemName.lowercased().contains(q) || $0.itemCode.lowercased().contains(q) }
+            .filter { q.isEmpty || $0.itemName.lowercased().contains(q) || $0.itemCode.lowercased().contains(q)
+                || ($0.chineseName?.contains(q) ?? false) }
             .sorted { a, b in
                 // The order they were dragged into; the rest by item code.
                 let oa = a.sortOrder ?? Int.max, ob = b.sortOrder ?? Int.max
@@ -2681,7 +2886,9 @@ final class AppDatabase {
             itemCode: uniqueItemCode(sourceKey: sourceKey, preferred: text(payload, "itemCode")),
             category: text(payload, "category"), itemName: name, unit: text(payload, "unit") ?? "pc",
             weightKg: payload["weightKg"] as? Double, unitSalePrice: payload["unitSalePrice"] as? Double,
-            unitRentalPrice: payload["unitRentalPrice"] as? Double, applicableTypes: [], notes: nil, isArchived: false
+            unitRentalPrice: payload["unitRentalPrice"] as? Double, applicableTypes: [], notes: nil, isArchived: false,
+            // Typed in, or else worked out from the English name.
+            chineseName: text(payload, "chineseName") ?? chineseMaterialName(name)
         )
         priceListItemsStore.insert(item)
         return .success(item)
@@ -2859,7 +3066,8 @@ final class AppDatabase {
     /// Section 8's "Edit item" — item code is intentionally left alone
     /// here (it's the identifier everything else keys off), everything
     /// else is editable.
-    func updatePriceListItem(id: String, itemName: String, category: String?, unit: String, unitSalePrice: Double?, unitRentalPrice: Double?, weightKg: Double? = nil, updateWeight: Bool = false) -> String? {
+    func updatePriceListItem(id: String, itemName: String, category: String?, unit: String, unitSalePrice: Double?, unitRentalPrice: Double?, weightKg: Double? = nil, updateWeight: Bool = false,
+                             chineseName: String? = nil) -> String? {
         var items = priceListItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Item not found." }
         let trimmedName = itemName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2873,6 +3081,8 @@ final class AppDatabase {
         items[index].unitSalePrice = unitSalePrice
         items[index].unitRentalPrice = unitRentalPrice
         if updateWeight { items[index].weightKg = weightKg }
+        // "" = no Chinese name (kept that way, not filled in again).
+        if let zh = chineseName { items[index].chineseName = zh.trimmingCharacters(in: .whitespacesAndNewlines) }
         priceListItemsStore.writeAll(items)
         return nil
     }
@@ -3125,6 +3335,10 @@ final class AppDatabase {
         let client = getClient(id: project.clientId)
         detail.clientMarkupPercent = client?.defaultMarkupPercent
         detail.clientName = client?.companyName
+        detail.chineseNames = chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription })
+        detail.terms = boq.terms
+        detail.signatureSection = boq.signatureSection == true
+        detail.standardTerms = getCompanySettings().boqTerms
         return detail
     }
 
@@ -3358,6 +3572,18 @@ final class AppDatabase {
         }
         boqs[i].markupOnRates = true
         boqsStore.writeAll(boqs)
+    }
+
+    /// The landscape sheet's Terms box and signature box; like the notes,
+    /// changeable on an issued BOQ too.
+    func updateBOQSheetExtras(id: String, payload: [String: Any]) -> String? {
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
+        if payload.keys.contains("terms") { boqs[i].terms = nonBlank(payload["terms"] as? String) }
+        if let on = payload["signatureSection"] as? Bool { boqs[i].signatureSection = on ? true : nil }
+        boqs[i].updatedAt = nowISO()
+        boqsStore.writeAll(boqs)
+        return nil
     }
 
     func updateBOQNotes(id: String, notes: String?) {
@@ -4666,7 +4892,8 @@ final class AppDatabase {
             notes: dn.notes, createdAt: dn.createdAt, updatedAt: dn.updatedAt,
             projectNumber: project.projectNumber, projectName: project.name,
             clientName: client?.companyName, siteName: site?.name, lineItems: items,
-            contactPerson: dn.contactPerson, projectId: dn.projectId, sourceQuotationId: dn.sourceQuotationId
+            contactPerson: dn.contactPerson, projectId: dn.projectId, sourceQuotationId: dn.sourceQuotationId,
+            chineseNames: chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription })
         )
     }
 
@@ -4883,6 +5110,8 @@ final class AppDatabase {
             }
         }
         if let v = payload["minimumMonthlyRental"] as? Double { settings.minimumMonthlyRental = max(0, v) }
+        if let v = payload["chineseNamesOnDocuments"] as? Bool { settings.chineseNamesOnDocuments = v }
+        if payload.keys.contains("boqTerms") { settings.boqTerms = nonBlank(payload["boqTerms"] as? String) }
         if let list = payload["defaultBOQItems"] as? [[String: Any]] {
             var seen = Set<String>()
             let items: [DefaultBOQItem] = list.compactMap { item in
@@ -7251,6 +7480,8 @@ struct SheetCell: Encodable {
     var baselineUp: Double
     /// Part of the text drawn as a link (blue, underlined), e.g. "pfitnet.com/TC".
     var link: String? = nil
+    /// A rule along the cell's bottom (the line to sign on).
+    var lineBelow = false
 }
 
 struct SheetRow: Encodable {
@@ -7265,6 +7496,8 @@ struct SheetRow: Encodable {
     /// No rule between this row and the next, which stay on the same page
     /// (the lines of the Notes box).
     var joinNext = false
+    /// Below the table, with no rules (the signature block).
+    var borderless = false
 }
 
 struct SheetLayout: Encodable {
@@ -7300,7 +7533,9 @@ enum BQSheet {
     static func layout(landscape: Bool, pricingMode: String, currencyCode: String,
                        info: (projectCode: String, client: String, jobSite: String, structure: String),
                        lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double,
-                       ratesSection: BOQRatesSection? = nil, charges: [BOQCharge] = [], notes: String? = nil) -> SheetLayout {
+                       ratesSection: BOQRatesSection? = nil, charges: [BOQCharge] = [], notes: String? = nil,
+                       terms: String? = nil,
+                       signature: (company: String, name: String, title: String, client: String)? = nil) -> SheetLayout {
         let pageWidth: Double = landscape ? 842.88 : 595.92
         let pageHeight: Double = landscape ? 595.92 : 842.88
         let left = 85.875
@@ -7418,16 +7653,42 @@ enum BQSheet {
 
         // The BOQ's notes in one box at the end: "Notes:" and then each
         // line, 14.25pt apart with 9pt above and below; any web address
-        // in blue, underlined.
-        if landscape, let text = nonBlank(notes) {
+        // in blue, underlined. Its terms in a box like it after.
+        func textBox(_ text: String, heading: String, kind: String) {
             var lines = wrap(text, width: right - left - 2 * 2.625, size: 12)
-            if !(lines.first ?? "").lowercased().hasPrefix("note") { lines.insert("Notes:", at: 0) }
+            if !(lines.first ?? "").lowercased().hasPrefix(heading.lowercased().prefix(4)) { lines.insert("\(heading):", at: 0) }
             for (i, line) in lines.enumerated() {
                 let first = i == 0, last = i == lines.count - 1
                 var c = cell(left, right, line, 12, "left", last ? 12.375 : 3.375)
                 c.link = webAddress(in: line)
-                rows.append(SheetRow(kind: "notes", height: 14.25 + (first ? 9 : 0) + (last ? 9 : 0), fill: nil,
+                rows.append(SheetRow(kind: kind, height: 14.25 + (first ? 9 : 0) + (last ? 9 : 0), fill: nil,
                                      cells: [c], repeats: false, joinNext: !last))
+            }
+        }
+        if landscape, let text = nonBlank(notes) { textBox(text, heading: "Notes", kind: "notes") }
+        if landscape, let text = nonBlank(terms) { textBox(text, heading: "Terms & Conditions", kind: "terms") }
+
+        // The signature block under the table, as on the company's own sheet
+        // (Mr. Law's): "For and On Behalf of" over a line, then the company,
+        // who signs and their title; "Accepted By" over a line, then the
+        // client and "Date :". No rules but the two lines to sign on.
+        if landscape, let sign = signature {
+            let leftEnd = edges[2], rightStart = infoEdges[2], rightEnd = edges[n - 1]
+            let texts: [(String, String, Double, Double, Bool)] = [
+                ("For and On Behalf of", "Accepted By", 36, 4.125, false),
+                ("", "", 48, 0, true),
+                (sign.company, sign.client, 20.25, 4.125, false),
+                (sign.name, "Date :", 15.75, 4.125, false),
+                (sign.title, "", 15.75, 4.125, false),
+            ]
+            for (i, r) in texts.enumerated() {
+                var a = cell(left, leftEnd, r.0, 10, "left", r.3)
+                var b = cell(rightStart, rightEnd, r.1, 10, "left", r.3)
+                a.lineBelow = r.4
+                b.lineBelow = r.4
+                rows.append(SheetRow(kind: "signature", height: r.2, fill: nil, cells: [
+                    a, cell(leftEnd, rightStart, "", 10, "left", 0), b, cell(rightEnd, right, "", 10, "left", 0),
+                ], repeats: false, joinNext: i < texts.count - 1, borderless: true))
             }
         }
 
@@ -7583,19 +7844,30 @@ final class BQSheetRenderer {
                 }
                 y += row.height
             }
-            // Rules: along every row edge, and down each cell edge.
+            // Rules: along every row edge, and down each cell edge. Rows
+            // below the table (the signature block) have only their lines
+            // to sign on.
             context.setFillColor(NSColor.black.cgColor)
             y = layout.top
             hLine(y)
+            var tableBottom = y
             for (index, row) in rows.enumerated() {
+                if row.borderless {
+                    for cell in row.cells where cell.lineBelow {
+                        context.fill(CGRect(x: cell.x0 - half, y: h - (y + row.height + half), width: cell.x1 - cell.x0 + rule, height: rule))
+                    }
+                    y += row.height
+                    continue
+                }
                 for cell in row.cells where cell.x0 > layout.left + 0.01 {
                     context.fill(CGRect(x: cell.x0 - half, y: h - (y + row.height + half), width: rule, height: row.height + rule))
                 }
                 y += row.height
+                tableBottom = y
                 if !row.joinNext || index == rows.count - 1 { hLine(y) }
             }
-            context.fill(CGRect(x: layout.left - half, y: h - (y + half), width: rule, height: y - layout.top + rule))
-            context.fill(CGRect(x: layout.right - half, y: h - (y + half), width: rule, height: y - layout.top + rule))
+            context.fill(CGRect(x: layout.left - half, y: h - (tableBottom + half), width: rule, height: tableBottom - layout.top + rule))
+            context.fill(CGRect(x: layout.right - half, y: h - (tableBottom + half), width: rule, height: tableBottom - layout.top + rule))
             // Text
             y = layout.top
             for row in rows {
@@ -8594,6 +8866,25 @@ struct TeamStatus: Codable {
 final class TeamSync {
     /// Set while this Mac works in a shared folder.
     static private(set) var current: TeamSync?
+    /// Set while this Mac (not in a shared folder) keeps its material list
+    /// in step with the other Macs through iCloud Drive.
+    static private(set) var material: TeamSync?
+
+    /// The stores that make up the material list.
+    static let materialStores: Set<String> = ["price_lists.json", "price_list_items.json"]
+
+    /// Where the material list is kept in step when this Mac isn't in a
+    /// shared folder: "ScaffoldPro Material List" in the company's shared
+    /// Proficiency folder (so everyone's Macs see it), or at the top of
+    /// iCloud Drive if that folder isn't on this Mac. nil without iCloud Drive.
+    static var materialFolder: URL? {
+        let fm = FileManager.default
+        let drive = CloudBackupManager.iCloudDrive
+        guard fm.fileExists(atPath: drive.path) else { return nil }
+        let company = drive.appendingPathComponent("Proficiency", isDirectory: true)
+        let base = fm.fileExists(atPath: company.path) ? company : drive
+        return base.appendingPathComponent("ScaffoldPro Material List", isDirectory: true)
+    }
 
     static let markerName = "ScaffoldPro Team.json"
     static let pathToken = "$SCAFFOLDPRO_TEAM$"
@@ -8688,10 +8979,27 @@ final class TeamSync {
     var onRemoteChange: (([String], [String]) -> Void)?
     private let queue = DispatchQueue(label: "ScaffoldPro.teamSync", qos: .userInitiated)
 
-    init(root: URL, localData: URL) {
+    /// Only these stores (the material list), or nil for all of them.
+    let only: Set<String>?
+
+    init(root: URL, localData: URL, only: Set<String>? = nil) {
         self.root = root
         self.localData = localData
         self.device = TeamSync.deviceId
+        self.only = only
+    }
+
+    func handles(_ store: String) -> Bool {
+        only?.contains(store) ?? true
+    }
+
+    /// This Mac already has a log here (maybe still in iCloud only).
+    var hasOwnLog: Bool {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: ownFolder.path)) ?? []
+        return names.contains { name in
+            let plain = name.hasPrefix(".") && name.hasSuffix(".icloud") ? String(name.dropFirst().dropLast(".icloud".count)) : name
+            return plain.hasSuffix(".json") && handles(plain)
+        }
     }
 
     // MARK: starting
@@ -8700,11 +9008,11 @@ final class TeamSync {
     /// recording this Mac's saves. Call before the database is opened.
     /// False if this Mac's own log couldn't be read (still only in iCloud):
     /// adding to it then would lose what's in it.
-    func start() -> Bool {
+    func start(downloadTimeout: TimeInterval = 30) -> Bool {
         let fm = FileManager.default
         try? fm.createDirectory(at: ownFolder, withIntermediateDirectories: true)
         try? fm.createDirectory(at: localData, withIntermediateDirectories: true)
-        guard downloadEverything(in: ownFolder, timeout: 30) else { return false }
+        guard downloadEverything(in: ownFolder, timeout: downloadTimeout) else { return false }
         for url in logFiles(in: ownFolder) {
             guard let log = parseLog(url) else { return false }
             own[url.lastPathComponent] = log
@@ -8718,7 +9026,7 @@ final class TeamSync {
         stores.formUnion(own.keys)
         stores.formUnion(others.values.map { $0.store })
         for store in stores { materialize(store) }
-        TeamSync.current = self
+        if only == nil { TeamSync.current = self } else { TeamSync.material = self }
         touchMember()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.checkForChanges() }
         Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in self?.touchMember() }
@@ -8774,10 +9082,13 @@ final class TeamSync {
     /// Puts every record of this Mac's own (unshared) data into the shared
     /// folder's log, in its present order — used once, when sharing starts.
     /// Paths into `fromRoot` become paths into the shared folder.
-    func seed(from dataDir: URL, fromRoot: URL) {
+    /// `stamp`: when the records count as changed (default now). The
+    /// material list is put in as of when it was last saved on this Mac, so
+    /// a newer change made on another Mac isn't overwritten by it.
+    func seed(from dataDir: URL, fromRoot: URL, stamp: Double? = nil) {
         let fm = FileManager.default
         try? fm.createDirectory(at: ownFolder, withIntermediateDirectories: true)
-        let now = nextStamp()
+        let now = stamp ?? nextStamp()
         for url in logFiles(in: dataDir) {
             let parsed = TeamSync.recordsById(try? Data(contentsOf: url))
             var log: [String: Entry] = [:]
@@ -8942,7 +9253,8 @@ final class TeamSync {
 
     private func logFiles(in folder: URL) -> [URL] {
         ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [])
-            .filter { $0.pathExtension == "json" && !$0.lastPathComponent.hasPrefix(".") && !$0.lastPathComponent.contains(".unreadable-") }
+            .filter { $0.pathExtension == "json" && !$0.lastPathComponent.hasPrefix(".") && !$0.lastPathComponent.contains(".unreadable-")
+                && handles($0.lastPathComponent) }
     }
 
     private func parseLog(_ url: URL) -> [String: Entry]? {
@@ -9157,6 +9469,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "priceListItems:archive":
             let error = db.archivePriceListItem(id: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "priceLists:syncStatus":
+            // How the material list is kept the same on every Mac.
+            struct MaterialSyncStatus: Encodable { var mode: String; var folder: String?; var otherMacs: Int }
+            if let team = TeamSync.current {
+                respond(id: id, encodable: MaterialSyncStatus(mode: "team", folder: TeamSync.display(team.root), otherMacs: max(0, team.members().count - 1)))
+            } else if let material = TeamSync.material {
+                respond(id: id, encodable: MaterialSyncStatus(mode: "icloud", folder: TeamSync.display(material.root), otherMacs: max(0, material.members().count - 1)))
+            } else {
+                respond(id: id, encodable: MaterialSyncStatus(mode: "off", folder: nil, otherMacs: 0))
+            }
         case "priceLists:unitRatesPDF":
             handleExportUnitRates(id: id, payload: payload)
         case "priceListItems:setPinned":
@@ -9262,6 +9584,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
             }
+        case "boq:updateSheetExtras":
+            let error = db.updateBOQSheetExtras(id: (payload["id"] as? String) ?? "", payload: payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "boq:updateNotes":
             let boqId = (payload["id"] as? String) ?? ""
             let notes = payload["notes"] as? String
@@ -9974,7 +10299,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let unitRentalPrice = payload["unitRentalPrice"] as? Double
 
         if let error = db.updatePriceListItem(id: itemId, itemName: itemName, category: category, unit: unit, unitSalePrice: unitSalePrice, unitRentalPrice: unitRentalPrice,
-                                              weightKg: payload["weightKg"] as? Double, updateWeight: payload.keys.contains("weightKg")) {
+                                              weightKg: payload["weightKg"] as? Double, updateWeight: payload.keys.contains("weightKg"),
+                                              chineseName: payload["chineseName"] as? String) {
             respond(id: id, encodable: PriceListItemActionResult(ok: false, error: error))
         } else {
             respond(id: id, encodable: PriceListItemActionResult(ok: true, error: nil))
@@ -10653,16 +10979,24 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let projectCode = [detail.projectNumber, detail.projectName, detail.pricingMode, clientName]
             .compactMap { nonBlank($0) }.joined(separator: " - ")
         // Printed at their discounted rates; the discount itself isn't shown.
+        // Materials' Chinese names follow the English ones.
+        let zh = db.chineseNamesOnDocuments
+            ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         let lines = detail.lineItems.map { line -> BOQLineItem in
             var copy = line
             copy.appliedUnitPrice = detail.effectiveRates[line.id] ?? line.appliedUnitPrice
+            copy.itemDescription = withChineseName(line.itemDescription, zh[line.id])
             return copy
         }
         return BQSheet.layout(
             landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
             info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
             lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
-            ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes)
+            ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes,
+            terms: detail.terms,
+            signature: detail.signatureSection
+                ? (company: company.companyName, name: company.signatoryName ?? "", title: company.signatoryTitle ?? "",
+                   client: client?.companyName ?? "") : nil)
     }
 
     /// A BOQ's own pages as a PDF (landscape sheet or portrait letterhead,
@@ -10703,8 +11037,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             LetterColumn(title: "Unit Wt (kg)", width: 75.0, kind: .right),
             LetterColumn(title: "Total Wt (kg)", width: 83.0, kind: .right),
         ]
+        let zh = db.chineseNamesOnDocuments
+            ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
-            .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes), item.unit, formatQuantity(item.quantity),
+            .item([String(index + 1), lineDescription(withChineseName(item.itemDescription, zh[item.id]), notes: item.notes), item.unit, formatQuantity(item.quantity),
                    item.weightKg.map { formatMoney($0) } ?? "—",
                    item.weightKg.map { formatMoney($0 * item.quantity.rounded()) } ?? "—"])
         }
@@ -11016,12 +11352,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             LetterColumn(title: "Total Weight", width: 76.0, kind: .weight),
         ]
         let priceItems = db.allPriceListItems()
+        // Chinese names too, for the workers who read Chinese.
+        let zh = db.chineseNamesOnDocuments
+            ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
         var totalKg = Decimal(0)
         var rows: [LetterTableRow] = detail.lineItems.enumerated().map { index, item in
             let qty = item.quantity.rounded()
             let kg = db.deliveryNoteWeight(item, in: priceItems)
             if let kg = kg { totalKg += decimalOf(kg) * decimalOf(qty) }
-            return .item([String(index + 1), lineDescription(item.itemDescription, notes: item.notes),
+            return .item([String(index + 1), lineDescription(withChineseName(item.itemDescription, zh[item.id]), notes: item.notes),
                           kg.map { String(format: "%.1f", $0) } ?? "", formatQuantity(qty),
                           kg.map { String(format: "%.1f", $0 * qty) } ?? ""])
         }
@@ -12798,6 +13137,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         TeamSync.current?.onRemoteChange = { [weak self] stores, names in
             self?.bridge.sharedDataChanged(stores: stores, names: names)
         }
+        TeamSync.material?.onRemoteChange = { [weak self] stores, names in
+            self?.bridge.sharedDataChanged(stores: stores, names: names)
+        }
         // Keep the shared iCloud copy up to date from now on.
         bridge.cloudBackup.start()
         // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept a week).
@@ -12939,12 +13281,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
         // A shared folder already has its price lists (seeding one again
         // before the others' logs arrive would make a second copy).
-        if TeamSync.current == nil { seedPriceListsIfNeeded() }
+        if TeamSync.current == nil {
+            let brandNew = !db.priceListsAreSeeded
+            seedPriceListsIfNeeded()
+            startMaterialSync(dataDir: dataDir, brandNew: brandNew)
+        }
         db.fixScafomCurrencyIfNeeded()
         db.applyDeliveryChargeUpdateIfNeeded()
         db.movePaymentTermsIntoKeyTermsIfNeeded()
         db.moveBOQMarkupsOntoRates()
         db.addStructuresToQuotationSubjects()
+        db.fillChineseNamesIfNeeded()
+    }
+
+    /// Not in a shared folder: the material list is still kept the same on
+    /// every Mac, through iCloud Drive (TeamSync.materialFolder).
+    /// `brandNew`: the list was only just made from the app's own copy.
+    private func startMaterialSync(dataDir: URL, brandNew: Bool) {
+        guard let folder = TeamSync.materialFolder else { return }
+        let sync = TeamSync(root: folder, localData: dataDir, only: TeamSync.materialStores)
+        if !sync.hasOwnLog {
+            // First time on this Mac: its list goes in as of when it was
+            // last changed here, so a newer change made on another Mac wins
+            // (and a list only just made here never replaces anyone's).
+            let saved = (try? dataDir.appendingPathComponent("price_list_items.json").resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate?.timeIntervalSince1970
+            db.canonicalizePriceListIds()
+            let stamp = brandNew ? 1 : min(saved ?? 1, Date().timeIntervalSince1970)
+            sync.seed(from: dataDir, fromRoot: storage.appRoot, stamp: stamp)
+        }
+        if !sync.start(downloadTimeout: 5) {
+            NSLog("ScaffoldPro: the material list in iCloud Drive isn't on this Mac yet; it's kept in step from the next launch.")
+        }
     }
 
     private func seedPriceListsIfNeeded() {

@@ -25,6 +25,9 @@ DPI = 200; S = DPI / 72
 # "python3 sheet.py law <Mr. Law sheet.pdf>" checks the sheet with amounts
 # added after the subtotal and a Notes box instead.
 LAW_MODE = len(sys.argv) > 1 and sys.argv[1] == 'law'
+# "python3 sheet.py law --sign <pdf>" adds the signature block, as on the original.
+SIGN = '--sign' in sys.argv
+if SIGN: sys.argv.remove('--sign')
 ARGS = sys.argv[2:] if LAW_MODE else sys.argv[1:]
 ORIGINAL = ARGS[0] if len(ARGS) > 0 else os.path.join(HERE, '..', '..', 'docs', 'reference', 'BQ-CRBC-1635.pdf')
 BODY_TTF = ARGS[1] if len(ARGS) > 1 else os.path.join(APP, 'resources', 'fonts', 'Carlito-Regular.ttf')
@@ -34,7 +37,7 @@ def kg(v): return f'{v:.1f} kg'
 def money(v): return f'{v:,.2f}'
 def qty(v): return f'{round(v):,}'
 
-def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, notes=None):
+def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, notes=None, terms=None, signature=None):
     pw, ph = (842.88, 595.92) if landscape else (595.92, 842.88)
     left, top = 85.875, 53.625
     widths = [68.25, 174.75, 43.5, 51.75, 130.5, 128.25, 72.0] if landscape else [68.25, 186.54, 43.5, 51.75, 72.0]
@@ -84,17 +87,30 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
             texts = [(f'R{i + 1}', 'center'), (nm, 'left'), ('', 'right'), ('', 'center'), (f'{money(rate)} / {unit}', 'money'), ('(Rate Only)', 'center'), ('', 'right')]
             rows.append(dict(kind='rate', height=18, fill=None, repeats=False, cells=[cell(edges[j], edges[j + 1], t, 12, a, 4.875) for j, (t, a) in enumerate(texts)]))
         if note: rows.append(dict(kind='note', height=15.75, fill=None, repeats=False, cells=[cell(left, right, note, 10, 'left', 4.125)]))
-    if landscape and notes:
+    def text_box(text, heading, kind):
         body = dict(font='body', size=12)
-        lines = wrap(notes, right - left - 2 * 2.625, font(body))
-        if not lines[0].lower().startswith('note'): lines.insert(0, 'Notes:')
+        lines = wrap(text, right - left - 2 * 2.625, font(body))
+        if not lines[0].lower().startswith(heading.lower()[:4]): lines.insert(0, f'{heading}:')
         for i, t in enumerate(lines):
             first, last = i == 0, i == len(lines) - 1
             c = cell(left, right, t, 12, 'left', 12.375 if last else 3.375)
             m = re.search(r'(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?', t)
             c['link'] = m.group(0) if m else None
-            rows.append(dict(kind='notes', height=14.25 + (9 if first else 0) + (9 if last else 0), fill=None, repeats=False,
+            rows.append(dict(kind=kind, height=14.25 + (9 if first else 0) + (9 if last else 0), fill=None, repeats=False,
                              cells=[c], joinNext=not last))
+    if landscape and notes: text_box(notes, 'Notes', 'notes')
+    if landscape and terms: text_box(terms, 'Terms & Conditions', 'terms')
+    # The signature block under the table (company, name, title, client), as on Mr. Law's sheet.
+    if landscape and signature:
+        company, name, title, client = signature
+        le, rs, re_ = edges[2], ie[2], edges[n - 1]
+        texts = [('For and On Behalf of', 'Accepted By', 36, 4.125, False), ('', '', 48, 0, True),
+                 (company, client, 20.25, 4.125, False), (name, 'Date :', 15.75, 4.125, False), (title, '', 15.75, 4.125, False)]
+        for i, (a, b, h, up, line) in enumerate(texts):
+            ca = cell(left, le, a, 10, 'left', up); cb = cell(rs, re_, b, 10, 'left', up)
+            ca['lineBelow'] = cb['lineBelow'] = line
+            rows.append(dict(kind='signature', height=h, fill=None, repeats=False, joinNext=i < len(texts) - 1, borderless=True,
+                             cells=[ca, cell(le, rs, '', 10, 'left', 0), cb, cell(re_, right, '', 10, 'left', 0)]))
     return fit(dict(ok=True, kind='sheet', landscape=landscape, pageWidth=pw, pageHeight=ph, left=left, right=right, top=top,
                     bottomLimit=ph - 53.25, rows=rows, number='BQ', title='PROFICIENCY QUOTATION', scale=1))
 
@@ -134,13 +150,18 @@ def render(L):
     for r in L['rows']:
         if r['fill']: rect(L['left'] - half, y - half, L['right'] - L['left'] + 2 * half, r['height'] + 2 * half, '#' + r['fill'])
         y += r['height']
-    y = L['top']; rect(L['left'] - half, y - half, L['right'] - L['left'] + 2 * half, 2 * half, 'black')
+    y = L['top']; rect(L['left'] - half, y - half, L['right'] - L['left'] + 2 * half, 2 * half, 'black'); bottom = y
     for r in L['rows']:
+        if r.get('borderless'):
+            # The signature block: only its lines to sign on.
+            for c in r['cells']:
+                if c.get('lineBelow'): rect(c['x0'] - half, y + r['height'] - half, c['x1'] - c['x0'] + 2 * half, 2 * half, 'black')
+            y += r['height']; continue
         for c in r['cells']:
             if c['x0'] > L['left'] + 0.01: rect(c['x0'] - half, y - half, 2 * half, r['height'] + 2 * half, 'black')
-        y += r['height']
+        y += r['height']; bottom = y
         if not r.get('joinNext'): rect(L['left'] - half, y - half, L['right'] - L['left'] + 2 * half, 2 * half, 'black')
-    rect(L['left'] - half, L['top'] - half, 2 * half, y - L['top'] + 2 * half, 'black'); rect(L['right'] - half, L['top'] - half, 2 * half, y - L['top'] + 2 * half, 'black')
+    rect(L['left'] - half, L['top'] - half, 2 * half, bottom - L['top'] + 2 * half, 'black'); rect(L['right'] - half, L['top'] - half, 2 * half, bottom - L['top'] + 2 * half, 'black')
     y = L['top']
     for r in L['rows']:
         bottom = y + r['height']
@@ -187,7 +208,8 @@ def law_check(original):
     """Builds Mr. Law's sheet and compares it with the company's (printed at 76.75%)."""
     import pymupdf
     L = layout(True, 'Sale', 'HKD', ('', 'Mr. Law', '', 'Container Access Platform'), LAW,
-               charges=[('', 'Delivery', 1800.0), ('', 'Design Fees', 1000.0)], notes=LAW_NOTES)
+               charges=[('', 'Delivery', 1800.0), ('', 'Design Fees', 1000.0)], notes=LAW_NOTES,
+               signature=('Proficiency (HK) Limited', 'Richard Kwan', 'Director', 'Mr. Law') if SIGN else None)
     ours = render(L); ours.save(os.path.join(OUT, 'law.png'))
     jp = os.path.join(OUT, 'law.json'); json.dump(L, open(jp, 'w'))
     dp = os.path.join(OUT, 'word_law.docx')
