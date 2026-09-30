@@ -1566,3 +1566,36 @@ under "Letterhead layout".
     BOQ too, like the notes (`boq:updateSheetExtras`).
   - `tools/pdf-preview/sheet.py law --sign` checks the result against the
     original.
+
+## Batch 65 — The rest of the official SP Material List
+
+- The **57 items on the official SP list (速拼國際 報價, GH codes) that
+  weren't in the SP Material List** are added. Each has the list's weight,
+  rental price (出租單價 per month) and sale price (售價), its Chinese name
+  as written there, and "SP Product No.: GH…" in its notes:
+  - Base items: 600mm swivel U jack and swivel base jack (搖擺頂積 / 底座),
+    special base plate for balconies, special base jack with round plate,
+    timber sole board (木墊板)
+  - Spigot (駁芯) and round spigot (圓形駁心)
+  - 3.07m ledger, and 3.07m bridging ledger (拱橋橫杆)
+  - **Lattice Girders**: 4.14m, 5.14m and 6.14m lattice girders (桁條) and
+    the 7.71m lattice truss (桁架)
+  - Face braces: 1.09 / 1.57 / 1.80 / 2.07 / 2.57m × 1.0m, 2.57 × 1.5m and
+    3.07 × 2.0m
+  - Steel decks: 1.80m and 3.07m (0.32m wide); 0.60 / 0.90 / 1.09 / 1.80m
+    narrow decks (160)
+  - Toe boards: 1.80m and 3.07m; 0.73m triangular steel deck guard (三角板圍)
+  - **Catch Fans**: catch fan brace (斜棚斜桿) and catch fan / plank clip
+  - **Couplers & Clamps**: L bolt, long L bolt Ø16 × 250mm, right angle
+    coupler (死扣), swivel coupler (生扣), beam clamps (工字扣), EN74 swivel
+    coupler, guard rail clamp (老鼠仔)
+  - **Wall Tie Tubes** (扣牆通) 0.85–2.0m, **Tubes** (喉通) 0.8–6.0m
+  - **Racking** (貨架): uprights, beams and base
+  - **Bolts & Nuts**: M12 × 65 bolt and M12 nut, sale only
+- New installs get them in the bundled list (`resources/sp_pricelist.json`).
+  Existing SP lists get them once at launch (`addMissingSPProducts`), at the
+  end of their categories. Items already there by name (even archived ones)
+  are left alone.
+  - These items have the same id on every Mac (`item_sp_<GH code>`), so Macs
+    adding them at the same time — sharing a folder, or keeping the material
+    list in step through iCloud Drive — end up with one copy.

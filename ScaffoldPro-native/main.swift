@@ -272,6 +272,15 @@ struct SeedPriceItem: Codable {
     var spProductNo: String?
     var applicableTypes: [String]
     var source: String
+    /// As on the official SP Material List (items added from it).
+    var chineseName: String? = nil
+}
+
+/// The id of an item from the official SP Material List ("GH36.414" →
+/// "item_sp_gh36_414"): the same on every Mac, so the same item added on
+/// two Macs at once is one item when they're merged.
+func spProductItemId(_ productNo: String) -> String {
+    "item_sp_" + productNo.lowercased().map { $0.isLetter || $0.isNumber ? String($0) : "_" }.joined()
 }
 
 struct ProjectListEntry: Codable {
@@ -2787,6 +2796,8 @@ final class AppDatabase {
         var items = priceListItemsStore.readAll()
         taken = []
         for i in items.indices {
+            // Items from the official SP list already have the same id everywhere.
+            if items[i].id.hasPrefix("item_sp_") { taken.insert(items[i].id); continue }
             let key = [items[i].sourceKey, items[i].itemCode, items[i].itemName].map(norm).joined(separator: "|")
             let wanted = "item_" + stableHash(key)
             guard !taken.contains(wanted) else { taken.insert(items[i].id); continue }
@@ -2823,14 +2834,46 @@ final class AppDatabase {
 
         let mapped: [PriceListItem] = items.map { seed in
             PriceListItem(
-                id: makeId("item"), sourceKey: sourceKey, itemCode: seed.itemCode,
+                id: seed.spProductNo.map(spProductItemId) ?? makeId("item"), sourceKey: sourceKey, itemCode: seed.itemCode,
                 category: seed.category, itemName: seed.name, unit: "pc",
                 weightKg: seed.weightKg, unitSalePrice: seed.unitSalePriceHKD,
                 unitRentalPrice: seed.unitRentalPriceHKD, applicableTypes: seed.applicableTypes,
-                notes: seed.spProductNo.map { "SP Product No.: \($0)" }, isArchived: false
+                notes: seed.spProductNo.map { "SP Product No.: \($0)" }, isArchived: false,
+                chineseName: seed.chineseName
             )
         }
         priceListItemsStore.insertMany(mapped)
+    }
+
+    /// Items from the official SP Material List that the SP list doesn't
+    /// have yet (lists made before they were added to the app): added once,
+    /// at the end of their categories. An item already there — by its id,
+    /// or by name, even if archived — is left alone.
+    func addMissingSPProducts(_ seeds: [SeedPriceItem]) {
+        guard priceListsStore.readAll().contains(where: { $0.sourceKey == "SP" }) else { return }
+        let all = priceListItemsStore.readAll()
+        let sp = all.filter { $0.sourceKey == "SP" }
+        let norm: (String) -> String = { $0.lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ") }
+        let ids = Set(all.map { $0.id })
+        let names = Set(sp.map { norm($0.itemName) })
+        var added: [PriceListItem] = []
+        for seed in seeds {
+            guard let product = seed.spProductNo else { continue }
+            let id = spProductItemId(product)
+            guard !ids.contains(id), !names.contains(norm(seed.name)) else { continue }
+            let codes = Set((sp + added).map { $0.itemCode.lowercased() })
+            var code = seed.itemCode
+            if codes.contains(code.lowercased()) { code = product }
+            added.append(PriceListItem(
+                id: id, sourceKey: "SP", itemCode: code, category: seed.category, itemName: seed.name, unit: "pc",
+                weightKg: seed.weightKg, unitSalePrice: seed.unitSalePriceHKD, unitRentalPrice: seed.unitRentalPriceHKD,
+                applicableTypes: seed.applicableTypes, notes: "SP Product No.: \(product)", isArchived: false,
+                chineseName: seed.chineseName
+            ))
+        }
+        guard !added.isEmpty else { return }
+        priceListItemsStore.insertMany(added)
+        logActivity(projectId: nil, "\(added.count) items added to the SP Material List", reference: "from the official SP list")
     }
 
     func listPriceLists() -> [PriceList] {
@@ -13291,6 +13334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db.movePaymentTermsIntoKeyTermsIfNeeded()
         db.moveBOQMarkupsOntoRates()
         db.addStructuresToQuotationSubjects()
+        db.addMissingSPProducts(loadSeed("sp_pricelist.json"))
         db.fillChineseNamesIfNeeded()
     }
 
@@ -13315,14 +13359,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         }
     }
 
-    private func seedPriceListsIfNeeded() {
-        guard !db.priceListsAreSeeded, let resourceURL = Bundle.main.resourceURL else { return }
+    /// A material list bundled with the app (resources/*.json).
+    private func loadSeed(_ filename: String) -> [SeedPriceItem] {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("resources/\(filename)"),
+              let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([SeedPriceItem].self, from: data)) ?? []
+    }
 
-        func loadSeed(_ filename: String) -> [SeedPriceItem] {
-            let url = resourceURL.appendingPathComponent("resources/\(filename)")
-            guard let data = try? Data(contentsOf: url) else { return [] }
-            return (try? JSONDecoder().decode([SeedPriceItem].self, from: data)) ?? []
-        }
+    private func seedPriceListsIfNeeded() {
+        guard !db.priceListsAreSeeded else { return }
 
         let spItems = loadSeed("sp_pricelist.json")
         let scafomItems = loadSeed("scafom_pricelist.json")
