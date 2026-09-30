@@ -102,7 +102,7 @@ async function renderDefaultItems() {
   for (const b of box.querySelectorAll('.default-item-remove')) {
     b.addEventListener('click', async () => {
       defaultBOQItems.splice(Number(b.dataset.index), 1);
-      settingsDirty = true;
+      setSettingsDirty(true);
       await renderDefaultItems();
     });
   }
@@ -124,7 +124,7 @@ async function setupDefaultItems() {
     if (existing) existing.quantity = quantity;
     else defaultBOQItems.push({ priceListItemId: id, quantity: quantity });
     qtyBox.value = 1;
-    settingsDirty = true;
+    setSettingsDirty(true);
     await renderDefaultItems();
   });
 }
@@ -365,6 +365,12 @@ function setAppearanceButtons(value) {
 // Unsaved edits in the settings form (so a change from another Mac doesn't
 // replace what's being typed).
 let settingsDirty = false;
+// "Unsaved changes" by the Save button while there are some.
+function setSettingsDirty(value) {
+  settingsDirty = value;
+  const row = document.getElementById('save-row');
+  if (row) row.classList.toggle('dirty', value);
+}
 
 function whenSeen(iso) {
   const d = new Date(iso);
@@ -501,11 +507,11 @@ async function init() {
   for (const ta of formatted) window.refreshParagraphPreview(ta);
   document.getElementById('save-btn').addEventListener('click', async () => {
     await saveSettings();
-    settingsDirty = false;
+    setSettingsDirty(false);
     document.getElementById('settings-changed-elsewhere').classList.add('hidden');
   });
   // Typing in the form (not the sharing or backup controls further down).
-  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions')) settingsDirty = true; };
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions')) setSettingsDirty(true); };
   document.getElementById('content').addEventListener('input', markDirty);
   document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {

@@ -1383,3 +1383,23 @@ under "Letterhead layout".
   quotations and invoices. New quotations carry no tax. An older quotation
   or invoice that still has a tax rate shows the box, so it can be set
   to 0.
+
+## Batch 58 — Launch screen with the update check; Save Settings bar
+
+- **Launch screen** (launch.html, `LaunchScreen` in main.swift). As
+  ScaffoldPro opens, a rounded navy card shows the scaffold logo building
+  itself: base plates, standards, ledgers, rosettes, then the yellow brace
+  with a glow. "ScaffoldPro" follows letter by letter, then "Checking for
+  updates…". The update check happens here, before the main window opens,
+  so no question pops up a few seconds after opening:
+  - up to date → "Up to date", and the main window opens as the card fades
+  - newer version → "A new version is available" with **Update Now** /
+    **Later** (Return / Escape). Update Now shows the update's progress on
+    the same card, then ScaffoldPro reopens by itself.
+  - GitHub slow to answer → the app opens after 10 seconds anyway, and a
+    late answer is offered as before
+- The updater now shows its progress through an `UpdateScreen`: the launch
+  card, or the sheet used by ScaffoldPro › Check for Updates….
+- **Save Settings** is pinned to the bottom of the window as a proper
+  footer, so rows no longer show beneath it. It says "Unsaved changes"
+  while there are some.
