@@ -15,6 +15,7 @@ const ICONS = {
   stock: '<path d="M3 7.5 10 4l7 3.5v5L10 16l-7-3.5z"/><path d="M3 7.5 10 11l7-3.5M10 11v5"/>',
   accounts: '<rect x="4" y="2.5" width="12" height="15" rx="1.5"/><rect x="6.5" y="5" width="7" height="3" rx=".5"/><path d="M7 11h.01M10 11h.01M13 11h.01M7 14h.01M10 14h.01M13 14h.01"/>',
   admin: '<circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16c.4-2.8 2.3-4.3 4.7-4.3s4.3 1.5 4.7 4.3"/><circle cx="14" cy="8" r="2"/><path d="M13 11.9c2.2-.2 3.8 1 4.2 3.6"/>',
+  marketing: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>',
   letters: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { page: 'letters', label: 'Letters', href: 'letters.html', key: '6' },
   { page: 'stock', label: 'Stock', href: 'stock.html', key: '7' },
   { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '8' },
+  { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
   { page: 'admin', label: 'Admin', href: 'admin.html', key: '9' },
   { page: 'settings', label: 'Settings', href: 'settings.html', key: ',' },
 ];
@@ -70,7 +72,7 @@ function renderSidebar(activePage) {
   for (const item of NAV_ITEMS) {
     const link = document.createElement('a');
     link.href = item.href;
-    link.title = `${item.label} (⌘${item.key})`;
+    link.title = item.key ? `${item.label} (⌘${item.key})` : item.label;
     link.innerHTML = `${icon(item.page)}<span>${item.label}</span>`;
     if (item.page === activePage || (activePage === 'project-detail' && item.page === 'projects')) {
       link.classList.add('active');
@@ -117,8 +119,8 @@ async function renderUserTab(link) {
 // ---------------------------------------------------------------------
 
 (function setupPersonColors() {
-  // Distinct, readable on white and in Dark mode.
-  const PALETTE = ['#2F6FED', '#D9480F', '#2B8A3E', '#AE3EC9', '#C2255C', '#0C8599', '#B7791F', '#5F3DC4', '#087F5B', '#E03131'];
+  // Soft, muted and distinct; readable on white and in Dark mode.
+  const PALETTE = ['#5B7DB1', '#B07A5E', '#5E8C6A', '#8E72A8', '#A8677C', '#4F8A8F', '#9A8458', '#6D6BA6', '#4E8472', '#A66A6A', '#6B7078', '#4F6F96'];
   let chosen = {};
   let loading = null;
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -422,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'price-lists.html', 'sites.html', 'clients.html', 'projects.html', 'letters.html', 'stock.html', 'accounts.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'price-lists.html', 'sites.html', 'clients.html', 'projects.html', 'letters.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

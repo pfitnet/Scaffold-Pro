@@ -72,30 +72,36 @@ async function refreshBOQList() {
     return;
   }
 
-  // Project total weight: every BOQ except cancelled ones.
-  const counted = currentBOQs.filter((b) => b.status !== 'Cancelled');
+  // Project total weight: every BOQ except cancelled ones and combined
+  // counts (those add up other BOQs, so they're listed apart, below it).
+  const own = currentBOQs.filter((b) => !b.combined);
+  const combined = currentBOQs.filter((b) => b.combined);
+  const counted = own.filter((b) => b.status !== 'Cancelled');
   const totalWeight = counted.reduce((sum, b) => sum + (Number(b.totalWeightKg) || 0), 0);
   const table = document.createElement('table');
   table.innerHTML = `
     <thead><tr>${selections.boq.headerCell()}<th>Number</th><th>Pricing</th><th>Status</th><th>Created By</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr class="project-total">${selections.boq.footerCell()}<td colspan="5">Project total weight${counted.length < currentBOQs.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
-      <td class="num">${money(totalWeight)}</td><td></td></tr></tfoot>`;
+    <tbody class="total-rows"><tr class="project-total">${selections.boq.footerCell()}<td colspan="5">Project total weight${counted.length < own.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
+      <td class="num">${money(totalWeight)}</td><td></td></tr></tbody>
+    ${combined.length ? `<tbody class="combined-rows"><tr class="combined-head"><td colspan="8">Combined counts <span class="muted">— made by adding up BOQs above; not added to the project total</span></td></tr></tbody>` : ''}`;
   const tbody = table.querySelector('tbody');
-  for (const b of currentBOQs) {
+  const combinedBody = table.querySelector('tbody.combined-rows');
+  for (const b of own.concat(combined)) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `boq-editor.html?id=${b.id}`; };
     tr.dataset.id = b.id;
     tr.innerHTML = `${selections.boq.cell(b.id)}
-      <td>${esc(b.boqNumber)}${b.structure ? `<div class="sub">${esc(b.structure)}</div>` : ''}</td>
+      <td>${esc(b.boqNumber)}${b.structure ? `<div class="sub">${esc(b.structure)}</div>` : ''}${b.combined && b.combinedFrom ? `<div class="sub">Combined from ${esc(b.combinedFrom.join(', '))}</div>` : ''}</td>
       <td>${b.pricingMode}</td>
       <td><span class="status-pill">${b.status}</span></td>
       ${window.createdByCell(b)}
       <td>${b.itemCount}</td>
       <td class="num">${money(b.totalWeightKg)}</td>`;
     tr.appendChild(window.documentRowActions('BOQ', { id: b.id, number: b.boqNumber, status: b.status }, refreshBOQList));
-    tbody.appendChild(tr);
+    if (b.combined) tr.classList.add('combined-row');
+    (b.combined ? combinedBody : tbody).appendChild(tr);
   }
   container.innerHTML = '';
   container.appendChild(table);
@@ -125,7 +131,10 @@ async function refreshQuotationList() {
   // Project total: every quotation except cancelled ones, split into the
   // monthly charge (rental) and the one-time charge (delivery and one-off
   // charges; all of a Sale quotation).
-  const counted = currentQuotations.filter((q) => q.status !== 'Cancelled');
+  // Quotations for combined counts are listed apart, below the total.
+  const own = currentQuotations.filter((q) => !q.fromCombined);
+  const combined = currentQuotations.filter((q) => q.fromCombined);
+  const counted = own.filter((q) => q.status !== 'Cancelled');
   const split = (q) => q.charges || { monthly: 0, oneTime: Number(q.total) || 0, recurring: {} };
   const monthlyTotal = counted.reduce((sum, q) => sum + (Number(split(q).monthly) || 0), 0);
   const oneTimeTotal = counted.reduce((sum, q) => sum + (Number(split(q).oneTime) || 0), 0);
@@ -135,11 +144,13 @@ async function refreshQuotationList() {
   table.innerHTML = `
     <thead><tr>${selections.quotation.headerCell()}<th>Number</th><th>BOQ</th><th>Status</th><th>Created By</th><th>Items</th><th class="num" title="Monthly rental (and anything charged per month)">Monthly Charge</th><th class="num" title="Delivery and one-off charges — all of a Sale quotation">One-time Charge</th><th></th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr class="project-total">${selections.quotation.footerCell()}<td colspan="5">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
+    <tbody class="total-rows"><tr class="project-total">${selections.quotation.footerCell()}<td colspan="5">Project total${counted.length < own.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
       <td class="num">${monthlyTotal ? `${money(monthlyTotal)}<div class="sub">per month</div>` : '<span class="muted">—</span>'}</td>
-      <td class="num">${money(oneTimeTotal)}${recurringNote(recurringTotal)}</td><td></td></tr></tfoot>`;
+      <td class="num">${money(oneTimeTotal)}${recurringNote(recurringTotal)}</td><td></td></tr></tbody>
+    ${combined.length ? `<tbody class="combined-rows"><tr class="combined-head"><td colspan="9">For combined counts <span class="muted">— quotations of combined BOQs; not added to the project total</span></td></tr></tbody>` : ''}`;
   const tbody = table.querySelector('tbody');
-  for (const q of currentQuotations) {
+  const combinedBody = table.querySelector('tbody.combined-rows');
+  for (const q of own.concat(combined)) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `quotation-editor.html?id=${q.id}`; };
@@ -155,7 +166,8 @@ async function refreshQuotationList() {
       <td class="num">${q.pricingMode === 'Sale' || !split(q).monthly ? '<span class="muted">—</span>' : money(split(q).monthly)}</td>
       <td class="num">${money(split(q).oneTime)}${recurringNote(split(q).recurring)}</td>`;
     tr.appendChild(window.documentRowActions('Quotation', { id: q.id, number: q.quotationNumber, status: q.status }, refreshQuotationList));
-    tbody.appendChild(tr);
+    if (q.fromCombined) tr.classList.add('combined-row');
+    (q.fromCombined ? combinedBody : tbody).appendChild(tr);
   }
   container.innerHTML = '';
   container.appendChild(table);
@@ -279,10 +291,22 @@ function renderFileList(containerId, items, api, opts) {
 
   const headerCells = ['Name', ...(opts.showCategory ? ['Category'] : []), ...(opts.linkChoices ? ['For'] : []), 'Type', 'Size', 'Uploaded', 'Description', ''];
   const table = document.createElement('table');
-  table.innerHTML = `<thead><tr>${headerCells.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody></tbody>`;
-  const tbody = table.querySelector('tbody');
+  table.innerHTML = `<thead><tr>${headerCells.map((h) => `<th>${h}</th>`).join('')}</tr></thead>`;
+  // In brackets: each BOQ with its quotations, a quotation or BOQ on its
+  // own, then the files not linked to either.
+  const groups = fileGroups(items);
+  table.classList.add('no-sort', 'file-groups');
+  for (const group of groups) {
+    const body = document.createElement('tbody');
+    body.className = 'file-group';
+    body.innerHTML = `<tr class="file-group-head"><td colspan="${headerCells.length}"><span class="file-group-title">${esc(group.title)}</span>${group.sub ? ` <span class="muted">— ${esc(group.sub)}</span>` : ''} <span class="file-group-count">${group.items.length}</span></td></tr>`;
+    for (const item of group.items) body.appendChild(fileRow(item));
+    table.appendChild(body);
+  }
+  container.innerHTML = '';
+  container.appendChild(table);
 
-  for (const item of items) {
+  function fileRow(item) {
     const tr = document.createElement('tr');
     const missingBadge = item.fileExists ? '' : ' <span class="status-pill" style="color:var(--danger);">File unavailable</span>';
     const categoryCell = opts.showCategory ? `<td>${esc(item.category)}</td>` : '';
@@ -366,11 +390,39 @@ function renderFileList(containerId, items, api, opts) {
       });
     }
 
-    tbody.appendChild(tr);
+    return tr;
   }
+}
 
-  container.innerHTML = '';
-  container.appendChild(table);
+// The brackets files are listed in: each BOQ together with the quotations
+// made from it ("BQ26212-001 · Qt26212-001"), a quotation with no BOQ, a
+// BOQ with no quotation — in the order the lists show them — then the
+// files that aren't linked to any.
+function fileGroups(items) {
+  const groups = [];
+  const byKey = {};
+  const boqIds = new Set(currentBOQs.map((b) => b.id));
+  for (const b of currentBOQs) {
+    const qs = currentQuotations.filter((q) => q.boqId === b.id);
+    byKey[`boq:${b.id}`] = { title: [`BOQ ${b.boqNumber}`, ...qs.map((q) => `Quotation ${q.quotationNumber}`)].join(' · '), sub: b.structure, items: [] };
+    groups.push(byKey[`boq:${b.id}`]);
+  }
+  for (const q of currentQuotations) {
+    if (q.boqId && boqIds.has(q.boqId)) continue;
+    byKey[`q:${q.id}`] = { title: `Quotation ${q.quotationNumber}`, sub: q.subject, items: [] };
+    groups.push(byKey[`q:${q.id}`]);
+  }
+  const loose = { title: 'Not linked to a BOQ or quotation', items: [] };
+  for (const item of items) {
+    let key = null;
+    if (item.linkedKind === 'BOQ') key = `boq:${item.linkedId}`;
+    else if (item.linkedKind === 'Quotation') {
+      const q = currentQuotations.find((x) => x.id === item.linkedId);
+      key = q && q.boqId && boqIds.has(q.boqId) ? `boq:${q.boqId}` : `q:${item.linkedId}`;
+    }
+    (byKey[key] || loose).items.push(item);
+  }
+  return groups.concat(loose).filter((g) => g.items.length);
 }
 
 /// "Not linked", then the project's BOQs and quotations.
@@ -406,6 +458,8 @@ async function refreshDocumentList() {
     emptyTitle: 'No documents yet',
     emptyBody: 'Upload a contract, certificate, or other project document.',
     showCategory: true,
+    // Filed with a BOQ / quotation (bracketed with it), like the drawings.
+    linkChoices: drawingLinkChoices(),
     refresh: refreshDocumentList,
   });
 }
