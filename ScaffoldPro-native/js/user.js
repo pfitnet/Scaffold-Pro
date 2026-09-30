@@ -69,7 +69,7 @@ function renderLists() {
     { value: (p) => `<span class="status-pill">${esc(p.status)}</span>` },
   ], 'None yet — projects you work on show here.');
   table('my-documents', page.myDocuments, [
-    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.kind)} · ${esc(r.projectNumber)}</div>` },
+    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.kind)} · ${esc(r.projectNumber)}</div>${r.createdBy ? `<div class="sub">Created by ${window.personTag(r.createdBy)}</div>` : ''}` },
     { value: (r) => `<span class="status-pill">${esc(r.status)}</span>` },
     { cls: 'muted num', value: (r) => when(r.lastEditedAt || r.updatedAt) },
   ], 'None yet — documents you work on show here.');

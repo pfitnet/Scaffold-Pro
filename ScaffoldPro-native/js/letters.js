@@ -29,11 +29,11 @@ function render() {
     return;
   }
   box.innerHTML = `<table>
-    <thead><tr><th>Letter No.</th><th>Date</th><th>Subject</th><th>To</th><th>Project</th><th>Status</th></tr></thead>
+    <thead><tr><th>Letter No.</th><th>Date</th><th>Subject</th><th>To</th><th>Project</th><th>Status</th><th>Created By</th></tr></thead>
     <tbody>${list.map((l) => `<tr class="clickable" data-id="${esc(l.id)}">
       <td><b>${esc(l.letterNumber)}</b></td><td>${dayText(l.letterDate)}</td><td>${esc(l.subject || '—')}</td>
       <td>${esc(l.recipientName || '—')}</td><td>${l.projectNumber ? `${esc(l.projectNumber)} ${esc(l.projectName || '')}` : '—'}</td>
-      <td><span class="status-pill ${PILL[l.status] || ''}">${esc(l.status)}</span></td></tr>`).join('')}</tbody></table>`;
+      <td><span class="status-pill ${PILL[l.status] || ''}">${esc(l.status)}</span></td>${window.createdByCell(l)}</tr>`).join('')}</tbody></table>`;
   for (const tr of box.querySelectorAll('tr[data-id]')) {
     tr.style.cursor = 'pointer';
     tr.addEventListener('click', () => { location.href = `letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`; });

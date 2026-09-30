@@ -77,9 +77,9 @@ async function refreshBOQList() {
   const totalWeight = counted.reduce((sum, b) => sum + (Number(b.totalWeightKg) || 0), 0);
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr>${selections.boq.headerCell()}<th>Number</th><th>Pricing</th><th>Status</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
+    <thead><tr>${selections.boq.headerCell()}<th>Number</th><th>Pricing</th><th>Status</th><th>Created By</th><th>Items</th><th class="num">Total Weight (kg)</th><th></th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr class="project-total">${selections.boq.footerCell()}<td colspan="4">Project total weight${counted.length < currentBOQs.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
+    <tfoot><tr class="project-total">${selections.boq.footerCell()}<td colspan="5">Project total weight${counted.length < currentBOQs.length ? ' <span class="muted">(cancelled BOQs not counted)</span>' : ''}</td>
       <td class="num">${money(totalWeight)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
   for (const b of currentBOQs) {
@@ -91,6 +91,7 @@ async function refreshBOQList() {
       <td>${esc(b.boqNumber)}${b.structure ? `<div class="sub">${esc(b.structure)}</div>` : ''}</td>
       <td>${b.pricingMode}</td>
       <td><span class="status-pill">${b.status}</span></td>
+      ${window.createdByCell(b)}
       <td>${b.itemCount}</td>
       <td class="num">${money(b.totalWeightKg)}</td>`;
     tr.appendChild(window.documentRowActions('BOQ', { id: b.id, number: b.boqNumber, status: b.status }, refreshBOQList));
@@ -132,9 +133,9 @@ async function refreshQuotationList() {
   for (const q of counted) for (const [k, v] of Object.entries(split(q).recurring || {})) recurringTotal[k] = (recurringTotal[k] || 0) + v;
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr>${selections.quotation.headerCell()}<th>Number</th><th>BOQ</th><th>Status</th><th>Items</th><th class="num" title="Monthly rental (and anything charged per month)">Monthly Charge</th><th class="num" title="Delivery and one-off charges — all of a Sale quotation">One-time Charge</th><th></th></tr></thead>
+    <thead><tr>${selections.quotation.headerCell()}<th>Number</th><th>BOQ</th><th>Status</th><th>Created By</th><th>Items</th><th class="num" title="Monthly rental (and anything charged per month)">Monthly Charge</th><th class="num" title="Delivery and one-off charges — all of a Sale quotation">One-time Charge</th><th></th></tr></thead>
     <tbody></tbody>
-    <tfoot><tr class="project-total">${selections.quotation.footerCell()}<td colspan="4">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
+    <tfoot><tr class="project-total">${selections.quotation.footerCell()}<td colspan="5">Project total${counted.length < currentQuotations.length ? ' <span class="muted">(cancelled quotations not counted)</span>' : ''}</td>
       <td class="num">${monthlyTotal ? `${money(monthlyTotal)}<div class="sub">per month</div>` : '<span class="muted">—</span>'}</td>
       <td class="num">${money(oneTimeTotal)}${recurringNote(recurringTotal)}</td><td></td></tr></tfoot>`;
   const tbody = table.querySelector('tbody');
@@ -149,6 +150,7 @@ async function refreshQuotationList() {
       <td>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</td>
       <td>${q.boqNumber ? `${esc(q.boqNumber)}${q.boqLinked ? ' <span class="status-pill pill-success" title="Kept the same as the BOQ, both ways">Linked</span>' : ''}` : '<span class="muted">—</span>'}</td>
       <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
+      ${window.createdByCell(q)}
       <td>${q.itemCount}</td>
       <td class="num">${q.pricingMode === 'Sale' || !split(q).monthly ? '<span class="muted">—</span>' : money(split(q).monthly)}</td>
       <td class="num">${money(split(q).oneTime)}${recurringNote(split(q).recurring)}</td>`;
@@ -176,7 +178,7 @@ async function refreshInvoiceList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr>${selections.invoice.headerCell()}<th>Number</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Paid</th><th></th></tr></thead>
+    <thead><tr>${selections.invoice.headerCell()}<th>Number</th><th>Status</th><th>Created By</th><th>Due</th><th class="num">Total</th><th class="num">Paid</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const inv of currentInvoices) {
@@ -187,6 +189,7 @@ async function refreshInvoiceList() {
     tr.innerHTML = `${selections.invoice.cell(inv.id)}
       <td>${inv.invoiceNumber}</td>
       <td><span class="status-pill">${inv.status}</span></td>
+      ${window.createdByCell(inv)}
       <td>${inv.dueDate || '—'}</td>
       <td class="num">${money(inv.total)}</td>
       <td class="num">${money(inv.amountPaid)}</td>`;
@@ -214,7 +217,7 @@ async function refreshDeliveryNoteList() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr>${selections.delivery.headerCell()}<th>Number</th><th>Status</th><th>Date</th><th>Items</th><th></th></tr></thead>
+    <thead><tr>${selections.delivery.headerCell()}<th>Number</th><th>Status</th><th>Created By</th><th>Date</th><th>Items</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
   for (const dn of currentDeliveryNotes) {
@@ -225,6 +228,7 @@ async function refreshDeliveryNoteList() {
     tr.innerHTML = `${selections.delivery.cell(dn.id)}
       <td>${dn.deliveryNoteNumber}</td>
       <td><span class="status-pill">${dn.status}</span></td>
+      ${window.createdByCell(dn)}
       <td>${(dn.deliveryDate || '').slice(0, 10)}</td>
       <td>${dn.itemCount}</td>`;
     tr.appendChild(window.documentRowActions('DeliveryNote', { id: dn.id, number: dn.deliveryNoteNumber, status: dn.status }, refreshDeliveryNoteList));
@@ -246,10 +250,10 @@ async function refreshLetterList() {
   }
   const pill = { Issued: 'pill-success', Cancelled: 'pill-danger' };
   container.innerHTML = `<table>
-    <thead><tr><th>Number</th><th>Status</th><th>Date</th><th>Subject</th><th>To</th></tr></thead>
+    <thead><tr><th>Number</th><th>Status</th><th>Created By</th><th>Date</th><th>Subject</th><th>To</th></tr></thead>
     <tbody>${letters.map((l) => `<tr style="cursor:pointer" data-id="${esc(l.id)}">
       <td>${esc(l.letterNumber)}</td><td><span class="status-pill ${pill[l.status] || ''}">${esc(l.status)}</span></td>
-      <td>${formatDay(l.letterDate)}</td><td>${esc(l.subject || '—')}</td><td>${esc(l.recipientName || '—')}</td></tr>`).join('')}</tbody></table>`;
+      ${window.createdByCell(l)}<td>${formatDay(l.letterDate)}</td><td>${esc(l.subject || '—')}</td><td>${esc(l.recipientName || '—')}</td></tr>`).join('')}</tbody></table>`;
   for (const tr of container.querySelectorAll('tr[data-id]')) {
     tr.addEventListener('click', () => { location.href = `letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`; });
   }

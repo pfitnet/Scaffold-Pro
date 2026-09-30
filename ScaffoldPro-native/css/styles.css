@@ -785,3 +785,10 @@ table.ds tr.ds-notes td { font-weight: normal; }
 
 /* A link that doesn't look like one (e.g. the Dashboard's name tag). */
 a.plain-link, a.plain-link:hover { text-decoration: none; }
+
+/* Lists' "Created By" column: the maker's name tag, then who last worked on it. */
+td.created-by { white-space: nowrap; }
+td.created-by .sub { margin-top: 3px; font-size: 11px; }
+td.created-by .sub .person { font-size: 11px; }
+.sub.made-by { margin-top: 3px; }
+.sub.made-by .person { font-size: 11px; }
