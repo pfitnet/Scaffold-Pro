@@ -705,3 +705,8 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .page-back { display: inline-flex; align-items: center; gap: 4px; margin: -18px 0 12px -6px; padding: 4px 10px 4px 6px;
   border: 0; background: transparent; box-shadow: none; color: var(--accent); font-weight: 500; cursor: pointer; border-radius: var(--radius); }
 .page-back:hover { background: var(--accent-soft); }
+
+/* Material List: picking items for a Unit Rates sheet. */
+.rates-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 8px 12px;
+  border: 1px solid var(--accent); border-radius: var(--radius-lg); background: var(--accent-soft); font-size: 13px; }
+#table-container.selecting tr[data-id] { cursor: pointer; }

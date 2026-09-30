@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1790751539.5498676,
-    "seen": 1790751834.151426,
-    "ast_hash": "e01d2e7a24e0018d21d58f8e8c675150",
+    "mtime": 1790751951.342029,
+    "seen": 1790752011.8439064,
+    "ast_hash": "c310efd6454f913ba3150a7277c246d1",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -132,10 +132,10 @@
     "semantic_hash": "0706a7c74efb29053a8be6dffadde954"
   },
   "ScaffoldPro-native/js/price-lists.js": {
-    "mtime": 1790706686.3487852,
-    "seen": 1790736804.3727317,
-    "ast_hash": "18784ccdd856d3e4a85396e4ae265d70",
-    "semantic_hash": "18784ccdd856d3e4a85396e4ae265d70"
+    "mtime": 1790751981.5817764,
+    "seen": 1790752011.843918,
+    "ast_hash": "800ce36b48d1e7362b90e25fd3fe1997",
+    "semantic_hash": ""
   },
   "ScaffoldPro-native/js/project-detail.js": {
     "mtime": 1790751718.6866612,
@@ -186,9 +186,9 @@
     "semantic_hash": "fed9c89248e6c73aa11ae3cee7613338"
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1790751690.6379423,
-    "seen": 1790751834.1514435,
-    "ast_hash": "714317ef951d1cd16fde6d4fcdf6f480",
+    "mtime": 1790751902.0301409,
+    "seen": 1790752011.843924,
+    "ast_hash": "a6e713067ffb58c469954df590eab189",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790751831.3976924,
-    "seen": 1790751834.151451,
-    "ast_hash": "276bdda561263f43a875961e0de15dc6",
+    "mtime": 1790752009.1336844,
+    "seen": 1790752011.8439314,
+    "ast_hash": "33d7d5247e1debef626d35816603376b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -300,10 +300,10 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/price-lists.html": {
-    "mtime": 1790708152.5887642,
-    "seen": 1790736804.372749,
-    "ast_hash": "cfc879aa81c7d50ce1f39c8a750c860d",
-    "semantic_hash": "cfc879aa81c7d50ce1f39c8a750c860d"
+    "mtime": 1790751951.3429651,
+    "seen": 1790752011.8439376,
+    "ast_hash": "0d5f428634e43d027db80dab175dd725",
+    "semantic_hash": ""
   },
   "ScaffoldPro-native/project-detail.html": {
     "mtime": 1790751379.865879,
