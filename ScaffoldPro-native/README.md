@@ -1480,3 +1480,42 @@ under "Letterhead layout".
   aren't copied. If the note already has items, you choose either to
   replace them or to add the quotation's quantities to the matching
   items (`deliveryNotes:importQuotation`).
+
+## Batch 63 — Liabilities, and employees on the payroll
+
+- **Accounts › Liabilities** records what the company owes: loans,
+  supplier bills, hire purchase, credit cards, tax, MPF and more. Each
+  one keeps the amount, who it's owed to, the start and due dates, an
+  optional monthly repayment and interest rate, a reference and notes.
+  - Clicking a liability shows the payments made against it. You can
+    record a new payment (it starts at the monthly repayment or the
+    balance) or remove one.
+  - The list shows the paid amount, the balance and a status (Owing,
+    Overdue or Paid off). Items still owing come first, ordered by due
+    date. "Show paid off" also lists the settled ones.
+  - A summary line shows the total owing, the overdue total and the
+    monthly repayments. Export CSV works on this tab too.
+  - Data: `liabilities.json` and `liability_payments.json` (synced like
+    every other store); `accounts:saveLiability`, `deleteLiability`,
+    `addLiabilityPayment`, `deleteLiabilityPayment`.
+- **Admin** now has two tabs: **Workers & Documents** (as before) and
+  **Employees**.
+  - Each employee has a Chinese name, position, phone, an optional link
+    to the matching worker record, **Full-time / Part-time**, and how
+    they're paid: monthly salary, by the day or by the hour, with their
+    usual days or hours a month.
+  - Each employee also has allowances, employer MPF (5% of pay, capped
+    at HK$1,500 a month), annual leave days, bank account, start and
+    leaving dates, and notes. Former employees stay on record, off the
+    payroll.
+  - Cards show the headcount (full-time / part-time), a usual month's
+    pay, the employer MPF and the total payroll cost. The list can be
+    searched and exported to CSV.
+  - **Record Pay…** takes a month and the date paid. It lists current
+    employees, with days or hours editable for daily and hourly staff,
+    and pay and MPF worked out but editable. It then adds one expense
+    per employee under the new "Salaries & MPF" expense category. An
+    employee's month already recorded is skipped (reference
+    `PAY yyyy-mm E00n`).
+  - Data: `employees.json` (synced); `employees:list`, `save`, `delete`,
+    `recordPayroll`.

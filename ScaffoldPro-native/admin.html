@@ -21,14 +21,36 @@
     .date-input { width: 130px; }
     .small-note { font-size: 12px; color: var(--text-secondary); }
     @media (prefers-color-scheme: dark) { .expiry-soon { color: #f0a53a; } }
+    table.money td.num, table.money th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    table.money tfoot td { font-weight: 600; border-top: 2px solid var(--border); }
+    tr.clickable { cursor: pointer; }
+    .emp-estimate { font-size: 12px; color: var(--text-secondary); margin: 2px 0 10px; }
+    .payroll-head { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
+    .payroll-head .field { display: flex; flex-direction: column; gap: 4px; }
+    .payroll-head label { font-size: 12px; color: var(--text-secondary); }
+    #payroll-table input[type="number"] { width: 96px; text-align: right; }
+    #payroll-table input.units { width: 60px; }
+    #payroll-table td:nth-child(n+4) { white-space: nowrap; }
+    #payroll-table .who { display: block; white-space: nowrap; }
+    #employee-list td:last-child { white-space: nowrap; }
+    .payroll-scroll { max-height: 52vh; overflow-y: auto; }
+    .modal.payroll { width: 820px; max-width: calc(100vw - 40px); }
+    .type-pill { font-size: 11px; }
+    #payroll-table tr.muted td { opacity: 0.45; }
   </style>
 </head>
 <body data-page="admin">
   <nav id="sidebar"></nav>
   <main id="content">
     <h1>Admin</h1>
-    <div class="subtitle">Workers, their documents, and company paperwork. Company details and currency live in Settings.</div>
+    <div class="subtitle">Workers, their documents, company paperwork, and the employees on the payroll. Company details and currency live in Settings.</div>
 
+    <div class="tabs" id="admin-tabs">
+      <button data-tab="workers" class="active">Workers &amp; Documents</button>
+      <button data-tab="employees">Employees</button>
+    </div>
+
+    <div id="admin-tab-workers">
     <!-- Expiry reminders (sections 42-43) -->
     <section class="admin-section">
       <div class="section-toolbar"><h2>Needs Attention</h2></div>
@@ -65,7 +87,73 @@
       <div class="toolbar"><input type="text" id="admin-doc-search" placeholder="Search company documents" /></div>
       <div id="admin-doc-list"></div>
     </section>
+    </div>
+
+    <!-- Employees: pay, full-time / part-time, MPF -->
+    <div id="admin-tab-employees" class="hidden">
+      <div class="stat-grid" id="employee-stats"></div>
+      <div class="toolbar">
+        <input type="text" id="employee-search" placeholder="Search employees" />
+        <label class="small-note"><input type="checkbox" id="show-former-employees" /> Show former employees</label>
+        <span class="toolbar-spacer"></span>
+        <button id="export-employees-btn">Export CSV</button>
+        <button id="record-pay-btn" title="Put a month's salaries and employer MPF into Accounts › Expenses">Record Pay…</button>
+        <button class="primary" id="new-employee-btn">+ New Employee</button>
+      </div>
+      <div id="employee-list"></div>
+    </div>
   </main>
+
+  <div class="modal-backdrop hidden" id="employee-modal">
+    <div class="modal wide" role="dialog" aria-labelledby="em-title">
+      <h2 id="em-title">New Employee</h2>
+      <div class="form-grid">
+        <div class="field"><label for="em-name">Name</label><input type="text" id="em-name" /></div>
+        <div class="field"><label for="em-chineseName">Chinese name</label><input type="text" id="em-chineseName" /></div>
+        <div class="field"><label for="em-position">Position</label><input type="text" id="em-position" placeholder="e.g. Scaffolder, Foreman, Clerk" /></div>
+        <div class="field"><label for="em-phone">Phone</label><input type="text" id="em-phone" /></div>
+        <div class="field"><label for="em-type">Employment</label>
+          <select id="em-type"><option>Full-time</option><option>Part-time</option></select></div>
+        <div class="field"><label for="em-worker">Same person as worker (optional)</label><select id="em-worker"></select></div>
+        <div class="field"><label for="em-basis">Paid</label>
+          <select id="em-basis"><option value="Monthly">Monthly salary</option><option value="Daily">By the day</option><option value="Hourly">By the hour</option></select></div>
+        <div class="field"><label for="em-rate" id="em-rate-label">Monthly salary</label><input type="number" id="em-rate" min="0" step="0.01" /></div>
+        <div class="field" id="em-units-field"><label for="em-units" id="em-units-label">Usual days a month</label><input type="number" id="em-units" min="0" step="0.5" /></div>
+        <div class="field"><label for="em-allowance">Monthly allowances (optional)</label><input type="number" id="em-allowance" min="0" step="0.01" placeholder="travel, meals, phone…" /></div>
+        <div class="field"><label for="em-leave">Annual leave (days a year)</label><input type="number" id="em-leave" min="0" step="0.5" /></div>
+        <div class="field"><label for="em-bank">Bank account (for paying)</label><input type="text" id="em-bank" /></div>
+        <div class="field"><label for="em-start">Started</label><input type="date" id="em-start" /></div>
+        <div class="field"><label for="em-end">Left (optional)</label><input type="date" id="em-end" /></div>
+        <div class="field span-2"><label class="small-note"><input type="checkbox" id="em-mpf" checked /> Employer MPF (5% of pay, up to HK$1,500 a month)</label></div>
+        <div class="field span-2"><label for="em-notes">Notes</label><input type="text" id="em-notes" /></div>
+        <div class="field span-2 hidden" id="em-archived-field"><label class="small-note"><input type="checkbox" id="em-archived" /> Former employee (off the payroll; kept for the records)</label></div>
+      </div>
+      <div class="emp-estimate" id="em-estimate"></div>
+      <div class="error-text hidden" id="em-error"></div>
+      <div class="actions">
+        <button id="em-delete" class="left hidden">Delete</button>
+        <button id="em-cancel">Cancel</button>
+        <button class="primary" id="em-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="payroll-modal">
+    <div class="modal payroll" role="dialog" aria-labelledby="pr-title">
+      <h2 id="pr-title">Record Pay</h2>
+      <p class="small-note">Each ticked employee's pay plus the employer's MPF goes into Accounts › Expenses under “Salaries &amp; MPF”. A month already recorded for someone is skipped.</p>
+      <div class="payroll-head">
+        <div class="field"><label for="pr-month">Month</label><input type="month" id="pr-month" /></div>
+        <div class="field"><label for="pr-date">Paid on</label><input type="date" id="pr-date" /></div>
+      </div>
+      <div class="payroll-scroll"><table class="money" id="payroll-table"></table></div>
+      <div class="error-text hidden" id="pr-error"></div>
+      <div class="actions">
+        <button id="pr-cancel">Cancel</button>
+        <button class="primary" id="pr-save">Record in Expenses</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-backdrop hidden" id="worker-modal">
     <div class="modal">
@@ -86,5 +174,6 @@
   <script src="js/sidebar.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/employees.js"></script>
 </body>
 </html>
