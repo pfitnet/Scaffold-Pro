@@ -658,7 +658,21 @@ tr.row-selected td { background: var(--accent-soft) !important; }
 
 /* Drawings / Documents sections that take files dragged from Finder (js/file-drop.js). */
 .file-drop-zone { border-radius: var(--radius-lg); transition: background 0.12s; }
-.drop-note { margin-top: 6px; }
+.drop-box {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+  min-height: 132px; margin-top: 12px; padding: 18px; border-radius: var(--radius-lg);
+  border: 2px dashed var(--border-strong); color: var(--text-secondary); background: var(--row-hover);
+  transition: min-height 0.2s ease, border-color 0.15s, background 0.15s, color 0.15s;
+}
+.drop-box svg { color: var(--text-tertiary); margin-bottom: 2px; transition: transform 0.2s ease, color 0.15s; }
+.drop-box-title { font-weight: 600; font-size: 14px; color: var(--text); }
+.drop-box-sub { font-size: 12px; max-width: 460px; }
+/* Files being dragged over the window: every drop box grows and lights up. */
+body.dragging-files .drop-box { min-height: 190px; border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(-3px); }
+.drop-over .drop-box { min-height: 210px; border-style: solid; background: var(--accent-soft); }
+.drop-over .drop-box svg { transform: translateY(-6px) scale(1.12); }
+.drop-saving .drop-box-title::after { content: ' — adding…'; }
 
 /* Dashboard: quotations awaiting reply (and their signed copies). */
 .quote-actions { white-space: nowrap; text-align: right; width: 1%; }
@@ -670,3 +684,11 @@ tr.row-selected td { background: var(--accent-soft) !important; }
 .default-items-add select { width: auto; max-width: 320px; }
 .default-items-add input[type=number], .default-items-table input[type=number] { width: 72px; }
 .default-items-table { max-width: 780px; }
+
+/* Pinned items in the "Add Materials" list (js/item-picker.js). */
+.picker-name-cell .pin-btn { margin-right: 6px; vertical-align: -2px; }
+.pin-btn { flex: 0 0 auto; padding: 2px; min-width: 0; border: 0; background: transparent; box-shadow: none; color: var(--text-tertiary); opacity: 0.45; cursor: pointer; line-height: 0; }
+.pin-btn:hover { opacity: 1; color: var(--warning); background: transparent; }
+.pin-btn.pinned { opacity: 1; color: #e0a800; }
+.picker-pinned { border-color: rgba(224, 168, 0, 0.55); }
+.picker-pinned .picker-group-head { background: rgba(224, 168, 0, 0.10); }

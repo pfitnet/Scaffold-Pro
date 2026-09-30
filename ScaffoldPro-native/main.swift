@@ -152,6 +152,9 @@ struct PriceListItem: Codable {
     /// Its place in its category, as dragged in the Material List. nil =
     /// never moved (then it follows the moved ones, by item code).
     var sortOrder: Int? = nil
+    /// Pinned: shown first, in a "Pinned" box, when picking items for a
+    /// document. Kept with the material list, so every Mac sees it.
+    var isPinned: Bool? = nil
 }
 
 struct PriceListItemActionResult: Codable {
@@ -2822,6 +2825,15 @@ final class AppDatabase {
         items[index].unitSalePrice = unitSalePrice
         items[index].unitRentalPrice = unitRentalPrice
         if updateWeight { items[index].weightKg = weightKg }
+        priceListItemsStore.writeAll(items)
+        return nil
+    }
+
+    /// Pins an item to the top of the document pickers (or unpins it).
+    func setPriceListItemPinned(id: String, pinned: Bool) -> String? {
+        var items = priceListItemsStore.readAll()
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return "Item not found." }
+        items[index].isPinned = pinned ? true : nil
         priceListItemsStore.writeAll(items)
         return nil
     }
@@ -8596,6 +8608,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "priceListItems:archive":
             let error = db.archivePriceListItem(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "priceListItems:setPinned":
+            let error = db.setPriceListItemPinned(id: (payload["id"] as? String) ?? "", pinned: (payload["pinned"] as? Bool) ?? false)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "priceListItems:reorder":
             let error = db.reorderPriceListItems(ids: (payload["ids"] as? [String]) ?? [])

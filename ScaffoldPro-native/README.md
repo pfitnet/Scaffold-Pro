@@ -1403,3 +1403,20 @@ under "Letterhead layout".
 - **Save Settings** is pinned to the bottom of the window as a proper
   footer, so rows no longer show beneath it. It says "Unsaved changes"
   while there are some.
+
+## Batch 59 — Bigger drop boxes, scrolling while dragging, reliable "+ Add", pinned items
+
+- **Drop boxes:** the Drawings panel of a BOQ or quotation, and the
+  project's Drawings and Documents sections, each have a large dashed "Drop
+  drawings / documents here" box. While files are dragged over the window,
+  every box grows and lights up.
+- **Scrolling while dragging:** holding files near the bottom (or top) of
+  the page scrolls it, faster the closer to the edge (js/file-drop.js).
+- **"+ Add" right after typing a search** now always works. On the Mac each
+  search answer takes a moment, and one arriving mid-click used to replace
+  the button being clicked. The list now waits while the mouse button is
+  down, and answers to older searches are dropped (`pickerSearch`).
+- **Pinned items:** the star on each item in "Add Materials" pins it to a
+  ★ Pinned box at the top of the list, in every editor. Pins are kept with
+  the material list (`PriceListItem.isPinned`, `priceListItems:setPinned`),
+  so every Mac sees them.

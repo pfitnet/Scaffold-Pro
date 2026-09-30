@@ -554,7 +554,8 @@ async function renderPickerResults() {
   const sourceKey = document.getElementById('source-select').value;
   const query = document.getElementById('search-box').value;
   const category = document.getElementById('category-select').value;
-  const items = await window.api.priceLists.searchItems({ sourceKey, query, category: category || null, inBaseCurrency: true });
+  const items = await window.pickerSearch({ sourceKey, query, category: category || null, inBaseCurrency: true });
+  if (!items) return; // a newer search is on its way
 
   const container = document.getElementById('picker-results');
   if (items.length === 0) {
