@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>ScaffoldPro</title>
+<!-- The launch screen: shown while ScaffoldPro checks GitHub for a newer
+     version, before the main window opens. If there is one, it offers it
+     here, and the update's progress is shown here too (main.swift,
+     LaunchScreen). Called from Swift through window.launch.*; its buttons
+     answer through the "launch" message handler. -->
+<style>
+  :root {
+    --navy-1: #21407e;
+    --navy-2: #102451;
+    --navy-3: #081330;
+    --yellow: #f6c445;
+    --yellow-2: #ffdd74;
+    --ink: #f4f6fb;
+    --ink-2: rgba(232, 238, 250, 0.72);
+    --ink-3: rgba(232, 238, 250, 0.48);
+    --line: rgba(255, 255, 255, 0.09);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: transparent;
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    color: var(--ink);
+    -webkit-user-select: none; user-select: none; cursor: default;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The card fills the (transparent, rounded) window. */
+  .card {
+    position: absolute; inset: 0; border-radius: 22px; overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 0%, var(--navy-1) 0%, var(--navy-2) 48%, var(--navy-3) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+    animation: card-in 0.55s var(--ease-out) both;
+  }
+  @keyframes card-in { from { opacity: 0; transform: scale(0.965); } to { opacity: 1; transform: none; } }
+
+  /* Blueprint grid, drifting slowly, fading out towards the edges. */
+  .grid {
+    position: absolute; inset: -40px;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(70% 65% at 50% 42%, #000 20%, transparent 75%);
+            mask-image: radial-gradient(70% 65% at 50% 42%, #000 20%, transparent 75%);
+    animation: drift 24s linear infinite, fade-in 1.2s ease both;
+  }
+  @keyframes drift { to { transform: translate(26px, 26px); } }
+  @keyframes fade-in { from { opacity: 0; } }
+
+  /* A soft light behind the logo. */
+  .glow {
+    position: absolute; left: 50%; top: 118px; width: 300px; height: 300px; margin: -150px 0 0 -150px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(246, 196, 69, 0.20) 0%, rgba(90, 140, 255, 0.10) 38%, transparent 70%);
+    filter: blur(6px);
+    animation: glow-in 1.6s var(--ease-out) 0.6s both, breathe 5s ease-in-out 2.2s infinite;
+    transition: top 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+  }
+  @keyframes glow-in { from { opacity: 0; transform: scale(0.6); } }
+  @keyframes breathe { 50% { transform: scale(1.08); opacity: 0.8; } }
+
+  /* Logo + wordmark: centred; moves up when the panel appears. */
+  .brand {
+    position: absolute; left: 0; right: 0; top: 44px;
+    display: flex; flex-direction: column; align-items: center;
+    transition: transform 0.7s var(--ease-out);
+  }
+  .logo { width: 128px; height: 128px; overflow: visible; animation: float 6s ease-in-out 2.4s infinite; }
+  @keyframes float { 50% { transform: translateY(-3px); } }
+
+  .logo .tile { fill: rgba(255, 255, 255, 0.04); stroke: rgba(255, 255, 255, 0.10); stroke-width: 1;
+    animation: fade-in 0.8s ease 0.15s both; }
+  .logo .draw { fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .logo .std { stroke: #e9eef8; stroke-width: 5; animation: draw 0.62s var(--ease-out) both; }
+  .logo .ledger { stroke: #c9d4ea; stroke-width: 4; animation: draw 0.5s var(--ease-out) both; }
+  .logo .brace { stroke: var(--yellow); stroke-width: 5.5; animation: draw 0.55s var(--ease-out) 1.18s both, brace-glow 1.4s ease 1.7s both; }
+  .logo .plate { fill: #e9eef8; transform-box: fill-box; transform-origin: center; animation: pop 0.4s var(--ease-spring) both; }
+  .logo .node { fill: var(--navy-2); stroke: #ffffff; stroke-width: 2.2; transform-box: fill-box; transform-origin: center; animation: pop 0.42s var(--ease-spring) both; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes brace-glow {
+    0% { filter: drop-shadow(0 0 0 rgba(246, 196, 69, 0)); }
+    35% { filter: drop-shadow(0 0 9px rgba(246, 196, 69, 0.95)); }
+    100% { filter: drop-shadow(0 0 3px rgba(246, 196, 69, 0.45)); }
+  }
+
+  .wordmark { margin-top: 14px; font-size: 30px; font-weight: 700; letter-spacing: -0.4px; display: flex; }
+  .wordmark span { display: inline-block; animation: letter 0.6s var(--ease-out) both; }
+  .wordmark .pro { color: var(--yellow); }
+  @keyframes letter { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+  .company { margin-top: 3px; font-size: 11.5px; letter-spacing: 2.4px; text-transform: uppercase; color: var(--ink-3);
+    animation: fade-up 0.7s var(--ease-out) 1.55s both; }
+  @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } }
+
+  /* Status under the brand while checking. */
+  .status {
+    position: absolute; left: 0; right: 0; bottom: 40px; text-align: center;
+    animation: fade-up 0.6s var(--ease-out) 1.35s both;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .status-text { color: var(--ink-2); font-size: 12.5px; min-height: 18px; }
+  .status-text .dots::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.4s steps(4, end) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  .sweep { position: relative; width: 150px; height: 2px; margin: 10px auto 0; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+  .sweep::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--yellow-2), transparent);
+    animation: sweep 1.3s ease-in-out infinite; }
+  @keyframes sweep { from { left: -40%; } to { left: 100%; } }
+  .status.done .sweep { opacity: 0; transition: opacity 0.3s; }
+
+  /* The panel: an update offered, its progress, or what went wrong. */
+  .panel {
+    position: absolute; left: 36px; right: 36px; bottom: 28px;
+    padding: 16px 18px 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.065);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.11), 0 12px 30px rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    opacity: 0; transform: translateY(18px) scale(0.98); pointer-events: none;
+    transition: opacity 0.45s ease, transform 0.6s var(--ease-out);
+  }
+  body.panel-mode .panel { opacity: 1; transform: none; pointer-events: auto; }
+  body.panel-mode .brand { transform: translateY(-40px) scale(0.66); }
+  body.panel-mode .glow { top: 70px; transform: scale(0.75); }
+  body.panel-mode .status { opacity: 0; transform: translateY(8px); pointer-events: none; }
+
+  .panel-title { font-size: 15.5px; font-weight: 650; letter-spacing: -0.1px; }
+  .panel-status { margin-top: 3px; color: var(--ink-2); font-size: 12.5px; }
+  .bar { position: relative; height: 6px; margin: 12px 0 2px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, 0.10); }
+  .bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 6px;
+    background: linear-gradient(90deg, #e9a92a, var(--yellow) 60%, var(--yellow-2));
+    box-shadow: 0 0 12px rgba(246, 196, 69, 0.55);
+    transition: width 0.6s var(--ease-out); overflow: hidden; }
+  .bar-fill::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: shine 1.6s ease-in-out infinite; }
+  @keyframes shine { from { left: -60px; } to { left: 100%; } }
+  .bar.indeterminate .bar-fill { width: 34% !important; animation: slide 1.25s ease-in-out infinite; transition: none; }
+  @keyframes slide { from { left: -34%; } to { left: 100%; } }
+  .bar.hidden { display: none; }
+  .panel-detail { margin-top: 8px; color: var(--ink-3); font-size: 11.5px; max-height: 48px; overflow: auto; white-space: pre-line; }
+  .panel-detail:empty { display: none; }
+  .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .buttons:empty { display: none; }
+  button {
+    font: inherit; font-size: 13px; font-weight: 600; border: 0; border-radius: 9px; padding: 7px 16px; cursor: pointer;
+    color: var(--ink); background: rgba(255, 255, 255, 0.10); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+  button:hover { background: rgba(255, 255, 255, 0.16); }
+  button:active { transform: scale(0.97); }
+  button.primary { color: #10204a; background: linear-gradient(180deg, var(--yellow-2), var(--yellow)); box-shadow: 0 4px 14px rgba(246, 196, 69, 0.35); }
+  button.primary:hover { background: linear-gradient(180deg, #ffe48c, #f8cc57); }
+  button:focus-visible { outline: 2px solid rgba(255, 221, 116, 0.8); outline-offset: 2px; }
+
+  /* Leaving: the main window takes over. */
+  body.leaving .card { animation: none; transition: opacity 0.35s ease, transform 0.4s var(--ease-out), filter 0.35s ease;
+    opacity: 0; transform: scale(1.025); filter: blur(3px); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0.01s !important; }
+    .logo .draw { stroke-dashoffset: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="grid"></div>
+    <div class="glow"></div>
+
+    <div class="brand">
+      <!-- A scaffold bay going up: base plates, standards, ledgers, the
+           rosettes where they meet, then the yellow brace (as on the icon). -->
+      <svg class="logo" viewBox="0 0 128 128" aria-hidden="true">
+        <rect class="tile" x="4" y="4" width="120" height="120" rx="28" />
+        <rect class="plate" x="22" y="102" width="16" height="4" rx="1.5" style="animation-delay:0.10s" />
+        <rect class="plate" x="56" y="102" width="16" height="4" rx="1.5" style="animation-delay:0.16s" />
+        <rect class="plate" x="90" y="102" width="16" height="4" rx="1.5" style="animation-delay:0.22s" />
+        <path class="draw std" pathLength="1" d="M30 101 V22" style="animation-delay:0.18s" />
+        <path class="draw std" pathLength="1" d="M64 101 V22" style="animation-delay:0.26s" />
+        <path class="draw std" pathLength="1" d="M98 101 V22" style="animation-delay:0.34s" />
+        <path class="draw ledger" pathLength="1" d="M30 88 H98" style="animation-delay:0.62s" />
+        <path class="draw ledger" pathLength="1" d="M30 60 H98" style="animation-delay:0.72s" />
+        <path class="draw ledger" pathLength="1" d="M30 32 H98" style="animation-delay:0.82s" />
+        <path class="draw brace" pathLength="1" d="M30 88 L98 32" />
+        <circle class="node" cx="30" cy="88" r="4.2" style="animation-delay:0.92s" />
+        <circle class="node" cx="64" cy="88" r="4.2" style="animation-delay:0.96s" />
+        <circle class="node" cx="98" cy="88" r="4.2" style="animation-delay:1.00s" />
+        <circle class="node" cx="30" cy="60" r="4.2" style="animation-delay:1.00s" />
+        <circle class="node" cx="64" cy="60" r="4.2" style="animation-delay:1.04s" />
+        <circle class="node" cx="98" cy="60" r="4.2" style="animation-delay:1.08s" />
+        <circle class="node" cx="30" cy="32" r="4.2" style="animation-delay:1.08s" />
+        <circle class="node" cx="64" cy="32" r="4.2" style="animation-delay:1.12s" />
+        <circle class="node" cx="98" cy="32" r="4.2" style="animation-delay:1.16s" />
+      </svg>
+      <div class="wordmark" id="wordmark"></div>
+      <div class="company">Proficiency (HK) Limited</div>
+    </div>
+
+    <div class="status" id="status">
+      <div class="status-text" id="status-text"><span id="status-words">Opening</span><span class="dots"></span></div>
+      <div class="sweep"></div>
+    </div>
+
+    <div class="panel" id="panel" role="dialog" aria-live="polite">
+      <div class="panel-title" id="panel-title"></div>
+      <div class="panel-status" id="panel-status"></div>
+      <div class="bar" id="bar"><div class="bar-fill" id="bar-fill"></div></div>
+      <div class="panel-detail" id="panel-detail"></div>
+      <div class="buttons" id="buttons"></div>
+    </div>
+  </div>
+
+<script>
+'use strict';
+(function () {
+  // "ScaffoldPro", a letter at a time ("Pro" in yellow).
+  const word = document.getElementById('wordmark');
+  'ScaffoldPro'.split('').forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch;
+    if (i >= 8) span.className = 'pro';
+    span.style.animationDelay = `${0.95 + i * 0.035}s`;
+    word.appendChild(span);
+  });
+
+  const $ = (id) => document.getElementById(id);
+  const post = (message) => {
+    try { window.webkit.messageHandlers.launch.postMessage(message); } catch (e) { /* not in the app */ }
+  };
+
+  window.launch = {
+    /** The line under the logo while checking; `busy` shows the moving dots. */
+    status(text, busy) {
+      $('status-words').textContent = text;
+      $('status-text').querySelector('.dots').style.display = busy === false ? 'none' : '';
+      $('status').classList.toggle('done', busy === false);
+    },
+    setTitle(text) {
+      $('panel-title').textContent = text;
+      document.body.classList.add('panel-mode');
+    },
+    /** progress: 0–100, or null for "working on it". */
+    show(status, detail, progress) {
+      $('panel-status').textContent = status || '';
+      $('panel-detail').textContent = detail || '';
+      const bar = $('bar');
+      bar.classList.remove('hidden');
+      bar.classList.toggle('indeterminate', progress === null || progress === undefined);
+      if (progress !== null && progress !== undefined) $('bar-fill').style.width = `${Math.max(0, Math.min(100, progress))}%`;
+      document.body.classList.add('panel-mode');
+    },
+    hideProgress() { $('bar').classList.add('hidden'); },
+    /** The first is the default (Return); each answers with its number. */
+    setButtons(titles) {
+      const row = $('buttons');
+      row.innerHTML = '';
+      (titles || []).forEach((title, i) => {
+        const b = document.createElement('button');
+        b.textContent = title;
+        if (i === 0) b.className = 'primary';
+        b.addEventListener('click', () => post({ button: i }));
+        row.appendChild(b);
+      });
+      // The default button on the right, as on the Mac.
+      row.style.flexDirection = 'row-reverse';
+      row.style.justifyContent = 'flex-start';
+      const first = row.querySelector('button.primary');
+      if (first) setTimeout(() => first.focus({ preventScroll: true }), 50);
+    },
+    leave() { document.body.classList.add('leaving'); },
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const b = document.querySelector('#buttons button.primary');
+      if (b) { e.preventDefault(); b.click(); }
+    } else if (e.key === 'Escape') {
+      const buttons = document.querySelectorAll('#buttons button');
+      if (buttons.length > 1) { e.preventDefault(); buttons[buttons.length - 1].click(); }
+    }
+  });
+})();
+</script>
+</body>
+</html>

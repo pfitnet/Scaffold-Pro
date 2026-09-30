@@ -11444,43 +11444,36 @@ enum UpdateChecker {
 //     app, lets install.sh carry on once this copy has closed.)
 // =====================================================================
 
-final class Updater: NSObject {
+/// Where an update shows its progress (see Updater).
+protocol UpdateScreen: AnyObject {
+    func present()
+    func setTitle(_ title: String)
+    /// progress 0–100, or nil for "working on it".
+    func show(_ status: String, _ detail: String, progress: Double?)
+    func hideProgress()
+    /// Buttons, the first the default; `tapped` gets the one pressed.
+    func setButtons(_ titles: [String], _ tapped: @escaping (Int) -> Void)
+    func dismiss()
+}
+
+/// The update's progress in a sheet on the main window ("Check for Updates…").
+final class SheetUpdateScreen: NSObject, UpdateScreen {
     private weak var host: NSWindow?
-    private let installed: String
-    private let sourceDir: String
-    private let repoDir: String
-    private let logURL: URL
     private var sheet: NSWindow?
     private let titleLabel = NSTextField(labelWithString: "Updating ScaffoldPro")
     private let statusLabel = NSTextField(labelWithString: "")
     private let detailLabel = NSTextField(wrappingLabelWithString: "")
     private let bar = NSProgressIndicator()
     private let buttonRow = NSStackView()
-    private var timer: Timer?
-    private var compileStarted: Date?
-    private var waitingForDesktop = false
-    private var finished = false
-    /// Called when the screen closes without updating (cancelled, failed, nothing new).
-    var onClose: (() -> Void)?
+    private var tapped: ((Int) -> Void)?
 
-    init?(host: NSWindow) {
-        guard let commit = UpdateChecker.resource("commit.txt"), let source = UpdateChecker.resource("source.txt"),
-              FileManager.default.fileExists(atPath: source + "/install.sh"),
-              let top = UpdateChecker.git(["rev-parse", "--show-toplevel"], in: source), !top.isEmpty else { return nil }
+    init(host: NSWindow) {
         self.host = host
-        installed = commit
-        sourceDir = source
-        repoDir = top
-        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs", isDirectory: true)
-        try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
-        logURL = logs.appendingPathComponent("ScaffoldPro Update.log")
         super.init()
     }
 
-    // MARK: the screen
-
-    private func showScreen() {
-        guard let host = host else { return }
+    func present() {
+        guard let host = host, sheet == nil else { return }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 210), styleMask: [.titled], backing: .buffered, defer: false)
         let icon = NSImageView(image: NSApp.applicationIconImage ?? NSImage())
         icon.imageScaling = .scaleProportionallyUpOrDown
@@ -11520,9 +11513,12 @@ final class Updater: NSObject {
         host.beginSheet(window, completionHandler: nil)
     }
 
-    private func show(_ status: String, _ detail: String, progress: Double?) {
+    func setTitle(_ title: String) { titleLabel.stringValue = title }
+
+    func show(_ status: String, _ detail: String, progress: Double?) {
         statusLabel.stringValue = status
         detailLabel.stringValue = detail
+        bar.isHidden = false
         if let p = progress {
             bar.isIndeterminate = false
             bar.stopAnimation(nil)
@@ -11533,22 +11529,225 @@ final class Updater: NSObject {
         }
     }
 
-    private func setButtons(_ items: [(String, Selector)]) {
+    func hideProgress() { bar.isHidden = true }
+
+    func setButtons(_ titles: [String], _ tapped: @escaping (Int) -> Void) {
+        self.tapped = tapped
         for v in buttonRow.arrangedSubviews { buttonRow.removeArrangedSubview(v); v.removeFromSuperview() }
-        for (i, item) in items.enumerated() {
-            let b = NSButton(title: item.0, target: self, action: item.1)
+        for (i, title) in titles.enumerated() {
+            let b = NSButton(title: title, target: self, action: #selector(buttonClicked(_:)))
             b.bezelStyle = .rounded
+            b.tag = i
             if i == 0 { b.keyEquivalent = "\r" }
             buttonRow.addArrangedSubview(b)
         }
-        buttonRow.isHidden = items.isEmpty
+        buttonRow.isHidden = titles.isEmpty
+    }
+
+    @objc private func buttonClicked(_ sender: NSButton) { tapped?(sender.tag) }
+
+    func dismiss() {
+        if let sheet = sheet, let host = host { host.endSheet(sheet) }
+        sheet = nil
+    }
+}
+
+// =====================================================================
+// MARK: - The launch screen
+//
+// Shown as ScaffoldPro opens, while it checks GitHub for a newer version
+// (launch.html: the scaffold logo builds itself, then "Checking for
+// updates…"). A newer version is offered there, and if it's taken the
+// update's progress is shown there too, so the app never opens only to
+// ask a few seconds later. Otherwise the main window opens and the
+// screen fades away.
+// =====================================================================
+
+/// Passes the page's messages on without WKUserContentController keeping
+/// the launch screen alive.
+private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
+    weak var target: WKScriptMessageHandler?
+    init(_ target: WKScriptMessageHandler) { self.target = target }
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(controller, didReceive: message)
+    }
+}
+
+/// Borderless, yet able to take clicks and the keyboard (Return / Escape).
+private final class LaunchWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+final class LaunchScreen: NSObject, UpdateScreen, WKScriptMessageHandler, WKNavigationDelegate {
+    private let window: LaunchWindow
+    private let webView: WKWebView
+    private var loaded = false
+    private var pending: [String] = []
+    private var tapped: ((Int) -> Void)?
+    private var closing = false
+    /// When the screen appeared (the logo's animation takes about 1.8 s).
+    private(set) var shownAt = Date()
+
+    /// nil when this copy has no launch.html (then the app just opens).
+    static func make() -> LaunchScreen? {
+        guard let resources = Bundle.main.resourceURL else { return nil }
+        let page = resources.appendingPathComponent("launch.html")
+        guard FileManager.default.fileExists(atPath: page.path) else { return nil }
+        return LaunchScreen(page: page, resources: resources)
+    }
+
+    private init(page: URL, resources: URL) {
+        let size = NSSize(width: 560, height: 380)
+        let win = LaunchWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        win.isOpaque = false
+        win.backgroundColor = .clear
+        win.hasShadow = true
+        win.isReleasedWhenClosed = false
+        win.title = "ScaffoldPro"
+        let config = WKWebViewConfiguration()
+        let web = WKWebView(frame: NSRect(origin: .zero, size: size), configuration: config)
+        web.autoresizingMask = [.width, .height]
+        // Transparent, so the rounded card's corners show the desktop.
+        web.setValue(false, forKey: "drawsBackground")
+        win.contentView = web
+        window = win
+        webView = web
+        super.init()
+        config.userContentController.add(WeakScriptHandler(self), name: "launch")
+        webView.navigationDelegate = self
+        webView.loadFileURL(page, allowingReadAccessTo: resources)
+    }
+
+    /// Appears once the page has loaded (or after half a second anyway).
+    func open() {
+        window.center()
+        window.alphaValue = 0
+        shownAt = Date()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.reveal() }
+    }
+
+    private func reveal() {
+        guard !closing, window.alphaValue == 0 else { return }
+        shownAt = Date()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.25
+            window.animator().alphaValue = 1
+        }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        loaded = true
+        for script in pending { webView.evaluateJavaScript(script, completionHandler: nil) }
+        pending = []
+        window.invalidateShadow()
+        reveal()
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "launch", let body = message.body as? [String: Any], let index = body["button"] as? Int else { return }
+        tapped?(index)
+    }
+
+    private func run(_ script: String) {
+        if loaded { webView.evaluateJavaScript(script, completionHandler: nil) } else { pending.append(script) }
+    }
+
+    /// A string as a JavaScript literal.
+    private func js(_ text: String) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: [text]), let array = String(data: data, encoding: .utf8) else { return "\"\"" }
+        return String(array.dropFirst().dropLast())
+    }
+
+    /// The line under the logo, e.g. "Checking for updates" (with moving dots while `busy`).
+    func status(_ text: String, busy: Bool = true) {
+        run("launch.status(\(js(text)), \(busy))")
+    }
+
+    // UpdateScreen
+    func present() {}
+    func setTitle(_ title: String) { run("launch.setTitle(\(js(title)))") }
+    func show(_ status: String, _ detail: String, progress: Double?) {
+        run("launch.show(\(js(status)), \(js(detail)), \(progress.map { String(format: "%.1f", $0) } ?? "null"))")
+    }
+    func hideProgress() { run("launch.hideProgress()") }
+    func setButtons(_ titles: [String], _ tapped: @escaping (Int) -> Void) {
+        self.tapped = tapped
+        run("launch.setButtons([\(titles.map { js($0) }.joined(separator: ","))])")
+    }
+    func dismiss() { close() }
+
+    /// Fades away (the main window taking over), then goes.
+    func close(then done: (() -> Void)? = nil) {
+        guard !closing else { done?(); return }
+        closing = true
+        tapped = nil
+        webView.evaluateJavaScript("window.launch && launch.leave()", completionHandler: nil)
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.4
+            window.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            guard let self = self else { return }
+            self.window.orderOut(nil)
+            self.webView.configuration.userContentController.removeScriptMessageHandler(forName: "launch")
+            done?()
+        })
+    }
+}
+
+final class Updater: NSObject {
+    /// Where the progress is shown: a sheet on the main window, or the
+    /// launch screen when the update was offered as the app opened.
+    private let screen: UpdateScreen
+    private let installed: String
+    private let sourceDir: String
+    private let repoDir: String
+    private let logURL: URL
+    private var timer: Timer?
+    private var compileStarted: Date?
+    private var waitingForDesktop = false
+    private var finished = false
+    /// Called when the screen closes without updating (cancelled, failed, nothing new).
+    var onClose: (() -> Void)?
+
+    convenience init?(host: NSWindow) {
+        self.init(screen: SheetUpdateScreen(host: host))
+    }
+
+    init?(screen: UpdateScreen) {
+        guard let commit = UpdateChecker.resource("commit.txt"), let source = UpdateChecker.resource("source.txt"),
+              FileManager.default.fileExists(atPath: source + "/install.sh"),
+              let top = UpdateChecker.git(["rev-parse", "--show-toplevel"], in: source), !top.isEmpty else { return nil }
+        self.screen = screen
+        installed = commit
+        sourceDir = source
+        repoDir = top
+        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        logURL = logs.appendingPathComponent("ScaffoldPro Update.log")
+        super.init()
+    }
+
+    // MARK: the screen
+
+    private func show(_ status: String, _ detail: String, progress: Double?) {
+        screen.show(status, detail, progress: progress)
+    }
+
+    /// Buttons under the progress, the first the default; each runs its selector.
+    private func setButtons(_ items: [(String, Selector)]) {
+        screen.setButtons(items.map { $0.0 }) { [weak self] index in
+            guard let self = self, index < items.count else { return }
+            self.perform(items[index].1, with: nil)
+        }
     }
 
     private func closeScreen() {
         timer?.invalidate()
         timer = nil
-        if let sheet = sheet, let host = host { host.endSheet(sheet) }
-        sheet = nil
+        screen.dismiss()
         onClose?()
     }
 
@@ -11560,16 +11759,17 @@ final class Updater: NSObject {
     private func fail(_ message: String) {
         finished = true
         timer?.invalidate()
-        titleLabel.stringValue = "The update didn't finish"
+        screen.setTitle("The update didn't finish")
         show(message, "ScaffoldPro is still the version you had; nothing has changed.", progress: 0)
-        bar.isHidden = true
+        screen.hideProgress()
         setButtons([("Close", #selector(closeClicked(_:))), ("Show Log", #selector(showLogClicked(_:)))])
     }
 
     // MARK: 1. getting the new version
 
     func start() {
-        showScreen()
+        screen.present()
+        screen.setTitle("Updating ScaffoldPro")
         show("Getting the latest version…", "", progress: nil)
         DispatchQueue.global(qos: .userInitiated).async {
             let pulled = UpdateChecker.git(["-c", "credential.interactive=never", "pull", "--ff-only", "--quiet"], in: self.repoDir, timeout: 90) != nil
@@ -11579,7 +11779,7 @@ final class Updater: NSObject {
                     self.build()
                 } else if pulled && state.head == self.installed {
                     self.finished = true
-                    self.titleLabel.stringValue = "ScaffoldPro is up to date"
+                    self.screen.setTitle("ScaffoldPro is up to date")
                     self.show("There's nothing new to install.", "", progress: 100)
                     self.setButtons([("Close", #selector(self.closeClicked(_:)))])
                 } else if self.gitHubDesktopURL != nil {
@@ -11743,8 +11943,7 @@ final class Updater: NSObject {
         // Close this copy so the helper can replace it. If quitting is held
         // up for any reason, leave anyway after a few seconds.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            if let sheet = self.sheet, let host = self.host { host.endSheet(sheet) }
-            self.sheet = nil
+            self.screen.dismiss()
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(0) }
             NSApp.terminate(nil)
         }
@@ -11804,8 +12003,107 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     /// Sharing is on, but this launch uses this Mac's own data.
     var teamFolderMissing = false
 
+    /// The launch screen, while it's up.
+    private var launchScreen: LaunchScreen?
+    private var launched = false
+    /// Set once the launch screen has decided (update offered, or opened).
+    private var launchDecided = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         registerBundledFonts()
+        // Quit works while the launch screen is up; the full menu comes with the main window.
+        let launchMenu = NSMenu()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit ScaffoldPro", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        addSubmenu(launchMenu, "ScaffoldPro", appMenu)
+        NSApp.mainMenu = launchMenu
+
+        guard let screen = LaunchScreen.make() else {
+            finishLaunching()
+            checkForUpdates(manual: false)
+            return
+        }
+        launchScreen = screen
+        screen.open()
+        guard UpdateChecker.canCheck else {
+            screen.status("Opening")
+            afterLaunchAnimation { self.finishLaunching() }
+            return
+        }
+        // Is there a newer version on GitHub? Asked here, before the app
+        // opens, so it never pops up a few seconds after.
+        screen.status("Checking for updates")
+        checkingForUpdates = true
+        // Never held up for long: after 10 seconds the app opens anyway,
+        // and an answer that comes later is offered as before.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard let self = self, !self.launchDecided else { return }
+            self.launchDecided = true
+            self.finishLaunching()
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let info = UpdateChecker.check()
+            DispatchQueue.main.async {
+                self.checkingForUpdates = false
+                if self.launchDecided {
+                    if let info = info { self.offerUpdate(info) }
+                    return
+                }
+                self.afterLaunchAnimation {
+                    guard !self.launchDecided else { return }
+                    self.launchDecided = true
+                    if let info = info, info.installer != nil {
+                        self.offerUpdateOnLaunchScreen(info, screen: screen)
+                    } else {
+                        screen.status("Up to date", busy: false)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            self.finishLaunching()
+                            if let info = info { self.offerUpdate(info) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Lets the logo finish building itself (about 1.9 s) before moving on.
+    private func afterLaunchAnimation(_ then: @escaping () -> Void) {
+        let shown = launchScreen?.shownAt ?? Date()
+        let wait = max(0, 1.9 - Date().timeIntervalSince(shown))
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: then)
+    }
+
+    /// "A new version is available" on the launch screen; Update Now shows
+    /// the update's progress right there.
+    private func offerUpdateOnLaunchScreen(_ info: UpdateInfo, screen: LaunchScreen) {
+        var text = info.changes.map { "\($0) change\($0 == 1 ? "" : "s") since this copy was installed." } ?? "GitHub has a newer version than this copy."
+        if let latest = nonBlank(info.latest) { text += " Latest: “\(latest)”." }
+        screen.setTitle("A new version is available")
+        screen.show(text, "Update now: it's downloaded and built here (about a minute), then ScaffoldPro opens again by itself.", progress: nil)
+        screen.hideProgress()
+        screen.setButtons(["Update Now", "Later"]) { [weak self] index in
+            guard let self = self else { return }
+            guard index == 0 else { self.finishLaunching(); return }
+            guard let u = Updater(screen: screen) else {
+                // This copy can't update itself: Install ScaffoldPro does it.
+                if let installer = info.installer { NSWorkspace.shared.open(installer) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+                return
+            }
+            self.updater = u
+            // Cancelled, failed or nothing new: the app opens as usual.
+            u.onClose = { [weak self] in
+                self?.updater = nil
+                self?.finishLaunching()
+            }
+            u.start()
+        }
+    }
+
+    /// Opens the main window (the launch screen fading away over it).
+    private func finishLaunching() {
+        guard !launched else { return }
+        launched = true
         setupDataLayer()
         setupWindow()
         bridge.teamFolderMissing = teamFolderMissing
@@ -11819,8 +12117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         bridge.startScheduledBackups()
         // If the last update couldn't be put in place, say why.
         Updater.reportPreviousFailure(in: window)
-        // Is there a newer version on GitHub?
-        checkForUpdates(manual: false)
+        launchScreen?.close()
+        launchScreen = nil
     }
 
     // MARK: Updates
