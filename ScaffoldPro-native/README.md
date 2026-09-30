@@ -1305,3 +1305,20 @@ under "Letterhead layout".
 - The quotation, invoice and delivery note letters are each built by one
   function (quotationLetter / invoiceLetter / deliveryNoteLetter), shared by
   single export and the one-PDF export.
+
+## Batch 55 — Install ScaffoldPro sets up Homebrew, gh and the GitHub sign-in
+
+- **Install ScaffoldPro** now, before getting the latest version:
+  1. installs **Homebrew** if it's missing, with Homebrew's official
+     installer (it asks for the Mac password), and adds it to ~/.zprofile;
+  2. installs **gh**, GitHub's command-line tool (`brew install gh`), if
+     it's missing;
+  3. if gh isn't signed in, runs `gh auth login --web`. That shows a
+     one-time code and opens github.com in the browser, where signing in
+     with Google works;
+  4. runs `gh auth setup-git`, so git uses that sign-in.
+- After that, `git pull` works from Terminal and from ScaffoldPro's own
+  **Update Now** without GitHub Desktop. GitHub Desktop stays as the
+  fallback.
+- Each step is skipped when it's already done. If one fails, the installer
+  carries on as before.
