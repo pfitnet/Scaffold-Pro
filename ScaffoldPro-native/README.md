@@ -1688,3 +1688,35 @@ under "Letterhead layout".
 - Data: `letters.json` (synced like every other store). Actions:
   `letters:list`, `create`, `get`, `update`, `updateStatus`, `delete`,
   `exportPDF`, `print`, `letterhead`.
+
+## Batch 69 — Letters follow their project; the letter PDF matches the editor; the installer picks a working SDK
+
+- **Every letter belongs to a project**, and its number follows the
+  project code: `L{PROJECT}-{SEQ}`, so project 26001's letters are
+  L26001-001, L26001-002…
+  - Each project has a **Letters** tab (with "+ New Letter"), next to its
+    Delivery Notes. The Letters page still lists every project's letters.
+  - The project is chosen when the letter is made, and shown in the
+    editor with a link back.
+  - Changing a project's code renumbers its draft letters, as it does its
+    other draft documents.
+- **The letter's opening is laid out like the quotations'.**
+  - The recipient (bold name, address) is on the left, then **Attn:**,
+    bold and underlined.
+  - Our Ref. No., Your Ref. No. and Date are on the right: label, colon,
+    and the value up to the right margin.
+  - Then the **Re:** line, bold and underlined.
+  - The PDF draws the opening itself, like the quotations do, and the
+    editor's page shows it the same way.
+- **Fonts and sizes in the PDF match the editor.** EB Garamond came out as
+  Georgia or Times, because the HTML reader runs where the app's own fonts
+  aren't installed. It is now given a stand-in that's swapped back for EB
+  Garamond afterwards. The reader's size scale is also measured and
+  corrected, so 11pt in the editor is 11pt on paper.
+- **Installer:** `install.sh` now checks which macOS SDK the Swift compiler
+  can actually build with. It tries SDKROOT, then the default SDK, then
+  every installed SDK, and builds with the first that works. A Mac whose
+  Command Line Tools have an SDK newer than their compiler no longer fails
+  with "this SDK is not supported by the compiler", so there's no need to
+  set SDKROOT by hand. If none works, it says to update the Command Line
+  Tools. The in-app updater runs `install.sh`, so it gets this too.

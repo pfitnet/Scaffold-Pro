@@ -985,7 +985,8 @@ struct QuotationLineItem: Codable {
 /// the rest is the body as typed, with its formatting (`bodyHTML`).
 struct Letter: Codable {
     var id: String
-    /// Built from Settings' letter number format (default L{YY}{SEQ}, e.g. L26001).
+    /// Built from Settings' letter number format (default L{PROJECT}-{SEQ},
+    /// e.g. L26001-001 for project 26001).
     var letterNumber: String
     var projectId: String?
     var clientId: String?
@@ -1024,6 +1025,15 @@ struct LetterDetail: Codable {
     var projectName: String?
     /// The PDF's opening as it will print (for the editor's page).
     var openingHTML: String
+}
+
+/// A letter's opening for the PDF (drawn as on the quotations).
+struct LetterOpening {
+    var recipientName: String?
+    var addressLines: [String]
+    var attention: String?
+    var refRows: [(label: String, value: String)]
+    var subject: String?
 }
 
 struct LetterActionResult: Codable {
@@ -1503,8 +1513,8 @@ let defaultNumberFormats: [String: String] = [
     "QT": "Qt{YY}{SEQ}",
     "INV": "H{YY}{SEQ}",
     "DN": "{PROJECT}-DN-{SEQ}",
-    // Letters: L26001, L26002… (like Qt26193 and H26001).
-    "LT": "L{YY}{SEQ}",
+    // Letters follow their project: L26001-001, L26001-002… for project 26001.
+    "LT": "L{PROJECT}-{SEQ}",
 ]
 
 /// Makes the next number for a template, looking at every existing
@@ -2822,6 +2832,9 @@ final class AppDatabase {
         var dns = deliveryNotesStore.readAll()
         for j in dns.indices where dns[j].projectId == id && dns[j].status == "Draft" { dns[j].deliveryNoteNumber = renumber(dns[j].deliveryNoteNumber) }
         deliveryNotesStore.writeAll(dns)
+        var letters = lettersStore.readAll()
+        for j in letters.indices where letters[j].projectId == id && letters[j].status == "Draft" { letters[j].letterNumber = renumber(letters[j].letterNumber) }
+        lettersStore.writeAll(letters)
         logActivity(projectId: id, "Project code changed to \(newNumber)", reference: "was \(old)")
     }
 
@@ -4623,29 +4636,30 @@ final class AppDatabase {
 
     func getLetter(id: String) -> Letter? { lettersStore.readAll().first { $0.id == id } }
 
-    func nextLetterNumber(projectNumber: String?) -> String {
-        nextDocumentNumber(template: numberFormat("LT"), projectNumber: projectNumber ?? "GEN",
+    func nextLetterNumber(projectNumber: String) -> String {
+        nextDocumentNumber(template: numberFormat("LT"), projectNumber: projectNumber,
                            existing: lettersStore.readAll().map { $0.letterNumber },
                            startAt: getCompanySettings().numberStarts?["LT"] ?? 1)
     }
 
     /// A new Draft letter, numbered, with the body started as a letter
     /// ("Dear Sirs," … "Yours faithfully," and who signs, from Settings).
-    func createLetter(projectId: String?, clientId: String?, recipientName: String?, recipientAddress: String?, attention: String?) -> Letter {
-        let project = projectId.flatMap { getProject(id: $0) }
+    /// Every letter belongs to a project and is numbered from its code.
+    func createLetter(projectId: String?, clientId: String?, recipientName: String?, recipientAddress: String?, attention: String?) -> Result<Letter, WorkerError> {
+        guard let project = projectId.flatMap({ getProject(id: $0) }) else { return .failure(WorkerError(message: "Choose the project the letter is for.")) }
         let settings = getCompanySettings()
         let esc: (String) -> String = { $0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;") }
         var body = "<p>Dear Sirs,</p><p><br></p><p>Should you have any questions, please do not hesitate to contact us.</p><p><br></p><p>Yours faithfully,</p>"
         body += "<p>For and on behalf of<br><b>\(esc(settings.companyName))</b></p><p><br></p><p><br></p>"
         let signer = [settings.signatoryName, settings.signatoryTitle].compactMap { nonBlank($0) }.map(esc)
         if !signer.isEmpty { body += "<p>\(signer.joined(separator: "<br>"))</p>" }
-        let letter = Letter(id: makeId("letter"), letterNumber: nextLetterNumber(projectNumber: project?.projectNumber),
-                            projectId: project?.id, clientId: clientId ?? project?.clientId, status: "Draft", letterDate: nowISO(),
+        let letter = Letter(id: makeId("letter"), letterNumber: nextLetterNumber(projectNumber: project.projectNumber),
+                            projectId: project.id, clientId: clientId ?? project.clientId, status: "Draft", letterDate: nowISO(),
                             recipientName: nonBlank(recipientName), recipientAddress: nonBlank(recipientAddress), attention: nonBlank(attention),
                             yourRef: nil, subject: nil, bodyHTML: body, pdfPath: nil, createdAt: nowISO(), updatedAt: nowISO())
         lettersStore.insert(letter)
-        logActivity(projectId: project?.id, "Letter created", reference: letter.letterNumber)
-        return letter
+        logActivity(projectId: project.id, "Letter created", reference: letter.letterNumber)
+        return .success(letter)
     }
 
     /// Changes a Draft letter's fields (those given) and/or its body.
@@ -4666,11 +4680,6 @@ final class AppDatabase {
             case "yourRef": all[i].yourRef = v
             default: all[i].subject = v
             }
-        }
-        if payload.keys.contains("projectId") {
-            let pid = nonBlank(payload["projectId"] as? String)
-            if let pid = pid, getProject(id: pid) == nil { return "Project not found." }
-            all[i].projectId = pid
         }
         if payload.keys.contains("clientId") { all[i].clientId = nonBlank(payload["clientId"] as? String) }
         if let html = payload["bodyHTML"] as? String { all[i].bodyHTML = html }
@@ -7083,15 +7092,18 @@ final class PDFGenerator {
     /// A letter from the letter editor: formatted text (with any tables)
     /// laid out over as many pages as it needs, each on the letterhead with
     /// the footer and page number.
-    func generateRichText(_ text: NSAttributedString) -> Data {
+    func generateRichText(_ text: NSAttributedString, opening: LetterOpening? = nil) -> Data {
         let storage = NSTextStorage(attributedString: text)
         let layout = NSLayoutManager()
         storage.addLayoutManager(layout)
-        // Below the letterhead's lower rule; above the footer's.
+        // Below the letterhead's lower rule; above the footer's. On the
+        // first page the body starts under the letter's opening.
         let top: CGFloat = 100
+        let firstTop: CGFloat = opening.map { letterOpeningHeight($0) } ?? top
         var containers: [NSTextContainer] = []
         repeat {
-            let container = NSTextContainer(size: NSSize(width: textWidth, height: contentBottom - top))
+            let pageTop = containers.isEmpty ? firstTop : top
+            let container = NSTextContainer(size: NSSize(width: textWidth, height: max(40, contentBottom - pageTop)))
             container.lineFragmentPadding = 0
             layout.addTextContainer(container)
             containers.append(container)
@@ -7103,13 +7115,15 @@ final class PDFGenerator {
             let range = layout.glyphRange(for: container)
             if range.length == 0 && pageNumber > 0 { break }
             beginPage()
+            if pageNumber == 1, let opening = opening { drawLetterOpening(opening) }
+            let pageTop = pageNumber == 1 ? firstTop : top
             NSGraphicsContext.saveGraphicsState()
             context.saveGState()
             // AppKit text drawing: origin at the page's top left, y down.
             context.translateBy(x: 0, y: pageHeight)
             context.scaleBy(x: 1, y: -1)
             NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
-            let origin = NSPoint(x: textLeft, y: top)
+            let origin = NSPoint(x: textLeft, y: pageTop)
             layout.drawBackground(forGlyphRange: range, at: origin)
             layout.drawGlyphs(forGlyphRange: range, at: origin)
             context.restoreGState()
@@ -7119,6 +7133,63 @@ final class PDFGenerator {
         context.closePDF()
         return mutableData as Data
     }
+
+    /// A letter's opening, laid out as on the quotations: the recipient on
+    /// the left (bold name, address, then "Attn:" bold and underlined), the
+    /// references on the right (label, colon, value to the right margin),
+    /// then the "Re:" line, bold and underlined. Returns where the body
+    /// starts (with `draw` false, only measures).
+    @discardableResult
+    private func layOutLetterOpening(_ o: LetterOpening, draw: Bool) -> CGFloat {
+        let blockLeft = 47.75 + dx
+        let firstBaseline: CGFloat = 104.25
+        let pitch: CGFloat = 15.75
+        var left: [(text: String, bold: Bool, underline: Bool)] = []
+        if let name = nonBlank(o.recipientName) { left += wrap(name, body(12, bold: true), 300).map { ($0, true, false) } }
+        for line in o.addressLines { left += wrapAddress(line, body(12), 260).map { ($0, false, false) } }
+        if let attn = nonBlank(o.attention) {
+            if !left.isEmpty { left.append(("", false, false)) }
+            left += wrap("Attn: \(attn)", body(12, bold: true), 300).map { ($0, true, true) }
+        }
+        if draw {
+            for (i, item) in left.enumerated() where !item.text.isEmpty {
+                text(item.text, x: blockLeft, baseline: firstBaseline + CGFloat(i) * pitch, font: body(12, bold: item.bold), underline: item.underline)
+            }
+        }
+        let refFont = body(11)
+        var refLine = 0
+        for row in o.refRows {
+            let baseline = firstBaseline + CGFloat(refLine) * pitch
+            let valueLines = wrap(row.value, refFont, 66)
+            if draw {
+                text(row.label, x: 401.25 + dx, baseline: baseline, font: refFont)
+                text(":", x: 478.5 + dx, baseline: baseline, font: refFont)
+                if valueLines.count <= 1 {
+                    text(row.value, x: 550.5 + dx, baseline: baseline, font: refFont, align: .right)
+                } else {
+                    for (j, line) in valueLines.enumerated() {
+                        text(line, x: 484.5 + dx, baseline: firstBaseline + CGFloat(refLine + j) * pitch, font: refFont)
+                    }
+                }
+            }
+            refLine += max(1, valueLines.count)
+        }
+        let clientLast = firstBaseline + CGFloat(max(left.count, 1) - 1) * pitch
+        let refLast = firstBaseline + CGFloat(max(refLine, 1) - 1) * pitch
+        var next = max(clientLast, refLast) + 30.0
+        if let subject = nonBlank(o.subject) {
+            for line in wrap("Re: \(subject)", body(11, bold: true), textWidth) {
+                if draw { text(line, x: textLeft, baseline: next, font: body(11, bold: true), underline: true) }
+                next += bodyPitch
+            }
+            next += 8
+        }
+        // The body's first line sits about a line below.
+        return next - 8
+    }
+
+    private func letterOpeningHeight(_ o: LetterOpening) -> CGFloat { layOutLetterOpening(o, draw: false) }
+    private func drawLetterOpening(_ o: LetterOpening) { layOutLetterOpening(o, draw: true) }
 
     private func layOut(_ doc: LetterDocument) -> Data {
         configure(for: doc)
@@ -11769,8 +11840,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             address = block.lines.joined(separator: "\n")
             attention = client.contactPerson
         }
-        let letter = db.createLetter(projectId: project?.id, clientId: clientId, recipientName: name, recipientAddress: address, attention: attention)
-        respond(id: id, encodable: LetterActionResult(ok: true, error: nil, id: letter.id))
+        switch db.createLetter(projectId: project?.id, clientId: clientId, recipientName: name, recipientAddress: address, attention: attention) {
+        case .success(let letter): respond(id: id, encodable: LetterActionResult(ok: true, error: nil, id: letter.id))
+        case .failure(let e): respond(id: id, encodable: LetterActionResult(ok: false, error: e.message, id: nil))
+        }
     }
 
     private func htmlEscaped(_ text: String) -> String {
@@ -11778,39 +11851,87 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    /// The letter's opening, as printed: the recipient (bold name, address,
-    /// "Attn:") on the left; Our Ref., Your Ref. and the date on the right;
-    /// then the "Re:" line, bold and underlined.
+    /// The letter's opening as the editor shows it (the PDF draws it
+    /// natively, as on the quotations): recipient on the left with "Attn:"
+    /// bold and underlined; Our Ref. No., Your Ref. No. and Date on the
+    /// right; then the "Re:" line, bold and underlined.
     private func letterOpeningHTML(_ letter: Letter) -> String {
+        let o = letterOpening(letter)
         var left = ""
-        if let name = nonBlank(letter.recipientName) { left += "<b>\(htmlEscaped(name))</b><br>" }
-        for line in (letter.recipientAddress ?? "").components(separatedBy: "\n") where nonBlank(line) != nil {
-            left += "\(htmlEscaped(line.trimmingCharacters(in: .whitespaces)))<br>"
-        }
-        if let attn = nonBlank(letter.attention) { left += "<br>Attn: \(htmlEscaped(attn))" }
-        var right = "Our Ref.: \(htmlEscaped(letter.letterNumber))<br>"
-        if let yours = nonBlank(letter.yourRef) { right += "Your Ref.: \(htmlEscaped(yours))<br>" }
-        right += "Date: \(htmlEscaped(letterDate(letter.letterDate)))"
-        var html = "<table class=\"opening\" style=\"width:100%;border-collapse:collapse\"><tr>" +
-            "<td style=\"width:62%;vertical-align:top;padding:0\">\(left)</td>" +
-            "<td style=\"vertical-align:top;padding:0\">\(right)</td></tr></table><p><br></p>"
-        if let subject = nonBlank(letter.subject) { html += "<p><b><u>Re: \(htmlEscaped(subject))</u></b></p><p><br></p>" }
+        if let name = nonBlank(o.recipientName) { left += "<b>\(htmlEscaped(name))</b><br>" }
+        for line in o.addressLines { left += "\(htmlEscaped(line))<br>" }
+        if let attn = nonBlank(o.attention) { left += "<br><b><u>Attn: \(htmlEscaped(attn))</u></b>" }
+        let refs = o.refRows.map { "<tr><td class=\"ref-label\">\(htmlEscaped($0.label))</td><td class=\"ref-colon\">:</td><td class=\"ref-value\">\(htmlEscaped($0.value))</td></tr>" }.joined()
+        var html = "<div class=\"opening-grid\"><div class=\"opening-to\">\(left)</div><table class=\"opening-refs\">\(refs)</table></div>"
+        if let subject = nonBlank(o.subject) { html += "<p class=\"opening-re\"><b><u>Re: \(htmlEscaped(subject))</u></b></p>" }
         return html
     }
 
-    /// The whole letter as formatted text for the PDF. Sizes typed in the
-    /// editor are points; AppKit's HTML reader takes CSS px as points, so
-    /// "11pt" is passed as "11px".
+    private func letterOpening(_ letter: Letter) -> LetterOpening {
+        var refs: [(label: String, value: String)] = [("Our Ref. No.", letter.letterNumber)]
+        if let yours = nonBlank(letter.yourRef) { refs.append(("Your Ref. No.", yours)) }
+        refs.append(("Date", letterDate(letter.letterDate)))
+        return LetterOpening(recipientName: letter.recipientName,
+                             addressLines: (letter.recipientAddress ?? "").components(separatedBy: "\n").compactMap { nonBlank($0) },
+                             attention: letter.attention, refRows: refs, subject: letter.subject)
+    }
+
+    /// Stand-in for EB Garamond while the HTML is read: AppKit's HTML reader
+    /// runs where the app's own fonts aren't installed, so EB Garamond would
+    /// come out as Georgia or Times. Baskerville is on every Mac and isn't
+    /// offered in the editor; it's swapped back for EB Garamond afterwards.
+    private static let letterFontStandIn = "Baskerville"
+
+    /// The letter's body as formatted text for the PDF, in the fonts and
+    /// sizes chosen in the editor.
     private func letterAttributedText(_ letter: Letter) -> NSAttributedString? {
+        let standIn = NativeBridge.letterFontStandIn
         let css = """
-        body { font-family: 'EB Garamond', Georgia, serif; font-size: 11pt; }
+        body, p, td, th, li, h1, h2, h3, div, span { font-family: '\(standIn)'; }
+        body { font-size: 11pt; }
         p { margin: 0 0 3pt 0; }
         h1 { font-size: 18pt; margin: 8pt 0 4pt 0; } h2 { font-size: 15pt; margin: 6pt 0 3pt 0; } h3 { font-size: 13pt; margin: 4pt 0 2pt 0; }
         ul, ol { margin: 0 0 3pt 0; }
         table.grid { border-collapse: collapse; }
         table.grid td, table.grid th { border: 0.75pt solid #000; padding: 3pt 5pt; vertical-align: top; }
         """
-        let raw = "<html><head><meta charset=\"utf-8\"><style>\(css)</style></head><body>\(letterOpeningHTML(letter))\(letter.bodyHTML)</body></html>"
+        // Text the editor set in EB Garamond (or left in the default) uses the stand-in.
+        var body = letter.bodyHTML
+        for form in ["'EB Garamond'", "&quot;EB Garamond&quot;", "\"EB Garamond\"", "EB Garamond"] {
+            body = body.replacingOccurrences(of: form, with: "'\(standIn)'")
+        }
+        guard let text = importHTML("<html><head><meta charset=\"utf-8\"><style>\(css)</style></head><body>\(body)</body></html>") else { return nil }
+        // How the reader scales sizes (it may take px as pt, or not): a
+        // 100-unit sample tells, so 11pt in the editor is 11pt on paper.
+        let sample = importHTML("<html><body><span style=\"font-family:'\(standIn)';font-size:100pt\">M</span></body></html>")
+        let sampleSize = (sample?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize ?? 100
+        let scale = sampleSize > 1 ? 100 / sampleSize : 1
+        let out = NSMutableAttributedString(attributedString: text)
+        out.enumerateAttribute(.font, in: NSRange(location: 0, length: out.length)) { value, range, _ in
+            guard let font = value as? NSFont else { return }
+            let size = (font.pointSize * scale * 2).rounded() / 2
+            var replacement = NSFont(descriptor: font.fontDescriptor, size: size) ?? font
+            let family = font.familyName ?? ""
+            // The stand-in, and the reader's own fallbacks, become EB Garamond.
+            if family == standIn || family == "Times" || family == "Times New Roman" && !body.contains("Times New Roman") {
+                let traits = font.fontDescriptor.symbolicTraits
+                let name: String
+                switch (traits.contains(.bold), traits.contains(.italic)) {
+                case (true, true): name = "EBGaramond-BoldItalic"
+                case (true, false): name = "EBGaramond-Bold"
+                case (false, true): name = "EBGaramond-Italic"
+                case (false, false): name = "EBGaramond-Regular"
+                }
+                replacement = NSFont(name: name, size: size) ?? replacement
+            }
+            out.addAttribute(.font, value: replacement, range: range)
+        }
+        return out
+    }
+
+    /// AppKit's HTML reader, with points passed as px (it reads CSS px as
+    /// points); the size check above corrects it if that ever changes.
+    private func importHTML(_ raw: String) -> NSAttributedString? {
         let html = (try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)pt\b"#))
             .map { $0.stringByReplacingMatches(in: raw, range: NSRange(raw.startIndex..., in: raw), withTemplate: "$1px") } ?? raw
         guard let data = html.data(using: .utf8) else { return nil }
@@ -11830,7 +11951,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letter.", path: nil))
             return
         }
-        let data = generator.generateRichText(text)
+        let data = generator.generateRichText(text, opening: letterOpening(letter))
         let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
         let project = letter.projectId.flatMap { db.getProject(id: $0) }
         if project != nil || mode == .print {

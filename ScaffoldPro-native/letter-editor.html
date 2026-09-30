@@ -58,9 +58,16 @@
     .paper-head { height: 133.3px; background-position: top center; }
     .paper-foot { height: 80.5px; background-position: bottom center; margin-top: auto; }
     .paper-body { padding: 0 57.7px 20px 57px; font-family: 'EB Garamond', Georgia, serif; font-size: 11pt; line-height: 1.3; }
+    /* The opening, placed as the PDF draws it (and as on the quotations). */
     .opening { cursor: default; margin-bottom: 0; }
-    .opening table { width: 100%; border-collapse: collapse; }
-    .opening td { vertical-align: top; padding: 0; }
+    .opening-grid { position: relative; min-height: 50pt; }
+    .opening-to { margin-left: 5pt; font-size: 12pt; line-height: 15.75pt; max-width: 300pt; }
+    .opening-refs { position: absolute; top: 0; left: 358.5pt; width: 149.25pt; font-size: 11pt; line-height: 15.75pt; border-collapse: collapse; }
+    .opening-refs td { padding: 0; border: none; vertical-align: top; }
+    .opening-refs .ref-label { width: 77.25pt; }
+    .opening-refs .ref-colon { width: 6pt; }
+    .opening-refs .ref-value { text-align: right; }
+    .opening p.opening-re { margin: 18pt 0 8pt; }
     .opening p { margin: 0 0 3pt; }
     .opening-hint { font-family: -apple-system, sans-serif; font-size: 11px; color: #8a8f98; margin: -2px 0 8px; }
     #letter-body { outline: none; min-height: 420px; }
@@ -106,7 +113,7 @@
         <div class="field"><label>Our Ref. (letter number)</label><div class="our-ref" id="our-ref"></div></div>
         <div class="field"><label for="f-date">Date</label><input type="date" id="f-date" /></div>
         <div class="field"><label for="f-yourRef">Your Ref.</label><input type="text" id="f-yourRef" /></div>
-        <div class="field"><label for="f-project">Project</label><select id="f-project"></select></div>
+        <div class="field"><label>Project</label><div class="our-ref" id="f-project"></div></div>
         <div class="field wide"><label for="f-recipientName">To</label><input type="text" id="f-recipientName" placeholder="Company or person" /></div>
         <div class="field wide"><label for="f-client">Fill in from a client</label><select id="f-client"></select></div>
         <div class="field wide"><label for="f-recipientAddress">Address (one line each)</label><textarea id="f-recipientAddress" rows="3"></textarea></div>

@@ -24,8 +24,54 @@ rm -rf "$SCRIPT_DIR/build"
 mkdir -p "$BUILD/Contents/MacOS"
 mkdir -p "$BUILD/Contents/Resources"
 
+# --- pick a macOS SDK this Swift compiler can build with ---------------
+# A Mac can have an SDK made by a newer Swift than its compiler (after a
+# partial Command Line Tools / Xcode update), which stops the build with
+# "this SDK is not supported by the compiler". So: try the SDK already
+# chosen (SDKROOT), then the default one, then every other installed SDK,
+# and build with the first that works — no need to set SDKROOT by hand.
+pick_sdk() {
+    local probe_dir probe sdk dir name
+    probe_dir="$(mktemp -d)"
+    probe="$probe_dir/probe.swift"
+    printf 'import Cocoa\nimport WebKit\nimport PDFKit\nimport UniformTypeIdentifiers\n' > "$probe"
+    local candidates=()
+    [ -n "$SDKROOT" ] && candidates+=("$SDKROOT")
+    sdk="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+    [ -n "$sdk" ] && candidates+=("$sdk")
+    for dir in /Library/Developer/CommandLineTools/SDKs \
+               "$(xcode-select -p 2>/dev/null)/Platforms/MacOSX.platform/Developer/SDKs" \
+               /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs; do
+        [ -d "$dir" ] || continue
+        for name in $(ls "$dir" | grep -E '^MacOSX[0-9.]*\.sdk$' | sort -r); do
+            candidates+=("$dir/$name")
+        done
+    done
+    for sdk in "${candidates[@]}"; do
+        [ -d "$sdk" ] || continue
+        if swiftc -sdk "$sdk" -target "$(uname -m)-apple-macosx12.0" -typecheck "$probe" > "$probe_dir/log" 2>&1; then
+            rm -rf "$probe_dir"
+            echo "$sdk"
+            return 0
+        fi
+    done
+    echo "❌ The Swift compiler can't build with any macOS SDK on this Mac:" >&2
+    tail -n 5 "$probe_dir/log" >&2 || true
+    echo "   Update the Command Line Tools (System Settings › General › Software Update," >&2
+    echo "   or run: xcode-select --install), then run the installer again." >&2
+    rm -rf "$probe_dir"
+    return 1
+}
+
+echo "🔎 Checking the Swift compiler and macOS SDK..."
+SDK_PATH="$(pick_sdk)" || exit 1
+export SDKROOT="$SDK_PATH"
+echo "   $(swiftc --version 2>/dev/null | head -n 1)"
+echo "   SDK: $(basename "$SDK_PATH")"
+
 echo "⚙️  Compiling ScaffoldPro for $(uname -m)..."
 swiftc "$SCRIPT_DIR/main.swift" \
+    -sdk "$SDK_PATH" \
     -target "$(uname -m)-apple-macosx12.0" \
     -framework Cocoa \
     -framework WebKit \
