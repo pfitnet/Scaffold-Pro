@@ -1,0 +1,100 @@
+#!/bin/bash
+# Install ScaffoldPro.app — double-click to install or update ScaffoldPro.
+#
+# Finds the Scaffold-Pro folder, makes sure Apple's Command Line Tools are
+# there (ScaffoldPro is built on this Mac with them), then opens the
+# installer window: ScaffoldPro-native/installer/InstallerUI.swift, built
+# here the first time and whenever it changes. The window runs
+# installer/install-steps.sh and shows its progress.
+#
+# If the window can't be built or opened, "Install ScaffoldPro.command"
+# (the Terminal version) runs instead, so installing always works.
+
+BUNDLE="$(cd "$(dirname "$0")/../.." && pwd)"
+CONFIG="$HOME/.scaffoldpro-install-path"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+# A Mac dialog: dialog "message" [button …]. The last button is the default;
+# "Cancel" (or closing it) makes it return non-zero.
+dialog() {
+    local msg="$1"; shift
+    local buttons=("${@:-OK}") list="" b
+    for b in "${buttons[@]}"; do list="$list${list:+, }\"$b\""; done
+    /usr/bin/osascript -e "display dialog \"$msg\" with title \"Install ScaffoldPro\" buttons {$list} default button \"${buttons[${#buttons[@]}-1]}\" with icon note" >/dev/null 2>&1
+}
+
+# A folder with install.sh and main.swift in it.
+is_app_dir() { [ -n "$1" ] && [ -f "$1/install.sh" ] && [ -f "$1/main.swift" ]; }
+app_dir_in() {
+    if is_app_dir "$1"; then echo "$1"; return 0; fi
+    if is_app_dir "$1/ScaffoldPro-native"; then echo "$1/ScaffoldPro-native"; return 0; fi
+    return 1
+}
+
+find_app_dir() {
+    [ -f "$CONFIG" ] && app_dir_in "$(cat "$CONFIG")" && return 0
+    # Next to this app (when it's in the Scaffold-Pro folder itself).
+    app_dir_in "$(dirname "$BUNDLE")" && return 0
+    local base name found
+    for base in "$HOME" "$HOME/Desktop" "$HOME/Documents" "$HOME/Downloads" "$HOME/Developer" \
+                "$HOME/Projects" "$HOME/GitHub" "$HOME/Documents/GitHub" "$HOME/Code"; do
+        for name in "Scaffold-Pro" "Scaffold-Pro-main" "ScaffoldPro" "ScaffoldPro-native"; do
+            app_dir_in "$base/$name" && return 0
+        done
+    done
+    while IFS= read -r found; do
+        case "$found" in */build/*|*/.Trash/*) continue ;; esac
+        app_dir_in "$(dirname "$found")" && return 0
+    done < <(mdfind -name "install.sh" 2>/dev/null | grep '/ScaffoldPro-native/install\.sh$')
+    return 1
+}
+
+APP_DIR="$(find_app_dir)"
+if ! is_app_dir "$APP_DIR"; then
+    CHOSEN="$(/usr/bin/osascript -e 'POSIX path of (choose folder with prompt "Where is the Scaffold-Pro folder (the one with ScaffoldPro-native in it)?")' 2>/dev/null)"
+    [ -z "$CHOSEN" ] && exit 0
+    APP_DIR="$(app_dir_in "${CHOSEN%/}")" || { dialog "That folder doesn't have ScaffoldPro in it. Choose the Scaffold-Pro folder (it contains ScaffoldPro-native)."; exit 1; }
+fi
+echo "$APP_DIR" > "$CONFIG"
+REPO_ROOT="$(dirname "$APP_DIR")"
+
+# The Terminal version, if the window can't be used.
+fallback() {
+    if [ -f "$REPO_ROOT/Install ScaffoldPro.command" ]; then
+        open -a Terminal "$REPO_ROOT/Install ScaffoldPro.command"
+    else
+        dialog "The installer couldn't start. In the ScaffoldPro-native folder, run ./install.sh in Terminal."
+    fi
+    exit 0
+}
+
+# Apple's Command Line Tools (the Swift compiler).
+if ! xcrun --find swiftc >/dev/null 2>&1; then
+    dialog "ScaffoldPro is built on this Mac with Apple's free Command Line Tools, which aren't installed yet.\n\nClick Install, then Install again in the window that appears. When it has finished, open Install ScaffoldPro again." "Cancel" "Install" || exit 0
+    xcode-select --install 2>/dev/null
+    exit 0
+fi
+
+# The installer window: built once, and again whenever its source changes.
+SOURCE="$APP_DIR/installer/InstallerUI.swift"
+[ -f "$SOURCE" ] || fallback
+if [ -w "$BUNDLE/Contents/MacOS" ]; then
+    BIN_DIR="$BUNDLE/Contents/MacOS"
+else
+    BIN_DIR="$HOME/Library/Caches/ScaffoldPro Installer"
+    mkdir -p "$BIN_DIR"
+fi
+BIN="$BIN_DIR/InstallerUI"
+SUM="$(shasum -a 256 "$SOURCE" | cut -d' ' -f1)"
+if [ ! -x "$BIN" ] || [ "$(cat "$BIN.sha" 2>/dev/null)" != "$SUM" ]; then
+    /usr/bin/osascript -e 'display notification "Getting the installer ready (the first time takes a few seconds)…" with title "Install ScaffoldPro"' 2>/dev/null
+    if swiftc -O -target "$(uname -m)-apple-macosx12.0" -framework Cocoa -o "$BIN.new" "$SOURCE" >"$BIN_DIR/InstallerUI-build.log" 2>&1; then
+        mv -f "$BIN.new" "$BIN"
+        echo "$SUM" > "$BIN.sha"
+    else
+        rm -f "$BIN.new"
+        fallback
+    fi
+fi
+
+exec "$BIN" "$APP_DIR" "$BUNDLE"

@@ -123,7 +123,7 @@ if command -v gh >/dev/null 2>&1; then
         echo "   gh shows a one-time code. Press Return to open github.com in your browser,"
         echo "   sign in there (Continue with Google works), enter the code and authorise."
         echo ""
-        if gh auth login --hostname github.com --git-protocol https --web --skip-ssh-key; then
+        if gh auth login --hostname github.com --git-protocol https --web; then
             echo "✅ Signed in to GitHub."
         else
             echo "⚠️  Not signed in. You can double-click this file again to try once more."
@@ -190,6 +190,21 @@ if [ -n "$REPO_DIR" ]; then
             echo ""
         else
             rm -f "$SELF.new.$$"
+        fi
+    fi
+
+    # "Install ScaffoldPro" — the installer with a window instead of
+    # Terminal — is put (and kept up to date) next to this file, e.g. on the
+    # Desktop. ditto merges, so the window it has built on this Mac stays.
+    REPO_APP="$REPO_DIR/Install ScaffoldPro.app"
+    HERE_APP="$(dirname "$SELF")/Install ScaffoldPro.app"
+    if [ -d "$REPO_APP" ] && [ "$(cd "$(dirname "$SELF")" && pwd -P)" != "$(cd "$REPO_DIR" && pwd -P)" ]; then
+        NEW_APP=""
+        [ -d "$HERE_APP" ] || NEW_APP=1
+        if ditto "$REPO_APP" "$HERE_APP" 2>/dev/null && [ -n "$NEW_APP" ]; then
+            echo "✨ “Install ScaffoldPro” is now next to this file: the same installer, in a window"
+            echo "   instead of Terminal. Double-click that from now on (you can delete this one)."
+            echo ""
         fi
     fi
 fi
