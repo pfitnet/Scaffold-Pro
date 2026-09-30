@@ -6,9 +6,9 @@ const SETTINGS_FIELDS = [
   'defaultPaymentTerms', 'defaultNotes',
 ];
 
-const NUMBER_FIELDS = ['numberFormatBOQ', 'numberFormatQuotation', 'numberFormatInvoice', 'numberFormatDeliveryNote'];
+const NUMBER_FIELDS = ['numberFormatBOQ', 'numberFormatQuotation', 'numberFormatInvoice', 'numberFormatDeliveryNote', 'numberFormatLetter'];
 const QUOTE_TEXT_FIELDS = ['signatoryName', 'signatoryTitle', 'termsURL', 'quotationTerms', 'quotationAcceptance'];
-const START_KEYS = ['BOQ', 'QT', 'INV', 'DN'];
+const START_KEYS = ['BOQ', 'QT', 'INV', 'DN', 'LT'];
 // As on the company's quotations; Settings can change them.
 const DEFAULT_MANPOWER_RATES = [
   { name: 'Scaffolder CP', rate: 2300, unit: 'md' },

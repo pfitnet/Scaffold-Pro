@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Letter — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    @font-face { font-family: 'EB Garamond'; src: url('resources/fonts/EBGaramond-Regular.ttf'); font-weight: normal; font-style: normal; }
+    @font-face { font-family: 'EB Garamond'; src: url('resources/fonts/EBGaramond-Bold.ttf'); font-weight: bold; font-style: normal; }
+    @font-face { font-family: 'EB Garamond'; src: url('resources/fonts/EBGaramond-Italic.ttf'); font-weight: normal; font-style: italic; }
+    @font-face { font-family: 'EB Garamond'; src: url('resources/fonts/EBGaramond-BoldItalic.ttf'); font-weight: bold; font-style: italic; }
+
+    .letter-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; margin-bottom: 14px; }
+    .letter-fields .field { display: flex; flex-direction: column; gap: 4px; }
+    .letter-fields .field.wide { grid-column: span 2; }
+    .letter-fields .field.full { grid-column: 1 / -1; }
+    .letter-fields label { font-size: 11px; color: var(--text-secondary); }
+    .letter-fields textarea { resize: vertical; }
+    .our-ref { font-weight: 600; padding: 5px 0; }
+    .save-state { font-size: 12px; color: var(--text-secondary); min-width: 70px; }
+
+    /* The formatting toolbar, kept in view while scrolling */
+    .rt-toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 2px;
+      padding: 6px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; }
+    .rt-toolbar.disabled { opacity: 0.55; }
+    .rt-btn { min-width: 28px; height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: 5px; background: none;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text); cursor: pointer; box-shadow: none; }
+    .rt-btn:hover:not(:disabled) { background: var(--row-hover, rgba(0,0,0,0.06)); }
+    .rt-btn.active { background: rgba(47, 111, 237, 0.14); color: var(--accent); }
+    .rt-btn.rt-text { font-size: 12px; padding: 0 7px; }
+    .rt-btn.rt-danger { color: var(--danger); }
+    .rt-size-btn { font-size: 16px; min-width: 24px; }
+    .rt-sep { width: 1px; height: 20px; background: var(--border); margin: 0 5px; }
+    .rt-select { height: 28px; font-size: 13px; padding: 0 4px; }
+    .rt-font { width: 170px; }
+    .rt-toolbar .rt-size { width: 44px; height: 26px; text-align: center; padding: 0 2px; }
+    .rt-toolbar .rt-font { width: 160px; }
+    .rt-color { position: relative; flex-direction: column; gap: 0; }
+    .rt-color input[type="color"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .rt-color-a { font-weight: 600; font-size: 13px; line-height: 1; }
+    .rt-hl { font-size: 11px; }
+    .rt-swatch { width: 16px; height: 3px; background: #000; margin-top: 2px; border-radius: 1px; }
+    .rt-label { font-size: 12px; color: var(--text-secondary); margin-right: 2px; }
+    .rt-table-wrap { position: relative; display: inline-flex; }
+    .rt-grid { position: absolute; top: 32px; left: 0; z-index: 10; background: var(--content, #fff); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+    .rt-grid-cells { display: grid; grid-template-columns: repeat(8, 16px); gap: 3px; }
+    .rt-grid-cells span { width: 16px; height: 16px; border: 1px solid #c8ccd2; border-radius: 2px; background: #fff; cursor: pointer; }
+    .rt-grid-cells span.on { background: rgba(47, 111, 237, 0.35); border-color: #2f6fed; }
+    .rt-grid-label { font-size: 12px; text-align: center; margin-top: 6px; color: var(--text-secondary); }
+
+    /* The page: A4 at 96 dpi (1pt = 1.333px), with the letterhead and footer */
+    .paper-wrap { overflow-x: auto; padding: 4px 0 24px; }
+    .paper { position: relative; width: 793.7px; margin: 0 auto; background: #fff; color: #000;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 8px 28px rgba(0,0,0,0.14); display: flex; flex-direction: column; min-height: 1122.5px; }
+    .paper.letter-size { width: 816px; min-height: 1056px; }
+    .paper-head, .paper-foot { flex: none; background-repeat: no-repeat; background-size: 100% auto; }
+    .paper-head { height: 133.3px; background-position: top center; }
+    .paper-foot { height: 80.5px; background-position: bottom center; margin-top: auto; }
+    .paper-body { padding: 0 57.7px 20px 57px; font-family: 'EB Garamond', Georgia, serif; font-size: 11pt; line-height: 1.3; }
+    .opening { cursor: default; margin-bottom: 0; }
+    .opening table { width: 100%; border-collapse: collapse; }
+    .opening td { vertical-align: top; padding: 0; }
+    .opening p { margin: 0 0 3pt; }
+    .opening-hint { font-family: -apple-system, sans-serif; font-size: 11px; color: #8a8f98; margin: -2px 0 8px; }
+    #letter-body { outline: none; min-height: 420px; }
+    #letter-body p { margin: 0 0 3pt 0; }
+    #letter-body h1 { font-size: 18pt; margin: 8pt 0 4pt; } #letter-body h2 { font-size: 15pt; margin: 6pt 0 3pt; } #letter-body h3 { font-size: 13pt; margin: 4pt 0 2pt; }
+    #letter-body ul, #letter-body ol { margin: 0 0 3pt 0; padding-left: 22pt; }
+    /* Tables in the letter: black 0.75pt rules, the letter's text (not the app's table look). */
+    .paper-body table { border: none; border-radius: 0; background: transparent; overflow: visible; }
+    .paper-body td, .paper-body th { font-size: inherit; color: inherit; background: transparent; }
+    .paper-body tbody tr:hover td { background: transparent; }
+    .opening td { border: none; padding: 0; }
+    #letter-body table { border-collapse: collapse; margin: 2pt 0; }
+    #letter-body td, #letter-body th { border: 0.75pt solid #000 !important; padding: 3pt 5pt; vertical-align: top; min-width: 30px; font-weight: normal; }
+    #letter-body a { color: #1155cc; }
+    #letter-body[contenteditable="false"] { cursor: default; }
+  </style>
+</head>
+<body data-page="letters">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div id="letter-header"></div>
+
+    <div id="not-found" class="empty-state hidden"><h2>Letter not found</h2></div>
+
+    <div id="letter-page" class="hidden">
+      <div class="toolbar" style="justify-content: space-between;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="font-size:12px; color:var(--text-secondary);" for="status-select">Status</label>
+          <select id="status-select">
+            <option value="Draft">Draft</option>
+            <option value="Issued">Issued</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+          <button id="export-pdf-btn">Export PDF</button>
+          <button id="print-btn">Print…</button>
+          <button id="delete-btn" class="danger-btn">Delete…</button>
+          <span class="save-state" id="save-state"></span>
+        </div>
+        <a id="back-link" href="letters.html">&larr; All letters</a>
+      </div>
+
+      <div class="letter-fields">
+        <div class="field"><label>Our Ref. (letter number)</label><div class="our-ref" id="our-ref"></div></div>
+        <div class="field"><label for="f-date">Date</label><input type="date" id="f-date" /></div>
+        <div class="field"><label for="f-yourRef">Your Ref.</label><input type="text" id="f-yourRef" /></div>
+        <div class="field"><label for="f-project">Project</label><select id="f-project"></select></div>
+        <div class="field wide"><label for="f-recipientName">To</label><input type="text" id="f-recipientName" placeholder="Company or person" /></div>
+        <div class="field wide"><label for="f-client">Fill in from a client</label><select id="f-client"></select></div>
+        <div class="field wide"><label for="f-recipientAddress">Address (one line each)</label><textarea id="f-recipientAddress" rows="3"></textarea></div>
+        <div class="field wide"><label for="f-attention">Attn.</label><input type="text" id="f-attention" placeholder="e.g. Mr. Chan" />
+          <label for="f-subject" style="margin-top:6px;">Re: (subject)</label><input type="text" id="f-subject" /></div>
+      </div>
+
+      <div id="rt-toolbar"></div>
+
+      <div class="paper-wrap">
+        <div class="paper" id="paper">
+          <div class="paper-head" id="paper-head"></div>
+          <div class="paper-body">
+            <div class="opening" id="opening" title="Printed from the details above"></div>
+            <div class="opening-hint">↑ From the details above. Write the letter below.</div>
+            <div id="letter-body" contenteditable="true" spellcheck="true"></div>
+          </div>
+          <div class="paper-foot" id="paper-foot"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/rich-editor.js"></script>
+  <script src="js/letter-editor.js"></script>
+</body>
+</html>

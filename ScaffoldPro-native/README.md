@@ -1644,3 +1644,47 @@ under "Letterhead layout".
 - `accounts.saveCSV` can now save into a project's subfolder or an
   Administration folder; the employee list goes to Administration ›
   Employees.
+
+## Batch 68 — Letters
+
+- **Letters** (new in the sidebar, ⌘6) lists every letter, newest first,
+  with a search and a project filter. **+ New Letter** asks for a project
+  and a client, both optional, and opens the editor. The address and
+  "Attn." are filled in from the client, or from the project's client.
+- **Letter numbers** come from Settings › Document Numbers › Letter, like
+  the other documents. The default is `L{YY}{SEQ}` (L26001, L26002…);
+  `{PROJECT}`, `{YYYY}` and "next number at least" work too. A letter
+  without a project uses "GEN" for `{PROJECT}`.
+- **The editor** shows the letter on a page with the company **letterhead
+  and footer**, which are always printed.
+  - Above the page are the letter's details: Our Ref. (the letter number),
+    date, Your Ref., project, To, address, Attn. and Re: (subject). "Fill
+    in from a client" copies a client's name, address and contact.
+  - The app prints the **opening** from those details: the recipient on the
+    left; Our Ref., Your Ref. and the date on the right; then the "Re:"
+    line, bold and underlined.
+  - The body is written below the opening. It starts as a letter ("Dear
+    Sirs," … "Yours faithfully," "For and on behalf of" the company, and the
+    signatory and title from Settings) and **saves itself** while typing.
+- **Google Docs–style toolbar** (`js/rich-editor.js`):
+  - Undo / redo, and text style (Normal text, Heading 1–3).
+  - Font: EB Garamond (the letter font), Georgia, Times New Roman, Arial,
+    Helvetica, Verdana, Courier New, PingFang (中文), Songti (中文).
+  - Size in points, with − / +.
+  - Bold, italic, underline, strikethrough, text colour and highlight.
+  - Link.
+  - **Insert table**: pick the size on an 8 × 8 grid. Inside a table you
+    can add or delete rows and columns, or delete the table.
+  - Alignment (left, centre, right, justify) and line spacing.
+  - Numbered and bulleted lists, indent and outdent, and clear formatting.
+- **Export PDF / Print** lay the letter out over as many pages as it needs,
+  each page on the letterhead with the footer and page number
+  (`PDFGenerator.generateRichText`).
+  - The PDF is saved in the project's Letters folder, or in Administration
+    › Letters for a general letter, and then opened.
+  - Draft / Issued / Cancelled work as on other documents. An issued letter
+    is locked until it's set back to Draft.
+  - ⌘K search finds letters.
+- Data: `letters.json` (synced like every other store). Actions:
+  `letters:list`, `create`, `get`, `update`, `updateStatus`, `delete`,
+  `exportPDF`, `print`, `letterhead`.

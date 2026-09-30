@@ -219,6 +219,21 @@
       exportWord: (id) => callNative('invoices:exportWord', { id: id }),
       print: (id) => callNative('invoices:print', { id: id }),
     },
+    // Letters on the letterhead (the letter editor).
+    letters: {
+      list: (projectId) => callNative('letters:list', { projectId: projectId || null }),
+      // → { ok, error, id }; addressed to the client (or the project's client).
+      create: (input) => callNative('letters:create', input || {}),
+      get: (id) => callNative('letters:get', { id: id }),
+      // changes: { letterDate?, recipientName?, recipientAddress?, attention?, yourRef?, subject?, projectId?, clientId?, bodyHTML? }
+      update: (id, changes) => callNative('letters:update', Object.assign({ id: id }, changes)),
+      updateStatus: (id, status) => callNative('letters:updateStatus', { id: id, status: status }),
+      remove: (id, force) => callNative('letters:delete', { id: id, force: !!force }),
+      exportPDF: (id) => callNative('letters:exportPDF', { id: id }),
+      print: (id) => callNative('letters:print', { id: id }),
+      // The letterhead and footer as a page-sized PNG → { png (base64), paperSize }.
+      letterhead: () => callNative('letters:letterhead'),
+    },
     deliveryNotes: {
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('deliveryNotes:setLanguage', { id: id, language: language || null }),
