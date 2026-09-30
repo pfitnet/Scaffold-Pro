@@ -1305,3 +1305,46 @@ under "Letterhead layout".
 - The quotation, invoice and delivery note letters are each built by one
   function (quotationLetter / invoiceLetter / deliveryNoteLetter), shared by
   single export and the one-PDF export.
+
+## Batch 55 — Install ScaffoldPro sets up Homebrew, gh and the GitHub sign-in
+
+- **Install ScaffoldPro** now, before getting the latest version:
+  1. installs **Homebrew** if it's missing, with Homebrew's official
+     installer (it asks for the Mac password), and adds it to ~/.zprofile;
+  2. installs **gh**, GitHub's command-line tool (`brew install gh`), if
+     it's missing;
+  3. if gh isn't signed in, runs `gh auth login --web`. That shows a
+     one-time code and opens github.com in the browser, where signing in
+     with Google works;
+  4. runs `gh auth setup-git`, so git uses that sign-in.
+- After that, `git pull` works from Terminal and from ScaffoldPro's own
+  **Update Now** without GitHub Desktop. GitHub Desktop stays as the
+  fallback.
+- Each step is skipped when it's already done. If one fails, the installer
+  carries on as before.
+
+## Batch 56 — Install ScaffoldPro with a window instead of Terminal
+
+- **Install ScaffoldPro.app** (in the Scaffold-Pro folder; the Terminal
+  installer also puts a copy next to itself, e.g. on the Desktop) installs
+  and updates ScaffoldPro in a window:
+  - steps with ticks: Homebrew → GitHub tool (gh) → Sign in to GitHub → Get
+    the latest version → Build ScaffoldPro → Install and open
+  - a progress bar, and **Show Details** with everything the steps print
+  - while signing in: GitHub's one-time code, with **Copy Code** and **Open
+    GitHub** (the browser opens by itself)
+  - Homebrew's Mac password is asked for in a normal password window
+    (sudo askpass), not in Terminal
+  - on failure: the reason, the details, and **Try Again**
+- How it's put together:
+  - `Contents/MacOS/install-launcher` (bash) finds the folder (remembered /
+    next to the app / the usual places / Spotlight / "choose folder"). It
+    checks Apple's Command Line Tools (a dialog offers to install them),
+    then builds the window from ScaffoldPro-native/installer/InstallerUI.swift
+    (once, and again whenever that file changes) and opens it.
+  - The window runs installer/install-steps.sh, which reports its progress
+    in "@@" lines. That script can also run on its own.
+  - If the window can't be built or opened, the Terminal installer runs
+    instead.
+- The Terminal installer (Install ScaffoldPro.command) keeps working and
+  does the same steps.

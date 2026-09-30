@@ -2,3 +2,7 @@ tools/pdf-preview/out/
 __pycache__/
 .DS_Store
 ScaffoldPro-native/build/
+# Built on each Mac by Install ScaffoldPro.app's launcher
+Install ScaffoldPro.app/Contents/MacOS/InstallerUI
+Install ScaffoldPro.app/Contents/MacOS/InstallerUI.*
+Install ScaffoldPro.app/Contents/MacOS/InstallerUI-build.log

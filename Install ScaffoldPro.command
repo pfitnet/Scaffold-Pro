@@ -76,9 +76,67 @@ if ! xcrun --find swiftc >/dev/null 2>&1; then
     finish 1
 fi
 
-# Latest version, if this is a git copy. Terminal tries to pull it by itself
-# first; if it can't sign in to GitHub (e.g. a GitHub account that uses
-# Google sign-in), GitHub Desktop is opened on the folder to pull it there.
+# --- Homebrew and GitHub's "gh" tool, and signing in to GitHub ------------
+# With gh signed in (through the browser, so a Google-linked GitHub
+# account works), git can get the latest version by itself — here and in
+# ScaffoldPro's own "Update Now" — without GitHub Desktop.
+
+# Homebrew lives in /opt/homebrew (Apple silicon) or /usr/local (Intel).
+use_brew() {
+    local b
+    for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        if [ -x "$b" ]; then eval "$("$b" shellenv)"; return 0; fi
+    done
+    command -v brew >/dev/null 2>&1
+}
+
+if ! use_brew; then
+    echo "🍺 Installing Homebrew (the Mac's standard installer for tools like gh)..."
+    echo "   It asks for your Mac password (nothing shows while you type it) and to press Return."
+    echo ""
+    if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && use_brew; then
+        # So Terminal finds brew (and gh) from now on, too.
+        BREW_PATH="$(command -v brew)"
+        if [ -n "$BREW_PATH" ] && ! grep -qs "brew shellenv" "$HOME/.zprofile"; then
+            printf '\neval "$(%s shellenv)"\n' "$BREW_PATH" >> "$HOME/.zprofile"
+        fi
+        echo "✅ Homebrew installed."
+    else
+        echo "⚠️  Homebrew couldn't be installed. Carrying on without it."
+    fi
+    echo ""
+fi
+
+if ! command -v gh >/dev/null 2>&1 && command -v brew >/dev/null 2>&1; then
+    echo "🐙 Installing gh (GitHub's command-line tool)..."
+    if brew install gh; then
+        echo "✅ gh installed."
+    else
+        echo "⚠️  gh couldn't be installed. Carrying on without it."
+    fi
+    echo ""
+fi
+
+if command -v gh >/dev/null 2>&1; then
+    if ! gh auth status --hostname github.com >/dev/null 2>&1; then
+        echo "🔑 Sign in to GitHub"
+        echo "   gh shows a one-time code. Press Return to open github.com in your browser,"
+        echo "   sign in there (Continue with Google works), enter the code and authorise."
+        echo ""
+        if gh auth login --hostname github.com --git-protocol https --web; then
+            echo "✅ Signed in to GitHub."
+        else
+            echo "⚠️  Not signed in. You can double-click this file again to try once more."
+        fi
+        echo ""
+    fi
+    # git (here and in ScaffoldPro's Update Now) uses gh's sign-in.
+    gh auth status --hostname github.com >/dev/null 2>&1 && gh auth setup-git --hostname github.com >/dev/null 2>&1
+fi
+
+# Latest version, if this is a git copy. Terminal pulls it by itself (signed
+# in through gh, above); if it still can't, GitHub Desktop is opened on the
+# folder to pull it there.
 REPO_DIR="$(git -C "$APP_DIR" rev-parse --show-toplevel 2>/dev/null)"
 
 # How many changes GitHub has that this copy hasn't pulled yet (as far as
@@ -132,6 +190,21 @@ if [ -n "$REPO_DIR" ]; then
             echo ""
         else
             rm -f "$SELF.new.$$"
+        fi
+    fi
+
+    # "Install ScaffoldPro" — the installer with a window instead of
+    # Terminal — is put (and kept up to date) next to this file, e.g. on the
+    # Desktop. ditto merges, so the window it has built on this Mac stays.
+    REPO_APP="$REPO_DIR/Install ScaffoldPro.app"
+    HERE_APP="$(dirname "$SELF")/Install ScaffoldPro.app"
+    if [ -d "$REPO_APP" ] && [ "$(cd "$(dirname "$SELF")" && pwd -P)" != "$(cd "$REPO_DIR" && pwd -P)" ]; then
+        NEW_APP=""
+        [ -d "$HERE_APP" ] || NEW_APP=1
+        if ditto "$REPO_APP" "$HERE_APP" 2>/dev/null && [ -n "$NEW_APP" ]; then
+            echo "✨ “Install ScaffoldPro” is now next to this file: the same installer, in a window"
+            echo "   instead of Terminal. Double-click that from now on (you can delete this one)."
+            echo ""
         fi
     fi
 fi
