@@ -60,6 +60,7 @@
         <div class="ds-day-title"><span>Day ${d.day}</span>
           <button class="ds-remove" data-remove="${esc(d.id)}" title="Remove Day ${d.day}" aria-label="Remove Day ${d.day}">×</button></div>
         <input type="date" class="ds-date" value="${esc(d.date || '')}" title="Date (optional)" />
+        <input type="time" class="ds-time" value="${esc(d.time || '')}" title="Time (optional) — shown in the Calendar's week" />
         <label class="ds-sent-label"><input type="checkbox" class="ds-sent-check" ${d.sent ? 'checked' : ''} /> Delivered</label>
         <button class="ds-fill" title="Put everything still left on this day">Fill the rest</button>
       </th>`).join('');
@@ -110,6 +111,7 @@
     for (const th of box.querySelectorAll('th.ds-day')) {
       const dayId = th.dataset.day;
       th.querySelector('.ds-date').addEventListener('change', (e) => update(dayId, { date: e.target.value }));
+      th.querySelector('.ds-time').addEventListener('change', (e) => update(dayId, { time: e.target.value }));
       th.querySelector('.ds-sent-check').addEventListener('change', (e) => update(dayId, { sent: e.target.checked }));
       th.querySelector('.ds-fill').addEventListener('click', () => {
         const day = data.days.find((d) => d.id === dayId);

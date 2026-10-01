@@ -16,6 +16,9 @@ const KINDS = [
 ];
 const COLOR = Object.fromEntries(KINDS.map((k) => [k.key, k.color]));
 
+let view = 'week';      // 'week' (hours down) or 'month'
+try { if (localStorage.getItem('calendar.view') === 'month') view = 'month'; } catch (e) { /* ignore */ }
+let weekStart = null;   // the Monday of the week shown
 let month = null;       // first of the month shown
 let selected = null;    // yyyy-MM-dd
 let events = [];
@@ -35,10 +38,16 @@ function gridStart() {
   return d;
 }
 
+function mondayOf(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
 async function load() {
-  const start = gridStart();
+  const start = view === 'week' ? new Date(weekStart) : gridStart();
   const end = new Date(start);
-  end.setDate(end.getDate() + 41);
+  end.setDate(end.getDate() + (view === 'week' ? 6 : 41));
   const today = new Date();
   const soon = new Date();
   soon.setDate(soon.getDate() + 14);
@@ -58,13 +67,23 @@ function chip(e) {
 function item(e) {
   return `<a class="ev-item${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" style="--k:${COLOR[e.kind] || '#888'}" href="${esc(e.url || '#')}">
     <div class="ev-kind">${esc((KINDS.find((k) => k.key === e.kind) || {}).label || e.kind)}${e.overdue ? ' · overdue' : ''}</div>
-    <div class="ev-title">${esc(e.title)}</div>
+    <div class="ev-title">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${esc(e.title)}</div>
     ${e.detail ? `<div class="sub">${esc(e.detail)}</div>` : ''}
     ${e.person ? `<div class="sub">${window.personTag(e.person)}</div>` : ''}</a>`;
 }
 
 function render() {
-  document.getElementById('cal-title').textContent = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  for (const b of document.querySelectorAll('#cal-view button')) b.classList.toggle('active', b.dataset.view === view);
+  document.getElementById('cal-grid').classList.toggle('hidden', view !== 'month');
+  document.getElementById('cal-week').classList.toggle('hidden', view !== 'week');
+  if (view === 'week') {
+    const end = new Date(weekStart);
+    end.setDate(end.getDate() + 6);
+    const sameMonth = end.getMonth() === weekStart.getMonth();
+    document.getElementById('cal-title').textContent = `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: sameMonth ? undefined : 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  } else {
+    document.getElementById('cal-title').textContent = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  }
   document.getElementById('cal-filters').innerHTML = KINDS.map((k) => `<label class="cal-filter${hidden.has(k.key) ? ' off' : ''}" style="--k:${k.color}">
     <input type="checkbox" data-kind="${k.key}" ${hidden.has(k.key) ? '' : 'checked'} /><span class="cal-dot" style="width:8px;height:8px;border-radius:50%;background:${k.color};display:inline-block"></span>${k.label}</label>`).join('');
   for (const box of document.querySelectorAll('#cal-filters input')) {
@@ -78,6 +97,7 @@ function render() {
   for (const e of shown(events)) (byDay[e.date] = byDay[e.date] || []).push(e);
   const start = gridStart();
   const today = ymd(new Date());
+  if (view === 'week') renderWeek(byDay, today);
   const heads = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => `<div class="cal-head">${d}</div>`).join('');
   let cells = '';
   for (let i = 0; i < 42; i++) {
@@ -88,7 +108,7 @@ function render() {
     cells += `<div class="cal-day${d.getMonth() !== month.getMonth() ? ' other' : ''}${key === today ? ' today' : ''}${key === selected ? ' selected' : ''}" data-day="${key}">
       <div class="cal-num">${d.getDate()}</div>${list.slice(0, 4).map(chip).join('')}${list.length > 4 ? `<div class="cal-more">+${list.length - 4} more</div>` : ''}</div>`;
   }
-  document.getElementById('cal-grid').innerHTML = heads + cells;
+  if (view === 'month') document.getElementById('cal-grid').innerHTML = heads + cells;
   for (const cell of document.querySelectorAll('.cal-day')) {
     cell.addEventListener('click', () => { selected = cell.dataset.day; render(); });
   }
@@ -107,18 +127,80 @@ function render() {
     : '<div class="empty-inline">Nothing coming up.</div>';
 }
 
+// The week: an all-day row (things without a time), then the hours, with
+// timed items at their time. Clicking an empty hour adds a task then.
+const HOUR_PX = 48;
+let scrolledOnce = false;
+function renderWeek(byDay, today) {
+  const days = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
+  const box = document.getElementById('cal-week');
+  const head = '<div></div>' + days.map((d) => `<div class="${ymd(d) === today ? 'today' : ''}">${d.toLocaleDateString('en-GB', { weekday: 'short' })} <span class="wd-num">${d.getDate()}</span></div>`).join('');
+  const allDay = '<div class="gutter">all day</div>' + days.map((d) => {
+    const list = (byDay[ymd(d)] || []).filter((e) => !e.time);
+    return `<div data-day="${ymd(d)}">${list.map(chip).join('')}</div>`;
+  }).join('');
+  const gutter = `<div class="week-gutter">${[...Array(24)].map((_, h) => `<div class="hour-label">${h ? `${String(h).padStart(2, '0')}:00` : ''}</div>`).join('')}</div>`;
+  const cols = days.map((d) => {
+    const key = ymd(d);
+    const timed = (byDay[key] || []).filter((e) => e.time);
+    const evs = timed.map((e) => {
+      const [h, m] = e.time.split(':').map(Number);
+      const top = (h + m / 60) * HOUR_PX;
+      return `<a class="week-ev${e.done ? ' done' : ''}" style="--k:${COLOR[e.kind] || '#888'};top:${top}px;height:${HOUR_PX - 4}px" href="${esc(e.url || '#')}" title="${esc(e.title)}${e.detail ? ` — ${esc(e.detail)}` : ''}">
+        <span class="t">${esc(e.time)}</span> ${esc(e.title)}${e.detail ? `<div class="sub">${esc(e.detail)}</div>` : ''}</a>`;
+    }).join('');
+    const now = new Date();
+    const line = key === today ? `<div class="now-line" style="top:${(now.getHours() + now.getMinutes() / 60) * HOUR_PX}px"></div>` : '';
+    return `<div class="week-col${key === today ? ' today' : ''}" data-day="${key}">${[...Array(24)].map((_, h) => `<div class="slot" data-hour="${h}"></div>`).join('')}${evs}${line}</div>`;
+  }).join('');
+  const body = box.querySelector('.week-body');
+  const keepScroll = body ? body.scrollTop : null;
+  box.innerHTML = `<div class="week-head">${head}</div><div class="week-allday">${allDay}</div><div class="week-body"><div class="week-hours">${gutter}${cols}</div></div>`;
+  const newBody = box.querySelector('.week-body');
+  // Opens at 7 a.m. the first time; keeps its place after that.
+  newBody.scrollTop = keepScroll !== null && scrolledOnce ? keepScroll : 7 * HOUR_PX;
+  scrolledOnce = true;
+  for (const slot of box.querySelectorAll('.slot')) {
+    slot.addEventListener('click', async () => {
+      const day = slot.closest('.week-col').dataset.day;
+      const hour = String(slot.dataset.hour).padStart(2, '0');
+      const [projects, people] = await Promise.all([window.api.projects.list(), window.api.tasks.people()]);
+      if (await window.editTask(null, { projects: (projects || []).filter((p) => p.status !== 'Archived'), people, dueDate: day, dueTime: `${hour}:00` })) load();
+    });
+  }
+  for (const cell of box.querySelectorAll('.week-allday [data-day], .week-head > div')) {
+    cell.addEventListener('click', () => { if (cell.dataset.day) { selected = cell.dataset.day; render(); } });
+  }
+}
+
 function go(delta) {
-  month = new Date(month.getFullYear(), month.getMonth() + delta, 1);
+  if (view === 'week') {
+    weekStart = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7 * delta);
+    selected = ymd(weekStart);
+  } else {
+    month = new Date(month.getFullYear(), month.getMonth() + delta, 1);
+  }
+  load();
+}
+
+function setView(v) {
+  view = v;
+  try { localStorage.setItem('calendar.view', v); } catch (e) { /* ignore */ }
+  const anchor = selected ? new Date(`${selected}T00:00:00`) : new Date();
+  weekStart = mondayOf(anchor);
+  month = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   load();
 }
 
 (async function init() {
   const now = new Date();
   month = new Date(now.getFullYear(), now.getMonth(), 1);
+  weekStart = mondayOf(now);
   selected = ymd(now);
+  for (const b of document.querySelectorAll('#cal-view button')) b.addEventListener('click', () => setView(b.dataset.view));
   document.getElementById('cal-prev').addEventListener('click', () => go(-1));
   document.getElementById('cal-next').addEventListener('click', () => go(1));
-  document.getElementById('cal-today').addEventListener('click', () => { const n = new Date(); month = new Date(n.getFullYear(), n.getMonth(), 1); selected = ymd(n); load(); });
+  document.getElementById('cal-today').addEventListener('click', () => { const n = new Date(); month = new Date(n.getFullYear(), n.getMonth(), 1); weekStart = mondayOf(n); selected = ymd(n); load(); });
   await window.loadPersonColors();
   await load();
 })();

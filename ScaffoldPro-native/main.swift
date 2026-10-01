@@ -167,6 +167,8 @@ struct TeamTask: Codable {
     var assignee: String?
     /// yyyy-MM-dd
     var dueDate: String?
+    /// HH:mm, if it's at a time (shown in the Calendar's week).
+    var dueTime: String? = nil
     /// "High" or nil (normal).
     var priority: String?
     var done: Bool
@@ -198,6 +200,8 @@ struct CalendarEvent: Codable {
     var done: Bool = false
     var person: String? = nil
     var overdue: Bool = false
+    /// HH:mm — at a time of day (else all day).
+    var time: String? = nil
 }
 
 /// A possible customer being worked on (Marketing › Leads) — not a
@@ -880,6 +884,7 @@ extension Quotation {
         signedCopyNotNeeded = try c.decodeIfPresent(Bool.self, forKey: .signedCopyNotNeeded)
         language = try c.decodeIfPresent(String.self, forKey: .language)
         boqLinked = try c.decodeIfPresent(Bool.self, forKey: .boqLinked)
+        lineSort = try c.decodeIfPresent(String.self, forKey: .lineSort)
     }
 }
 
@@ -1026,6 +1031,9 @@ struct BillOfQuantities: Codable {
     var language: String? = nil
     /// The BOQs it was combined from (a combined count), by number.
     var combinedFrom: [String]? = nil
+    /// How its items are listed (and printed): nil/"code" by item code,
+    /// "description" A–Z, "manual" as arranged (dragged).
+    var lineSort: String? = nil
 }
 
 struct BOQCharge: Codable {
@@ -1135,6 +1143,19 @@ struct BOQDetail: Codable {
     var defaultLanguage = "English"
     /// The quotations kept in step with this BOQ.
     var linkedQuotations: [LinkedDocument] = []
+    var lineSort = "code"
+}
+
+/// One document in a chain: BOQ › Quotation › Delivery Notes › Invoices.
+struct ChainLink: Codable {
+    /// "BOQ", "Quotation", "DeliveryNote", "Invoice"
+    var kind: String
+    var id: String
+    var number: String
+    var status: String
+    var url: String
+    /// The document open.
+    var current: Bool
 }
 
 /// A document linked to the one open (number and status, for a link).
@@ -1209,6 +1230,9 @@ struct Quotation: Codable {
     /// Kept in step with its BOQ (`sourceBOQId`) both ways until the link
     /// is removed. nil/false: the BOQ is only where its items came from.
     var boqLinked: Bool? = nil
+    /// How its items are listed: nil/"code", "description" or "manual"
+    /// (a linked quotation follows its BOQ's).
+    var lineSort: String? = nil
 }
 
 struct QuotationLineItem: Codable {
@@ -1367,6 +1391,8 @@ struct QuotationDeliveryDay: Codable {
     var day: Int
     /// yyyy-MM-dd, if a date is set.
     var date: String?
+    /// HH:mm, if a time is set.
+    var time: String? = nil
     /// Delivered (true) or still planned.
     var sent: Bool?
     var note: String?
@@ -1532,6 +1558,7 @@ struct QuotationDetail: Codable {
     /// (an issued one isn't changed).
     var boqLinked = false
     var sourceBOQStatus: String? = nil
+    var lineSort = "code"
 }
 
 struct QuotationActionResult: Codable {
@@ -1570,6 +1597,9 @@ struct Invoice: Codable {
     var rentalMonths: Int? = nil
     /// Rental: the period charged, e.g. "1 Oct – 31 Oct 2026" (optional).
     var rentalPeriod: String? = nil
+    /// The delivery notes it bills (what was delivered, at the quotation's
+    /// prices). nil = billed from the quotation itself.
+    var sourceDeliveryNoteIds: [String]? = nil
 }
 
 struct InvoiceLineItem: Codable {
@@ -1606,6 +1636,9 @@ struct InvoiceSummary: Codable {
     /// Who made it, and who last worked on it (their names).
     var createdBy: String? = nil
     var lastEditedBy: String? = nil
+    /// What it bills: the quotation, and the delivery notes (if from them).
+    var quotationNumber: String? = nil
+    var deliveryNoteNumbers: [String] = []
 }
 
 struct InvoiceDetail: Codable {
@@ -1705,6 +1738,11 @@ struct DeliveryNoteSummary: Codable {
     /// Who made it, and who last worked on it (their names).
     var createdBy: String? = nil
     var lastEditedBy: String? = nil
+    /// The quotation it delivers (its prices), and the invoices billing it.
+    var sourceQuotationId: String? = nil
+    var quotationNumber: String? = nil
+    var invoiceNumbers: [String] = []
+    var totalQuantity: Double = 0
 }
 
 struct DeliveryNoteDetail: Codable {
@@ -1938,7 +1976,7 @@ struct WordSection: Encodable {
 
 struct WordRefRow: Encodable { var label: String; var value: String; var wraps: Bool }
 struct WordSignatureLine: Encodable { var text: String; var colon: Bool; var value: String? }
-struct WordSignature: Encodable { var heading: String; var lines: [WordSignatureLine] }
+struct WordSignature: Encodable { var heading: String; var subheading: String? = nil; var lines: [WordSignatureLine] }
 struct WordFont: Encodable { var style: String; var data: String }
 
 struct WordLayout: Encodable {
@@ -2206,8 +2244,10 @@ struct LetterSignatureLine {
 }
 
 struct LetterSignature {
-    /// "For and on Behalf of"
+    /// "For and on Behalf of" / "Accepted By"
     var heading: String
+    /// Printed right under the heading, e.g. the company's or client's name.
+    var subheading: String? = nil
     /// Under the signing rule: party name, then name / position / date lines.
     var lines: [LetterSignatureLine]
 }
@@ -2863,6 +2903,48 @@ final class AppDatabase {
         authorsIndex(file, history: activityAuthors())
     }
 
+    /// The documents linked to one: the BOQ a quotation came from, the
+    /// quotation, the delivery notes made from it and the invoices billing
+    /// it (from those delivery notes or the quotation itself).
+    func documentChain(kind: String, id: String) -> [ChainLink] {
+        let quotations = quotationsStore.readAll()
+        let notes = deliveryNotesStore.readAll()
+        let invoices = invoicesStore.readAll()
+        var root: Quotation? = nil
+        var boq: BillOfQuantities? = nil
+        switch kind {
+        case "quotation": root = quotations.first { $0.id == id }
+        case "deliveryNote": root = notes.first { $0.id == id }?.sourceQuotationId.flatMap { qid in quotations.first { $0.id == qid } }
+        case "invoice": root = invoices.first { $0.id == id }?.sourceQuotationId.flatMap { qid in quotations.first { $0.id == qid } }
+        case "boq": boq = getBOQ(id: id)
+        default: break
+        }
+        if boq == nil { boq = root?.sourceBOQId.flatMap { getBOQ(id: $0) } }
+        var links: [ChainLink] = []
+        if let b = boq {
+            links.append(ChainLink(kind: "BOQ", id: b.id, number: b.boqNumber, status: b.status, url: "boq-editor.html?id=\(b.id)", current: kind == "boq" && b.id == id))
+        }
+        let chainQuotations = root.map { [$0] } ?? (kind == "boq" ? quotations.filter { $0.sourceBOQId == id }.sorted { $0.quotationNumber < $1.quotationNumber } : [])
+        for q in chainQuotations {
+            links.append(ChainLink(kind: "Quotation", id: q.id, number: q.quotationNumber, status: q.status, url: "quotation-editor.html?id=\(q.id)", current: kind == "quotation" && q.id == id))
+        }
+        let qids = Set(chainQuotations.map { $0.id })
+        var dnList = notes.filter { $0.sourceQuotationId.map { qids.contains($0) } ?? false }
+        // A delivery note made without a quotation: itself and its invoices.
+        if kind == "deliveryNote", root == nil, let dn = notes.first(where: { $0.id == id }) { dnList = [dn] }
+        let dnIds = Set(dnList.map { $0.id })
+        for dn in dnList.sorted(by: { $0.deliveryNoteNumber < $1.deliveryNoteNumber }) {
+            links.append(ChainLink(kind: "DeliveryNote", id: dn.id, number: dn.deliveryNoteNumber, status: dn.status, url: "delivery-note-editor.html?id=\(dn.id)", current: kind == "deliveryNote" && dn.id == id))
+        }
+        let invList = invoices.filter { inv in
+            (inv.sourceQuotationId.map { qids.contains($0) } ?? false) || (inv.sourceDeliveryNoteIds ?? []).contains { dnIds.contains($0) } || (kind == "invoice" && inv.id == id)
+        }
+        for inv in invList.sorted(by: { $0.invoiceNumber < $1.invoiceNumber }) {
+            links.append(ChainLink(kind: "Invoice", id: inv.id, number: inv.invoiceNumber, status: inv.status, url: "invoice-editor.html?id=\(inv.id)", current: kind == "invoice" && inv.id == id))
+        }
+        return links.count > 1 ? links : []
+    }
+
     /// One document's (or project's) names, for its page.
     func documentAuthors(kind: String, id rawId: String, number: String? = nil) -> DocAuthors {
         // A project can be asked for by its code.
@@ -3065,6 +3147,14 @@ final class AppDatabase {
 
     // ---- Tasks ----
 
+    /// "9:5" / "09:05" → "09:05"; nil if it isn't a time.
+    func validTime(_ value: String?) -> String? {
+        guard let v = nonBlank(value) else { return nil }
+        let parts = v.split(separator: ":").map { Int($0) }
+        guard parts.count == 2, let h = parts[0], let m = parts[1], (0..<24).contains(h), (0..<60).contains(m) else { return nil }
+        return String(format: "%02d:%02d", h, m)
+    }
+
     func isForMe(_ t: TeamTask) -> Bool {
         if let a = nonBlank(t.assignee) { return a.lowercased() == TeamSync.memberName.lowercased() }
         return (t.createdBy ?? "").lowercased() == TeamSync.memberName.lowercased()
@@ -3102,6 +3192,7 @@ final class AppDatabase {
             all[i].projectId = projectId
             all[i].assignee = text(payload, "assignee")
             all[i].dueDate = validDay(due)
+            all[i].dueTime = validDay(due) == nil ? nil : validTime(text(payload, "dueTime"))
             all[i].priority = priority
             all[i].updatedAt = nowISO()
             tasksStore.writeAll(all)
@@ -3110,7 +3201,9 @@ final class AppDatabase {
         let t = TeamTask(id: makeId("task"), title: title, notes: text(payload, "notes"), projectId: projectId, assignee: text(payload, "assignee"),
                          dueDate: validDay(due), priority: priority, done: false, doneAt: nil, doneBy: nil,
                          createdBy: TeamSync.memberName, createdAt: nowISO(), updatedAt: nowISO())
-        tasksStore.insert(t)
+        var task = t
+        task.dueTime = validDay(due) == nil ? nil : validTime(text(payload, "dueTime"))
+        tasksStore.insert(task)
         return LeadSaveResult(ok: true, error: nil, id: t.id)
     }
 
@@ -3166,7 +3259,7 @@ final class AppDatabase {
             let pcs = Int(d.quantities.values.reduce(0, +))
             events.append(CalendarEvent(date: day, kind: "Delivery", title: "Day \(d.day) — \(number)",
                                         detail: [pid.flatMap { projects[$0] }.map { "\($0.projectNumber) \($0.name)" }, "\(pcs) pcs", nonBlank(d.note)].compactMap { $0 }.joined(separator: " · "),
-                                        url: q != nil ? "quotation-editor.html?id=\(d.quotationId)" : "boq-editor.html?id=\(d.quotationId)", done: d.sent == true))
+                                        url: q != nil ? "quotation-editor.html?id=\(d.quotationId)" : "boq-editor.html?id=\(d.quotationId)", done: d.sent == true, time: d.time))
         }
         for dn in deliveryNotesStore.readAll() where dn.status != "Cancelled" {
             guard let day = inRange(dn.deliveryDate) else { continue }
@@ -3191,7 +3284,7 @@ final class AppDatabase {
         for row in listTasks() {
             guard let day = inRange(row.task.dueDate) else { continue }
             events.append(CalendarEvent(date: day, kind: "Task", title: row.task.title, detail: row.projectNumber.map { "\($0) \(row.projectName ?? "")" },
-                                        url: "tasks.html?task=\(row.task.id)", done: row.task.done, person: row.task.assignee, overdue: row.overdue))
+                                        url: "tasks.html?task=\(row.task.id)", done: row.task.done, person: row.task.assignee, overdue: row.overdue, time: row.task.dueTime))
         }
         for r in documentRows(withAuthors: false) {
             if r.kind == "Quotation", r.status == "Issued", let day = inRange(r.dueDate) {
@@ -4235,10 +4328,57 @@ final class AppDatabase {
 
     // ---- Bills of Quantities (Phase 7) ----
 
+    /// A BOQ's lines in its order: by item code (the default), by
+    /// description, or as arranged.
     private func lineItems(for boqId: String) -> [BOQLineItem] {
-        boqLineItemsStore.readAll()
-            .filter { $0.boqId == boqId }
-            .sorted { $0.sortOrder < $1.sortOrder }
+        sortedLines(boqLineItemsStore.readAll().filter { $0.boqId == boqId }, mode: getBOQ(id: boqId)?.lineSort,
+                    code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
+    }
+
+    func sortedLines<T>(_ lines: [T], mode: String?, code: (T) -> String, description: (T) -> String, order: (T) -> Int) -> [T] {
+        switch mode {
+        case "manual": return lines.sorted { order($0) < order($1) }
+        case "description":
+            return lines.sorted { a, b in
+                let c = description(a).localizedStandardCompare(description(b))
+                return c == .orderedSame ? order(a) < order(b) : c == .orderedAscending
+            }
+        default: return byItemCode(lines, code: code, order: order)
+        }
+    }
+
+    /// How a BOQ's items are listed. Switching to "As arranged" keeps the
+    /// order shown; linked quotations follow.
+    func setBOQLineSort(id: String, mode: String) -> String? {
+        guard ["code", "description", "manual"].contains(mode) else { return "Choose how to sort." }
+        let shown = lineItems(for: id)
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
+        guard boqs[i].status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        boqs[i].lineSort = mode == "code" ? nil : mode
+        boqs[i].updatedAt = nowISO()
+        boqsStore.writeAll(boqs)
+        if mode == "manual" { freezeBOQOrder(id: id, ids: shown.map { $0.id }) }
+        syncLinkedQuotations(boqId: id)
+        return nil
+    }
+
+    /// Stores an order as the BOQ's own (sortOrder 0, 1, 2…).
+    private func freezeBOQOrder(id: String, ids: [String]) {
+        var all = boqLineItemsStore.readAll()
+        let position = Dictionary(ids.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+        var changed = false
+        for i in all.indices where all[i].boqId == id {
+            if let p = position[all[i].id], all[i].sortOrder != p { all[i].sortOrder = p; changed = true }
+        }
+        if changed { boqLineItemsStore.writeAll(all) }
+    }
+
+    private func setBOQManual(_ id: String) {
+        var boqs = boqsStore.readAll()
+        guard let i = boqs.firstIndex(where: { $0.id == id }), boqs[i].lineSort != "manual" else { return }
+        boqs[i].lineSort = "manual"
+        boqsStore.writeAll(boqs)
     }
 
     private func grandTotal(for boqId: String) -> Double {
@@ -4496,6 +4636,7 @@ final class AppDatabase {
         detail.standardTerms = getCompanySettings().boqTerms
         detail.language = boq.language
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
+        detail.lineSort = boq.lineSort ?? "code"
         detail.linkedQuotations = quotationsStore.readAll().filter { $0.sourceBOQId == boq.id && $0.boqLinked == true }
             .sorted { $0.quotationNumber < $1.quotationNumber }
             .map { LinkedDocument(id: $0.id, number: $0.quotationNumber, status: $0.status) }
@@ -4625,7 +4766,8 @@ final class AppDatabase {
         var all = boqLineItemsStore.readAll()
         guard let target = all.first(where: { $0.id == id }) else { return "Line item not found." }
         guard let boq = getBOQ(id: target.boqId), boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
-        var lines = all.filter { $0.boqId == target.boqId }.sorted { $0.sortOrder < $1.sortOrder }
+        var lines = lineItems(for: target.boqId)
+        setBOQManual(target.boqId)
         guard let from = lines.firstIndex(where: { $0.id == id }) else { return nil }
         let to = from + (direction < 0 ? -1 : 1)
         guard to >= 0, to < lines.count else { return nil }
@@ -4645,9 +4787,11 @@ final class AppDatabase {
     func reorderBOQLineItems(boqId: String, ids: [String]) -> String? {
         guard let boq = getBOQ(id: boqId) else { return "BOQ not found." }
         guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        // Dragged: listed as arranged from now on.
+        let shownIds = lineItems(for: boqId).map { $0.id }
+        setBOQManual(boqId)
         var all = boqLineItemsStore.readAll()
-        let lines = all.filter { $0.boqId == boqId }.sorted { $0.sortOrder < $1.sortOrder }
-        for (order, lineId) in reordered(lines.map { $0.id }, by: ids).enumerated() {
+        for (order, lineId) in reordered(shownIds, by: ids).enumerated() {
             if let i = all.firstIndex(where: { $0.id == lineId }) { all[i].sortOrder = order }
         }
         boqLineItemsStore.writeAll(all)
@@ -4828,7 +4972,63 @@ final class AppDatabase {
     // ---- Quotations (Phase 8) ----
 
     private func quotationLineItems(for quotationId: String) -> [QuotationLineItem] {
-        byItemCode(quotationLineItemsStore.readAll().filter { $0.quotationId == quotationId }, code: { $0.itemCode }, order: { $0.sortOrder })
+        sortedLines(quotationLineItemsStore.readAll().filter { $0.quotationId == quotationId }, mode: getQuotation(id: quotationId)?.lineSort,
+                    code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
+    }
+
+    /// How a quotation's items are listed. Linked to a BOQ (a Draft), the
+    /// BOQ's is set too — the two keep one order.
+    func setQuotationLineSort(id: String, mode: String) -> String? {
+        guard ["code", "description", "manual"].contains(mode) else { return "Choose how to sort." }
+        guard let q = getQuotation(id: id) else { return "Quotation not found." }
+        guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        if q.boqLinked == true, let boqId = q.sourceBOQId, getBOQ(id: boqId)?.status == "Draft" {
+            if mode == "manual" { _ = reorderQuotationLines(quotationId: id, ids: quotationLineItems(for: id).map { $0.id }) }
+            return setBOQLineSort(id: boqId, mode: mode)
+        }
+        let shown = quotationLineItems(for: id)
+        var qs = quotationsStore.readAll()
+        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+        qs[i].lineSort = mode == "code" ? nil : mode
+        qs[i].updatedAt = nowISO()
+        quotationsStore.writeAll(qs)
+        if mode == "manual" { freezeQuotationOrder(id: id, ids: shown.map { $0.id }) }
+        return nil
+    }
+
+    private func freezeQuotationOrder(id: String, ids: [String]) {
+        var all = quotationLineItemsStore.readAll()
+        let position = Dictionary(ids.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+        for i in all.indices where all[i].quotationId == id {
+            if let p = position[all[i].id] { all[i].sortOrder = p }
+        }
+        quotationLineItemsStore.writeAll(all)
+    }
+
+    /// Lines dragged into a new order: listed as arranged from now on. A
+    /// linked quotation's BOQ takes the same order (and its other quotations).
+    func reorderQuotationLines(quotationId: String, ids: [String]) -> String? {
+        guard let q = getQuotation(id: quotationId) else { return "Quotation not found." }
+        guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        let shown = quotationLineItems(for: quotationId).filter { $0.blockId == nil }.map { $0.id }
+        let order = reordered(shown, by: ids)
+        freezeQuotationOrder(id: quotationId, ids: order)
+        var qs = quotationsStore.readAll()
+        if let i = qs.firstIndex(where: { $0.id == quotationId }) {
+            qs[i].lineSort = "manual"
+            qs[i].updatedAt = nowISO()
+            quotationsStore.writeAll(qs)
+        }
+        if q.boqLinked == true, let boqId = q.sourceBOQId, getBOQ(id: boqId)?.status == "Draft" {
+            let lines = quotationLineItemsStore.readAll().filter { $0.quotationId == quotationId }
+            let boqOrder = order.compactMap { id in lines.first { $0.id == id }?.boqLineId }
+            let rest = lineItems(for: boqId).map { $0.id }.filter { !boqOrder.contains($0) }
+            setBOQManual(boqId)
+            freezeBOQOrder(id: boqId, ids: boqOrder + rest)
+            touchBOQ(boqId)
+            syncLinkedQuotations(boqId: boqId, except: quotationId)
+        }
+        return nil
     }
 
     /// Document lines in item-code order ("1.2" before "1.10"); lines
@@ -5220,6 +5420,11 @@ final class AppDatabase {
             changed = true
         }
         let markup = linkedPricesPassStraight(boq) ? carriedMarkup(boq) : nil
+        // Listed in the BOQ's order (its sort, or as arranged on it).
+        if qs[qi].lineSort != boq.lineSort {
+            qs[qi].lineSort = boq.lineSort
+            changed = true
+        }
         if qs[qi].pricingMode != boq.pricingMode {
             if let project = projectsStore.readAll().first(where: { $0.id == qs[qi].projectId }),
                isAutoQuotationSubject(qs[qi].subject, projectName: project.name, pricingMode: qs[qi].pricingMode, structures: [boq.structure]) {
@@ -5513,6 +5718,7 @@ final class AppDatabase {
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
         detail.boqLinked = q.boqLinked == true && sourceBOQ != nil
+        detail.lineSort = q.lineSort ?? "code"
         detail.sourceBOQStatus = sourceBOQ?.status
         return detail
     }
@@ -5977,6 +6183,7 @@ final class AppDatabase {
             if text != nil && validDay(text) == nil { return "Enter a valid date." }
             all[i].date = validDay(text)
         }
+        if payload.keys.contains("time") { all[i].time = validTime(payload["time"] as? String) }
         if let sent = payload["sent"] as? Bool { all[i].sent = sent ? true : nil }
         if payload.keys.contains("note") { all[i].note = nonBlank(payload["note"] as? String) }
         if let quantities = payload["quantities"] as? [String: Any] {
@@ -6146,6 +6353,9 @@ final class AppDatabase {
                 let totals = invoiceTotals(inv, lineItems: items)
                 let status = isInvoiceOverdue(inv, balanceDue: totals.balanceDue, today: today) ? "Overdue" : inv.status
                 var summary = InvoiceSummary(id: inv.id, invoiceNumber: inv.invoiceNumber, status: status, itemCount: items.count, total: totals.total, amountPaid: inv.amountPaid, dueDate: inv.dueDate, createdAt: inv.createdAt)
+                summary.quotationNumber = inv.sourceQuotationId.flatMap { getQuotation(id: $0)?.quotationNumber }
+                let notes = deliveryNotesStore.readAll()
+                summary.deliveryNoteNumbers = (inv.sourceDeliveryNoteIds ?? []).compactMap { id in notes.first { $0.id == id }?.deliveryNoteNumber }
                 summary.createdBy = names[inv.id]?.createdBy
                 summary.lastEditedBy = names[inv.id]?.lastEditedBy
                 return summary
@@ -6166,7 +6376,29 @@ final class AppDatabase {
     /// when `includeDelivery` is set, and the priced sections' charges
     /// (design fees, erection…) when `includeOtherCharges` is. Rates-only
     /// rows and notes aren't copied.
-    func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String, rentalMonths: Int?, includeDelivery: Bool, includeOtherCharges: Bool = true) -> Result<Invoice, WorkerError> {
+    /// From delivery notes: what was delivered (their quantities, added
+    /// up), at the prices of the quotation they were made from. They must
+    /// all come from the same quotation.
+    func createInvoice(projectId: String, projectNumber: String, deliveryNoteIds: [String], rentalMonths: Int?, includeDelivery: Bool, includeOtherCharges: Bool = true) -> Result<Invoice, WorkerError> {
+        let all = deliveryNotesStore.readAll()
+        let notes = deliveryNoteIds.compactMap { id in all.first { $0.id == id } }
+        guard !notes.isEmpty, notes.allSatisfy({ $0.projectId == projectId }) else {
+            return .failure(WorkerError(message: "Choose this project's delivery notes to invoice."))
+        }
+        if let cancelled = notes.first(where: { $0.status == "Cancelled" }) {
+            return .failure(WorkerError(message: "\(cancelled.deliveryNoteNumber) is cancelled."))
+        }
+        let sources = Set(notes.map { $0.sourceQuotationId ?? "" })
+        guard sources.count == 1, let quotationId = sources.first, !quotationId.isEmpty else {
+            return .failure(WorkerError(message: sources.contains("")
+                ? "A delivery note that isn't based on a quotation has no prices. Make it from a quotation (or import one into it) first."
+                : "Those delivery notes come from different quotations. Invoice each quotation's deliveries separately."))
+        }
+        return createInvoice(projectId: projectId, projectNumber: projectNumber, sourceQuotationId: quotationId, rentalMonths: rentalMonths,
+                             includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges, deliveryNotes: notes)
+    }
+
+    func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String, rentalMonths: Int?, includeDelivery: Bool, includeOtherCharges: Bool = true, deliveryNotes: [DeliveryNote] = []) -> Result<Invoice, WorkerError> {
         guard let quotation = getQuotation(id: sourceQuotationId), quotation.projectId == projectId else {
             return .failure(WorkerError(message: "Choose one of this project's quotations to base the invoice on."))
         }
@@ -6189,13 +6421,17 @@ final class AppDatabase {
         )
         invoice.pricingMode = quotation.pricingMode
         invoice.rentalMonths = isRental ? max(1, rentalMonths ?? 1) : nil
+        invoice.sourceDeliveryNoteIds = deliveryNotes.isEmpty ? nil : deliveryNotes.map { $0.id }
         invoicesStore.insert(invoice)
         let charge = isRental ? " — \(invoice.rentalMonths ?? 1) month\((invoice.rentalMonths ?? 1) == 1 ? "" : "s") rental" : ""
-        logActivity(projectId: projectId, "Invoice created from \(quotation.quotationNumber)\(charge)", reference: invoice.invoiceNumber)
+        let from = deliveryNotes.isEmpty ? quotation.quotationNumber : "\(deliveryNotes.map { $0.deliveryNoteNumber }.joined(separator: ", ")) (\(quotation.quotationNumber))"
+        logActivity(projectId: projectId, "Invoice created from \(from)\(charge)", reference: invoice.invoiceNumber)
 
         // Prices as charged on the quotation (with its markup).
         let allItems = quotationLineItems(for: quotation.id)
-        var sourceItems = allItems.filter { isMaterialLine($0) || (includeDelivery && isDeliveryLine($0)) }
+        // The materials: the quotation's, or what the delivery notes delivered.
+        let materials = deliveryNotes.isEmpty ? allItems.filter { isMaterialLine($0) } : deliveredLines(deliveryNotes, quotation: quotation, quotationLines: allItems)
+        var sourceItems = (materials + allItems.filter { includeDelivery && isDeliveryLine($0) })
             .map { (line: $0, block: QuotationBlock?.none) }
         if includeOtherCharges {
             for block in quotationBlocks(for: quotation.id) where block.kind == "Priced" {
@@ -6220,7 +6456,7 @@ final class AppDatabase {
         // The quotation's minimum monthly rental charge carries over as a
         // line after the materials (charged for each month, like them).
         var lines = copied
-        let money = quotationMoney(quotation, lineItems: allItems)
+        let money = quotationMoney(quotation, lineItems: deliveryNotes.isEmpty ? allItems : materials + allItems.filter { !isMaterialLine($0) })
         if money.minimumApplied {
             let adjustment = doubleOf(roundToCents(decimalOf(money.monthlyRental) - decimalOf(money.materialsSubtotal)))
             let position = sourceItems.filter { isMaterialLine($0.line) }.count
@@ -6233,6 +6469,44 @@ final class AppDatabase {
         }
         invoiceLineItemsStore.insertMany(lines)
         return .success(invoice)
+    }
+
+    /// What delivery notes delivered, item by item (quantities added up),
+    /// as quotation lines priced as on the quotation: an item quoted keeps
+    /// its price and discount (an amount off is shared in proportion); one
+    /// that wasn't quoted takes its material-list price.
+    func deliveredLines(_ notes: [DeliveryNote], quotation: Quotation, quotationLines: [QuotationLineItem]) -> [QuotationLineItem] {
+        var order: [String] = []
+        var quantity: [String: Double] = [:]
+        var sample: [String: DeliveryNoteLineItem] = [:]
+        for note in notes {
+            for l in deliveryNoteLineItems(for: note.id) where l.quantity > 0 {
+                let key = l.priceListItemId ?? "\(l.itemCode)|\(l.itemDescription)|\(l.unit)"
+                if sample[key] == nil { sample[key] = l; order.append(key) }
+                quantity[key, default: 0] += l.quantity
+            }
+        }
+        let quoted = quotationLines.filter { isMaterialLine($0) }
+        let rates = conversionRates()
+        return order.enumerated().compactMap { index, key -> QuotationLineItem? in
+            guard let d = sample[key] else { return nil }
+            let q = (quantity[key] ?? 0).rounded()
+            let match = quoted.first { m in
+                d.priceListItemId != nil ? m.priceListItemId == d.priceListItemId : m.itemCode == d.itemCode && m.itemDescription == d.itemDescription
+            }
+            if var line = match {
+                if line.discountType == "Amount", let v = line.discountValue, line.quantity > 0 {
+                    line.discountValue = doubleOf(roundToCents(decimalOf(v) * decimalOf(q) / decimalOf(line.quantity)))
+                }
+                line.quantity = q
+                line.sortOrder = index
+                return line
+            }
+            let price = d.priceListItemId.flatMap { priceListItem(id: $0) }.flatMap { basePrice($0, mode: quotation.pricingMode, rates: rates) } ?? 0
+            return QuotationLineItem(id: "delivered-\(index)", quotationId: quotation.id, sourceKey: d.sourceKey, priceListItemId: d.priceListItemId,
+                                     itemCode: d.itemCode, itemDescription: d.itemDescription, unit: d.unit, quantity: q,
+                                     appliedUnitPrice: price, section: d.section, sortOrder: index, priceListUnitPrice: price)
+        }
     }
 
     /// Rental invoices: months charged and the period text (Draft only).
@@ -6440,12 +6714,18 @@ final class AppDatabase {
 
     func listDeliveryNoteSummaries(projectId: String) -> [DeliveryNoteSummary] {
         let names = authorsByRecord("delivery_notes.json")
+        let quotationNumbers = Dictionary(quotationsStore.readAll().map { ($0.id, $0.quotationNumber) }, uniquingKeysWith: { a, _ in a })
+        let invoices = invoicesStore.readAll().filter { $0.projectId == projectId && $0.status != "Cancelled" }
         return deliveryNotesStore.readAll()
             .filter { $0.projectId == projectId }
             .sorted { $0.deliveryNoteNumber > $1.deliveryNoteNumber }
             .map { dn in
                 let items = deliveryNoteLineItems(for: dn.id)
                 var summary = DeliveryNoteSummary(id: dn.id, deliveryNoteNumber: dn.deliveryNoteNumber, status: dn.status, itemCount: items.count, deliveryDate: dn.deliveryDate, createdAt: dn.createdAt)
+                summary.sourceQuotationId = dn.sourceQuotationId
+                summary.quotationNumber = dn.sourceQuotationId.flatMap { quotationNumbers[$0] }
+                summary.invoiceNumbers = invoices.filter { ($0.sourceDeliveryNoteIds ?? []).contains(dn.id) }.map { $0.invoiceNumber }.sorted()
+                summary.totalQuantity = items.reduce(0) { $0 + $1.quantity }
                 summary.createdBy = names[dn.id]?.createdBy
                 summary.lastEditedBy = names[dn.id]?.lastEditedBy
                 return summary
@@ -8367,6 +8647,9 @@ final class PDFGenerator {
         for (i, signature) in signatures.prefix(2).enumerated() {
             let column = columns[i]
             text(signature.heading, x: column.textX, baseline: baseline, font: font)
+            if let sub = signature.subheading {
+                text(sub, x: column.textX, baseline: baseline + 14.0, font: font)
+            }
             let ruleY = baseline + 75.75
             fill(column.ruleX, ruleY, column.ruleWidth, 0.75, .black)
             for (j, line) in signature.lines.enumerated() {
@@ -8485,7 +8768,7 @@ final class PDFGenerator {
             intro: nonBlank(doc.intro), currencySymbol: doc.currencySymbol,
             columns: doc.columns.map { WordColumn(title: $0.title, width: Double($0.width), kind: "\($0.kind)") },
             rows: rows, sections: sections,
-            signatures: doc.signatures.map { WordSignature(heading: $0.heading, lines: $0.lines.map { WordSignatureLine(text: $0.text, colon: $0.colon, value: $0.value) }) },
+            signatures: doc.signatures.map { WordSignature(heading: $0.heading, subheading: $0.subheading, lines: $0.lines.map { WordSignatureLine(text: $0.text, colon: $0.colon, value: $0.value) }) },
             closingLine: nonBlank(doc.closingLine),
             infoRows: doc.infoRows.map { WordInfoRow(label: $0.label, lines: infoValueLines($0), bold: $0.boldValue) },
             headerHeight: Double(headerHeight),
@@ -11808,6 +12091,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "boq:moveLineItem":
             let error = db.moveBOQLineItem(id: (payload["id"] as? String) ?? "", direction: (payload["direction"] as? Int) ?? 1)
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "boq:setLineSort":
+            let error = db.setBOQLineSort(id: (payload["id"] as? String) ?? "", mode: (payload["mode"] as? String) ?? "code")
+            respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "quotations:setLineSort":
+            let error = db.setQuotationLineSort(id: (payload["id"] as? String) ?? "", mode: (payload["mode"] as? String) ?? "code")
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:reorderLineItems":
+            let error = db.reorderQuotationLines(quotationId: (payload["quotationId"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "boq:reorderLineItems":
             let error = db.reorderBOQLineItems(boqId: (payload["boqId"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
@@ -11892,6 +12184,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "marketing:convertLead":
             respond(id: id, encodable: db.convertLead(id: (payload["id"] as? String) ?? ""))
+        case "documents:chain":
+            respond(id: id, encodable: db.documentChain(kind: (payload["kind"] as? String) ?? "", id: (payload["id"] as? String) ?? ""))
         case "users:profiles":
             respond(id: id, encodable: db.userProfiles())
         case "users:page":
@@ -11909,6 +12203,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: SimpleResult(ok: false, error: "The shared folder can't be found."))
             }
+        case "app:updates":
+            // Settings › Updates: { automatic? } changes the setting; "check" checks now.
+            if let auto = payload["automatic"] as? Bool { AppDelegate.autoUpdate = auto }
+            if (payload["check"] as? Bool) == true { (NSApp.delegate as? AppDelegate)?.checkForUpdates(manual: true) }
+            respond(id: id, encodable: ["automatic": AppDelegate.autoUpdate])
         case "app:relaunch":
             respondNull(id: id)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { relaunchApp() }
@@ -12347,11 +12646,19 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respondError(id: id, message: "Missing project.")
             return
         }
-        switch db.createInvoice(projectId: projectId, projectNumber: projectNumber,
-                                sourceQuotationId: (payload["quotationId"] as? String) ?? "",
-                                rentalMonths: payload["rentalMonths"] as? Int,
-                                includeDelivery: (payload["includeDelivery"] as? Bool) ?? true,
-                                includeOtherCharges: (payload["includeOtherCharges"] as? Bool) ?? true) {
+        // From delivery notes (what was delivered), or a whole quotation.
+        let noteIds = (payload["deliveryNoteIds"] as? [String]) ?? []
+        let result = noteIds.isEmpty
+            ? db.createInvoice(projectId: projectId, projectNumber: projectNumber,
+                               sourceQuotationId: (payload["quotationId"] as? String) ?? "",
+                               rentalMonths: payload["rentalMonths"] as? Int,
+                               includeDelivery: (payload["includeDelivery"] as? Bool) ?? true,
+                               includeOtherCharges: (payload["includeOtherCharges"] as? Bool) ?? true)
+            : db.createInvoice(projectId: projectId, projectNumber: projectNumber, deliveryNoteIds: noteIds,
+                               rentalMonths: payload["rentalMonths"] as? Int,
+                               includeDelivery: (payload["includeDelivery"] as? Bool) ?? true,
+                               includeOtherCharges: (payload["includeOtherCharges"] as? Bool) ?? true)
+        switch result {
         case .success(let invoice): respond(id: id, encodable: invoice)
         case .failure(let e): respondError(id: id, message: e.message)
         }
@@ -12832,11 +13139,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     }
 
     /// "For and on Behalf of" the company, with the signatory from Settings.
-    private func companySignature(_ company: CompanySettings) -> LetterSignature {
-        var lines = [LetterSignatureLine(text: company.companyName)]
+    /// `nameUnderHeading`: the company's name right under the heading
+    /// (quotations), not under the signing line.
+    private func companySignature(_ company: CompanySettings, nameUnderHeading: Bool = false) -> LetterSignature {
+        var lines = nameUnderHeading ? [] : [LetterSignatureLine(text: company.companyName)]
         if let name = nonBlank(company.signatoryName) { lines.append(LetterSignatureLine(text: name)) }
         if let title = nonBlank(company.signatoryTitle) { lines.append(LetterSignatureLine(text: title)) }
-        return LetterSignature(heading: "For and on Behalf of", lines: lines)
+        return LetterSignature(heading: "For and on Behalf of", subheading: nameUnderHeading ? company.companyName : nil, lines: lines)
     }
 
     private func remarks(_ notes: String?) -> [LetterSection] {
@@ -13118,10 +13427,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
             sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
                                                                       alwaysNewPage: company.termsNewPage == "Always")],
+            // The company's name right under "For and on Behalf of" (who
+            // signs under the line); the client's side is "Accepted By".
             signatures: [
-                companySignature(company),
-                LetterSignature(heading: "For and on Behalf of", lines: [
-                    LetterSignatureLine(text: client.name),
+                companySignature(company, nameUnderHeading: true),
+                LetterSignature(heading: "Accepted By", subheading: client.name, lines: [
                     LetterSignatureLine(text: "Position", colon: true),
                     LetterSignatureLine(text: "Date", colon: true),
                 ]),
@@ -15201,7 +15511,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             DispatchQueue.main.async {
                 self.checkingForUpdates = false
                 if self.launchDecided {
-                    if let info = info { self.offerUpdate(info) }
+                    if let info = info { self.offerOrUpdate(info) }
                     return
                 }
                 self.afterLaunchAnimation {
@@ -15236,7 +15546,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         screen.setTitle("A new version is available")
         screen.show(text, "Update now: it's downloaded and built here (about a minute), then ScaffoldPro opens again by itself.", progress: nil)
         screen.hideProgress()
-        screen.setButtons(["Update Now", "Later"]) { [weak self] index in
+        let begin: (Int) -> Void = { [weak self] index in
             guard let self = self else { return }
             guard index == 0 else { self.finishLaunching(); return }
             guard let u = Updater(screen: screen) else {
@@ -15252,6 +15562,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
                 self?.finishLaunching()
             }
             u.start()
+        }
+        // Updating automatically (Settings › Updates): nothing is open yet,
+        // so it simply goes ahead.
+        if AppDelegate.autoUpdate { begin(0) } else { screen.setButtons(["Update Now", "Later"], begin) }
+    }
+
+    /// Settings › Updates: update by itself when a new version is found.
+    static let autoUpdateKey = "updates.automatic"
+    static var autoUpdate: Bool {
+        get { UserDefaults.standard.object(forKey: autoUpdateKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: autoUpdateKey) }
+    }
+
+    private var updateTimer: Timer?
+    private var updatePostponedUntil = Date.distantPast
+
+    /// While ScaffoldPro is open: every 30 minutes, is there a newer
+    /// version? If so (and updating automatically), it saves what's open,
+    /// makes a backup and updates — after a 15-second warning that can put
+    /// it off for an hour.
+    private func startUpdateWatch() {
+        updateTimer?.invalidate()
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { [weak self] _ in self?.backgroundUpdateCheck() }
+    }
+
+    private func backgroundUpdateCheck() {
+        guard AppDelegate.autoUpdate, UpdateChecker.canCheck, !checkingForUpdates, updater == nil, Date() >= updatePostponedUntil else { return }
+        checkingForUpdates = true
+        DispatchQueue.global(qos: .utility).async {
+            let info = UpdateChecker.check()
+            DispatchQueue.main.async {
+                self.checkingForUpdates = false
+                guard let info = info, let installer = info.installer else { return }
+                self.updateAutomatically(info, installer: installer)
+            }
+        }
+    }
+
+    private func updateAutomatically(_ info: UpdateInfo, installer: URL) {
+        guard updater == nil else { return }
+        let latest = nonBlank(info.latest).map { "Latest: “\($0)”." } ?? ""
+        let js = "return window.appUpdateCountdown ? await window.appUpdateCountdown(15, latest) : 'now';"
+        let proceed: () -> Void = { [weak self] in
+            guard let self = self else { return }
+            // A backup first (in the background), then the update.
+            DispatchQueue.global(qos: .userInitiated).async {
+                _ = try? self.bridge.backups.createBackup(kind: "Before Update")
+                DispatchQueue.main.async {
+                    self.bridge.db.logActivity(projectId: nil, "Backup made before updating ScaffoldPro")
+                    self.startUpdate(fallbackInstaller: installer)
+                }
+            }
+        }
+        guard let webView = webView else { proceed(); return }
+        webView.callAsyncJavaScript(js, arguments: ["latest": latest], in: nil, in: .page) { [weak self] result in
+            if case .success(let value) = result, (value as? String) == "later" {
+                self?.updatePostponedUntil = Date().addingTimeInterval(3600)
+                return
+            }
+            proceed()
         }
     }
 
@@ -15275,6 +15645,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         bridge.startScheduledBackups()
         // If the last update couldn't be put in place, say why.
         Updater.reportPreviousFailure(in: window)
+        // Keep checking for updates while it's open.
+        startUpdateWatch()
         launchScreen?.close()
         launchScreen = nil
     }
@@ -15298,7 +15670,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             let info = UpdateChecker.check()
             DispatchQueue.main.async {
                 self.checkingForUpdates = false
-                if let info = info { self.offerUpdate(info) }
+                if let info = info { if manual { self.offerUpdate(info) } else { self.offerOrUpdate(info) } }
                 else if manual { self.showUpdateAlert("ScaffoldPro is up to date", "This is the latest version on GitHub (as far as can be checked from this Mac).") }
             }
         }
@@ -15347,6 +15719,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             alert.informativeText = text
             if let window = self?.window { alert.beginSheetModal(for: window) } else { alert.runModal() }
         }, answer: { _ in })
+    }
+
+    /// Updating automatically: goes ahead (after saving and a warning);
+    /// otherwise asks.
+    private func offerOrUpdate(_ info: UpdateInfo) {
+        if AppDelegate.autoUpdate, let installer = info.installer { updateAutomatically(info, installer: installer) } else { offerUpdate(info) }
     }
 
     private func offerUpdate(_ info: UpdateInfo) {

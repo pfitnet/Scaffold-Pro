@@ -408,6 +408,11 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .modal .field { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
 .modal .field label { font-size: 12px; color: var(--text-secondary); }
 .modal .field input, .modal .field select { width: 100%; }
+/* Tick boxes and radio buttons keep their own size (not the full width). */
+.modal .field input[type="radio"], .modal .field input[type="checkbox"] { width: auto; flex: none; margin: 0; }
+.modal .inline-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.modal .choice-group { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.modal .choice-group input[type="number"] { width: 64px; }
 .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .modal .actions .left { margin-right: auto; }
 
@@ -805,15 +810,20 @@ tbody.combined-rows tr.combined-head td {
 tbody.combined-rows tr.combined-row td:not(.check-col):nth-child(2) { box-shadow: inset 3px 0 0 var(--border-strong); }
 tbody.combined-rows tr.combined-row td { background: color-mix(in srgb, var(--panel) 70%, var(--bg)); }
 
-/* Drawings / documents in brackets: a BOQ with its quotations, one on its own, or not linked. */
-table.file-groups tbody.file-group tr.file-group-head td {
-  background: var(--header-bg); font-size: 12px; padding-top: 9px; padding-bottom: 7px;
-  border-top: 1px solid var(--border); box-shadow: inset 3px 0 0 var(--border-strong);
-}
-table.file-groups tbody.file-group:first-of-type tr.file-group-head td { border-top: none; }
+/* Drawings / documents in brackets that fold open and shut: a BOQ with its
+   quotations, one on its own, or not linked. */
+.file-accordion { display: flex; flex-direction: column; gap: 10px; }
+.file-group-card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
+.file-group-card > table { border: none; border-radius: 0; margin: 0; border-top: 1px solid var(--border); }
+.file-group-card.folded > table { display: none; }
+button.file-group-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; border-radius: 0;
+  background: var(--header-bg); box-shadow: inset 3px 0 0 var(--border-strong); text-align: left; font-size: 13px; cursor: pointer; }
+button.file-group-head:hover { background: var(--row-hover); }
+.file-group-head .chev { display: inline-block; transition: transform 0.15s ease; color: var(--text-tertiary); transform: rotate(90deg); font-size: 15px; width: 10px; }
+.file-group-card.folded .file-group-head .chev { transform: rotate(0deg); }
 .file-group-title { font-weight: 600; color: var(--text); }
-.file-group-count { float: right; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-table.file-groups tbody.file-group tr:not(.file-group-head) td:first-child { padding-left: 20px; }
+.file-group-sub { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.file-group-count { margin-left: auto; color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
 
 /* Scaffold inspections: each structure's next inspection, then the register. */
 .insp-due { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -832,3 +842,40 @@ tr.task-done .task-title { text-decoration: line-through; color: var(--text-tert
 .task-overdue { color: var(--danger); font-weight: 500; }
 .status-pill.task-high { font-size: 10px; padding: 0 6px; }
 .panel-title .panel-link { float: right; font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+/* Under a document's title: BOQ › Quotation › Delivery Notes › Invoices. */
+.doc-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; }
+.chain-step { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.chain-kind { color: var(--text-tertiary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+.chain-doc { padding: 1px 7px; border-radius: 9px; background: var(--hairline); color: var(--text); text-decoration: none; }
+a.chain-doc:hover { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+.chain-doc.current { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chain-arrow { color: var(--text-tertiary); }
+
+/* New Invoice: the delivery notes to bill, grouped by quotation. */
+.dn-pick { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: var(--content); }
+.dn-pick .dn-group { font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 6px 0 2px; text-transform: uppercase; letter-spacing: 0.03em; }
+.dn-pick .dn-group:first-child { margin-top: 0; }
+.dn-pick label { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 13px; color: var(--text); padding: 3px 2px; }
+.dn-pick label .muted { font-size: 12px; }
+
+/* "Line Items" with how they're sorted. */
+.lines-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.lines-head h2 { margin: 0 auto 0 0; }
+.lines-head .sort-label { font-size: 12px; color: var(--text-secondary); }
+.lines-head select { font-size: 12px; }
+.due-row { display: flex; gap: 6px; }
+.due-row input[type="time"] { width: 110px !important; flex: none; }
+th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2px 4px; }
+
+/* Dashboard widgets: Customise to move, resize, hide or show them. */
+.dash-grid > .widget-wide { grid-column: 1 / -1; }
+.dash-grid > .widget-off { display: none; }
+.dash-grid.customising > .widget-off { display: block; opacity: 0.45; }
+.dash-grid.customising > .widget-off > :not(.widget-bar) { display: none; }
+.dash-grid.customising > [data-widget] { outline: 1px dashed var(--border-strong); outline-offset: 2px; }
+.widget-bar { display: flex; align-items: center; gap: 8px; margin: -4px -4px 10px; padding: 4px 6px; border-radius: 6px; background: var(--header-bg); font-size: 12px; }
+.widget-bar .widget-name { flex: 1; font-weight: 600; color: var(--text-secondary); }
+.widget-bar button { font-size: 11px; padding: 1px 8px; }
+.widget-grip { cursor: grab; color: var(--text-tertiary); display: inline-flex; padding: 2px; touch-action: none; }
+.widget-dragging { opacity: 0.6; box-shadow: var(--shadow-sheet); }

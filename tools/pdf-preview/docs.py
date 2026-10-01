@@ -78,7 +78,7 @@ def quotation(status='Issued'):
         deliveryMethod='BY EMAIL ONLY',salutation='Dear Sir / Madam,',subject='Re: 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez',
         intro='We thank you for your inquiry related to the item above, the following is our quotation on the job.',cur='HK$',columns=PRICED,rows=rows,
         sections=[{'heading':'Terms and Conditions','paragraphs':terms,'keepTogether':True}],
-        signatures=[companySig(),{'heading':'For and on Behalf of','lines':[(client[0],False,None),('Position',True,None),('Date',True,None)]}],
+        signatures=[{'heading':'For and on Behalf of','subheading':'Proficiency (HK) Limited','lines':[('Richard Kwan',False,None),('Director',False,None)]},{'heading':'Accepted By','subheading':client[0],'lines':[('Position',True,None),('Date',True,None)]}],
         closing='-[Remainder of this page is intentionally left blank]-')
 def invoice():
     rows=[('item',[str(i+1),d,money(p),str(q),money(p*q)]) for i,(d,p,q) in enumerate(items[:6])]

@@ -19,7 +19,7 @@
         <div class="form-grid">
           <div class="field span-2"><label for="tk-text">What needs doing</label><input type="text" id="tk-text" placeholder="e.g. Send revised BOQ to Mr. Law" /></div>
           <div class="field"><label for="tk-assignee">For</label><input type="text" id="tk-assignee" list="tk-people" placeholder="Anyone" /><datalist id="tk-people"></datalist></div>
-          <div class="field"><label for="tk-due">Due</label><input type="date" id="tk-due" /></div>
+          <div class="field"><label for="tk-due">Due</label><div class="due-row"><input type="date" id="tk-due" /><input type="time" id="tk-time" title="At a time (optional)" /></div></div>
           <div class="field"><label for="tk-project">Project</label><select id="tk-project"></select></div>
           <div class="field"><label for="tk-priority">Priority</label><select id="tk-priority"><option value="">Normal</option><option value="High">High</option></select></div>
           <div class="field span-2"><label for="tk-notes">Notes</label><input type="text" id="tk-notes" /></div>
@@ -42,7 +42,8 @@
       $('tk-title').textContent = task ? 'Edit Task' : 'New Task';
       $('tk-text').value = task ? task.title : '';
       $('tk-assignee').value = task ? (task.assignee || '') : (opts.assignee || '');
-      $('tk-due').value = task ? (task.dueDate || '') : '';
+      $('tk-due').value = task ? (task.dueDate || '') : (opts.dueDate || '');
+      $('tk-time').value = task ? (task.dueTime || '') : (opts.dueTime || '');
       $('tk-priority').value = task && task.priority === 'High' ? 'High' : '';
       $('tk-notes').value = task ? (task.notes || '') : '';
       $('tk-people').innerHTML = (opts.people || []).map((n) => `<option value="${esc(n)}"></option>`).join('');
@@ -65,7 +66,7 @@
       const save = async () => {
         const r = await window.api.tasks.save({
           id: task ? task.id : null, title: $('tk-text').value.trim(), assignee: $('tk-assignee').value.trim(),
-          dueDate: $('tk-due').value, projectId: $('tk-project').value || null, priority: $('tk-priority').value, notes: $('tk-notes').value.trim(),
+          dueDate: $('tk-due').value, dueTime: $('tk-time').value, projectId: $('tk-project').value || null, priority: $('tk-priority').value, notes: $('tk-notes').value.trim(),
         });
         if (!r || !r.ok) {
           $('tk-error').textContent = (r && r.error) || 'The task couldn’t be saved.';
@@ -121,7 +122,7 @@
         ${t.notes ? `<div class="sub">${esc(t.notes)}</div>` : ''}
         ${!opts.hideProject && row.projectNumber ? `<div class="sub"><a href="project-detail.html?number=${encodeURIComponent(row.projectNumber)}&tab=tasks">${esc(row.projectNumber)} ${esc(row.projectName || '')}</a></div>` : ''}</td>
       <td>${t.assignee ? window.personTag(t.assignee) : '<span class="muted">Anyone</span>'}</td>
-      <td class="nowrap ${row.overdue ? 'task-overdue' : 'muted'}">${t.done ? `Done${t.doneBy ? ` by ${esc(t.doneBy)}` : ''}` : due ? `${row.overdue ? 'Overdue · ' : ''}${due}` : ''}</td>
+      <td class="nowrap ${row.overdue ? 'task-overdue' : 'muted'}">${t.done ? `Done${t.doneBy ? ` by ${esc(t.doneBy)}` : ''}` : due ? `${row.overdue ? 'Overdue · ' : ''}${due}${t.dueTime ? ` ${esc(t.dueTime)}` : ''}` : ''}</td>
     </tr>`;
   };
 })();

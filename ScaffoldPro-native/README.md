@@ -1889,3 +1889,60 @@ under "Letterhead layout".
   are the chosen day's items and the next 14 days. Every item opens what
   it's about.
 - Calendar and Tasks are in the sidebar (under Dashboard) and the Go menu.
+
+## Batch 75 — Quotation › Delivery Note › Invoice, line sorting, a weekly Calendar, Dashboard widgets, automatic updates
+
+- **Quotation › Delivery Note › Invoice are linked.**
+  - **New Delivery Note** is made from a quotation (chosen in a sheet). It
+    starts with the quotation's materials.
+  - **New Invoice** is made from delivery notes: what they delivered (added
+    up), at the prices of the quotation they were made from (its markup and
+    discounts). Items not quoted take their material-list price.
+    - Notes are ticked in groups by quotation, with ones not yet invoiced
+      ticked first; notes from different quotations can't be mixed.
+    - A whole quotation can still be invoiced (e.g. a deposit).
+    - `Invoice.sourceDeliveryNoteIds`; `createInvoice(deliveryNoteIds:)`.
+  - Every BOQ, quotation, delivery note and invoice shows its chain under
+    its title: BOQ › Quotation › Delivery Notes › Invoices
+    (`documents:chain`).
+  - Delivery notes say which quotation they're for and which invoices bill
+    them; invoices say which notes they bill.
+  - **New Invoice sheet fixed:** the radio buttons and tick boxes were
+    stretched across the sheet, so their labels sat on the far right.
+- **Sorting items (BOQs and quotations).**
+  - The default is by item code; "By description" and "As arranged
+    (drag)" are the other choices.
+  - Dragging a line (quotations can now be dragged too) switches to "As
+    arranged" and keeps that order.
+  - A BOQ's sort and order are its linked quotations' too. Dragging a
+    linked quotation's lines re-orders its BOQ the same way.
+- **Calendar: week view** (the new default), with days across and hours
+  down.
+  - Things without a time are in the all-day row; a red line shows the
+    time now.
+  - Click an empty hour to add a task then.
+  - Tasks and delivery-schedule days can now have a time.
+  - "Month" switches to the month view; the choice is remembered.
+- **Dashboard widgets.** "Customise" lets you drag the panels into your own
+  order, make one full width or half, and hide or show them. "Reset
+  Layout" goes back to the default. The layout is remembered for each
+  person on each Mac.
+- **Drawings and documents in folding brackets.** Each group (a BOQ with
+  its quotations, one on its own, or not linked) is a card with its own
+  table that folds open and shut. Folded ones are remembered.
+- **Quotation signatures.**
+  - The company's name is now directly under "For and on Behalf of", with
+    the signatory and title under the signing line.
+  - The client's side reads "Accepted By" with the client's name under it.
+  - The PDF and Word copy both changed.
+- **Automatic updates** (Settings › Updates, on by default).
+  - ScaffoldPro checks for a new version when it opens and every 30 minutes
+    while it's open.
+  - When one is found it warns for 15 seconds ("Later" puts it off an
+    hour), then:
+    1. saves what's open: the field being typed in, unsaved settings, the
+       letter being written;
+    2. makes a backup ("Before Update");
+    3. updates, and opens again by itself.
+  - At launch it just updates.
+  - Turned off, it asks first, as before.

@@ -155,7 +155,15 @@
         </div>
 
         <div>
-          <h2>Line Items</h2>
+          <div class="lines-head">
+            <h2>Line Items</h2>
+            <label class="sort-label" for="line-sort">Sort</label>
+            <select id="line-sort" title="How the items are listed and printed. Dragging a line switches to “As arranged”.">
+              <option value="code">By item code</option>
+              <option value="description">By description</option>
+              <option value="manual">As arranged (drag)</option>
+            </select>
+          </div>
           <div id="line-items"></div>
           <details class="custom-item" id="custom-item-box">
             <summary>+ Add a custom item (not on a price list)</summary>

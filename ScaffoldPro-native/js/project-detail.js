@@ -199,7 +199,9 @@ async function refreshInvoiceList() {
     tr.onclick = () => { location.href = `invoice-editor.html?id=${inv.id}`; };
     tr.dataset.id = inv.id;
     tr.innerHTML = `${selections.invoice.cell(inv.id)}
-      <td>${inv.invoiceNumber}</td>
+      <td>${esc(inv.invoiceNumber)}${inv.deliveryNoteNumbers && inv.deliveryNoteNumbers.length
+        ? `<div class="sub">From ${esc(inv.deliveryNoteNumbers.join(', '))}${inv.quotationNumber ? ` (${esc(inv.quotationNumber)})` : ''}</div>`
+        : inv.quotationNumber ? `<div class="sub">From ${esc(inv.quotationNumber)}</div>` : ''}</td>
       <td><span class="status-pill">${inv.status}</span></td>
       ${window.createdByCell(inv)}
       <td>${inv.dueDate || '—'}</td>
@@ -238,7 +240,8 @@ async function refreshDeliveryNoteList() {
     tr.onclick = () => { location.href = `delivery-note-editor.html?id=${dn.id}`; };
     tr.dataset.id = dn.id;
     tr.innerHTML = `${selections.delivery.cell(dn.id)}
-      <td>${dn.deliveryNoteNumber}</td>
+      <td>${esc(dn.deliveryNoteNumber)}${dn.quotationNumber ? `<div class="sub">For ${esc(dn.quotationNumber)}</div>` : ''}${dn.invoiceNumbers && dn.invoiceNumbers.length
+        ? `<div class="sub">Invoiced in ${esc(dn.invoiceNumbers.join(', '))}</div>` : ''}</td>
       <td><span class="status-pill">${dn.status}</span></td>
       ${window.createdByCell(dn)}
       <td>${(dn.deliveryDate || '').slice(0, 10)}</td>
@@ -290,21 +293,36 @@ function renderFileList(containerId, items, api, opts) {
   }
 
   const headerCells = ['Name', ...(opts.showCategory ? ['Category'] : []), ...(opts.linkChoices ? ['For'] : []), 'Type', 'Size', 'Uploaded', 'Description', ''];
-  const table = document.createElement('table');
-  table.innerHTML = `<thead><tr>${headerCells.map((h) => `<th>${h}</th>`).join('')}</tr></thead>`;
-  // In brackets: each BOQ with its quotations, a quotation or BOQ on its
-  // own, then the files not linked to either.
+  // In brackets, each one folding open and shut: each BOQ with its
+  // quotations, a quotation or BOQ on its own, then the files not linked
+  // to either. Which are folded is remembered on this Mac.
   const groups = fileGroups(items);
-  table.classList.add('no-sort', 'file-groups');
+  const stateKey = `files-folded:${currentProject.projectNumber}:${containerId}`;
+  let folded = {};
+  try { folded = JSON.parse(localStorage.getItem(stateKey) || '{}'); } catch (e) { folded = {}; }
+  const wrap = document.createElement('div');
+  wrap.className = 'file-accordion';
   for (const group of groups) {
-    const body = document.createElement('tbody');
-    body.className = 'file-group';
-    body.innerHTML = `<tr class="file-group-head"><td colspan="${headerCells.length}"><span class="file-group-title">${esc(group.title)}</span>${group.sub ? ` <span class="muted">— ${esc(group.sub)}</span>` : ''} <span class="file-group-count">${group.items.length}</span></td></tr>`;
+    const card = document.createElement('section');
+    card.className = `file-group-card${folded[group.key] ? ' folded' : ''}`;
+    card.innerHTML = `<button type="button" class="file-group-head" data-no-icon aria-expanded="${folded[group.key] ? 'false' : 'true'}">
+        <span class="chev" aria-hidden="true">›</span>
+        <span class="file-group-title">${esc(group.title)}</span>${group.sub ? `<span class="muted file-group-sub">— ${esc(group.sub)}</span>` : ''}
+        <span class="file-group-count">${group.items.length} file${group.items.length === 1 ? '' : 's'}</span></button>
+      <table class="no-sort"><thead><tr>${headerCells.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody></tbody></table>`;
+    const body = card.querySelector('tbody');
     for (const item of group.items) body.appendChild(fileRow(item));
-    table.appendChild(body);
+    card.querySelector('.file-group-head').addEventListener('click', () => {
+      const shut = !card.classList.contains('folded');
+      card.classList.toggle('folded', shut);
+      card.querySelector('.file-group-head').setAttribute('aria-expanded', shut ? 'false' : 'true');
+      if (shut) folded[group.key] = true; else delete folded[group.key];
+      try { localStorage.setItem(stateKey, JSON.stringify(folded)); } catch (e) { /* ignore */ }
+    });
+    wrap.appendChild(card);
   }
   container.innerHTML = '';
-  container.appendChild(table);
+  container.appendChild(wrap);
 
   function fileRow(item) {
     const tr = document.createElement('tr');
@@ -404,15 +422,15 @@ function fileGroups(items) {
   const boqIds = new Set(currentBOQs.map((b) => b.id));
   for (const b of currentBOQs) {
     const qs = currentQuotations.filter((q) => q.boqId === b.id);
-    byKey[`boq:${b.id}`] = { title: [`BOQ ${b.boqNumber}`, ...qs.map((q) => `Quotation ${q.quotationNumber}`)].join(' · '), sub: b.structure, items: [] };
+    byKey[`boq:${b.id}`] = { key: `boq:${b.id}`, title: [`BOQ ${b.boqNumber}`, ...qs.map((q) => `Quotation ${q.quotationNumber}`)].join(' · '), sub: b.structure, items: [] };
     groups.push(byKey[`boq:${b.id}`]);
   }
   for (const q of currentQuotations) {
     if (q.boqId && boqIds.has(q.boqId)) continue;
-    byKey[`q:${q.id}`] = { title: `Quotation ${q.quotationNumber}`, sub: q.subject, items: [] };
+    byKey[`q:${q.id}`] = { key: `q:${q.id}`, title: `Quotation ${q.quotationNumber}`, sub: q.subject, items: [] };
     groups.push(byKey[`q:${q.id}`]);
   }
-  const loose = { title: 'Not linked to a BOQ or quotation', items: [] };
+  const loose = { key: 'loose', title: 'Not linked to a BOQ or quotation', items: [] };
   for (const item of items) {
     let key = null;
     if (item.linkedKind === 'BOQ') key = `boq:${item.linkedId}`;
@@ -498,25 +516,76 @@ async function createNewQuotation() {
 // Every invoice is based on one of the project's quotations. For a rental
 // quotation, choose one month's rent or the full hire period.
 let invoiceSource = null;
+// Invoicing delivery notes (the usual way) or a whole quotation.
+let invoiceFromQuotation = false;
 
+// Invoices are made from delivery notes: what was delivered, priced as on
+// the quotation each was delivered for. (A whole quotation can still be
+// invoiced, e.g. for a deposit before anything is delivered.)
 async function createNewInvoice() {
   const usable = currentQuotations.filter((q) => q.status !== 'Cancelled');
   if (usable.length === 0) {
-    alert('Create a quotation first.\n\nEvery invoice is based on one of the project\u2019s quotations.');
+    alert('Create a quotation first.\n\nDelivery notes are made from a quotation, and invoices from the delivery notes.');
     showTab('quotations');
     return;
+  }
+  const notes = currentDeliveryNotes.filter((d) => d.status !== 'Cancelled');
+  const box = document.getElementById('inv-dns');
+  if (!notes.length) {
+    box.innerHTML = '<div class="empty-inline">No delivery notes yet. Make one from a quotation (Delivery Notes › New Delivery Note) — or invoice the whole quotation below.</div>';
+  } else {
+    // Grouped by the quotation they deliver; not yet invoiced first.
+    const groups = {};
+    for (const d of notes) (groups[d.quotationNumber || ''] = groups[d.quotationNumber || ''] || []).push(d);
+    const keys = Object.keys(groups).sort((a, b) => (a === '') - (b === '') || b.localeCompare(a));
+    box.innerHTML = keys.map((k) => `<div class="dn-group">${k ? `Quotation ${esc(k)}` : 'Not from a quotation (no prices)'}</div>` +
+      groups[k].map((d) => `<label><input type="checkbox" class="inv-dn" value="${esc(d.id)}" data-quotation="${esc(d.sourceQuotationId || '')}" ${k ? '' : 'disabled'} />
+        <span>${esc(d.deliveryNoteNumber)} <span class="muted">· ${formatDay(d.deliveryDate)} · ${Math.round(d.totalQuantity || 0).toLocaleString('en-US')} pcs</span></span>
+        <span class="muted">${d.invoiceNumbers && d.invoiceNumbers.length ? `invoiced (${esc(d.invoiceNumbers.join(', '))})` : d.status}</span></label>`).join('')).join('');
+    // Ticked: the newest quotation's notes not yet invoiced.
+    const firstKey = keys.find((k) => k);
+    if (firstKey) {
+      for (const input of box.querySelectorAll('.inv-dn')) {
+        const d = notes.find((n) => n.id === input.value);
+        input.checked = d.quotationNumber === firstKey && !(d.invoiceNumbers && d.invoiceNumbers.length);
+      }
+    }
+    for (const input of box.querySelectorAll('.inv-dn')) input.addEventListener('change', loadInvoiceSource);
   }
   const select = document.getElementById('inv-quotation');
   select.innerHTML = usable.map((q) =>
     `<option value="${q.id}">${esc(q.quotationNumber)} · ${esc(q.status)} · ${money(q.total)}</option>`).join('');
+  setInvoiceMode(!notes.some((d) => d.sourceQuotationId));
   document.getElementById('inv-error').classList.add('hidden');
   document.getElementById('invoice-modal').classList.remove('hidden');
   await loadInvoiceSource();
-  select.focus();
+}
+
+function setInvoiceMode(fromQuotation) {
+  invoiceFromQuotation = fromQuotation;
+  document.getElementById('inv-quotation-field').classList.toggle('hidden', !fromQuotation);
+  document.getElementById('inv-dn-field').classList.toggle('hidden', fromQuotation);
+  document.getElementById('inv-mode-toggle').textContent = fromQuotation ? 'Invoice delivery notes instead…' : 'Invoice a whole quotation instead…';
+}
+
+function chosenNotes() {
+  return [...document.querySelectorAll('#inv-dns .inv-dn:checked')].map((i) => ({ id: i.value, quotationId: i.dataset.quotation }));
 }
 
 async function loadInvoiceSource() {
-  invoiceSource = await window.api.quotations.get(document.getElementById('inv-quotation').value);
+  const err = document.getElementById('inv-error');
+  err.classList.add('hidden');
+  let quotationId = document.getElementById('inv-quotation').value;
+  if (!invoiceFromQuotation) {
+    const picked = chosenNotes();
+    const sources = [...new Set(picked.map((p) => p.quotationId))];
+    if (sources.length > 1) {
+      err.textContent = 'Those delivery notes are for different quotations. Invoice each quotation’s deliveries separately.';
+      err.classList.remove('hidden');
+    }
+    quotationId = sources[0] || null;
+  }
+  invoiceSource = quotationId ? await window.api.quotations.get(quotationId) : null;
   const q = invoiceSource;
   const rental = q && q.pricingMode === 'Rental';
   document.getElementById('inv-rental').classList.toggle('hidden', !rental);
@@ -541,20 +610,25 @@ function invoiceMonthsChosen() {
 
 function updateInvoiceSummary() {
   const q = invoiceSource;
-  if (!q) return;
+  const summary = document.getElementById('inv-summary');
+  if (!q) { summary.textContent = invoiceFromQuotation ? '' : 'Tick the delivery notes to invoice.'; return; }
   const months = invoiceMonthsChosen();
   const delivery = !document.getElementById('inv-delivery-row').classList.contains('hidden') && document.getElementById('inv-delivery').checked;
   const other = !document.getElementById('inv-other-row').classList.contains('hidden') && document.getElementById('inv-other').checked;
-  const parts = [`${q.lineItems.filter((i) => i.section !== 'Delivery' && !i.blockId).length} item(s) from ${q.quotationNumber}`];
-  if (months) parts.push(`${months} month${months === 1 ? '' : 's'} of rent (monthly charge ${money(q.materialsSubtotal)})`);
+  const picked = chosenNotes();
+  const parts = invoiceFromQuotation
+    ? [`${q.lineItems.filter((i) => i.section !== 'Delivery' && !i.blockId).length} item(s) from ${q.quotationNumber}`]
+    : [`What ${picked.length} delivery note${picked.length === 1 ? '' : 's'} delivered, at ${q.quotationNumber}’s prices`];
+  if (months) parts.push(`${months} month${months === 1 ? '' : 's'} of rent`);
   if (delivery) parts.push(`delivery charges ${money(q.deliveryTotal)}`);
   if (other) parts.push(`other charges ${money(q.otherChargesTotal)}`);
-  document.getElementById('inv-summary').textContent = parts.join(' · ');
+  summary.textContent = parts.join(' · ');
 }
 
 function setupInvoiceSheet() {
   const close = () => document.getElementById('invoice-modal').classList.add('hidden');
   document.getElementById('inv-quotation').addEventListener('change', loadInvoiceSource);
+  document.getElementById('inv-mode-toggle').addEventListener('click', () => { setInvoiceMode(!invoiceFromQuotation); loadInvoiceSource(); });
   for (const el of document.querySelectorAll('input[name="inv-charge"], #inv-months, #inv-delivery, #inv-other')) {
     el.addEventListener('input', updateInvoiceSummary);
     el.addEventListener('change', updateInvoiceSummary);
@@ -566,39 +640,52 @@ function setupInvoiceSheet() {
   document.getElementById('inv-cancel').addEventListener('click', close);
   document.getElementById('invoice-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   document.getElementById('inv-create').addEventListener('click', async () => {
-    const quotationId = document.getElementById('inv-quotation').value;
+    const err = document.getElementById('inv-error');
+    const notes = chosenNotes();
+    if (!invoiceFromQuotation && !notes.length) {
+      err.textContent = 'Tick the delivery notes to invoice.';
+      err.classList.remove('hidden');
+      return;
+    }
     const months = invoiceMonthsChosen();
     const includeDelivery = document.getElementById('inv-delivery-row').classList.contains('hidden') || document.getElementById('inv-delivery').checked;
     const includeOtherCharges = document.getElementById('inv-other-row').classList.contains('hidden') || document.getElementById('inv-other').checked;
     try {
-      const invoice = await window.api.invoices.create(currentProject.id, currentProject.projectNumber, quotationId,
-        { rentalMonths: months, includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges });
+      const invoice = await window.api.invoices.create(currentProject.id, currentProject.projectNumber,
+        invoiceFromQuotation ? document.getElementById('inv-quotation').value : null,
+        { rentalMonths: months, includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges,
+          deliveryNoteIds: invoiceFromQuotation ? [] : notes.map((n) => n.id) });
       location.href = `invoice-editor.html?id=${invoice.id}`;
     } catch (e) {
-      const err = document.getElementById('inv-error');
       err.textContent = e.message;
       err.classList.remove('hidden');
     }
   });
 }
 
+// A delivery note is made from a quotation (its materials, to change to
+// what goes out); invoices are then made from the delivery notes.
 async function createNewDeliveryNote() {
-  let sourceQuotationId = null;
-  let sourceInvoiceId = null;
-  // From the latest invoice, the latest quotation, or blank.
-  const inv = currentInvoices[0];
-  const quo = currentQuotations[0];
-  if (inv || quo) {
-    const choices = [{ label: 'Start Blank', value: 'blank' }];
-    if (quo) choices.push({ label: `From ${quo.quotationNumber}`, value: 'quotation', primary: !inv });
-    if (inv) choices.push({ label: `From ${inv.invoiceNumber}`, value: 'invoice', primary: true });
-    const pick = await window.appChoose('New Delivery Note\n\nWhat should it start from?', choices);
-    if (!pick) return;
-    if (pick === 'invoice') sourceInvoiceId = inv.id;
-    if (pick === 'quotation') sourceQuotationId = quo.id;
+  const usable = currentQuotations.filter((q) => q.status !== 'Cancelled');
+  if (!usable.length) {
+    alert('Create a quotation first.\n\nA delivery note is made from a quotation, so its invoice can be priced from it.');
+    showTab('quotations');
+    return;
   }
-  const note = await window.api.deliveryNotes.create(currentProject.id, currentProject.projectNumber, sourceQuotationId, sourceInvoiceId);
-  location.href = `delivery-note-editor.html?id=${note.id}`;
+  const select = document.getElementById('dn-quotation');
+  select.innerHTML = usable.map((q) => `<option value="${esc(q.id)}">${esc(q.quotationNumber)}${q.subject ? ` — ${esc(q.subject)}` : ''} · ${esc(q.status)}</option>`).join('');
+  document.getElementById('dn-modal').classList.remove('hidden');
+  select.focus();
+}
+
+function setupDeliveryNoteSheet() {
+  const close = () => document.getElementById('dn-modal').classList.add('hidden');
+  document.getElementById('dn-cancel').addEventListener('click', close);
+  document.getElementById('dn-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  document.getElementById('dn-create').addEventListener('click', async () => {
+    const note = await window.api.deliveryNotes.create(currentProject.id, currentProject.projectNumber, document.getElementById('dn-quotation').value, null);
+    location.href = `delivery-note-editor.html?id=${note.id}`;
+  });
 }
 
 
@@ -766,6 +853,7 @@ async function init() {
   setupTabs();
   setupEditSheet();
   setupInvoiceSheet();
+  setupDeliveryNoteSheet();
   for (const b of document.querySelectorAll('.quick-actions [data-action]')) {
     b.addEventListener('click', () => runQuickAction(b.dataset.action));
   }

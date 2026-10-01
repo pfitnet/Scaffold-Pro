@@ -152,6 +152,9 @@ function renderLineItems() {
   const container = document.getElementById('line-items');
   const items = currentDetail.lineItems;
   const isIssued = currentDetail.status === 'Issued';
+  const sort = document.getElementById('line-sort');
+  sort.value = currentDetail.lineSort || 'code';
+  sort.disabled = isIssued;
 
   if (items.length === 0) {
     container.innerHTML = `<div class="empty-state"><h2>No line items yet</h2><p>Add materials from the list on the left.</p></div>`;
@@ -473,6 +476,12 @@ async function init() {
   const settings = await window.api.settings.get();
   currencyLabel = settings.currency === 'HKD' ? 'HK$' : settings.currency;
   window.deliverySchedule.setup(boqId, 'boq');
+  // Sorted by item code unless changed; dragging a line makes it "As arranged".
+  document.getElementById('line-sort').addEventListener('change', async (e) => {
+    const r = await window.api.boq.setLineSort(boqId, e.target.value);
+    if (r && r.ok === false) alert(r.error);
+    await loadDetail();
+  });
 
   await loadDetail();
   if (!currentDetail) return;

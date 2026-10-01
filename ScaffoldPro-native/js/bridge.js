@@ -123,6 +123,8 @@
       reveal: (id) => callNative('documents:reveal', { id: id }),
     },
     boq: {
+      // How items are listed: 'code' | 'description' | 'manual' (as arranged).
+      setLineSort: (id, mode) => callNative('boq:setLineSort', { id: id, mode: mode }),
       // The BOQ's own delivery schedule (Day 1, Day 2…); a quotation can copy it.
       deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
       addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
@@ -188,6 +190,9 @@
       addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
       updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),
       moveBlock: (id, up) => callNative('quotations:moveBlock', { id: id, up: !!up }),
+      setLineSort: (id, mode) => callNative('quotations:setLineSort', { id: id, mode: mode }),
+      // The quotation's item ids in their new order (dragged) — linked, its BOQ follows.
+      reorderLineItems: (quotationId, ids) => callNative('quotations:reorderLineItems', { quotationId: quotationId, ids: ids }),
       reorderBlocks: (quotationId, ids) => callNative('quotations:reorderBlocks', { quotationId: quotationId, ids: ids }),
       removeBlock: (id) => callNative('quotations:removeBlock', { id: id }),
       addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
@@ -234,6 +239,8 @@
     // Who made a project or document and who last worked on it → { createdBy, lastEditedBy, lastEditedAt, mine }.
     authors: {
       get: (kind, id, number) => callNative('documents:authors', { kind: kind, id: id || '', number: number || null }),
+      // BOQ › Quotation › Delivery Notes › Invoices linked to a document.
+      chain: (kind, id) => callNative('documents:chain', { kind: kind, id: id }),
     },
     // Letters on the letterhead (the letter editor).
     letters: {
@@ -354,6 +361,11 @@
     // Everything dated between two days (yyyy-MM-dd).
     calendar: {
       events: (from, to) => callNative('calendar:events', { from: from, to: to }),
+    },
+    // Settings › Updates: { automatic: true|false } and/or { check: true } → { automatic }.
+    updates: {
+      get: () => callNative('app:updates', {}),
+      set: (changes) => callNative('app:updates', changes),
     },
     // Marketing: the overview / follow-ups / references, and leads.
     marketing: {

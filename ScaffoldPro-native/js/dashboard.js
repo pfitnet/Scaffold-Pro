@@ -139,6 +139,8 @@ async function loadDashboard() {
   const [summary, projects] = await Promise.all([window.api.dashboard.summary(), window.api.projects.list()]);
   projectsCache = projects;
   const cur = summary.currency;
+  // Panels as widgets: each person's own order, sizes and hidden ones.
+  window.setupWidgets(document.getElementById('dash-grid'), document.getElementById('customise-btn'), summary.userName);
   if (summary.userName) {
     document.getElementById('today-line').insertAdjacentHTML('beforeend', ` · <a href="user.html" class="plain-link">${window.personTag(summary.userName)}</a>`);
   }

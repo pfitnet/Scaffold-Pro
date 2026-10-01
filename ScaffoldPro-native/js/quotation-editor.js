@@ -234,6 +234,10 @@ function renderLineItems() {
   // Rows of the extra sections are shown in their own sections below.
   const items = currentDetail.lineItems.filter((i) => !i.blockId);
   const isLocked = currentDetail.status !== 'Draft';
+  const sort = document.getElementById('line-sort');
+  sort.value = currentDetail.lineSort || 'code';
+  sort.disabled = isLocked;
+  sort.title = currentDetail.boqLinked ? `Linked: ${currentDetail.sourceBOQNumber} is sorted the same way` : 'How the items are listed and printed. Dragging a line switches to “As arranged”.';
 
   if (items.length === 0) {
     container.innerHTML = `<div class="empty-state"><h2>No line items yet</h2><p>Add materials from the list on the left.</p></div>`;
@@ -242,7 +246,7 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
@@ -261,7 +265,9 @@ function renderLineItems() {
     const rowNo = isDelivery ? `D${++deliveryNo}` : String(++materialNo);
     void index;
     const tr = document.createElement('tr');
+    tr.dataset.id = item.id;
     tr.innerHTML = `
+      <td class="drag-col">${isLocked || items.length < 2 ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
       <td class="num row-no">${rowNo}</td>
       <td>${isDelivery ? '<span class="line-tag">Delivery</span>' : ''}${item.itemDescription}</td>
       <td>${item.unit}</td>
@@ -287,6 +293,19 @@ function renderLineItems() {
     });
 
     tbody.appendChild(tr);
+  }
+
+  // Drag a line by its handle: listed as arranged from now on (and, when
+  // linked, the BOQ takes the same order).
+  if (!isLocked) {
+    window.makeReorderable(tbody, {
+      item: 'tr',
+      onReorder: async (ids) => {
+        const r = await window.api.quotations.reorderLineItems(quotationId, ids);
+        if (r && r.ok === false) alert(r.error);
+        await loadDetail();
+      },
+    });
   }
 
   container.innerHTML = '';
@@ -812,6 +831,11 @@ async function init() {
   await populateBOQReference();
   document.getElementById('import-boq-btn').addEventListener('click', importFromBOQ);
   document.getElementById('link-boq-btn').addEventListener('click', linkToBOQ);
+  document.getElementById('line-sort').addEventListener('change', async (e) => {
+    const r = await window.api.quotations.setLineSort(quotationId, e.target.value);
+    if (r && r.ok === false) alert(r.error);
+    await loadDetail();
+  });
   document.getElementById('boq-import-toggle').addEventListener('click', () => {
     setImportOpen(document.getElementById('boq-import-controls').classList.contains('hidden'));
   });
