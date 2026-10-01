@@ -2010,3 +2010,10 @@ under "Letterhead layout".
   - The quotation made from BQ26001-004 is Qt26001-004.
   - This only applies when both number formats run per project, or both
     don't. Switch it off in Settings › Documents & Numbering.
+- **Follow-ups:**
+  - While customising, a panel's own buttons and rows don't respond; only
+    its bar and its edge do.
+  - Quick Actions is one column ("New Quotation" and so on).
+  - A narrow panel (¼ width) stacks each row: the name across the top, then
+    status and amount, then its buttons. The table columns no longer get
+    squeezed (CSS container query).

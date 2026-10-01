@@ -974,6 +974,9 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
 .dash-grid.customising > .widget-off { display: block; opacity: 0.45; }
 .dash-grid.customising > .widget-off > :not(.widget-bar):not(.widget-resize) { display: none; }
 .dash-grid.customising > [data-widget] { outline: 1px dashed var(--border-strong); outline-offset: 2px; z-index: 1; }
+/* While customising, a panel's own buttons, links and rows don't respond —
+   only its bar (move, hide) and its edge (width). */
+.dash-grid.customising > [data-widget] > :not(.widget-bar):not(.widget-resize) { pointer-events: none; user-select: none; opacity: 0.6; }
 .widget-guides { position: absolute; inset: -6px 0; display: grid; grid-template-columns: inherit; gap: inherit; pointer-events: none; z-index: 0; }
 .widget-guides > div { border-radius: var(--radius-lg); background: color-mix(in srgb, var(--accent) 4%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 22%, transparent); transition: background .15s, border-color .15s; }
 .dash-grid.resizing .widget-guides > div { background: color-mix(in srgb, var(--accent) 8%, transparent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
@@ -990,19 +993,38 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
 .widget-dragging { opacity: 0.6; box-shadow: var(--shadow-sheet); }
 
 /* Dashboard Quick Actions: a tile for each "New …", icon and words. */
-.qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px 6px; }
-.qa-tile { display: flex; align-items: center; gap: 9px; padding: 6px 7px; border-radius: 9px; border: 1px solid transparent; background: transparent; box-shadow: none;
+.qa-grid { display: flex; flex-direction: column; gap: 2px; }
+.qa-tile { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 7px; border-radius: 9px; border: 1px solid transparent; background: transparent; box-shadow: none;
   text-align: left; font: inherit; color: var(--text); cursor: pointer; min-width: 0; transition: background .12s, border-color .12s, transform .08s; }
 .qa-tile:hover { background: color-mix(in srgb, var(--qa) 9%, transparent); border-color: color-mix(in srgb, var(--qa) 22%, transparent); }
 .qa-tile:active { transform: scale(0.98); }
-.qa-icon { flex: none; width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+.qa-icon { flex: none; width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
   background: color-mix(in srgb, var(--qa) 15%, transparent); color: color-mix(in srgb, var(--qa) 82%, var(--text)); }
-.qa-icon svg { width: 18px; height: 18px; }
-.qa-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.qa-text small { font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; }
-.qa-text span { font-size: 13px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+.qa-icon svg { width: 16px; height: 16px; }
+.qa-text { min-width: 0; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .token-row { display: flex; gap: 6px; }
 .token-row input { flex: 1; }
 
 .linked-numbers-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; max-width: 780px; font-size: 13px; line-height: 1.45; }
 .linked-numbers-check input { margin-top: 2px; }
+
+/* A narrow Dashboard panel (e.g. ¼ width): each row's details stack —
+   the name across the top, then its status and amount, then its buttons —
+   instead of squeezing a table's columns. */
+.dash-grid > [data-widget] { container-type: inline-size; }
+@container (max-width: 460px) {
+  table.compact, table.compact tbody { display: block; width: 100%; }
+  table.compact tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--hairline); border-radius: 6px; }
+  table.compact tr:last-child { border-bottom: 0; }
+  table.compact td, table.compact tbody tr:hover td, table.compact .link-row:hover td { display: block; padding: 0; border: 0; min-width: 0; background: transparent; }
+  table.compact tr.link-row:hover { background: var(--accent-soft); }
+  table.compact td:first-child { grid-column: 1 / -1; }
+  table.compact td:first-child strong { white-space: nowrap; }
+  table.compact td.num { grid-column: 2; justify-self: end; text-align: right; }
+  table.compact td.quote-actions { grid-column: 1 / -1; justify-self: end; width: auto; }
+  table.compact .charge-line { white-space: nowrap; }
+  /* Tasks: the tick box beside the title, details under it. */
+  table.compact.task-table tr { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  table.compact.task-table td:first-child { grid-column: 1; grid-row: 1 / span 3; padding-top: 1px; }
+  table.compact.task-table td:not(:first-child) { grid-column: 2; }
+}
