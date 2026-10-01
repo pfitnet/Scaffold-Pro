@@ -1993,9 +1993,8 @@ under "Letterhead layout".
   - The invoice and delivery note editors' fields sit in a card.
 - **New Invoice dialog:** a "From delivery notes / A whole quotation"
   switch replaces the link. Rent to charge is two option cards.
-- **Material picker:** each bracket (Pinned, Base Items…) fills the box, so
-  none is shown cut off. Each scroll moves to the next whole bracket, and a
-  long bracket's list scrolls first. The heading shows "2 of 6".
+- **Material picker:** the bracket-by-bracket scrolling tried here was taken
+  out again (it was unreliable); the list scrolls as before.
 - **BOQ "Use Standard Terms"** was greyed out until terms were saved in
   Settings. It now always works, with built-in standard terms
   (`defaultBOQTerms`) until your own are set in Settings › BOQ Defaults.
