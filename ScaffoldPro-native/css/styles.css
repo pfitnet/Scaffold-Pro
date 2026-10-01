@@ -1207,3 +1207,21 @@ a.button-like.primary:hover { background: var(--accent-hover); }
 @keyframes dot-pop { from { transform: scale(0); } to { transform: scale(1); } }
 .person-chat { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; text-decoration: none; font-size: 15px; }
 .person-chat:hover { background: color-mix(in srgb, var(--text) 8%, transparent); text-decoration: none; }
+
+/* Settings › Web Access */
+.web-state { margin: 12px 0; }
+.web-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.web-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-strong); }
+.web-status.on { color: var(--text); }
+.web-status.on .web-dot { background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 20%, transparent); }
+.web-urls { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 17px; }
+.web-urls code { padding: 3px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); user-select: all; }
+.web-sessions { display: flex; flex-direction: column; gap: 6px; max-width: 620px; }
+.web-session { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.web-session .muted { font-size: 12px; }
+
+/* In a web browser (ScaffoldPro Web): no Mac window buttons to clear. */
+html.web #sidebar { padding-top: 16px; }
+html.web #content { padding-top: 26px; }
+.sidebar-signout { margin: 4px 10px 0; font-size: 12px; padding: 3px 10px; align-self: flex-start; }
+.web-file-ready { position: fixed; right: 20px; bottom: 20px; z-index: 90; padding: 12px 16px; border-radius: 12px; background: var(--accent); color: #fff !important; font-weight: 600; box-shadow: var(--shadow-sheet); text-decoration: none !important; animation: sheet-in .2s ease; }

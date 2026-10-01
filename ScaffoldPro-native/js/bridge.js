@@ -392,6 +392,12 @@
       setName: (name) => callNative('users:setName', { name: name }),
       setTeam: (team) => callNative('users:setTeam', { team: team }),
     },
+    // ScaffoldPro Web: this Mac serving the pages to browsers.
+    web: {
+      status: () => callNative('web:status'),
+      configure: (input) => callNative('web:configure', input),
+      endSession: (token) => callNative('web:endSession', { token }),
+    },
     // Chat: Everyone, your team, and direct messages.
     chat: {
       page: () => callNative('chat:page'),

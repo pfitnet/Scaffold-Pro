@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1790881102.768197,
-    "seen": 1790881239.0934308,
-    "ast_hash": "b0041513ab62375718b4fa289481dacf",
+    "mtime": 1790881524.8094974,
+    "seen": 1790881599.2177625,
+    "ast_hash": "65fa4e719a263e27a11f5643734efecd",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -162,15 +162,15 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
-    "mtime": 1790870947.9985113,
-    "seen": 1790873051.2853887,
-    "ast_hash": "935c79d2a6a390169032754747cc7399",
+    "mtime": 1790881524.8089786,
+    "seen": 1790881599.21779,
+    "ast_hash": "dc93ca5603bc7af295522f3d063a3d88",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/sidebar.js": {
-    "mtime": 1790881148.7290602,
-    "seen": 1790881239.0934603,
-    "ast_hash": "ff4970c043541d466af9a585d4d3d8f1",
+    "mtime": 1790881554.979573,
+    "seen": 1790881599.2177906,
+    "ast_hash": "d090586e61fe4df55570d04e69330ec3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/signed-copy.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1790881102.7841814,
-    "seen": 1790881239.0934672,
-    "ast_hash": "ccde0a3d105f7c46c3d37345ecee1dfd",
+    "mtime": 1790881570.2197704,
+    "seen": 1790881599.2177968,
+    "ast_hash": "98554f143d08a25189c9c6268b89773d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790881234.8077855,
-    "seen": 1790881239.0934758,
-    "ast_hash": "9af97019bdeb0161c3e8d84822ae6a04",
+    "mtime": 1790881595.2917693,
+    "seen": 1790881599.217805,
+    "ast_hash": "87d56ff57b642af72ab6f373d9759a0d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
-    "mtime": 1790870948.002095,
-    "seen": 1790873051.285415,
-    "ast_hash": "78d28c7c509fa258b8befce283a8d9f5",
+    "mtime": 1790881524.8081067,
+    "seen": 1790881599.217818,
+    "ast_hash": "8390148c7d4254ca8c38a2411b759568",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/sites.html": {
