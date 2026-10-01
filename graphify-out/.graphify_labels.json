@@ -88,11 +88,14 @@
   "86": "widgets.js",
   "87": "LetterDocument",
   "88": "SharedStringsParser",
-  "89": "Client",
+  "89": ".search",
   "90": ".marketingSummary",
   "91": "ProjectRef",
   "92": "FileActionResult",
   "93": "TitlebarDragView",
   "94": ".daysFromToday",
-  "95": ".writeXLSX"
+  "95": ".writeXLSX",
+  "96": "index.html (Dashboard)",
+  "97": "LetterTableRow",
+  "98": "Client"
 }

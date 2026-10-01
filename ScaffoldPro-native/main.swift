@@ -1950,7 +1950,7 @@ func sequencePart(of number: String, template rawTemplate: String, projectNumber
     var pattern = "^"
     var rest = Substring(template)
     while let first = rest.first {
-        if let t = tokens.first(where: { rest.hasPrefix($0.token) }) {
+        if let t = tokens.first(where: { rest.hasPrefix($0.token) as Bool }) {
             pattern += t.pattern
             rest = rest.dropFirst(t.token.count)
         } else {
@@ -5281,13 +5281,17 @@ final class AppDatabase {
         // rather than letting the two disagree.
         let resolvedPricingMode = sourceBOQId.flatMap { getBOQ(id: $0)?.pricingMode } ?? pricingMode
         let settings = getCompanySettings()
+        // Made from a BOQ: the BOQ's number (BQ26001-004 → Qt26001-004).
+        var quotationNumber = nextQuotationNumber(projectNumber: projectNumber, projectId: projectId)
+        if let boqId = sourceBOQId, let boq = getBOQ(id: boqId) {
+            let used: [String] = quotationsStore.readAll().map { $0.quotationNumber }
+            if let linked = linkedNumber(type: "QT", sourceType: "BOQ", sourceNumber: boq.boqNumber, projectNumber: projectNumber, existing: used) {
+                quotationNumber = linked
+            }
+        }
         var quotation = Quotation(
             id: makeId("quotation"), projectId: projectId, sourceBOQId: sourceBOQId,
-            // Made from a BOQ: the BOQ's number (BQ26001-004 → Qt26001-004).
-            quotationNumber: sourceBOQId.flatMap { getBOQ(id: $0) }.flatMap {
-                linkedNumber(type: "QT", sourceType: "BOQ", sourceNumber: $0.boqNumber, projectNumber: projectNumber,
-                             existing: quotationsStore.readAll().map { $0.quotationNumber })
-            } ?? nextQuotationNumber(projectNumber: projectNumber, projectId: projectId),
+            quotationNumber: quotationNumber,
             status: "Draft", quotationDate: nowISO(), pricingMode: resolvedPricingMode, validUntil: nil,
             paymentTerms: settings.defaultPaymentTerms,
             // No sales tax in Hong Kong: new quotations carry none.
@@ -6473,13 +6477,15 @@ final class AppDatabase {
         dueFormatter.dateFormat = "yyyy-MM-dd"
         let dueDate = Calendar.current.date(byAdding: .day, value: settings.defaultInvoiceDueDays ?? 30, to: Date()).map { dueFormatter.string(from: $0) }
         let isRental = quotation.pricingMode == "Rental"
+        // The quotation's number: H26001-004 for Qt26001-004.
+        let usedInvoiceNumbers: [String] = invoicesStore.readAll().map { $0.invoiceNumber }
+        let invoiceNumber = linkedNumber(type: "INV", sourceType: "QT", sourceNumber: quotation.quotationNumber,
+                                         projectNumber: projectNumber, existing: usedInvoiceNumbers)
+            ?? nextInvoiceNumber(projectNumber: projectNumber, projectId: projectId)
 
         var invoice = Invoice(
             id: makeId("invoice"), projectId: projectId, sourceQuotationId: quotation.id,
-            // The quotation's number: H26001-004 for Qt26001-004.
-            invoiceNumber: linkedNumber(type: "INV", sourceType: "QT", sourceNumber: quotation.quotationNumber, projectNumber: projectNumber,
-                                        existing: invoicesStore.readAll().map { $0.invoiceNumber })
-                ?? nextInvoiceNumber(projectNumber: projectNumber, projectId: projectId),
+            invoiceNumber: invoiceNumber,
             status: "Draft", invoiceDate: nowISO(), dueDate: dueDate, paymentTerms: quotation.paymentTerms ?? settings.defaultPaymentTerms,
             discountType: quotation.discountType, discountValue: quotation.discountValue, taxRatePercent: quotation.taxRatePercent,
             amountPaid: 0, notes: settings.defaultNotes, createdAt: nowISO(), updatedAt: nowISO()
@@ -6820,11 +6826,13 @@ final class AppDatabase {
             .flatMap { project in sitesStore.readAll().first(where: { $0.id == project.siteId }) }
             .flatMap { nonBlank($0.contactPerson) }
         // From a quotation (or an invoice): its number, DN26001-004 for Qt26001-004.
-        let existingNumbers = deliveryNotesStore.readAll().map { $0.deliveryNoteNumber }
-        let linked: String? = sourceInvoiceId.flatMap { getInvoice(id: $0) }.flatMap {
-            linkedNumber(type: "DN", sourceType: "INV", sourceNumber: $0.invoiceNumber, projectNumber: projectNumber, existing: existingNumbers)
-        } ?? sourceQuotationId.flatMap { getQuotation(id: $0) }.flatMap {
-            linkedNumber(type: "DN", sourceType: "QT", sourceNumber: $0.quotationNumber, projectNumber: projectNumber, existing: existingNumbers)
+        let existingNumbers: [String] = deliveryNotesStore.readAll().map { $0.deliveryNoteNumber }
+        var linked: String? = nil
+        if let invId = sourceInvoiceId, let inv = getInvoice(id: invId) {
+            linked = linkedNumber(type: "DN", sourceType: "INV", sourceNumber: inv.invoiceNumber, projectNumber: projectNumber, existing: existingNumbers)
+        }
+        if linked == nil, let qId = sourceQuotationId, let q = getQuotation(id: qId) {
+            linked = linkedNumber(type: "DN", sourceType: "QT", sourceNumber: q.quotationNumber, projectNumber: projectNumber, existing: existingNumbers)
         }
         let note = DeliveryNote(
             id: makeId("dn"), projectId: projectId, sourceQuotationId: sourceQuotationId, sourceInvoiceId: sourceInvoiceId,
@@ -10431,7 +10439,7 @@ enum SpreadsheetWriter {
         var name = ""
         while n > 0 {
             let r = (n - 1) % 26
-            name = String(UnicodeScalar(65 + r)!) + name
+            name = String(Character(Unicode.Scalar(UInt8(65 + r)))) + name
             n = (n - 1) / 26
         }
         return name
@@ -10445,7 +10453,12 @@ enum SpreadsheetWriter {
         defer { try? fm.removeItem(at: dir) }
         let colCount = rows.map { $0.count }.max() ?? 0
         var widths: [Int] = Array(repeating: 10, count: colCount)
-        for row in rows { for (i, v) in row.enumerated() { widths[i] = min(60, max(widths[i], (v.split(separator: "\n").map { $0.count }.max() ?? 0) + 2)) } }
+        for row in rows {
+            for (i, v) in row.enumerated() {
+                let longest = v.components(separatedBy: "\n").map { $0.count }.max() ?? 0
+                widths[i] = min(60, max(widths[i], longest + 2))
+            }
+        }
         var sheet = """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>
@@ -10454,8 +10467,10 @@ enum SpreadsheetWriter {
         sheet += "</cols><sheetData>"
         for (r, row) in rows.enumerated() {
             sheet += "<row r=\"\(r + 1)\">"
+            let style = r == 0 ? " s=\"1\"" : ""
             for (c, value) in row.enumerated() where !value.isEmpty {
-                sheet += "<c r=\"\(columnName(c))\(r + 1)\" t=\"inlineStr\"\(r == 0 ? " s=\"1\"" : "")><is><t xml:space=\"preserve\">\(xml(value))</t></is></c>"
+                let ref = columnName(c) + String(r + 1)
+                sheet += "<c r=\"" + ref + "\" t=\"inlineStr\"" + style + "><is><t xml:space=\"preserve\">" + xml(value) + "</t></is></c>"
             }
             sheet += "</row>"
         }
@@ -10546,7 +10561,9 @@ enum PartySheet {
     static func columns(_ kind: String) -> [PartyColumn] { kind == "sites" ? sites : clients }
 
     static func normalise(_ s: String) -> String {
-        s.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
+        var out = String.UnicodeScalarView()
+        for u in s.lowercased().unicodeScalars where CharacterSet.alphanumerics.contains(u) { out.append(u) }
+        return String(out)
     }
 
     /// Finds the title row (in the first 15 rows) and which column is which.
@@ -10609,10 +10626,12 @@ extension AppDatabase {
             }
         } else {
             for c in listClients(includeArchived: includeArchived) {
+                var markupText = ""
+                if let m = c.defaultMarkupPercent { markupText = m == m.rounded() ? String(Int(m)) : String(m) }
                 let values: [String: String] = ["companyName": c.companyName, "clientReference": partyValue(c.clientReference), "contactPerson": partyValue(c.contactPerson),
                     "phone": partyValue(c.phone), "email": partyValue(c.email), "address": partyValue(c.address), "addressLine2": partyValue(c.addressLine2),
                     "addressLine3": partyValue(c.addressLine3), "city": partyValue(c.city), "postalCode": partyValue(c.postalCode), "country": partyValue(c.country),
-                    "defaultMarkupPercent": c.defaultMarkupPercent.map { $0 == $0.rounded() ? String(Int($0)) : String($0) } ?? "",
+                    "defaultMarkupPercent": markupText,
                     "billingInfo": partyValue(c.billingInfo), "notes": partyValue(c.notes), "isArchived": c.isArchived ? "Yes" : ""]
                 rows.append(cols.map { values[$0.key] ?? "" })
             }
@@ -10641,16 +10660,23 @@ extension AppDatabase {
     func matchPartyRows(kind: String, rows: [[String: String]]) -> [(row: [String: String], matchId: String?)] {
         let nameKey = PartySheet.columns(kind)[0].key
         let refKey = kind == "sites" ? "siteReference" : "clientReference"
-        let existing: [(id: String, name: String, ref: String)] = kind == "sites"
-            ? allSites().map { ($0.id, $0.name, $0.siteReference ?? "") }
-            : allClients().map { ($0.id, $0.companyName, $0.clientReference ?? "") }
-        let norm = { (s: String) in s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        return rows.map { row -> (row: [String: String], matchId: String?) in
+        var existing: [(id: String, name: String, ref: String)] = []
+        if kind == "sites" {
+            for s in allSites() { existing.append((id: s.id, name: s.name, ref: s.siteReference ?? "")) }
+        } else {
+            for c in allClients() { existing.append((id: c.id, name: c.companyName, ref: c.clientReference ?? "")) }
+        }
+        func norm(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        var out: [(row: [String: String], matchId: String?)] = []
+        for row in rows {
             let ref = norm(row[refKey] ?? "")
             let name = norm(row[nameKey] ?? "")
-            let hit = (!ref.isEmpty ? existing.first { norm($0.ref) == ref } : nil) ?? existing.first { norm($0.name) == name }
-            return (row, hit?.id)
+            var hitId: String? = nil
+            if !ref.isEmpty, let byRef = existing.first(where: { norm($0.ref) == ref }) { hitId = byRef.id }
+            if hitId == nil, let byName = existing.first(where: { norm($0.name) == name }) { hitId = byName.id }
+            out.append((row: row, matchId: hitId))
         }
+        return out
     }
 
     /// Adds and updates the records. Blank cells leave what's there.
@@ -10659,21 +10685,30 @@ extension AppDatabase {
         var skipped: [String] = []
         for (row, matchId) in rows {
             // A blank Archived cell leaves it as it is.
-            let archived = row["isArchived"].flatMap { $0.isEmpty ? nil : ["yes", "y", "true", "1", "archived"].contains($0.lowercased()) }
+            var archived: Bool? = nil
+            if let cell = row["isArchived"], !cell.isEmpty { archived = ["yes", "y", "true", "1", "archived"].contains(cell.lowercased()) }
             var fields = row.filter { $0.key != "isArchived" && !$0.value.isEmpty }
             let label = fields[PartySheet.columns(kind)[0].key] ?? "?"
             if let id = matchId, var payload = partyPayload(kind: kind, id: id) {
                 for (k, v) in fields { payload[k] = v }
                 let error = kind == "sites" ? updateSite(id: id, payload: payload) : updateClient(id: id, payload: payload)
                 if let e = error { skipped.append("\(label): \(e)"); continue }
-                if let a = archived { _ = kind == "sites" ? setSiteArchived(id: id, archived: a) : setClientArchived(id: id, archived: a) }
+                if let a = archived {
+                    if kind == "sites" { _ = setSiteArchived(id: id, archived: a) } else { _ = setClientArchived(id: id, archived: a) }
+                }
                 updated += 1
             } else {
                 if kind != "sites", let m = fields["defaultMarkupPercent"], Double(m.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)) == nil {
                     fields["defaultMarkupPercent"] = nil
                 }
-                let newId = kind == "sites" ? createSite(fields).id : createClient(fields).id
-                if archived == true { _ = kind == "sites" ? setSiteArchived(id: newId, archived: true) : setClientArchived(id: newId, archived: true) }
+                let payload: [String: Any] = fields
+                if kind == "sites" {
+                    let newId = createSite(payload).id
+                    if archived == true { _ = setSiteArchived(id: newId, archived: true) }
+                } else {
+                    let newId = createClient(payload).id
+                    if archived == true { _ = setClientArchived(id: newId, archived: true) }
+                }
                 added += 1
             }
         }
@@ -14681,7 +14716,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         guard let window = window else { respondNull(id: id); return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "xlsx")].compactMap { $0 }
-        panel.nameFieldStringValue = "ScaffoldPro \(kind == "sites" ? "Sites" : "Clients").xlsx"
+        let listName = kind == "sites" ? "Sites" : "Clients"
+        panel.nameFieldStringValue = "ScaffoldPro " + listName + ".xlsx"
         panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
@@ -14716,18 +14752,23 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             do {
                 let sheets = url.pathExtension.lowercased() == "csv" ? try SpreadsheetReader.readCSV(url) : try SpreadsheetReader.readXLSX(url)
                 // A sheet named after the list first (e.g. "Clients"), else the first one that makes sense.
-                let ordered = sheets.filter { $0.name.lowercased().contains(what.dropLast()) } + sheets
-                guard let (sheet, found) = ordered.lazy.compactMap({ sh -> (SpreadsheetSheet, (header: Int, map: [Int: PartyColumn]))? in
-                    PartySheet.interpret(sh, kind: kind).map { (sh, $0) }
-                }).first else {
+                let singular = String(what.dropLast())
+                let ordered = sheets.filter { $0.name.lowercased().contains(singular) } + sheets
+                var picked: (sheet: SpreadsheetSheet, header: Int, map: [Int: PartyColumn])? = nil
+                for sh in ordered {
+                    if let f = PartySheet.interpret(sh, kind: kind) { picked = (sheet: sh, header: f.header, map: f.map); break }
+                }
+                guard let match = picked else {
                     fail("No list of \(what) was recognised. The file needs a row of column titles with “\(PartySheet.columns(kind)[0].title)” — the easiest start is Export to Excel, then edit that file.")
                     return
                 }
+                let sheet = match.sheet
+                let columnMap = match.map
                 let nameKey = PartySheet.columns(kind)[0].key
                 var rows: [[String: String]] = []
-                for row in sheet.rows.dropFirst(found.header + 1) {
+                for row in sheet.rows.dropFirst(match.header + 1) {
                     var values: [String: String] = [:]
-                    for (c, col) in found.map where c < row.count { values[col.key] = row[c].trimmingCharacters(in: .whitespacesAndNewlines) }
+                    for (c, col) in columnMap where c < row.count { values[col.key] = row[c].trimmingCharacters(in: .whitespacesAndNewlines) }
                     guard !(values[nameKey] ?? "").isEmpty else { continue }
                     rows.append(values)
                 }
@@ -14735,14 +14776,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 let matched = self.db.matchPartyRows(kind: kind, rows: rows)
                 let token = UUID().uuidString
                 self.pendingPartyImport = (token, kind, matched)
-                let titles = found.map.sorted { $0.key < $1.key }.map { $0.value.title }
-                let samples = matched.prefix(5).map { m -> String in
-                    ([m.row[nameKey] ?? ""] + [m.row["contactPerson"], m.row["phone"]].compactMap { $0 }.filter { !$0.isEmpty }).joined(separator: " · ")
-                        + (m.matchId == nil ? "  (new)" : "  (update)")
+                let titles: [String] = columnMap.keys.sorted().compactMap { columnMap[$0]?.title }
+                var samples: [String] = []
+                for m in matched.prefix(5) {
+                    var parts: [String] = [m.row[nameKey] ?? ""]
+                    for k in ["contactPerson", "phone"] { if let v = m.row[k], !v.isEmpty { parts.append(v) } }
+                    samples.append(parts.joined(separator: " · ") + (m.matchId == nil ? "  (new)" : "  (update)"))
                 }
                 self.respond(id: id, encodable: PartyImportPreview(ok: true, error: nil, token: token, fileName: url.lastPathComponent, sheetName: sheet.name,
                     columns: titles, rowsFound: rows.count, toAdd: matched.filter { $0.matchId == nil }.count,
-                    toUpdate: matched.filter { $0.matchId != nil }.count, samples: Array(samples)))
+                    toUpdate: matched.filter { $0.matchId != nil }.count, samples: samples))
             } catch let e as BackupError {
                 fail(e.message)
             } catch {
