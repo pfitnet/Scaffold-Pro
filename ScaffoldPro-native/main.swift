@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 import CoreGraphics
 import CoreText
 import PDFKit
+import Network
+import CryptoKit
 
 // =====================================================================
 // MARK: - Models
@@ -3866,6 +3868,10 @@ final class AppDatabase {
             for d in sync.members() { devices[d.name.lowercased(), default: []].append(d) }
         } else if nonBlank(me) != nil {
             devices[me.lowercased()] = [TeamMember(id: "this", name: me, computer: TeamSync.computerName, lastSeen: nowISO(), isThisMac: true)]
+        }
+        // People using ScaffoldPro Web through this Mac.
+        for w in WebServer.shared.recentPeople() {
+            devices[w.name.lowercased(), default: []].append(TeamMember(id: "web-" + String(w.token.prefix(8)), name: w.name, computer: "\(w.agent) (web)", lastSeen: w.lastSeen))
         }
         var names: [String: String] = [:]
         for key in devices.keys { names[key] = devices[key]?.first?.name }
@@ -11991,8 +11997,13 @@ final class TeamSync {
         return id
     }
 
+    /// Someone using ScaffoldPro Web from a browser: while their request is
+    /// handled, they are "me" (who made what, their tasks, their chat).
+    static var actingAs: String?
+
     static var memberName: String {
         get {
+            if let acting = actingAs { return acting }
             let saved = UserDefaults.standard.string(forKey: nameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             return saved.isEmpty ? NSFullUserName() : saved
         }
@@ -12500,6 +12511,481 @@ final class TeamSync {
 }
 
 // =====================================================================
+// MARK: - ScaffoldPro Web
+//
+// For the people who don't use a Mac: one Mac in the office keeps
+// ScaffoldPro open with Web Access on (Settings › Web Access), and serves
+// the very same pages to web browsers on the network — Windows PCs,
+// iPads, phones. Each person signs in with their name and the office
+// password; what they do goes through this Mac exactly as if they'd done
+// it here (as them), so it lands in the shared iCloud folder with
+// everything else. It's always the same version as this Mac, because
+// it's this Mac's own copy of the pages.
+// =====================================================================
+
+struct WebSession: Codable {
+    var token: String
+    var name: String
+    var agent: String
+    var createdAt: String
+    var lastSeen: String
+}
+
+struct WebStatus: Codable {
+    var enabled: Bool
+    var running: Bool
+    var port: Int
+    var hasPassword: Bool
+    var urls: [String]
+    var sessions: [WebSession]
+    var error: String?
+}
+
+final class WebServer {
+    static let shared = WebServer()
+    weak var bridge: NativeBridge?
+    weak var db: AppDatabase?
+
+    private var listener: NWListener?
+    private(set) var lastError: String?
+    private var sleepActivity: NSObjectProtocol?
+
+    private static let enabledKey = "web.enabled"
+    private static let portKey = "web.port"
+    private static let passwordKey = "web.passwordHash"
+    private static let sessionsKey = "web.sessions"
+
+    var enabled: Bool {
+        get { UserDefaults.standard.bool(forKey: WebServer.enabledKey) }
+        set { UserDefaults.standard.set(newValue, forKey: WebServer.enabledKey) }
+    }
+    var port: Int {
+        get { let p = UserDefaults.standard.integer(forKey: WebServer.portKey); return (1024...65535).contains(p) ? p : 8642 }
+        set { UserDefaults.standard.set(newValue, forKey: WebServer.portKey) }
+    }
+    var hasPassword: Bool { UserDefaults.standard.string(forKey: WebServer.passwordKey) != nil }
+
+    private static func hash(_ password: String) -> String {
+        let digest = SHA256.hash(data: Data(("ScaffoldPro Web|" + password).utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+    func setPassword(_ password: String) {
+        UserDefaults.standard.set(WebServer.hash(password), forKey: WebServer.passwordKey)
+        // A new password signs everyone out.
+        sessions = [:]
+    }
+    private func passwordMatches(_ password: String) -> Bool {
+        guard let saved = UserDefaults.standard.string(forKey: WebServer.passwordKey) else { return false }
+        return saved == WebServer.hash(password)
+    }
+
+    // MARK: sessions (kept, so a restart doesn't sign everyone out)
+
+    private var sessions: [String: WebSession] {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: WebServer.sessionsKey),
+                  let list = try? JSONDecoder().decode([WebSession].self, from: data) else { return [:] }
+            return Dictionary(list.map { ($0.token, $0) }, uniquingKeysWith: { a, _ in a })
+        }
+        set {
+            if let data = try? JSONEncoder().encode(Array(newValue.values)) { UserDefaults.standard.set(data, forKey: WebServer.sessionsKey) }
+        }
+    }
+
+    private func session(for request: HTTPRequest) -> WebSession? {
+        guard let token = request.cookie("sp_session"), var s = sessions[token] else { return nil }
+        // Signed out after 30 days without use.
+        let f = ISO8601DateFormatter()
+        if let seen = f.date(from: s.lastSeen), Date().timeIntervalSince(seen) > 30 * 86400 { endSession(token); return nil }
+        if let seen = f.date(from: s.lastSeen), Date().timeIntervalSince(seen) < 60 { return s }
+        s.lastSeen = nowISO()
+        var all = sessions
+        all[token] = s
+        sessions = all
+        return s
+    }
+
+    /// Signs out the session(s) whose token starts like this (the status
+    /// only shows the start of each); "" signs everyone out.
+    func endSessions(startingWith prefix: String) {
+        var all = sessions
+        for token in all.keys where prefix.isEmpty || token.hasPrefix(prefix) { all.removeValue(forKey: token) }
+        sessions = all
+    }
+
+    func endSession(_ token: String) {
+        var all = sessions
+        all.removeValue(forKey: token)
+        sessions = all
+    }
+
+    // MARK: starting and stopping
+
+    func applySettings() {
+        stop()
+        guard enabled else { return }
+        guard hasPassword else { lastError = "Set a password first."; return }
+        start()
+    }
+
+    private func start() {
+        lastError = nil
+        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { lastError = "That port can’t be used."; return }
+        do {
+            let parameters = NWParameters.tcp
+            parameters.allowLocalEndpointReuse = true
+            let l = try NWListener(using: parameters, on: nwPort)
+            l.newConnectionHandler = { [weak self] connection in
+                connection.start(queue: .main)
+                self?.read(connection, Data())
+            }
+            l.stateUpdateHandler = { [weak self] state in
+                if case .failed(let error) = state {
+                    self?.lastError = "Web Access stopped: \(error.localizedDescription)"
+                    self?.listener = nil
+                }
+            }
+            l.start(queue: .main)
+            listener = l
+            // The Mac mustn't fall asleep while it's serving the others.
+            sleepActivity = ProcessInfo.processInfo.beginActivity(options: [.idleSystemSleepDisabled], reason: "Serving ScaffoldPro Web")
+        } catch {
+            lastError = "Web Access couldn’t start on port \(port): \(error.localizedDescription)"
+        }
+    }
+
+    func stop() {
+        listener?.cancel()
+        listener = nil
+        if let a = sleepActivity { ProcessInfo.processInfo.endActivity(a); sleepActivity = nil }
+    }
+
+    /// The addresses to type in a browser on the same network.
+    func addresses() -> [String] {
+        var urls: [String] = []
+        let host = ProcessInfo.processInfo.hostName
+        if !host.isEmpty { urls.append("http://\(host.hasSuffix(".local") ? host : host + ".local"):\(port)") }
+        for a in Host.current().addresses where a.contains(".") && !a.hasPrefix("127.") && !a.hasPrefix("169.254.") {
+            urls.append("http://\(a):\(port)")
+        }
+        return urls
+    }
+
+    func status() -> WebStatus {
+        WebStatus(enabled: enabled, running: listener != nil, port: port, hasPassword: hasPassword, urls: addresses(),
+                  sessions: sessions.values.sorted { $0.lastSeen > $1.lastSeen }.map { (one: WebSession) -> WebSession in var s = one; s.token = String(one.token.prefix(8)); return s },
+                  error: lastError)
+    }
+
+    /// Everyone using it from a browser lately (for the Team page).
+    func recentPeople() -> [WebSession] {
+        let f = ISO8601DateFormatter()
+        return sessions.values.filter { f.date(from: $0.lastSeen).map { Date().timeIntervalSince($0) < 14 * 86400 } ?? false }
+    }
+
+    // MARK: HTTP
+
+    private func read(_ connection: NWConnection, _ buffer: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) { [weak self] data, _, isComplete, error in
+            guard let self = self else { connection.cancel(); return }
+            var buf = buffer
+            if let d = data { buf.append(d) }
+            if let request = HTTPRequest.parse(buf) {
+                self.route(request, connection)
+                return
+            }
+            if buf.count > 40_000_000 || isComplete || error != nil { connection.cancel(); return }
+            self.read(connection, buf)
+        }
+    }
+
+    private func send(_ connection: NWConnection, status: String = "200 OK", type: String, body: Data, headers: [String: String] = [:]) {
+        var head = "HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\n"
+        if headers["Cache-Control"] == nil { head += "Cache-Control: no-store\r\n" }
+        for (k, v) in headers { head += "\(k): \(v)\r\n" }
+        head += "\r\n"
+        var data = Data(head.utf8)
+        data.append(body)
+        connection.send(content: data, completion: .contentProcessed { _ in connection.cancel() })
+    }
+
+    private func sendJSON(_ connection: NWConnection, _ json: String, status: String = "200 OK", headers: [String: String] = [:]) {
+        send(connection, status: status, type: "application/json; charset=utf-8", body: Data(json.utf8), headers: headers)
+    }
+
+    private func redirect(_ connection: NWConnection, to location: String) {
+        send(connection, status: "302 Found", type: "text/plain", body: Data(), headers: ["Location": location])
+    }
+
+    private static func jsonString(_ s: String?) -> String {
+        guard let s = s, let data = try? JSONEncoder().encode(s), let out = String(data: data, encoding: .utf8) else { return "null" }
+        return out
+    }
+
+    private func route(_ request: HTTPRequest, _ connection: NWConnection) {
+        let path = request.path
+        switch (request.method, path) {
+        case ("GET", "/login"):
+            send(connection, type: "text/html; charset=utf-8", body: Data(loginPage().utf8))
+        case ("POST", "/api/login"):
+            let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] ?? [:]
+            let name = ((body["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, name.count <= 60 else { sendJSON(connection, #"{"ok":false,"error":"Enter your name."}"#); return }
+            guard passwordMatches((body["password"] as? String) ?? "") else {
+                // A little slower each wrong guess.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    self.sendJSON(connection, #"{"ok":false,"error":"That password isn’t right."}"#, status: "401 Unauthorized")
+                }
+                return
+            }
+            let token = UUID().uuidString + UUID().uuidString
+            var all = sessions
+            all[token] = WebSession(token: token, name: name, agent: WebServer.describe(agent: request.headers["user-agent"] ?? ""), createdAt: nowISO(), lastSeen: nowISO())
+            sessions = all
+            sendJSON(connection, #"{"ok":true}"#, headers: ["Set-Cookie": "sp_session=\(token); Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"])
+        case ("POST", "/api/logout"):
+            if let token = request.cookie("sp_session") { endSession(token) }
+            sendJSON(connection, #"{"ok":true}"#, headers: ["Set-Cookie": "sp_session=; Path=/; Max-Age=0"])
+        case ("GET", "/__web/shim.js"):
+            send(connection, type: "text/javascript; charset=utf-8", body: Data(WebServer.shim.utf8))
+        default:
+            // Everything else needs signing in (the login page's stylesheet aside).
+            let open = path == "/css/styles.css" || path.hasPrefix("/resources/fonts/") || path.hasPrefix("/icon/")
+            guard let session = session(for: request) else {
+                if path.hasPrefix("/api/") { sendJSON(connection, #"{"ok":false,"error":"signed-out"}"#, status: "401 Unauthorized"); return }
+                if !open { redirect(connection, to: "/login"); return }
+                serveStatic(path, connection)
+                return
+            }
+            if request.method == "POST" && path == "/api/call" {
+                call(request, session, connection)
+            } else if request.method == "GET" && path == "/api/download" {
+                download(request.query["path"] ?? "", connection)
+            } else if request.method == "GET" && path == "/api/me" {
+                sendJSON(connection, "{\"name\":\(WebServer.jsonString(session.name))}")
+            } else if request.method == "GET" {
+                serveStatic(path == "/" ? "/index.html" : path, connection)
+            } else {
+                send(connection, status: "405 Method Not Allowed", type: "text/plain", body: Data())
+            }
+        }
+    }
+
+    /// A page's request, handled as the signed-in person.
+    private func call(_ request: HTTPRequest, _ session: WebSession, _ connection: NWConnection) {
+        guard let bridge = bridge,
+              let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any],
+              let action = body["action"] as? String else {
+            sendJSON(connection, #"{"ok":false,"error":"Bad request."}"#, status: "400 Bad Request")
+            return
+        }
+        if NativeBridge.macOnly(action) {
+            sendJSON(connection, "{\"ok\":false,\"error\":\(WebServer.jsonString("That needs the Mac app — choosing files and folders, backups and setup aren’t in the web version yet."))}")
+            return
+        }
+        let payload = (body["payload"] as? [String: Any]) ?? [:]
+        let id = "web-" + UUID().uuidString
+        var openURL: URL?
+        var answered = false
+        bridge.webReplies[id] = { ok, result, error in
+            answered = true
+            let open = openURL.map { "/api/download?path=" + ($0.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=+"))) ?? "") }
+            self.sendJSON(connection, "{\"ok\":\(ok ? "true" : "false"),\"result\":\(result ?? "null"),\"error\":\(WebServer.jsonString(error)),\"open\":\(WebServer.jsonString(open))}")
+        }
+        bridge.webOpenURL = nil
+        bridge.handleWeb(id: id, action: action, payload: payload, person: session.name)
+        openURL = bridge.webOpenURL
+        bridge.webOpenURL = nil
+        // Long jobs (a big PDF) get two minutes.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120) { [weak bridge] in
+            guard !answered, bridge?.webReplies.removeValue(forKey: id) != nil else { return }
+            self.sendJSON(connection, #"{"ok":false,"error":"That took too long."}"#, status: "504 Gateway Timeout")
+        }
+    }
+
+    /// A file made for (or opened by) someone in a browser: only from the
+    /// project folders or the shared data, never anywhere else on this Mac.
+    private func download(_ rawPath: String, _ connection: NWConnection) {
+        let url = URL(fileURLWithPath: rawPath).standardizedFileURL.resolvingSymlinksInPath()
+        let allowed = [bridge?.storage.appRoot, db?.dataDir, TeamSync.current?.root].compactMap { $0?.standardizedFileURL.resolvingSymlinksInPath().path }
+        guard allowed.contains(where: { url.path.hasPrefix($0 + "/") }), let data = try? Data(contentsOf: url) else {
+            send(connection, status: "404 Not Found", type: "text/plain; charset=utf-8", body: Data("Not found.".utf8))
+            return
+        }
+        let name = url.lastPathComponent.replacingOccurrences(of: "\"", with: "")
+        let encoded = name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "file"
+        send(connection, type: WebServer.contentType(url.pathExtension), body: data,
+             headers: ["Content-Disposition": "inline; filename*=UTF-8''\(encoded)"])
+    }
+
+    private func serveStatic(_ rawPath: String, _ connection: NWConnection) {
+        guard let root = Bundle.main.resourceURL?.standardizedFileURL else { send(connection, status: "500 Internal Server Error", type: "text/plain", body: Data()); return }
+        let url = root.appendingPathComponent(String(rawPath.drop(while: { $0 == "/" }))).standardizedFileURL
+        guard url.path.hasPrefix(root.path + "/"), var data = try? Data(contentsOf: url) else {
+            send(connection, status: "404 Not Found", type: "text/plain; charset=utf-8", body: Data("Not found.".utf8))
+            return
+        }
+        let ext = url.pathExtension.lowercased()
+        if ext == "html", var html = String(data: data, encoding: .utf8) {
+            // The bridge the Mac window injects, here as script tags.
+            let inject = #"<script>document.documentElement.classList.add('web')</script><script src="/__web/shim.js"></script><script src="/js/bridge.js"></script>"#
+            if let r = html.range(of: "<head>") { html.insert(contentsOf: inject, at: r.upperBound) } else { html = inject + html }
+            data = Data(html.utf8)
+        }
+        send(connection, type: WebServer.contentType(ext), body: data, headers: ["Cache-Control": ext == "html" ? "no-store" : "no-cache"])
+    }
+
+    static func contentType(_ ext: String) -> String {
+        switch ext.lowercased() {
+        case "html": return "text/html; charset=utf-8"
+        case "css": return "text/css; charset=utf-8"
+        case "js": return "text/javascript; charset=utf-8"
+        case "json": return "application/json; charset=utf-8"
+        case "svg": return "image/svg+xml"
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "ttf": return "font/ttf"
+        case "otf": return "font/otf"
+        case "woff2": return "font/woff2"
+        case "pdf": return "application/pdf"
+        case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        case "csv": return "text/csv; charset=utf-8"
+        case "dwg": return "application/acad"
+        case "txt": return "text/plain; charset=utf-8"
+        default: return "application/octet-stream"
+        }
+    }
+
+    static func describe(agent: String) -> String {
+        let os = agent.contains("Windows") ? "Windows" : agent.contains("iPhone") ? "iPhone" : agent.contains("iPad") ? "iPad"
+            : agent.contains("Android") ? "Android" : agent.contains("Mac OS X") ? "Mac" : agent.contains("Linux") ? "Linux" : "Browser"
+        let browser = agent.contains("Edg/") ? "Edge" : agent.contains("Chrome/") ? "Chrome" : agent.contains("Firefox/") ? "Firefox" : agent.contains("Safari/") ? "Safari" : ""
+        return browser.isEmpty ? os : "\(browser) on \(os)"
+    }
+
+    private func loginPage() -> String {
+        let names = (db?.teamPage().people.map { $0.name } ?? []).map { "<option value=\"\(htmlEscape($0))\"></option>" }.joined()
+        return """
+        <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Sign in — ScaffoldPro</title><link rel="stylesheet" href="/css/styles.css">
+        <style>
+          body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
+          .login { width: 360px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px 24px; box-shadow: var(--shadow-sheet); }
+          .login h1 { font-size: 20px; margin: 10px 0 4px; } .login p { color: var(--text-secondary); margin: 0 0 18px; font-size: 13px; }
+          .login .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; } .login input { width: 100%; height: 36px; }
+          .login button { width: 100%; height: 38px; font-size: 14px; } .mark { width: 44px; height: 44px; border-radius: 11px; background: #1B3556; display: flex; align-items: center; justify-content: center; color: #F4B400; font-weight: 800; font-size: 20px; }
+          .err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+        </style></head><body>
+        <form class="login" id="f"><div class="mark">S</div><h1>ScaffoldPro</h1><p>Sign in to work with the team. Everything you do is saved to the shared folder, just like on the Macs.</p>
+          <div class="field"><label for="n">Your name</label><input id="n" list="people" autocomplete="username" required placeholder="As on the Team page"><datalist id="people">\(names)</datalist></div>
+          <div class="field"><label for="p">Office password</label><input id="p" type="password" autocomplete="current-password" required></div>
+          <div class="err" id="e"></div><button class="primary" type="submit">Sign In</button></form>
+        <script>
+          const n = document.getElementById('n'); try { n.value = localStorage.getItem('web.name') || ''; } catch (e) {}
+          document.getElementById('f').addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: n.value, password: document.getElementById('p').value }) });
+            const b = await r.json().catch(() => ({}));
+            if (b.ok) { try { localStorage.setItem('web.name', n.value); } catch (e) {} location.href = '/index.html'; }
+            else document.getElementById('e').textContent = b.error || 'Couldn’t sign in.';
+          });
+        </script></body></html>
+        """
+    }
+
+    private func htmlEscape(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
+    /// In a browser, the pages talk to this Mac over HTTP instead of
+    /// window.webkit: the same messages, the same replies.
+    static let shim = """
+    (function () {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native) return;
+      window.__scaffoldProWeb = true;
+      async function post(m) {
+        let ok = false, result = null, error = null, open = null;
+        try {
+          const r = await fetch('/api/call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: m.action, payload: m.payload || {} }) });
+          if (r.status === 401) { location.href = '/login'; return; }
+          const b = await r.json();
+          ok = !!b.ok; result = b.result === undefined ? null : b.result; error = b.error || null; open = b.open || null;
+        } catch (e) {
+          error = 'The office Mac can’t be reached. Check it’s on, with ScaffoldPro open.';
+        }
+        if (open) {
+          // A slow file may be past the browser's pop-up allowance: then a note to click.
+          const w = window.open(open, '_blank');
+          if (!w) {
+            const n = document.createElement('a');
+            n.href = open; n.target = '_blank'; n.className = 'web-file-ready';
+            n.textContent = 'Your file is ready — click to open it';
+            n.addEventListener('click', () => setTimeout(() => n.remove(), 100));
+            document.body.appendChild(n);
+            setTimeout(() => n.remove(), 20000);
+          }
+        }
+        if (ok) window.__nativeCallback(m.id, true, JSON.stringify(result), null);
+        else window.__nativeCallback(m.id, false, null, error || 'Something went wrong.');
+      }
+      window.webkit = { messageHandlers: { native: { postMessage: (m) => { post(m); } } } };
+      window.scaffoldProSignOut = async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/login'; };
+    })();
+    """
+}
+
+/// One HTTP request, once it has all arrived.
+struct HTTPRequest {
+    var method: String
+    var path: String
+    var query: [String: String]
+    var headers: [String: String]
+    var body: Data
+
+    func cookie(_ name: String) -> String? {
+        guard let raw = headers["cookie"] else { return nil }
+        for part in raw.split(separator: ";") {
+            let kv = part.trimmingCharacters(in: .whitespaces).split(separator: "=", maxSplits: 1).map { String($0) }
+            if kv.count == 2 && kv[0] == name { return kv[1] }
+        }
+        return nil
+    }
+
+    static func parse(_ data: Data) -> HTTPRequest? {
+        let separator = Data("\r\n\r\n".utf8)
+        guard let end = data.range(of: separator), let head = String(data: data[..<end.lowerBound], encoding: .utf8) else { return nil }
+        var lines = head.components(separatedBy: "\r\n")
+        guard !lines.isEmpty else { return nil }
+        let first = lines.removeFirst().components(separatedBy: " ")
+        guard first.count >= 2 else { return nil }
+        var headers: [String: String] = [:]
+        for line in lines {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            headers[line[..<colon].lowercased()] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        }
+        let length = Int(headers["content-length"] ?? "0") ?? 0
+        let bodyStart = end.upperBound
+        guard data.count - bodyStart >= length else { return nil }
+        let body = data.subdata(in: bodyStart..<(bodyStart + length))
+        let target = first[1]
+        let pieces = target.split(separator: "?", maxSplits: 1).map { String($0) }
+        let path = (pieces.first ?? "/").removingPercentEncoding ?? "/"
+        var query: [String: String] = [:]
+        if pieces.count > 1 {
+            for pair in pieces[1].split(separator: "&") {
+                let kv = pair.split(separator: "=", maxSplits: 1).map { String($0) }
+                let k = kv[0].replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? kv[0]
+                let v = kv.count > 1 ? (kv[1].replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? kv[1]) : ""
+                query[k] = v
+            }
+        }
+        return HTTPRequest(method: first[0].uppercased(), path: path, query: query, headers: headers, body: body)
+    }
+}
+
+// =====================================================================
 // MARK: - Native bridge (replaces main.js's ipcMain handlers)
 // =====================================================================
 
@@ -12529,7 +13015,58 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
               let id = body["id"] as? String,
               let action = body["action"] as? String else { return }
         let payload = (body["payload"] as? [String: Any]) ?? [:]
+        handle(id: id, action: action, payload: payload)
+    }
 
+    // MARK: ScaffoldPro Web (pages in a browser, through WebServer)
+
+    /// Replies that go back to a browser over HTTP, by request id.
+    var webReplies: [String: (Bool, String?, String?) -> Void] = [:]
+    /// Set while a browser's request is being handled: files are made for
+    /// downloading instead of opened, and nothing is printed on this Mac.
+    private(set) var servingWeb = false
+    /// A file the browser should open (download) when the reply arrives.
+    var webOpenURL: URL?
+
+    /// Actions that need this Mac's own windows (choosing files or folders,
+    /// joining a shared folder, backups, updates): not from a browser.
+    static func macOnly(_ action: String) -> Bool {
+        let exact: Set<String> = ["priceLists:importPreview", "parties:exportXLSX", "parties:importPreview", "priceLists:exportCSV",
+                                  "projects:uploadDrawing", "signatures:chooseImage", "chat:attach", "quotations:uploadSigned",
+                                  "settings:chooseLogo", "drawings:relink", "drawings:replace", "documents:replace", "documents:upload",
+                                  "documents:relink", "workerDocuments:upload", "workerDocuments:relink", "adminDocuments:upload",
+                                  "adminDocuments:relink", "users:setName", "team:start", "team:join", "team:leave", "team:setName", "team:reveal",
+                                  "projects:revealFolder"]
+        if exact.contains(action) { return true }
+        return ["backup:", "cloudBackup:", "app:", "web:"].contains { action.hasPrefix($0) }
+    }
+
+    /// Handles a browser's request as `person`.
+    func handleWeb(id: String, action: String, payload: [String: Any], person: String) {
+        servingWeb = true
+        TeamSync.actingAs = person
+        defer { servingWeb = false; TeamSync.actingAs = nil }
+        handle(id: id, action: action, payload: payload)
+    }
+
+    /// Opens a file for whoever asked: on this Mac, or as a download in their browser.
+    private func openForUser(_ url: URL) {
+        if servingWeb { webOpenURL = url } else { NSWorkspace.shared.open(url) }
+    }
+
+    /// Shows files in Finder; in a browser, a single file is downloaded instead.
+    private func revealForUser(_ urls: [URL]) {
+        if servingWeb {
+            if let file = urls.first(where: { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory != true }) { webOpenURL = file }
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting(urls)
+        }
+    }
+
+    private func revealOne(_ url: URL) { revealForUser([url]) }
+
+    /// Answers a page's request — from this Mac's window, or a browser.
+    func handle(id: String, action: String, payload: [String: Any]) {
         switch action {
         case "clients:list":
             respond(id: id, encodable: db.listClients(includeArchived: (payload["includeArchived"] as? Bool) ?? false))
@@ -12639,7 +13176,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let number = (payload["projectNumber"] as? String) ?? ""
             let folder = storage.projectFolder(number)
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            storage.revealInFinder(folder)
+            self.revealOne(folder)
             respondNull(id: id)
         case "files:dropIntoProject":
             handleDroppedProjectFiles(id: id, payload: payload)
@@ -13175,6 +13712,24 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "users:setTeam":
             let error = db.setMyTeam(payload["team"] as? String)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "web:status":
+            respond(id: id, encodable: WebServer.shared.status())
+        case "web:configure":
+            let server = WebServer.shared
+            if let password = payload["password"] as? String {
+                guard password.count >= 6 else { respond(id: id, encodable: SimpleResult(ok: false, error: "Use at least 6 characters for the password.")); return }
+                server.setPassword(password)
+            }
+            if let port = payload["port"] as? Int {
+                guard (1024...65535).contains(port) else { respond(id: id, encodable: SimpleResult(ok: false, error: "Choose a port from 1024 to 65535.")); return }
+                server.port = port
+            }
+            if let enabled = payload["enabled"] as? Bool { server.enabled = enabled }
+            server.applySettings()
+            respond(id: id, encodable: server.status())
+        case "web:endSession":
+            WebServer.shared.endSessions(startingWith: (payload["token"] as? String) ?? "")
+            respond(id: id, encodable: WebServer.shared.status())
         case "team:page":
             respond(id: id, encodable: db.teamPage())
         case "team:setPerson":
@@ -13203,7 +13758,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "signatures:openFile":
             let path = (payload["path"] as? String) ?? ""
             if fileIsPresent(path) {
-                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                self.openForUser(URL(fileURLWithPath: path))
                 respond(id: id, encodable: SimpleResult(ok: true, error: nil))
             } else {
                 respond(id: id, encodable: SimpleResult(ok: false, error: "The signed PDF isn’t there any more."))
@@ -13270,7 +13825,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "team:reveal":
             if let folder = TeamSync.current?.root ?? TeamSync.configuredFolder, FileManager.default.fileExists(atPath: folder.path) {
-                NSWorkspace.shared.activateFileViewerSelecting([folder])
+                self.revealForUser([folder])
                 respond(id: id, encodable: SimpleResult(ok: true, error: nil))
             } else {
                 respond(id: id, encodable: SimpleResult(ok: false, error: "The shared folder can't be found."))
@@ -13391,7 +13946,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             if let worker = db.getWorker(id: workerId) {
                 let folder = storage.workerFolder(worker.workerNumber)
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                storage.revealInFinder(folder)
+                self.revealOne(folder)
             }
             respondNull(id: id)
 
@@ -13501,7 +14056,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "cloudBackup:reveal":
             let fm = FileManager.default
             let target = [cloudBackup.folder, CloudBackupManager.iCloudDrive].first { fm.fileExists(atPath: $0.path) }
-            if let target = target { storage.revealInFinder(target) }
+            if let target = target { self.revealOne(target) }
             respond(id: id, encodable: SimpleResult(ok: target != nil, error: target == nil ? "iCloud Drive wasn't found on this Mac." : nil))
         case "backup:create":
             handleCreateBackup(id: id)
@@ -13514,11 +14069,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let path = (payload["path"] as? String) ?? ""
             let url = path.isEmpty ? storage.backupsRoot : URL(fileURLWithPath: path, isDirectory: true)
             try? FileManager.default.createDirectory(at: storage.backupsRoot, withIntermediateDirectories: true)
-            storage.revealInFinder(url)
+            self.revealOne(url)
             respondNull(id: id)
         case "backup:revealDataFolder":
             try? FileManager.default.createDirectory(at: storage.appRoot, withIntermediateDirectories: true)
-            storage.revealInFinder(storage.appRoot)
+            self.revealOne(storage.appRoot)
             respondNull(id: id)
 
         case "documents:listForProject":
@@ -13883,7 +14438,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let destination = folder.appendingPathComponent(name)
             // With a byte-order mark, so Excel reads the text as UTF-8.
             try Data(("\u{FEFF}" + csv).utf8).write(to: destination, options: .atomic)
-            NSWorkspace.shared.open(destination)
+            self.openForUser(destination)
             respond(id: id, encodable: SimpleResult(ok: true, error: nil))
         } catch {
             respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved: \(error.localizedDescription)"))
@@ -13905,7 +14460,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: fileName)
-            NSWorkspace.shared.open(destination)
+            self.openForUser(destination)
             if let project = db.getProjectByNumber(projectNumber) {
                 db.logActivity(projectId: project.id, "Word document exported", reference: destination.lastPathComponent)
             }
@@ -13960,7 +14515,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                             attachments: [URL] = []) {
         let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         let data = PDFAttachments.append(attachments, to: original, paperSize: paperSize)
-        if mode == .print {
+        // From a browser, "Print" makes the PDF; the browser prints it.
+        if mode == .print && !servingWeb {
             guard let document = PDFDocument(data: data), let window = window else {
                 respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document for printing.", path: nil))
                 return
@@ -13990,7 +14546,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: filename)
             db.recordGeneratedPDF(docTypeTag: docTypeTag, documentNumber: documentNumber, path: destination.path)
-            NSWorkspace.shared.open(destination)
+            self.openForUser(destination)
             if let project = db.getProjectByNumber(projectNumber) {
                 db.logActivity(projectId: project.id, "PDF exported", reference: destination.lastPathComponent)
             }
@@ -14052,12 +14608,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         if let file = found.file {
-            storage.revealInFinder(file)
+            self.revealOne(file)
             respond(id: id, encodable: LocateResult(ok: true, error: nil, note: nil))
             return
         }
         try? FileManager.default.createDirectory(at: found.folder, withIntermediateDirectories: true)
-        storage.revealInFinder(found.folder)
+        self.revealOne(found.folder)
         respond(id: id, encodable: LocateResult(ok: true, error: nil,
                                                note: "\(found.number) hasn't been exported as a PDF or Word file yet, so Finder shows the folder it will be saved in."))
     }
@@ -14075,9 +14631,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 return
             }
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            storage.revealInFinder(folder)
+            self.revealOne(folder)
         } else {
-            NSWorkspace.shared.activateFileViewerSelecting(files)
+            self.revealForUser(files)
         }
         let note = missing.isEmpty ? nil
             : "\(missing.joined(separator: ", ")) \(missing.count == 1 ? "hasn't" : "haven't") been exported as a PDF or Word file yet\(files.isEmpty ? ", so Finder shows the folder they'll be saved in" : "")."
@@ -14198,7 +14754,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 n += 1
             }
             try data.write(to: url, options: .atomic)
-            NSWorkspace.shared.open(url)
+            self.openForUser(url)
             respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: url.path))
         } catch {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved: \(error.localizedDescription)", path: nil))
@@ -14569,7 +15125,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let filename = "\(first.projectNumber)_\(label)_\(name)\(includeDrawings ? "_with drawings" : "").pdf"
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: subfolder, meaningfulFilename: filename)
-            NSWorkspace.shared.open(destination)
+            self.openForUser(destination)
             if let project = db.getProjectByNumber(first.projectNumber) {
                 db.logActivity(projectId: project.id, "\(label) exported as one PDF", reference: destination.lastPathComponent)
             }
@@ -14814,7 +15370,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let destination = folder.appendingPathComponent("Letter_\(safe).pdf")
             try data.write(to: destination, options: .atomic)
             db.recordGeneratedPDF(docTypeTag: "Letter", documentNumber: letter.letterNumber, path: destination.path)
-            NSWorkspace.shared.open(destination)
+            self.openForUser(destination)
             respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
         } catch {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved: \(error.localizedDescription)", path: nil))
@@ -15499,7 +16055,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             do {
                 try SpreadsheetWriter.writeXLSX(sheetName: kind == "sites" ? "Sites" : "Clients",
                                                 rows: self.db.partySheetRows(kind: kind, includeArchived: includeArchived), to: url)
-                self.storage.revealInFinder(url)
+                self.revealOne(url)
                 self.respond(id: id, encodable: SimpleResult(ok: true, error: nil))
             } catch let e as BackupError {
                 self.respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
@@ -15601,7 +16157,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             do {
                 // UTF-8 with a byte-order mark so Excel shows symbols correctly.
                 try Data(("\u{FEFF}" + lines.joined(separator: "\r\n") + "\r\n").utf8).write(to: url, options: .atomic)
-                self.storage.revealInFinder(url)
+                self.revealOne(url)
                 self.respond(id: id, encodable: SimpleResult(ok: true, error: nil))
             } catch {
                 self.respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved there."))
@@ -15822,7 +16378,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                     : "This file could not be found. It may have been moved or deleted."))
                 return
             }
-            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+            self.openForUser(URL(fileURLWithPath: path))
             self.respond(id: id, encodable: FileActionResult(ok: true, error: nil))
         }
     }
@@ -15832,7 +16388,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: FileActionResult(ok: false, error: "This file could not be found. It may have been moved or deleted."))
             return
         }
-        storage.revealInFinder(URL(fileURLWithPath: path))
+        self.revealOne(URL(fileURLWithPath: path))
         respond(id: id, encodable: FileActionResult(ok: true, error: nil))
     }
 
@@ -16020,6 +16576,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     }
 
     private func callback(id: String, ok: Bool, resultJson: String?, error: String?) {
+        if id.hasPrefix("web-") {
+            DispatchQueue.main.async { [weak self] in
+                self?.webReplies.removeValue(forKey: id)?(ok, resultJson, error)
+            }
+            return
+        }
         guard let webView = webView else { return }
         let idJS = jsStringLiteral(id)
         let okJS = ok ? "true" : "false"
@@ -17235,6 +17797,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         webView.uiDelegate = self
         bridge.webView = webView
         bridge.window = window
+        // ScaffoldPro Web: the same pages, for the team's browsers.
+        WebServer.shared.bridge = bridge
+        WebServer.shared.db = db
+        WebServer.shared.applySettings()
 
         // The page runs up behind the title bar (unified look), so a web
         // view would swallow title-bar drags. A thin native strip on top

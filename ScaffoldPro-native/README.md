@@ -2125,3 +2125,38 @@ under "Letterhead layout".
   - the send arrow whooshes;
   - reactions pop;
   - a "New messages ↓" pill appears when you've scrolled up.
+
+## Batch 81 — ScaffoldPro Web (for the people who don't use a Mac)
+
+- **How it works:** one Mac in the office keeps ScaffoldPro open with Web
+  Access on, and serves the very same pages to web browsers on Windows
+  PCs, iPads and phones.
+  - The server is built in, on Apple's Network framework (`WebServer`).
+  - A browser's request goes through the same handler as the Mac's own
+    window (`NativeBridge.handle`), as the person who signed in
+    (`TeamSync.actingAs`). So "Created by", tasks, chat and history show
+    them, and everything lands in the shared iCloud folder like any Mac's
+    work.
+  - It's always the newest version: it's that Mac's own copy, so it
+    updates when that Mac updates.
+- **Setting it up** (Settings › Web Access, on the office Mac):
+  1. Set an office password, then tick "Turn on Web Access".
+  2. Allow incoming connections if macOS asks.
+  3. On the PCs, open one of the addresses shown, e.g.
+     `http://office-imac.local:8642`. Each person signs in with their name
+     and the password.
+  4. Keep ScaffoldPro open on that Mac. It won't let the Mac fall asleep
+     while Web Access is on.
+- **From outside the office:** install the free Tailscale app on the
+  office Mac and on each PC or phone, all signed in to the same Tailscale
+  account. Then use the Mac's Tailscale address with the same port.
+- **What works in a browser:** everything you work on day to day.
+  - PDFs, Word copies and drawings are made on the office Mac and open as
+    downloads. "Print" makes the PDF for the browser to print.
+  - Things that need the Mac's own windows still need a Mac: choosing
+    files to upload, imports, backups, shared-folder setup and updates.
+    The browser says so.
+- **Sessions:** browser sign-ins last 30 days; they're listed in Settings,
+  with Sign Out. A new password signs everyone out.
+- **Team › People** shows the browsers people use, e.g. "Edge on Windows
+  (web)".

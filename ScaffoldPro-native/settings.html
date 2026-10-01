@@ -294,6 +294,21 @@
         </div>
       </details>
 
+      <details class="settings-section" id="web-access">
+        <summary><span class="section-title">Web Access</span><span class="section-desc">ScaffoldPro in a web browser, for the team’s Windows PCs, iPads and phones</span></summary>
+        <div class="section-body">
+          <p class="small-note" style="max-width:780px;">This Mac serves ScaffoldPro to web browsers on the office network. Everyone signs in with their name and the office password below, and works on the same data — it’s saved through this Mac into the shared folder, like any other Mac’s work. It’s always this Mac’s version, so it updates when this Mac does. Keep ScaffoldPro open on this Mac (it won’t let the Mac fall asleep while Web Access is on).</p>
+          <label class="inline-check"><input type="checkbox" id="web-enabled" /> Turn on Web Access on this Mac</label>
+          <div class="form-row cols-3" style="margin-top:12px; max-width:780px;">
+            <div class="field"><label for="web-password">Office password</label><input type="password" id="web-password" autocomplete="new-password" placeholder="At least 6 characters" /></div>
+            <div class="field"><label for="web-port">Port</label><input type="number" id="web-port" min="1024" max="65535" step="1" /></div>
+            <div class="field"><label>&nbsp;</label><button id="web-save" data-no-icon>Save</button></div>
+          </div>
+          <div id="web-state" class="web-state"></div>
+          <p class="small-note" style="max-width:780px;">From outside the office: install the free <b>Tailscale</b> app on this Mac and on each person’s PC or phone (signed in to the same Tailscale account), then use this Mac’s Tailscale address with the same port. Files are made here and downloaded; choosing files to upload, imports, backups and setup still need a Mac.</p>
+        </div>
+      </details>
+
       <details class="settings-section" id="data-location">
         <summary><span class="section-title">Data Location</span><span class="section-desc">Where the files and database are kept</span></summary>
         <div class="section-body">

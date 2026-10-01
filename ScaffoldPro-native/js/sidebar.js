@@ -100,6 +100,16 @@ function renderSidebar(activePage) {
   if (activePage === 'user') { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
   foot.appendChild(user);
   renderUserTab(user);
+  // ScaffoldPro Web: sign out of this browser.
+  if (window.__scaffoldProWeb && window.scaffoldProSignOut) {
+    const out = document.createElement('button');
+    out.type = 'button';
+    out.className = 'sidebar-signout';
+    out.textContent = 'Sign Out';
+    out.dataset.noIcon = '';
+    out.addEventListener('click', () => window.scaffoldProSignOut());
+    foot.appendChild(out);
+  }
   renderTeamIndicator(foot);
 }
 

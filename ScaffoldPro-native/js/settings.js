@@ -520,7 +520,7 @@ async function init() {
     document.getElementById('settings-changed-elsewhere').classList.add('hidden');
   });
   // Typing in the form (not the sharing or backup controls further down).
-  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates')) setSettingsDirty(true); };
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access')) setSettingsDirty(true); };
   document.getElementById('content').addEventListener('input', markDirty);
   document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {
@@ -580,3 +580,40 @@ init();
 
 // Before an automatic update: unsaved settings are saved.
 window.beforeAppUpdate = async () => { if (settingsDirty) await saveSettings(); };
+
+// ---- Web Access (ScaffoldPro Web, served by this Mac) ----
+(async function setupWebAccess() {
+  if (!window.api.web || window.__scaffoldProWeb) {
+    const sec = document.getElementById('web-access');
+    if (sec && window.__scaffoldProWeb) sec.classList.add('hidden');
+    return;
+  }
+  const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const show = (st) => {
+    if (!st) return;
+    document.getElementById('web-enabled').checked = st.enabled;
+    if (document.activeElement !== document.getElementById('web-port')) document.getElementById('web-port').value = st.port;
+    document.getElementById('web-password').placeholder = st.hasPassword ? 'Set — type a new one to change it' : 'At least 6 characters';
+    const when = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+    document.getElementById('web-state').innerHTML = `
+      <div class="web-status ${st.running ? 'on' : ''}"><span class="web-dot"></span>${st.running ? 'On — open one of these in a browser on the office network:' : st.error ? esc(st.error) : 'Off'}</div>
+      ${st.running ? `<div class="web-urls">${st.urls.map((u) => `<code>${esc(u)}</code>`).join('')}</div>` : ''}
+      ${st.sessions.length ? `<div class="related-title">Signed in from browsers</div><div class="web-sessions">${st.sessions.map((x) => `<div class="web-session"><span>${window.personTag ? window.personTag(x.name) : esc(x.name)} <span class="muted">${esc(x.agent)} · last ${esc(when(x.lastSeen))}</span></span><button data-token="${esc(x.token)}" data-no-icon>Sign Out</button></div>`).join('')}</div>` : ''}`;
+    for (const b of document.querySelectorAll('#web-state button[data-token]')) {
+      b.addEventListener('click', async () => show(await window.api.web.endSession(b.dataset.token)));
+    }
+  };
+  const save = async (extra = {}) => {
+    const input = { enabled: document.getElementById('web-enabled').checked, port: Number(document.getElementById('web-port').value) || 8642 };
+    const pw = document.getElementById('web-password').value;
+    if (pw) input.password = pw;
+    const r = await window.api.web.configure(Object.assign(input, extra));
+    if (r && r.ok === false) { await window.appAlert(r.error); return; }
+    document.getElementById('web-password').value = '';
+    show(r);
+  };
+  document.getElementById('web-save').addEventListener('click', () => save());
+  document.getElementById('web-enabled').addEventListener('change', () => save());
+  show(await window.api.web.status());
+  setInterval(async () => show(await window.api.web.status()), 15000);
+})();
