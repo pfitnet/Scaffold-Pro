@@ -76,6 +76,10 @@ async function openModal() {
     '<option value="">Select a client</option>' + clients.map((c) => `<option value="${c.id}">${c.companyName}</option>`).join('');
   document.getElementById('f-site').innerHTML =
     '<option value="">Select a site</option>' + sites.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
+  // From Clients & Sites (a client dragged onto a site): both chosen already.
+  const ps = new URLSearchParams(location.search);
+  if (ps.get('client')) document.getElementById('f-client').value = ps.get('client');
+  if (ps.get('site')) document.getElementById('f-site').value = ps.get('site');
 }
 function closeModal() {
   document.getElementById('modal-backdrop').classList.add('hidden');

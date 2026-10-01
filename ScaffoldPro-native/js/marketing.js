@@ -66,10 +66,10 @@ function renderClients() {
   const box = document.getElementById('mk-clients');
   if (!summary.topClients.length) { box.innerHTML = '<div class="empty-inline">No quotations or invoices yet.</div>'; return; }
   box.innerHTML = `<table class="compact"><tbody>${summary.topClients.map((c) => `
-    <tr class="link-row" data-url="clients.html?id=${encodeURIComponent(c.id)}">
+    <tr class="display-row">
       <td><strong>${esc(c.name)}</strong><div class="sub">${c.quotations} quotation${c.quotations === 1 ? '' : 's'} · ${c.won} won${c.lastActivity ? ` · last ${esc(c.lastActivity)}` : ''}</div></td>
       <td class="num">${money(c.invoiced)}<div class="sub">invoiced</div></td></tr>`).join('')}</tbody></table>`;
-  wireLinks(box);
+  // For reading only: the client's details are changed on Clients & Sites.
 }
 
 function renderSources() {

@@ -12,16 +12,23 @@ function moneyText(value) {
   return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// On the Clients & Sites page there are two at once: each sheet's ids
+// start with config.prefix ("c-", "s-"), and config.onChange(all) draws
+// the page instead of the table. Returns { open, openNew, refresh, all }.
 function initPartyPage(config) {
   let all = [];
   let editing = null; // null = creating
 
-  const $ = (id) => document.getElementById(id);
+  const P = config.prefix || '';
+  const $ = (id) => document.getElementById(P + id);
+  // The page's own search box, "Show archived" and list (not per sheet).
+  const page = (id) => document.getElementById(id);
 
   function render() {
-    const q = $('search-box').value.trim().toLowerCase();
+    if (config.onChange) { config.onChange(all); return; }
+    const q = page('search-box').value.trim().toLowerCase();
     const rows = q === '' ? all : all.filter((r) => config.searchText(r).toLowerCase().includes(q));
-    const container = $('list-container');
+    const container = page('list-container');
     if (rows.length === 0) {
       container.innerHTML = all.length === 0
         ? `<div class="empty-state"><h2>${config.emptyTitle}</h2><p>${config.emptyBody}</p>
@@ -46,7 +53,7 @@ function initPartyPage(config) {
   }
 
   async function refresh() {
-    all = await config.api.list($('show-archived').checked);
+    all = await config.api.list(page('show-archived').checked);
     render();
   }
 
@@ -69,6 +76,7 @@ function initPartyPage(config) {
   function closeSheet() {
     $('modal-backdrop').classList.add('hidden');
     if (location.search) history.replaceState(null, '', location.pathname);
+    if (config.onClose) config.onClose();
   }
 
   async function renderRelated(record) {
@@ -127,7 +135,7 @@ function initPartyPage(config) {
   // import a file — matched by reference, else by name; shown first.
   const what = config.kind === 'sites' ? 'site' : 'client';
   async function exportExcel() {
-    const r = await window.api.parties.exportXLSX(config.kind, $('show-archived').checked);
+    const r = await window.api.parties.exportXLSX(config.kind, page('show-archived').checked);
     if (r && r.ok === false) await appAlert(r.error);
   }
   async function importExcel() {
@@ -153,25 +161,31 @@ function initPartyPage(config) {
   if ($('import-xlsx-btn')) $('import-xlsx-btn').addEventListener('click', importExcel);
   if ($('export-xlsx-btn')) $('export-xlsx-btn').addEventListener('click', exportExcel);
 
-  $('new-btn').addEventListener('click', () => openSheet(null));
+  if ($('new-btn')) $('new-btn').addEventListener('click', () => openSheet(null));
   $('cancel-btn').addEventListener('click', closeSheet);
   $('save-btn').addEventListener('click', save);
   $('archive-btn').addEventListener('click', toggleArchive);
-  $('search-box').addEventListener('input', render);
-  $('show-archived').addEventListener('change', refresh);
+  if (!config.onChange) {
+    page('search-box').addEventListener('input', render);
+    page('show-archived').addEventListener('change', refresh);
+  }
   $('modal-backdrop').addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSheet();
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') save();
   });
 
-  (async () => {
+  const params = config.params || { id: 'id', new: 'new' };
+  const ready = (async () => {
     await refresh();
-    if (new URLSearchParams(location.search).get('new') === '1') { openSheet(null); return; }
-    const wanted = new URLSearchParams(location.search).get('id');
+    const q = new URLSearchParams(location.search);
+    if (q.get(params.new) === '1') { openSheet(null); return; }
+    const wanted = q.get(params.id);
     if (wanted) {
-      if (!all.some((r) => r.id === wanted)) { $('show-archived').checked = true; await refresh(); }
+      if (!all.some((r) => r.id === wanted)) { page('show-archived').checked = true; await refresh(); }
       const record = all.find((r) => r.id === wanted);
       if (record) openSheet(record);
     }
   })();
+
+  return { open: openSheet, openNew: () => openSheet(null), refresh, all: () => all, ready, importExcel, exportExcel };
 }

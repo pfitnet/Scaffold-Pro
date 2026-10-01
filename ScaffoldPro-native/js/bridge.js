@@ -390,6 +390,14 @@
       // '#RRGGBB', or '' for the automatic colour.
       setColor: (color) => callNative('users:setColor', { color: color }),
       setName: (name) => callNative('users:setName', { name: name }),
+      setTeam: (team) => callNative('users:setTeam', { team: team }),
+    },
+    // Messages for everyone, or for one team, shown at the top of the Dashboard.
+    announcements: {
+      page: () => callNative('announcements:page'),
+      post: (input) => callNative('announcements:post', input),
+      dismiss: (id) => callNative('announcements:dismiss', { id: id }),
+      remove: (id) => callNative('announcements:delete', { id: id }),
     },
     team: {
       status: () => callNative('team:status'),
