@@ -35,6 +35,33 @@
     .ev-item.overdue { border-left-color: var(--danger); }
     .ev-item .sub { font-size: 12px; }
     .ev-day { font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 10px 0 4px; }
+    .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .segmented button { border: none; border-radius: 0; padding: 4px 12px; box-shadow: none; background: var(--panel); }
+    .segmented button + button { border-left: 1px solid var(--border); }
+    .segmented button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    /* Week: days across, hours down; things without a time in the all-day row. */
+    .week { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--panel); }
+    .week-head, .week-allday { display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--border); }
+    .week-head > div { padding: 6px 8px; font-size: 12px; color: var(--text-secondary); border-left: 1px solid var(--hairline); }
+    .week-head > div:first-child, .week-allday > div:first-child { border-left: none; }
+    .week-head .wd-num { font-size: 18px; font-weight: 600; color: var(--text); margin-left: 4px; }
+    .week-head .today .wd-num { color: #fff; background: var(--accent); border-radius: 50%; display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; font-size: 15px; }
+    .week-allday > div { border-left: 1px solid var(--hairline); padding: 4px; display: flex; flex-direction: column; gap: 2px; min-height: 34px; max-height: 120px; overflow-y: auto; }
+    .week-allday .gutter { font-size: 10px; color: var(--text-tertiary); justify-content: center; align-items: center; text-align: center; }
+    .week-body { position: relative; height: 560px; overflow-y: auto; }
+    .week-hours { display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); position: relative; }
+    .week-gutter .hour-label { height: 48px; font-size: 10px; color: var(--text-tertiary); text-align: right; padding-right: 6px; transform: translateY(-6px); }
+    .week-col { position: relative; border-left: 1px solid var(--hairline); }
+    .week-col .slot { height: 48px; border-top: 1px solid var(--hairline); cursor: cell; }
+    .week-col .slot:hover { background: var(--row-hover); }
+    .week-col.today { background: color-mix(in srgb, var(--accent) 3%, transparent); }
+    .week-ev { position: absolute; left: 3px; right: 3px; min-height: 22px; border-radius: 5px; padding: 2px 6px; font-size: 11px; line-height: 1.3; overflow: hidden; cursor: pointer;
+      background: color-mix(in srgb, var(--k) 16%, var(--panel)); color: color-mix(in srgb, var(--k) 60%, var(--text)); border-left: 3px solid color-mix(in srgb, var(--k) 75%, transparent); text-decoration: none; display: block; }
+    .week-ev:hover { text-decoration: none; filter: brightness(0.98); }
+    .week-ev .t { font-weight: 600; }
+    .week-ev.done { opacity: 0.55; }
+    .now-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--danger); z-index: 2; pointer-events: none; }
+    .now-line::before { content: ''; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
     @media (max-width: 1100px) { .cal-layout { grid-template-columns: 1fr; } .cal-side { position: static; } }
   </style>
 </head>
@@ -42,18 +69,25 @@
   <nav id="sidebar"></nav>
   <main id="content">
     <h1>Calendar</h1>
-    <div class="subtitle">Deliveries, scaffold inspections, tasks, quotations running out, payments due, lead follow-ups and certificates expiring — all in one place.</div>
+    <div class="subtitle">Deliveries, scaffold inspections, tasks, quotations running out, payments due, lead follow-ups and certificates expiring — all in one place. Click an empty hour in the week to add a task then.</div>
 
     <div class="cal-bar">
-      <button id="cal-prev" data-no-icon title="Previous month">‹</button>
+      <button id="cal-prev" data-no-icon title="Previous">‹</button>
       <button id="cal-today" data-no-icon>Today</button>
-      <button id="cal-next" data-no-icon title="Next month">›</button>
+      <button id="cal-next" data-no-icon title="Next">›</button>
       <h2 id="cal-title"></h2>
+      <div class="segmented" id="cal-view">
+        <button data-view="week" class="active" data-no-icon>Week</button>
+        <button data-view="month" data-no-icon>Month</button>
+      </div>
       <div class="cal-filters" id="cal-filters"></div>
     </div>
 
     <div class="cal-layout">
-      <div class="cal-grid" id="cal-grid"></div>
+      <div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="week hidden" id="cal-week"></div>
+      </div>
       <div class="cal-side">
         <section class="panel">
           <h3 class="panel-title" id="day-title">Today</h3>
@@ -70,6 +104,7 @@
   <script src="js/dialogs.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/icons.js"></script>
+  <script src="js/task-editor.js"></script>
   <script src="js/calendar.js"></script>
 </body>
 </html>

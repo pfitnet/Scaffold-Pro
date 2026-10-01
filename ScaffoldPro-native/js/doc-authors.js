@@ -37,6 +37,20 @@
     return parts.join(' · ');
   };
 
+  const STEP = { BOQ: 'BOQ', Quotation: 'Quotation', DeliveryNote: 'Delivery Notes', Invoice: 'Invoices' };
+  function chainText(chain) {
+    if (!chain.length) return '';
+    const steps = [];
+    for (const kind of ['BOQ', 'Quotation', 'DeliveryNote', 'Invoice']) {
+      const docs = chain.filter((c) => c.kind === kind);
+      if (!docs.length) continue;
+      steps.push(`<span class="chain-step"><span class="chain-kind">${STEP[kind]}</span> ${docs.map((d) => d.current
+        ? `<b class="chain-doc current">${esc(d.number)}</b>`
+        : `<a class="chain-doc" href="${esc(d.url)}" title="${esc(d.status)}">${esc(d.number)}</a>`).join(' ')}</span>`);
+    }
+    return `<div class="doc-chain">${steps.join('<span class="chain-arrow">›</span>')}</div>`;
+  }
+
   async function show() {
     const file = location.pathname.split('/').pop();
     const kind = PAGES[file];
@@ -47,7 +61,13 @@
     if (!id && !number) return;
     let a = null;
     try { a = await window.api.authors.get(kind, id, number); } catch (e) { return; }
-    const text = window.authorsText(a);
+    // The linked documents: BOQ › Quotation › Delivery Notes › Invoices.
+    let chain = [];
+    if (id && ['boq', 'quotation', 'deliveryNote', 'invoice'].includes(kind) && window.api.authors.chain) {
+      try { chain = (await window.api.authors.chain(kind, id)) || []; } catch (e) { chain = []; }
+    }
+    const chainHTML = chainText(chain);
+    const text = window.authorsText(a) + chainHTML;
     if (!text) return;
     // Under the page's title block (it re-draws its own contents; this
     // line sits just after it, so it stays).

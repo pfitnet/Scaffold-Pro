@@ -546,3 +546,19 @@ async function init() {
 }
 
 init();
+
+// ---------- Updates ----------
+
+(async function setupUpdates() {
+  const box = document.getElementById('auto-update');
+  if (!box || !window.api.updates) return;
+  try {
+    const r = await window.api.updates.get();
+    box.checked = !r || r.automatic !== false;
+  } catch (e) { box.checked = true; }
+  box.addEventListener('change', () => window.api.updates.set({ automatic: box.checked }));
+  document.getElementById('check-updates-btn').addEventListener('click', () => window.api.updates.set({ check: true }));
+})();
+
+// Before an automatic update: unsaved settings are saved.
+window.beforeAppUpdate = async () => { if (settingsDirty) await saveSettings(); };

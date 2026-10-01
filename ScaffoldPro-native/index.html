@@ -14,6 +14,7 @@
         <div class="subtitle" id="today-line"></div>
       </div>
       <div class="header-actions quick-actions">
+        <button id="customise-btn" data-no-icon title="Move, resize, hide or show the Dashboard’s panels">Customise</button>
         <button onclick="location.href='projects.html?new=1'">New Project</button>
         <button id="qa-quotation">New Quotation</button>
         <button id="qa-invoice">New Invoice</button>
@@ -27,49 +28,48 @@
 
     <div class="stat-grid" id="stat-grid"></div>
 
-    <div class="dash-grid">
-      <section class="panel hidden" id="inspections-panel">
+    <div class="dash-grid" id="dash-grid">
+      <section data-widget="inspections" data-title="Scaffold Inspections Due" class="panel hidden" id="inspections-panel">
         <h3 class="panel-title">Scaffold Inspections Due</h3>
         <div id="inspections-due-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="tasks" data-title="My Tasks">
         <h3 class="panel-title">My Tasks <a href="tasks.html" class="panel-link">All tasks</a></h3>
         <div id="my-tasks-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="projects" data-title="My Active &amp; Recent Projects">
         <h3 class="panel-title">My Active &amp; Recent Projects</h3>
         <div id="recent-projects"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="quotations" data-title="My Quotations Awaiting Reply">
         <h3 class="panel-title" id="quotation-title">My Quotations Awaiting Reply</h3>
         <div id="quotation-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="unpaid" data-title="Unpaid Invoices">
         <h3 class="panel-title">Unpaid Invoices</h3>
         <div id="unpaid-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="documents" data-title="My Recently Changed Documents">
         <h3 class="panel-title">My Recently Changed Documents</h3>
         <div id="recent-docs"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="deliveries" data-title="My Recent Delivery Notes">
         <h3 class="panel-title">My Recent Delivery Notes</h3>
         <div id="delivery-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="activity" data-title="My Recent Activity">
         <h3 class="panel-title">My Recent Activity</h3>
         <div id="activity-list"></div>
       </section>
-      <section class="panel">
+      <section class="panel" data-widget="team" data-title="Recent Team Activity">
         <h3 class="panel-title">Recent Team Activity</h3>
         <div id="team-activity-list"></div>
       </section>
+      <section class="panel hidden" id="attention-block" data-widget="attention" data-title="Documents Needing Attention">
+        <h3 class="panel-title">Documents Needing Attention</h3>
+        <div id="attention-list"></div>
+      </section>
     </div>
-
-    <section class="panel hidden" id="attention-block" style="margin-top:16px;">
-      <h3 class="panel-title">Documents Needing Attention</h3>
-      <div id="attention-list"></div>
-    </section>
   </main>
 
   <div class="modal-backdrop hidden" id="pick-project-modal">
@@ -88,6 +88,7 @@
   <script src="js/icons.js"></script>
   <script src="js/signed-copy.js"></script>
   <script src="js/task-editor.js"></script>
+  <script src="js/widgets.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
 </html>

@@ -262,7 +262,9 @@ class Gen:
         if base+bh>s.contentBottom: s.newPage(); base=s.contBase
         f=times(10.5,True,True); cols=[(48.75,43.5,225.75,120.75),(331.5,326.25,225.0,403.5)]; offs=[11.25,24.75,39.0]; low=base
         for i,g in enumerate(sigs[:2]):
-            tx,rx,rw,cx=cols[i]; s.text(g['heading'],tx,base,f); ry=base+75.75; s.fill(rx,ry,rw,0.75,BLACK)
+            tx,rx,rw,cx=cols[i]; s.text(g['heading'],tx,base,f)
+            if g.get('subheading'): s.text(g['subheading'],tx,base+14.0,f)
+            ry=base+75.75; s.fill(rx,ry,rw,0.75,BLACK)
             for j,(t,colon,val) in enumerate(g['lines']):
                 lb=ry+(offs[j] if j<3 else 39.0+(j-2)*14); s.text(t,tx,lb,f)
                 if colon:

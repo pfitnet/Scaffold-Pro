@@ -223,24 +223,46 @@
 
   <!-- New invoice: always based on one of the project's quotations -->
   <div class="modal-backdrop hidden" id="invoice-modal">
-    <div class="modal">
+    <div class="modal wide">
       <h2>New Invoice</h2>
-      <div class="field"><label for="inv-quotation">Based on quotation</label><select id="inv-quotation"></select></div>
+      <div class="field" id="inv-dn-field">
+        <label>Delivery notes to invoice <span class="small-note">— what was delivered, at the prices of the quotation it was delivered for</span></label>
+        <div class="dn-pick" id="inv-dns"></div>
+      </div>
+      <div class="field hidden" id="inv-quotation-field">
+        <label for="inv-quotation">Invoice a whole quotation instead (e.g. a deposit before delivery)</label>
+        <select id="inv-quotation"></select>
+      </div>
+      <button class="link-btn" id="inv-mode-toggle" type="button">Invoice a whole quotation instead…</button>
       <div class="field hidden" id="inv-rental">
         <label>Rent to charge</label>
         <div class="choice-group">
-          <label class="inline-check"><input type="radio" name="inv-charge" value="one" checked /> One month's rent</label>
+          <label class="inline-check"><input type="radio" name="inv-charge" value="one" checked /> One month’s rent</label>
           <label class="inline-check"><input type="radio" name="inv-charge" value="full" /> Full hire period of
             <input type="number" id="inv-months" min="1" step="1" /> months</label>
         </div>
       </div>
-      <label class="inline-check hidden" id="inv-delivery-row"><input type="checkbox" id="inv-delivery" checked /> Include delivery charges</label>
-      <label class="inline-check hidden" id="inv-other-row"><input type="checkbox" id="inv-other" checked /> Include <span id="inv-other-names">other charges</span></label>
+      <div class="field">
+        <label class="inline-check hidden" id="inv-delivery-row"><input type="checkbox" id="inv-delivery" checked /> Include delivery charges</label>
+        <label class="inline-check hidden" id="inv-other-row"><input type="checkbox" id="inv-other" checked /> Include <span id="inv-other-names">other charges</span></label>
+      </div>
       <p class="small-note" id="inv-summary"></p>
       <div class="error-text hidden" id="inv-error"></div>
       <div class="actions">
         <button id="inv-cancel">Cancel</button>
         <button class="primary" id="inv-create">Create Invoice</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="dn-modal">
+    <div class="modal">
+      <h2>New Delivery Note</h2>
+      <div class="field"><label for="dn-quotation">For quotation</label><select id="dn-quotation"></select></div>
+      <p class="small-note">The note starts with the quotation’s materials (change the quantities to what goes out). Its invoice is then made from it, at the quotation’s prices.</p>
+      <div class="actions">
+        <button id="dn-cancel">Cancel</button>
+        <button class="primary" id="dn-create">Create Delivery Note</button>
       </div>
     </div>
   </div>

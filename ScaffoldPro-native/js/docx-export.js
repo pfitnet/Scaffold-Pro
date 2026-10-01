@@ -342,9 +342,12 @@
       const sig = d.signatures[i === 0 ? 0 : 1];
       return tc(colW[i], sig ? fn(sig) : para('', { line: 1 }), { vAlign: 'top', mar: { left: inset }, borders: fn.borders && sig ? fn.borders : '' });
     });
-    const heading = (sig) => para(run(sig.heading, style), { line: 13.5, keepNext: true });
+    // The heading, and right under it (14pt on) the party's name when given.
+    const heading = (sig) => para(run(sig.heading, style), { line: 13.5, keepNext: true }) +
+      (sig.subheading ? para(run(sig.subheading, style), { line: 14, keepNext: true }) : '');
     // The rule is 75.75pt below the heading's baseline.
-    const spacer = () => para('', { line: 75.75 - 13.5 * (1 - BASELINE_AT), keepNext: true });
+    const hasSub = d.signatures.some((s) => s.subheading);
+    const spacer = () => para('', { line: 75.75 - 13.5 * (1 - BASELINE_AT) - (hasSub ? 14 : 0), keepNext: true });
     const linesFn = (sig) => sig.lines.map((l, j) => {
       const text = l.colon ? `${l.text}\t:\t${l.value || ''}` : l.text;
       const gapTo = j === 0 ? 11.25 : j < 3 ? [11.25, 24.75, 39.0][j] - [11.25, 24.75, 39.0][j - 1] : 14.0;

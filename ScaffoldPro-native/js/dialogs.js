@@ -171,6 +171,59 @@
     ] });
   };
 
+  // Before an automatic update: whatever is being typed is saved (the
+  // field loses focus, so it saves as usual; pages that save as they go
+  // are told to save now).
+  window.saveOpenWork = async function saveOpenWork() {
+    const a = document.activeElement;
+    if (a && a !== document.body && a.blur) a.blur();
+    try { window.dispatchEvent(new Event('beforeunload')); } catch (e) { /* ignore */ }
+    // A page with its own Save button saves too.
+    if (typeof window.beforeAppUpdate === 'function') { try { await window.beforeAppUpdate(); } catch (e) { /* ignore */ } }
+    await new Promise((r) => setTimeout(r, 1200));
+  };
+
+  // "Updating ScaffoldPro in 15 s": resolves 'now' when the time's up (or
+  // Update Now), 'later' if put off. Saves what's open before 'now'.
+  window.appUpdateCountdown = function appUpdateCountdown(seconds, latest) {
+    ensureStyles();
+    return new Promise((resolve) => {
+      const backdrop = document.createElement('div');
+      backdrop.className = 'app-dialog-backdrop';
+      backdrop.innerHTML = `<div class="app-dialog" data-no-icon role="alertdialog" aria-modal="true">
+        <div class="app-dialog-head"><div class="app-dialog-icon" aria-hidden="true">↻</div><div class="app-dialog-title">A new version of ScaffoldPro is ready</div></div>
+        <div class="app-dialog-body">Your work is saved and backed up first, then ScaffoldPro updates and opens again by itself (about a minute).${latest ? `\n${esc(latest)}` : ''}\n\n<b class="countdown">Updating in ${seconds} s</b></div>
+        <div class="app-dialog-buttons"><button type="button" class="later">Later (in an hour)</button><button type="button" class="primary now">Update Now</button></div></div>`;
+      (document.body || document.documentElement).appendChild(backdrop);
+      let left = seconds;
+      let done = false;
+      const finish = async (answer) => {
+        if (done) return;
+        done = true;
+        clearInterval(timer);
+        if (answer === 'now') {
+          backdrop.querySelector('.countdown').textContent = 'Saving your work…';
+          for (const b of backdrop.querySelectorAll('button')) b.disabled = true;
+          await window.saveOpenWork();
+          backdrop.querySelector('.countdown').textContent = 'Backing up and updating…';
+          // The update's own screen takes over; if it can't start, this goes.
+          setTimeout(() => backdrop.remove(), 10000);
+        } else {
+          backdrop.remove();
+        }
+        resolve(answer);
+      };
+      const timer = setInterval(() => {
+        left -= 1;
+        if (left <= 0) { finish('now'); return; }
+        backdrop.querySelector('.countdown').textContent = `Updating in ${left} s`;
+      }, 1000);
+      backdrop.querySelector('.later').addEventListener('click', () => finish('later'));
+      backdrop.querySelector('.now').addEventListener('click', () => finish('now'));
+      backdrop.querySelector('.now').focus();
+    });
+  };
+
   // Plain alert() calls show the app's dialog too (without waiting).
   window.alert = function alert(message) { window.appAlert(message); };
   window.alert.native = nativeAlert;
