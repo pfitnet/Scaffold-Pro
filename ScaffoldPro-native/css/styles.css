@@ -1028,3 +1028,6 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
   table.compact.task-table td:first-child { grid-column: 1; grid-row: 1 / span 3; padding-top: 1px; }
   table.compact.task-table td:not(:first-child) { grid-column: 2; }
 }
+
+/* "and 7 more" under a Dashboard list. */
+button.more-btn { display: block; margin: 6px 4px 0; font-size: 12px; }
