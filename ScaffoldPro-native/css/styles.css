@@ -879,3 +879,5 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
 .widget-bar button { font-size: 11px; padding: 1px 8px; }
 .widget-grip { cursor: grab; color: var(--text-tertiary); display: inline-flex; padding: 2px; touch-action: none; }
 .widget-dragging { opacity: 0.6; box-shadow: var(--shadow-sheet); }
+.token-row { display: flex; gap: 6px; }
+.token-row input { flex: 1; }

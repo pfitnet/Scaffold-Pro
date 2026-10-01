@@ -281,8 +281,14 @@
       <details class="settings-section" id="updates">
         <summary><span class="section-title">Updates</span><span class="section-desc">New versions of ScaffoldPro from GitHub</span></summary>
         <div class="section-body">
-          <label class="inline-check"><input type="checkbox" id="auto-update" /> Update automatically</label>
-          <p class="small-note">ScaffoldPro checks for a new version when it opens and every 30 minutes while it’s open. When there is one, it saves what you’re working on, makes a backup, and updates by itself — after a 15-second notice you can put off for an hour. Turned off, it asks first.</p>
+          <label class="inline-check"><input type="checkbox" id="auto-update" /> Check for updates while ScaffoldPro is open</label>
+          <p class="small-note">ScaffoldPro checks for a new version when it opens (and, with this ticked, every 30 minutes while it’s open). When there is one it asks; <b>Update Now</b> saves what you’re working on, makes a backup, updates and opens again by itself.</p>
+          <div class="field" style="margin-top:12px;">
+            <label for="github-token">GitHub access token <span class="small-note" id="token-state"></span></label>
+            <div class="token-row"><input type="password" id="github-token" placeholder="github_pat_… (paste, then Save Token)" autocomplete="off" spellcheck="false" />
+              <button id="token-save-btn">Save Token</button><button id="token-clear-btn" class="hidden">Remove</button></div>
+            <p class="small-note">Needed when the Scaffold-Pro repository on GitHub is private — without it, ScaffoldPro can’t see or download new versions by itself. On github.com: Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token; choose only the Scaffold-Pro repository, and under Repository permissions set <b>Contents: Read-only</b>. It’s kept on this Mac only (in a file only your Mac account can read).</p>
+          </div>
           <div style="margin-top:8px;"><button id="check-updates-btn">Check Now</button></div>
         </div>
       </details>

@@ -518,7 +518,7 @@ async function init() {
     document.getElementById('settings-changed-elsewhere').classList.add('hidden');
   });
   // Typing in the form (not the sharing or backup controls further down).
-  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions')) setSettingsDirty(true); };
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates')) setSettingsDirty(true); };
   document.getElementById('content').addEventListener('input', markDirty);
   document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {
@@ -552,11 +552,27 @@ init();
 (async function setupUpdates() {
   const box = document.getElementById('auto-update');
   if (!box || !window.api.updates) return;
-  try {
-    const r = await window.api.updates.get();
+  const show = (r) => {
     box.checked = !r || r.automatic !== false;
-  } catch (e) { box.checked = true; }
-  box.addEventListener('change', () => window.api.updates.set({ automatic: box.checked }));
+    const has = !!(r && r.hasToken);
+    document.getElementById('token-state').textContent = has ? '— saved on this Mac' : '— none saved';
+    document.getElementById('token-clear-btn').classList.toggle('hidden', !has);
+  };
+  try { show(await window.api.updates.get()); } catch (e) { box.checked = true; }
+  box.addEventListener('change', async () => show(await window.api.updates.set({ automatic: box.checked })));
+  document.getElementById('token-save-btn').addEventListener('click', async () => {
+    const input = document.getElementById('github-token');
+    const token = input.value.trim();
+    if (!token) { alert('Paste the token first.'); return; }
+    show(await window.api.updates.set({ token }));
+    input.value = '';
+    // Straight away: can it see the new versions now?
+    await window.api.updates.set({ check: true });
+  });
+  document.getElementById('token-clear-btn').addEventListener('click', async () => {
+    if (!await window.appConfirm('Remove the GitHub access token from this Mac?')) return;
+    show(await window.api.updates.set({ token: null }));
+  });
   document.getElementById('check-updates-btn').addEventListener('click', () => window.api.updates.set({ check: true }));
 })();
 
