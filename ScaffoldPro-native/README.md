@@ -2028,3 +2028,5 @@ under "Letterhead layout".
     kind: Quotations, BOQs, Delivery Notes and Invoices. Only the kinds in
     the list are shown. It shows the 5 most recent; "and N more" brings in
     the rest, bracketed the same way.
+  - "and N more" is a proper button (full width, with a chevron) rather than
+    a blue link. An empty My Tasks panel has a "+ New Task" button.

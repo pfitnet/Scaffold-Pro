@@ -1030,7 +1030,13 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
 }
 
 /* "and 7 more" under a Dashboard list. */
-button.more-btn { display: block; margin: 6px 4px 0; font-size: 12px; }
+button.more-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin: 8px 0 0; padding: 5px 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--header-bg); box-shadow: none;
+  font-size: 12px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+button.more-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--header-bg) 80%, var(--text)); color: var(--text); border-color: var(--border-strong); }
+button.more-btn svg { transition: transform .15s; opacity: 0.8; }
+button.more-btn.open svg { transform: rotate(180deg); }
+button.more-btn .more-count { font-weight: 400; color: var(--text-tertiary); }
 
 /* Brackets of documents by kind in "My Recently Changed Documents". */
 .doc-bracket { border: 1px solid var(--border); border-radius: 9px; margin: 0 0 8px; overflow: hidden; background: var(--panel); }
@@ -1038,3 +1044,9 @@ button.more-btn { display: block; margin: 6px 4px 0; font-size: 12px; }
   font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
 .doc-bracket-count { font-weight: 500; color: var(--text-tertiary); }
 .doc-bracket table.compact td { padding-left: 10px; padding-right: 10px; }
+
+/* An empty Dashboard panel with something to start (e.g. "+ New Task"). */
+.empty-widget { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px 2px; color: var(--text-tertiary); font-size: 13px; }
+button.add-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft); color: var(--accent); box-shadow: none; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .12s, border-color .12s; }
+button.add-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); }

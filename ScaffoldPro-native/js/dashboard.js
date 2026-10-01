@@ -36,6 +36,15 @@ function statCard(value, label, tone) {
 // Each list shows its first 5; "and 7 more" under it shows the rest (and
 // "Show fewer" folds it back). `total` when there are more than were sent.
 const SHOWN = 5;
+const CHEVRON = '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M3 4.5 6 7.5l3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// The "and 7 more" / "Show fewer" button's words, count and chevron.
+function moreLabel(btn, open, hiddenCount, notSent) {
+  btn.classList.toggle('open', open);
+  btn.innerHTML = open
+    ? `<span>Show fewer</span>${notSent > 0 ? `<span class="more-count">${notSent} older not shown</span>` : ''}${CHEVRON}`
+    : `<span>and ${hiddenCount} more</span>${CHEVRON}`;
+}
+
 function limitList(box, total) {
   const rows = [...box.querySelectorAll('tbody > tr')];
   const old = box.querySelector(':scope > .more-btn');
@@ -46,10 +55,10 @@ function limitList(box, total) {
   rows.forEach((tr, i) => tr.classList.toggle('hidden', !open && i >= SHOWN));
   const more = document.createElement('button');
   more.type = 'button';
-  more.className = 'link-btn more-btn';
+  more.className = 'more-btn';
   more.dataset.noIcon = '';
   const notSent = all - rows.length;
-  more.textContent = open ? `Show fewer${notSent > 0 ? ` (and ${notSent} older not shown)` : ''}` : `and ${all - SHOWN} more`;
+  moreLabel(more, open, all - SHOWN, notSent);
   more.addEventListener('click', (e) => {
     e.stopPropagation();
     box.dataset.expanded = open ? '' : '1';
@@ -96,9 +105,9 @@ function renderRecentDocs(all) {
   if (all.length > SHOWN) {
     const more = document.createElement('button');
     more.type = 'button';
-    more.className = 'link-btn more-btn';
+    more.className = 'more-btn';
     more.dataset.noIcon = '';
-    more.textContent = open ? 'Show fewer' : `and ${all.length - SHOWN} more`;
+    moreLabel(more, open, all.length - SHOWN, 0);
     more.addEventListener('click', (e) => { e.stopPropagation(); box.dataset.expanded = open ? '' : '1'; renderRecentDocs(all); });
     box.appendChild(more);
   }
@@ -264,7 +273,12 @@ async function loadDashboard() {
     renderMyTasks(fresh);
   };
   const renderMyTasks = (rows) => {
-    if (!rows.length) { taskBox.innerHTML = '<div class="empty-inline">Nothing to do — <a href="tasks.html">add a task</a>.</div>'; return; }
+    if (!rows.length) {
+      taskBox.innerHTML = `<div class="empty-widget"><span>Nothing to do.</span>
+        <button type="button" class="add-btn" data-no-icon><svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>New Task</button></div>`;
+      taskBox.querySelector('.add-btn').addEventListener('click', newTaskQuick);
+      return;
+    }
     taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`;
     window.wireTaskRows(taskBox, rows, reloadTasks, { projects });
     limitList(taskBox);
