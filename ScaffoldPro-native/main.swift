@@ -309,8 +309,68 @@ struct TeamMembership: Codable {
     /// The person's name, lower-cased.
     var id: String
     var name: String
-    var team: String
+    var team: String?
     var updatedAt: String
+    /// e.g. "Director" — printed under their name when they sign.
+    var title: String? = nil
+    /// Signs and chops quotations (a director).
+    var canSign: Bool? = nil
+}
+
+/// A person on the Team page: who they are, and the Macs (and other
+/// devices) they use ScaffoldPro on.
+struct TeamPerson: Codable {
+    var name: String
+    var team: String?
+    var title: String?
+    var canSign: Bool
+    var isMe: Bool
+    var devices: [TeamMember]
+    /// From Admin › Employees, when there's a record with the same name.
+    var employeeNumber: String?
+    var position: String?
+    var phone: String?
+    var hasSignature: Bool
+    var hasChop: Bool
+}
+
+struct TeamPage: Codable {
+    var me: String
+    var people: [TeamPerson]
+    var teams: [String]
+    var sharing: Bool
+}
+
+/// A request for a director to sign (and chop) a quotation.
+struct SignRequest: Codable {
+    var id: String
+    var kind: String
+    var documentId: String
+    var number: String
+    var projectNumber: String
+    var projectName: String?
+    var requestedBy: String
+    var signer: String
+    var note: String?
+    /// "Pending", "Signed" or "Declined"
+    var status: String
+    var createdAt: String
+    var decidedAt: String? = nil
+    var reply: String? = nil
+    /// The signed and chopped PDF, in the project's Quotations folder.
+    var filePath: String? = nil
+}
+
+struct SignRequestsPage: Codable {
+    var me: String
+    var canSign: Bool
+    /// Waiting for me to sign.
+    var incoming: [SignRequest]
+    /// Ones I asked for (newest first).
+    var outgoing: [SignRequest]
+    /// Everyone's, newest first (the last 60).
+    var recent: [SignRequest]
+    var signers: [String]
 }
 
 /// A message for the team: shown in a bar at the top of the Dashboard of
@@ -1272,6 +1332,10 @@ struct Quotation: Codable {
     var signedCopyAt: String? = nil
     /// "No signed copy needed" — takes it off the Dashboard's reminder.
     var signedCopyNotNeeded: Bool? = nil
+    /// Signed and chopped by a director (Team › Signatures): the PDF, when, who.
+    var directorSignedPath: String? = nil
+    var directorSignedAt: String? = nil
+    var directorSignedBy: String? = nil
     /// Kept in step with its BOQ (`sourceBOQId`) both ways until the link
     /// is removed. nil/false: the BOQ is only where its items came from.
     var boqLinked: Bool? = nil
@@ -1594,6 +1658,13 @@ struct QuotationDetail: Codable {
     var signedCopyAt: String? = nil
     var signedCopyExists = false
     var signedCopyNotNeeded = false
+    /// Signed and chopped by a director, and a request still waiting.
+    var directorSignedBy: String? = nil
+    var directorSignedAt: String? = nil
+    var directorSignedExists = false
+    var directorSignedPath: String? = nil
+    var signPendingWith: String? = nil
+    var signRequestId: String? = nil
     /// The client's default markup (a hint in the editor).
     var clientMarkupPercent: Double? = nil
     /// Item names on the PDF: the quotation's own choice (nil = Settings'), and Settings'.
@@ -2353,6 +2424,9 @@ struct LetterSignature {
     var subheading: String? = nil
     /// Under the signing rule: party name, then name / position / date lines.
     var lines: [LetterSignatureLine]
+    /// A director's signature (above the rule) and the company chop over it.
+    var signatureImage: CGImage? = nil
+    var chopImage: CGImage? = nil
 }
 
 /// A complete document in the letterhead layout.
@@ -2845,6 +2919,7 @@ final class AppDatabase {
     let employeesStore: JSONStore<Employee>
     let teamMembershipsStore: JSONStore<TeamMembership>
     let announcementsStore: JSONStore<Announcement>
+    let signRequestsStore: JSONStore<SignRequest>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -2883,6 +2958,7 @@ final class AppDatabase {
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
         teamMembershipsStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_teams.json"))
         announcementsStore = JSONStore(fileURL: dataDir.appendingPathComponent("announcements.json"))
+        signRequestsStore = JSONStore(fileURL: dataDir.appendingPathComponent("sign_requests.json"))
     }
 
     // ---- Document rows (client/site pages, Dashboard, search) ----
@@ -3686,12 +3762,15 @@ final class AppDatabase {
     // ---- Teams and announcements ----
 
     func teamOf(_ name: String) -> String? {
-        teamMembershipsStore.readAll().first { $0.id == name.lowercased() }?.team
+        nonBlank(teamMembershipsStore.readAll().first { $0.id == name.lowercased() }?.team)
     }
 
     func allTeams() -> [String] {
         var seen: [String: String] = [:]
-        for m in teamMembershipsStore.readAll() where seen[m.team.lowercased()] == nil { seen[m.team.lowercased()] = m.team }
+        for m in teamMembershipsStore.readAll() {
+            guard let team = nonBlank(m.team), seen[team.lowercased()] == nil else { continue }
+            seen[team.lowercased()] = team
+        }
         return seen.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
@@ -3699,14 +3778,144 @@ final class AppDatabase {
     func setMyTeam(_ raw: String?) -> String? {
         let me = TeamSync.memberName
         guard nonBlank(me) != nil else { return "Enter your name first." }
+        return setPerson(name: me, team: .some(raw), title: nil, canSign: nil)
+    }
+
+    /// A person's team, title and whether they sign (each only when given).
+    func setPerson(name rawName: String, team: String??, title: String??, canSign: Bool?) -> String? {
+        guard let name = nonBlank(rawName) else { return "Choose a person." }
         var all = teamMembershipsStore.readAll()
-        all.removeAll { $0.id == me.lowercased() }
-        if let team = nonBlank(raw) {
+        var row = all.first { $0.id == name.lowercased() } ?? TeamMembership(id: name.lowercased(), name: name, team: nil, updatedAt: nowISO())
+        if let team = team {
             // The same spelling as others in that team.
-            let existing = allTeams().first { $0.lowercased() == team.lowercased() } ?? team
-            all.append(TeamMembership(id: me.lowercased(), name: me, team: existing, updatedAt: nowISO()))
+            row.team = nonBlank(team).map { t in allTeams().first { $0.lowercased() == t.lowercased() } ?? t }
         }
+        if let title = title { row.title = nonBlank(title) }
+        if let canSign = canSign { row.canSign = canSign ? true : nil }
+        row.updatedAt = nowISO()
+        all.removeAll { $0.id == row.id }
+        if row.team != nil || row.title != nil || row.canSign == true { all.append(row) }
         teamMembershipsStore.writeAll(all)
+        return nil
+    }
+
+    func membership(_ name: String) -> TeamMembership? {
+        teamMembershipsStore.readAll().first { $0.id == name.lowercased() }
+    }
+
+    // ---- The Team page: people and their devices ----
+
+    /// Where people's signature and chop images are kept (in the shared folder).
+    var signaturesFolder: URL { dataDir.appendingPathComponent("signatures", isDirectory: true) }
+    func signatureImageURL(_ name: String, _ which: String) -> URL {
+        let safe = name.lowercased().replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        return signaturesFolder.appendingPathComponent("\(safe)-\(which == "chop" ? "chop" : "signature").png")
+    }
+
+    func teamPage() -> TeamPage {
+        let me = TeamSync.memberName
+        let sync = TeamSync.current
+        var devices: [String: [TeamMember]] = [:]
+        if let sync = sync {
+            for d in sync.members() { devices[d.name.lowercased(), default: []].append(d) }
+        } else if nonBlank(me) != nil {
+            devices[me.lowercased()] = [TeamMember(id: "this", name: me, computer: TeamSync.computerName, lastSeen: nowISO(), isThisMac: true)]
+        }
+        var names: [String: String] = [:]
+        for key in devices.keys { names[key] = devices[key]?.first?.name }
+        for m in teamMembershipsStore.readAll() { names[m.id] = names[m.id] ?? m.name }
+        for p in userProfilesStore.readAll() { names[p.id] = names[p.id] ?? p.name }
+        let employees = employeesStore.readAll().filter { !$0.isArchived }
+        for e in employees { names[e.name.lowercased()] = names[e.name.lowercased()] ?? e.name }
+        if nonBlank(me) != nil { names[me.lowercased()] = names[me.lowercased()] ?? me }
+        let fm = FileManager.default
+        var people: [TeamPerson] = []
+        for (key, name) in names {
+            let m = membership(name)
+            let e = employees.first { $0.name.lowercased() == key }
+            people.append(TeamPerson(name: name, team: nonBlank(m?.team), title: m?.title, canSign: m?.canSign == true,
+                                     isMe: key == me.lowercased(), devices: devices[key] ?? [],
+                                     employeeNumber: e?.employeeNumber, position: e?.position, phone: e?.phone,
+                                     hasSignature: fm.fileExists(atPath: signatureImageURL(name, "signature").path),
+                                     hasChop: fm.fileExists(atPath: signatureImageURL(name, "chop").path)))
+        }
+        people.sort { a, b in
+            if a.isMe != b.isMe { return a.isMe }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+        return TeamPage(me: me, people: people, teams: allTeams(), sharing: sync != nil)
+    }
+
+    // ---- Asking a director to sign a quotation ----
+
+    func signers() -> [String] {
+        teamMembershipsStore.readAll().filter { $0.canSign == true }.map { $0.name }.sorted()
+    }
+
+    func signRequestsPage() -> SignRequestsPage {
+        let me = TeamSync.memberName.lowercased()
+        let all = signRequestsStore.readAll().sorted { $0.createdAt > $1.createdAt }
+        return SignRequestsPage(me: TeamSync.memberName, canSign: membership(TeamSync.memberName)?.canSign == true,
+                                incoming: all.filter { $0.status == "Pending" && $0.signer.lowercased() == me },
+                                outgoing: all.filter { $0.requestedBy.lowercased() == me },
+                                recent: Array(all.prefix(60)), signers: signers())
+    }
+
+    func requestSignature(quotationId: String, signer rawSigner: String, note: String?) -> String? {
+        let me = TeamSync.memberName
+        guard nonBlank(me) != nil else { return "Enter your name on the User page first." }
+        guard let q = getQuotation(id: quotationId), let project = getProject(id: q.projectId) else { return "Quotation not found." }
+        guard q.status != "Cancelled" else { return "That quotation is cancelled." }
+        guard let signer = signers().first(where: { $0.lowercased() == rawSigner.lowercased() }) else {
+            return "Choose who signs. Directors are marked on the Team page."
+        }
+        if signRequestsStore.readAll().contains(where: { $0.documentId == q.id && $0.status == "Pending" }) {
+            return "\(q.quotationNumber) is already waiting for a signature."
+        }
+        signRequestsStore.insert(SignRequest(id: makeId("sign"), kind: "Quotation", documentId: q.id, number: q.quotationNumber,
+                                             projectNumber: project.projectNumber, projectName: project.name, requestedBy: me, signer: signer,
+                                             note: nonBlank(note), status: "Pending", createdAt: nowISO()))
+        logActivity(projectId: project.id, "Sent to \(signer) to sign", reference: q.quotationNumber)
+        return nil
+    }
+
+    func getSignRequest(id: String) -> SignRequest? { signRequestsStore.readAll().first { $0.id == id } }
+
+    /// Records the outcome, and tells whoever asked (an announcement just for them).
+    func finishSignRequest(id: String, signed: Bool, filePath: String?, reply: String?) -> String? {
+        var all = signRequestsStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "That request has been withdrawn." }
+        all[i].status = signed ? "Signed" : "Declined"
+        all[i].decidedAt = nowISO()
+        all[i].filePath = filePath
+        all[i].reply = nonBlank(reply)
+        signRequestsStore.writeAll(all)
+        let r = all[i]
+        if signed, var q = getQuotation(id: r.documentId) {
+            q.directorSignedPath = filePath
+            q.directorSignedAt = nowISO()
+            q.directorSignedBy = r.signer
+            var qs = quotationsStore.readAll()
+            if let qi = qs.firstIndex(where: { $0.id == q.id }) { qs[qi] = q; quotationsStore.writeAll(qs) }
+        }
+        let message = signed
+            ? "\(r.number) has been signed and chopped by \(r.signer). The signed copy is saved in project \(r.projectNumber)’s Quotations folder."
+            : "\(r.signer) didn’t sign \(r.number)\(r.reply.map { ": \($0)" } ?? ".")"
+        announcementsStore.insert(Announcement(id: makeId("announcement"), message: message, audience: "@" + r.requestedBy.lowercased(),
+                                               author: r.signer, createdAt: nowISO(), showUntil: nil, important: !signed, dismissedBy: []))
+        if let project = getProjectByNumber(r.projectNumber) {
+            logActivity(projectId: project.id, signed ? "Signed and chopped by \(r.signer)" : "Not signed by \(r.signer)", reference: r.number)
+        }
+        return nil
+    }
+
+    /// Withdraws a request that hasn't been signed yet (whoever asked).
+    func withdrawSignRequest(id: String) -> String? {
+        var all = signRequestsStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return nil }
+        guard all[i].status == "Pending" else { return "It has already been \(all[i].status.lowercased())." }
+        all.remove(at: i)
+        signRequestsStore.writeAll(all)
         return nil
     }
 
@@ -3726,11 +3935,13 @@ final class AppDatabase {
         }
         let team = myTeam?.lowercased() ?? ""
         let forMe = running.filter { a in
-            if a.audience == "Everyone" || a.author.lowercased() == key { return true }
+            if a.audience == "Everyone" || a.audience.lowercased() == "@" + key { return true }
+            // Ones I posted to a team; not a personal note I sent someone.
+            if a.author.lowercased() == key { return !a.audience.hasPrefix("@") }
             return !team.isEmpty && a.audience.lowercased() == team
         }
         let visible = forMe.filter { !$0.dismissedBy.contains(key) }.map { AnnouncementRow(announcement: $0, mine: $0.author.lowercased() == key) }
-        let mine = running.filter { $0.author.lowercased() == key }.map { AnnouncementRow(announcement: $0, mine: true) }
+        let mine = running.filter { $0.author.lowercased() == key && !$0.audience.hasPrefix("@") }.map { AnnouncementRow(announcement: $0, mine: true) }
         return AnnouncementsPage(me: me, myTeam: myTeam, teams: allTeams(), visible: visible, mine: mine)
     }
 
@@ -5913,6 +6124,14 @@ final class AppDatabase {
         detail.signedCopyAt = q.signedCopyAt
         detail.signedCopyExists = q.signedCopyPath.map { fileIsPresent($0) } ?? false
         detail.signedCopyNotNeeded = q.signedCopyNotNeeded ?? false
+        detail.directorSignedBy = q.directorSignedBy
+        detail.directorSignedAt = q.directorSignedAt
+        detail.directorSignedExists = q.directorSignedPath.map { fileIsPresent($0) } ?? false
+        detail.directorSignedPath = q.directorSignedPath
+        if let pending = signRequestsStore.readAll().first(where: { $0.documentId == q.id && $0.status == "Pending" }) {
+            detail.signPendingWith = pending.signer
+            detail.signRequestId = pending.id
+        }
         detail.clientMarkupPercent = client?.defaultMarkupPercent
         detail.minimumMonthlyChargeEnabled = q.pricingMode == "Rental" && q.minimumMonthlyChargeEnabled == true
         detail.minimumMonthlyCharge = minimumMonthlyRental
@@ -8216,6 +8435,18 @@ final class PDFGenerator {
         context.fill(CGRect(x: x, y: pageHeight - top - height, width: width, height: height))
     }
 
+    /// An image fitted (keeping its shape) into a box; at the box's left and
+    /// bottom, or in its centre.
+    private func image(_ cg: CGImage, x: CGFloat, top: CGFloat, width: CGFloat, height: CGFloat, centred: Bool = false) {
+        let iw = CGFloat(cg.width), ih = CGFloat(cg.height)
+        guard iw > 0, ih > 0, width > 0, height > 0 else { return }
+        let scale = min(width / iw, height / ih)
+        let w = iw * scale, h = ih * scale
+        let left = centred ? x + (width - w) / 2 : x
+        let imageTop = centred ? top + (height - h) / 2 : top + height - h
+        context.draw(cg, in: CGRect(x: left, y: pageHeight - imageTop - h, width: w, height: h))
+    }
+
     private func makeLine(_ string: String, _ font: NSFont, _ color: NSColor) -> CTLine {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -8885,6 +9116,12 @@ final class PDFGenerator {
                 text(sub, x: column.textX, baseline: baseline + 14.0, font: font)
             }
             let ruleY = baseline + 75.75
+            if let chop = signature.chopImage {
+                image(chop, x: column.textX + 108, top: baseline + 4, width: 84, height: 84, centred: true)
+            }
+            if let sig = signature.signatureImage {
+                image(sig, x: column.textX, top: baseline + (signature.subheading == nil ? 12 : 22), width: 165, height: ruleY - baseline - (signature.subheading == nil ? 13 : 23))
+            }
             fill(column.ruleX, ruleY, column.ruleWidth, 0.75, .black)
             for (j, line) in signature.lines.enumerated() {
                 let lineBaseline = ruleY + (j < offsets.count ? offsets[j] : 39.0 + CGFloat(j - 2) * 14.0)
@@ -12745,6 +12982,48 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "users:setTeam":
             let error = db.setMyTeam(payload["team"] as? String)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "team:page":
+            respond(id: id, encodable: db.teamPage())
+        case "team:setPerson":
+            let team: String?? = payload.keys.contains("team") ? .some(payload["team"] as? String) : nil
+            let title: String?? = payload.keys.contains("title") ? .some(payload["title"] as? String) : nil
+            let error = db.setPerson(name: (payload["name"] as? String) ?? "", team: team, title: title, canSign: payload["canSign"] as? Bool)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "signatures:page":
+            respond(id: id, encodable: db.signRequestsPage())
+        case "signatures:request":
+            let error = db.requestSignature(quotationId: (payload["quotationId"] as? String) ?? "", signer: (payload["signer"] as? String) ?? "", note: payload["note"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "signatures:withdraw":
+            let error = db.withdrawSignRequest(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "signatures:decline":
+            let rid = (payload["id"] as? String) ?? ""
+            if let r = db.getSignRequest(id: rid), r.signer.lowercased() != TeamSync.memberName.lowercased() {
+                respond(id: id, encodable: SimpleResult(ok: false, error: "Only \(r.signer) can answer this."))
+            } else {
+                let error = db.finishSignRequest(id: rid, signed: false, filePath: nil, reply: payload["reply"] as? String)
+                respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+            }
+        case "signatures:sign":
+            handleSignQuotation(id: id, requestId: (payload["id"] as? String) ?? "")
+        case "signatures:openFile":
+            let path = (payload["path"] as? String) ?? ""
+            if fileIsPresent(path) {
+                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+            } else {
+                respond(id: id, encodable: SimpleResult(ok: false, error: "The signed PDF isn’t there any more."))
+            }
+        case "signatures:chooseImage":
+            handleChooseSignatureImage(id: id, which: (payload["which"] as? String) ?? "signature")
+        case "signatures:removeImage":
+            try? FileManager.default.removeItem(at: db.signatureImageURL(TeamSync.memberName, (payload["which"] as? String) ?? "signature"))
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+        case "signatures:image":
+            struct ImageResult: Encodable { var dataURL: String? }
+            let url = db.signatureImageURL(TeamSync.memberName, (payload["which"] as? String) ?? "signature")
+            respond(id: id, encodable: ImageResult(dataURL: (try? Data(contentsOf: url)).map { "data:image/png;base64," + $0.base64EncodedString() }))
         case "announcements:page":
             respond(id: id, encodable: db.announcementsPage())
         case "announcements:post":
@@ -14863,6 +15142,74 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         respond(id: id, encodable: PriceImportResult(ok: true, error: nil, added: counts.added, updated: counts.updated))
     }
 
+    // MARK: Signing and chopping quotations (Team › Signatures)
+
+    /// The director signs: the quotation's PDF is made with their signature
+    /// over the company's signing line and the chop beside it, saved in the
+    /// project's Quotations folder, and whoever asked is told.
+    private func handleSignQuotation(id: String, requestId: String) {
+        func fail(_ message: String) { respond(id: id, encodable: PDFExportResult(ok: false, error: message, path: nil)) }
+        guard let request = db.getSignRequest(id: requestId), request.status == "Pending" else { fail("That request isn’t waiting any more."); return }
+        let me = TeamSync.memberName
+        guard request.signer.lowercased() == me.lowercased() else { fail("Only \(request.signer) can sign this."); return }
+        guard let detail = db.getQuotationDetail(id: request.documentId) else { fail("Quotation not found."); return }
+        func picture(_ which: String) -> CGImage? {
+            guard let image = NSImage(contentsOf: db.signatureImageURL(me, which)) else { return nil }
+            return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        }
+        guard let signature = picture("signature") else {
+            fail("Add your signature first: Team › People › your name › Signature.")
+            return
+        }
+        let company = db.getCompanySettings()
+        var letter = quotationLetter(detail, company: company)
+        if let i = letter.signatures.firstIndex(where: { $0.heading == "For and on Behalf of" }) {
+            letter.signatures[i].signatureImage = signature
+            letter.signatures[i].chopImage = picture("chop")
+        }
+        let paper = company.paperSize ?? "A4"
+        guard let generator = PDFGenerator(paperSize: paper) else { fail("Could not prepare the document."); return }
+        let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
+        let data = PDFAttachments.append(quotationAttachments(detail), to: generator.generate(letter), paperSize: size)
+        let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        do {
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: detail.projectNumber, subfolder: "Quotations",
+                                                             meaningfulFilename: "\(detail.projectNumber)_Quotation_\(safe) - Signed & Chopped.pdf")
+            if let error = db.finishSignRequest(id: requestId, signed: true, filePath: destination.path, reply: nil) { fail(error); return }
+            respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
+        } catch {
+            fail("The signed PDF couldn’t be saved in the project folder. Check there’s free disk space and try again.")
+        }
+    }
+
+    /// This Mac's user's signature or chop: a picture (PNG with a clear
+    /// background is best), kept in the shared folder's signatures folder.
+    private func handleChooseSignatureImage(id: String, which: String) {
+        guard let window = window else { respondNull(id: id); return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.png, .jpeg, .heic, .tiff]
+        panel.message = which == "chop" ? "Choose a picture of the company chop (a PNG with a clear background looks best)."
+            : "Choose a picture of your signature (a PNG with a clear background looks best)."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
+            guard let image = NSImage(contentsOf: url), let tiff = image.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) else {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "That picture couldn’t be read."))
+                return
+            }
+            do {
+                try FileManager.default.createDirectory(at: self.db.signaturesFolder, withIntermediateDirectories: true)
+                try png.write(to: self.db.signatureImageURL(TeamSync.memberName, which), options: .atomic)
+                self.respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+            } catch {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "The picture couldn’t be saved."))
+            }
+        }
+    }
+
     // MARK: Clients & sites to and from Excel
 
     private func handlePartyExport(id: String, kind: String, includeArchived: Bool) {
@@ -16784,7 +17131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             i.target = self
             go.addItem(i)
         }
-        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Marketing", "marketing.html")] {
+        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Team", "team.html"), ("Marketing", "marketing.html")] {
             let extra = item(title, #selector(goToPage(_:)), "", page: page)
             extra.target = self
             go.addItem(extra)

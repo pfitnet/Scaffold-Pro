@@ -21,6 +21,7 @@ const ICONS = {
   letters: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
+  team: '<circle cx="7" cy="7.5" r="2.5"/><circle cx="13.5" cy="7.5" r="2.5"/><path d="M2.5 16c.4-2.6 2.2-4 4.5-4s4.1 1.4 4.5 4M10.5 12.7c.8-.5 1.8-.7 3-.7 2.3 0 4.1 1.4 4.5 4"/>',
   user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.5-3.3 2.9-5 6-5s5.5 1.7 6 5"/>',
 };
 
@@ -32,6 +33,7 @@ const NAV_ITEMS = [
   { page: 'dashboard', label: 'Dashboard', href: 'index.html', key: '1' },
   { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
   { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
+  { page: 'team', label: 'Team', href: 'team.html' },
   { page: 'price-lists', label: 'Material List', href: 'price-lists.html', key: '2' },
   { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
@@ -426,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

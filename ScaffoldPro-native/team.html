@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Team — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="team">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div class="page-header">
+      <div>
+        <h1>Team</h1>
+        <div class="subtitle">Everyone using ScaffoldPro, the devices they use it on, quotations waiting to be signed and chopped, and announcements.</div>
+      </div>
+      <div class="header-actions">
+        <button id="team-announce-btn" data-no-icon>Announce</button>
+      </div>
+    </div>
+
+    <div class="tabs" id="team-tabs">
+      <button data-tab="people" class="active">People <span class="tab-count" id="count-people"></span></button>
+      <button data-tab="signatures">Signatures <span class="tab-count" id="count-signatures"></span></button>
+      <button data-tab="announcements">Announcements <span class="tab-count" id="count-announcements"></span></button>
+    </div>
+
+    <section class="tab-panel active" data-panel="people">
+      <div class="people-grid" id="people-grid"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="signatures">
+      <div id="sign-incoming"></div>
+      <div id="sign-outgoing"></div>
+      <div id="sign-recent"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="announcements">
+      <div id="team-announcements"></div>
+    </section>
+  </main>
+
+  <!-- A person: team, title, signs or not; your own signature and chop -->
+  <div class="modal-backdrop hidden" id="person-modal">
+    <div class="modal wide" role="dialog" aria-labelledby="pm-title">
+      <h2 id="pm-title">Person</h2>
+      <div class="form-row cols-2">
+        <div class="field"><label for="pm-team">Team</label><input type="text" id="pm-team" list="pm-teams" placeholder="e.g. Office" /><datalist id="pm-teams"></datalist></div>
+        <div class="field"><label for="pm-title-input">Title</label><input type="text" id="pm-title-input" placeholder="e.g. Director" /></div>
+      </div>
+      <label class="option-tile" style="margin-top:12px"><span class="option-check"><input type="checkbox" id="pm-cansign" /><span><b>Signs and chops quotations</b><small>Can be asked to sign quotations (a director)</small></span></span></label>
+      <div id="pm-images" class="hidden">
+        <div class="related-title">Your signature and the company chop</div>
+        <p class="small-note">Put on quotations you sign, over the company’s signing line. A PNG with a clear (transparent) background looks best.</p>
+        <div class="sig-pair">
+          <div class="sig-slot" data-which="signature"><div class="sig-preview" id="pm-sig-preview"></div><div class="sig-actions"><button data-no-icon class="sig-choose">Choose Signature…</button><button data-no-icon class="sig-remove link-btn">Remove</button></div></div>
+          <div class="sig-slot" data-which="chop"><div class="sig-preview chop" id="pm-chop-preview"></div><div class="sig-actions"><button data-no-icon class="sig-choose">Choose Chop…</button><button data-no-icon class="sig-remove link-btn">Remove</button></div></div>
+        </div>
+      </div>
+      <div class="error-text hidden" id="pm-error"></div>
+      <div class="actions">
+        <button id="pm-cancel">Cancel</button>
+        <button class="primary" id="pm-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/announcements.js"></script>
+  <script src="js/team.js"></script>
+</body>
+</html>

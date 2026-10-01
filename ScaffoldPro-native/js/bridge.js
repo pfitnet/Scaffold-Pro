@@ -392,6 +392,18 @@
       setName: (name) => callNative('users:setName', { name: name }),
       setTeam: (team) => callNative('users:setTeam', { team: team }),
     },
+    // Asking a director to sign and chop a quotation.
+    signatures: {
+      page: () => callNative('signatures:page'),
+      request: (quotationId, signer, note) => callNative('signatures:request', { quotationId, signer, note }),
+      withdraw: (id) => callNative('signatures:withdraw', { id }),
+      decline: (id, reply) => callNative('signatures:decline', { id, reply }),
+      sign: (id) => callNative('signatures:sign', { id }),
+      openFile: (path) => callNative('signatures:openFile', { path }),
+      chooseImage: (which) => callNative('signatures:chooseImage', { which }),
+      removeImage: (which) => callNative('signatures:removeImage', { which }),
+      image: (which) => callNative('signatures:image', { which }),
+    },
     // Messages for everyone, or for one team, shown at the top of the Dashboard.
     announcements: {
       page: () => callNative('announcements:page'),
@@ -400,6 +412,9 @@
       remove: (id) => callNative('announcements:delete', { id: id }),
     },
     team: {
+      // The Team page: people, their devices, team, title and who signs.
+      page: () => callNative('team:page'),
+      setPerson: (input) => callNative('team:setPerson', input),
       status: () => callNative('team:status'),
       // Makes a shared folder from this Mac's data (asks where).
       start: () => callNative('team:start'),

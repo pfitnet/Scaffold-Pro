@@ -2066,3 +2066,34 @@ under "Letterhead layout".
   - ✎ or double-click opens the details.
   - `sites.html` links still work: they land on the site.
 - **Marketing › Top Clients** is for reading only (not clickable).
+
+## Batch 79 — Team tab, and directors signing and chopping quotations
+
+- **Team** (sidebar) has People, Signatures and Announcements tabs.
+- **People:** everyone using ScaffoldPro, with their team and title.
+  - Their Admin › Employees details (position, number, phone), when the
+    names match.
+  - The devices they use it on: each Mac, when it was last seen, and
+    whether it needs updating.
+  - ✎ sets a person's team, title, and "Signs and chops quotations" (a
+    director).
+  - On your own card you add your signature and the company chop, as
+    pictures. They're kept in the shared folder's `signatures/` folder.
+- **Asking a director to sign:**
+  - In a draft or issued quotation, the new bar under the toolbar has "Send
+    to Sign…". Choose the director and add a note.
+  - The director sees "… is waiting for you to sign and chop" at the top of
+    their Dashboard, and in Team › Signatures. There they can Review it,
+    Decline it with a reason, or Sign & Chop it.
+- **Sign & Chop:**
+  - The quotation's PDF is made with their signature over the company's
+    "For and on Behalf of" line and the chop beside it.
+  - It's saved as "… - Signed & Chopped.pdf" in the project's Quotations
+    folder.
+  - Whoever asked gets an announcement just for them: "… has been signed
+    and chopped by …". A decline tells them the reason.
+  - The quotation's bar then shows "Signed & chopped by … on …" with Open
+    Signed PDF.
+  - Only the person asked can sign, from their own Mac with their own
+    signature.
+- Announcements can now go to one person (used for these replies).

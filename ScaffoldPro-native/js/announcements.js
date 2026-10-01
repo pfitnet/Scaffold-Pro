@@ -25,18 +25,31 @@
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   }
 
-  const audienceText = (a) => (a.audience === 'Everyone' ? 'to everyone' : `to the ${esc(a.audience)} team`);
+  const audienceText = (a) => (a.audience === 'Everyone' ? 'to everyone' : a.audience.startsWith('@') ? 'to you' : `to the ${esc(a.audience)} team`);
+  const PEN = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15.5c2-1 3.5-4 5-4s0 3 1.5 3 3-5 4.5-5 1 2.5 3 2.5"/><path d="M3 17.5h14"/></svg>';
+  let waiting = [];
+  let started = false;
 
   async function refresh() {
     if (!barEl) return;
     try { page = await window.api.announcements.page(); } catch (e) { return; }
+    // Quotations waiting for me to sign come first.
+    try { const s = window.api.signatures ? await window.api.signatures.page() : null; waiting = (s && s.incoming) || []; } catch (e) { waiting = []; }
     draw();
   }
 
   function draw() {
     const rows = (page && page.visible) || [];
-    barEl.classList.toggle('hidden', rows.length === 0);
-    barEl.innerHTML = rows.map(({ announcement: a, mine }) => `
+    barEl.classList.toggle('hidden', rows.length === 0 && waiting.length === 0);
+    const sign = waiting.map((r) => `<div class="announce sign">
+        <span class="announce-icon">${PEN}</span>
+        <div class="announce-body">
+          <div class="announce-text"><b>${esc(r.number)}</b> is waiting for you to sign and chop${r.note ? ` — “${esc(r.note)}”` : ''}</div>
+          <div class="announce-meta">${window.personTag ? window.personTag(r.requestedBy) : esc(r.requestedBy)} <span>asked ${when(r.createdAt)} · ${esc(r.projectNumber)} ${esc(r.projectName || '')}</span></div>
+        </div>
+        <div class="announce-actions"><a class="button-like primary" href="team.html?tab=signatures">Review &amp; Sign</a></div>
+      </div>`).join('');
+    barEl.innerHTML = sign + rows.map(({ announcement: a, mine }) => `
       <div class="announce${a.important ? ' important' : ''}" data-id="${esc(a.id)}">
         <span class="announce-icon">${MEGAPHONE}</span>
         <div class="announce-body">
@@ -48,7 +61,7 @@
           <button type="button" class="announce-close" data-no-icon title="Close — it won’t show for you again" aria-label="Close">${CLOSE}</button>
         </div>
       </div>`).join('');
-    for (const el of barEl.querySelectorAll('.announce')) {
+    for (const el of barEl.querySelectorAll('.announce[data-id]')) {
       const id = el.dataset.id;
       el.querySelector('.announce-close').addEventListener('click', async () => {
         el.classList.add('leaving');
@@ -160,10 +173,13 @@
     render(bar) {
       barEl = bar;
       refresh();
+      if (started) return;
+      started = true;
       // New ones from the team turn up by themselves.
       setInterval(refresh, 60000);
       window.addEventListener('focus', refresh);
     },
+    refresh,
     compose,
   };
 })();
