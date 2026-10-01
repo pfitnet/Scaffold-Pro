@@ -1,7 +1,7 @@
 # Graph Report - Scaffold-Pro  (2026-10-01)
 
 ## Corpus Check
-- 63 files · ~229,759 words
+- 63 files · ~230,028 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 31 file(s) not represented in the graph (top: .whl 16, .ttf 6, (none) 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e642a342`
+- Built from commit: `7e61f97c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -459,9 +459,9 @@ Nodes (6): accounts.html (Accounts page), clients.html (Clients page), index.htm
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `PDFGenerator` connect `PDFGenerator` to `TeamSync`, `Gen`, `main.swift`, `String`, `.append`, `.deliverRenderedPDF`, `Quotation (standard Qt26193 style)`, `JSONStore`, `word.py`?**
-  _High betweenness centrality (0.359) - this node is a cross-community bridge._
+  _High betweenness centrality (0.362) - this node is a cross-community bridge._
 - **Why does `Export Word (.docx) matching PDF layout` connect `word.py` to `PDFGenerator`, `docx-export.js`?**
-  _High betweenness centrality (0.282) - this node is a cross-community bridge._
+  _High betweenness centrality (0.285) - this node is a cross-community bridge._
 - **Why does `invoice-editor.html (Invoice editor)` connect `quotation-editor.html (Quotation editor)` to `index.html (Dashboard)`, `paragraph-format.js`, `docx-export.js`, `line-discount.js`, `invoice-editor.js`?**
   _High betweenness centrality (0.123) - this node is a cross-community bridge._
 - **What connects `SDKROOT`, `askpass.sh script`, `PATH` to the rest of the system?**

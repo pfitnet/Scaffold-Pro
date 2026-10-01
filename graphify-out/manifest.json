@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790873556.5174844,
-    "seen": 1790873558.5016346,
-    "ast_hash": "a59ad6e44b0c303e9266490943a438e9",
+    "mtime": 1790873829.221472,
+    "seen": 1790873831.9008236,
+    "ast_hash": "77ccd8659fbc88edbd39b9ff75353af5",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -534,9 +534,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/widgets.js": {
-    "mtime": 1790870947.9985113,
-    "seen": 1790873051.2853937,
-    "ast_hash": "e3d1f56c521205fc8f5ae1260482be01",
+    "mtime": 1790873798.6978445,
+    "seen": 1790873831.9008136,
+    "ast_hash": "ece2ce05eb9a93eea8016164a82d19d6",
     "semantic_hash": ""
   }
 }

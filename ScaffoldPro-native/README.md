@@ -2017,3 +2017,6 @@ under "Letterhead layout".
   - A narrow panel (¼ width) stacks each row: the name across the top, then
     status and amount, then its buttons. The table columns no longer get
     squeezed (CSS container query).
+  - Panels stretch down to meet the panel below them (or the bottom of the
+    Dashboard), so no empty patch is left under a short panel beside a
+    tall one.

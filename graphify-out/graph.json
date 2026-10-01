@@ -20197,7 +20197,7 @@
       "file_type": "code",
       "norm_label": "columns()",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L104"
+      "source_location": "L106"
     },
     {
       "id": "scaffoldpro_native_js_widgets_guides",
@@ -20245,7 +20245,7 @@
       "file_type": "code",
       "norm_label": "pack()",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L162"
+      "source_location": "L166"
     },
     {
       "id": "scaffoldpro_native_js_widgets_refresh",
@@ -20293,7 +20293,7 @@
       "file_type": "code",
       "norm_label": "startdrag()",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L137"
+      "source_location": "L139"
     },
     {
       "id": "scaffoldpro_native_js_widgets_startresize",
@@ -20305,7 +20305,7 @@
       "file_type": "code",
       "norm_label": "startresize()",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L110"
+      "source_location": "L112"
     },
     {
       "id": "scaffoldpro_native_main_appdatabase_allclients",
@@ -35451,7 +35451,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L152",
+      "source_location": "L155",
       "weight": 1.0
     },
     {
@@ -35463,7 +35463,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L113",
+      "source_location": "L115",
       "weight": 1.0
     },
     {
@@ -35475,7 +35475,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L123",
+      "source_location": "L125",
       "weight": 1.0
     },
     {
@@ -35487,7 +35487,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L130",
+      "source_location": "L132",
       "weight": 1.0
     },
     {
@@ -95436,7 +95436,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L104",
+      "source_location": "L106",
       "weight": 1.0
     },
     {
@@ -95447,7 +95447,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L110",
+      "source_location": "L112",
       "weight": 1.0
     },
     {
@@ -95458,7 +95458,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L137",
+      "source_location": "L139",
       "weight": 1.0
     },
     {
@@ -110899,7 +110899,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L170",
+      "source_location": "L187",
       "weight": 1.0
     },
     {
@@ -113616,5 +113616,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "e642a3422c41eb015ceab0d52682f6ad6e2a1140"
+  "built_at_commit": "7e61f97c54d4fbf625c9071c1f7da35a2834eaee"
 }
