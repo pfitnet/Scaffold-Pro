@@ -1031,3 +1031,10 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
 
 /* "and 7 more" under a Dashboard list. */
 button.more-btn { display: block; margin: 6px 4px 0; font-size: 12px; }
+
+/* Brackets of documents by kind in "My Recently Changed Documents". */
+.doc-bracket { border: 1px solid var(--border); border-radius: 9px; margin: 0 0 8px; overflow: hidden; background: var(--panel); }
+.doc-bracket-head { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 10px; background: var(--header-bg); border-bottom: 1px solid var(--hairline);
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.doc-bracket-count { font-weight: 500; color: var(--text-tertiary); }
+.doc-bracket table.compact td { padding-left: 10px; padding-right: 10px; }

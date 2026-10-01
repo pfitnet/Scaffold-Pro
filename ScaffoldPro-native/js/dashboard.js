@@ -72,6 +72,38 @@ function table(container, rows, columns, emptyText) {
   limitList(el);
 }
 
+// My recently changed documents, in a bracket per kind (Quotations,
+// BOQs, Delivery Notes, Invoices — only the kinds in the list). The 5 most
+// recent are shown; "and N more" shows the rest, bracketed the same way.
+const DOC_KINDS = [['Quotation', 'Quotations'], ['BOQ', 'BOQs'], ['Delivery Note', 'Delivery Notes'], ['Invoice', 'Invoices']];
+function renderRecentDocs(all) {
+  const box = document.getElementById('recent-docs');
+  if (!all.length) { box.innerHTML = '<div class="empty-inline">None yet — documents you work on show here.</div>'; return; }
+  const open = box.dataset.expanded === '1';
+  const shown = open ? all : all.slice(0, SHOWN);
+  const known = DOC_KINDS.map(([k]) => k);
+  const kinds = DOC_KINDS.concat([...new Set(shown.map((r) => r.kind).filter((k) => !known.includes(k)))].map((k) => [k, k]));
+  box.innerHTML = kinds.map(([kind, title]) => {
+    const rows = shown.filter((r) => r.kind === kind);
+    if (!rows.length) return '';
+    return `<section class="doc-bracket"><div class="doc-bracket-head"><span>${esc(title)}</span><span class="doc-bracket-count">${rows.length}</span></div>
+      <table class="compact"><tbody>${rows.map((r) => `<tr class="link-row" data-url="${esc(r.url)}">
+        <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectNumber)}${r.projectName ? ` ${esc(r.projectName)}` : ''}</div>${madeBy(r)}</td>
+        <td><span class="status-pill ${r.isOverdue ? 'pill-danger' : ''}">${esc(r.status)}</span></td>
+        <td class="muted num">${when(r.lastEditedAt || r.updatedAt)}</td></tr>`).join('')}</tbody></table></section>`;
+  }).join('');
+  for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+  if (all.length > SHOWN) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'link-btn more-btn';
+    more.dataset.noIcon = '';
+    more.textContent = open ? 'Show fewer' : `and ${all.length - SHOWN} more`;
+    more.addEventListener('click', (e) => { e.stopPropagation(); box.dataset.expanded = open ? '' : '1'; renderRecentDocs(all); });
+    box.appendChild(more);
+  }
+}
+
 let projectsCache = [];
 
 // "Created by Harry" (in Harry's colour) under a row's number.
@@ -196,11 +228,7 @@ async function loadDashboard() {
     { value: (p) => `<span class="status-pill">${esc(p.status)}</span>` },
   ], projects.length ? 'None yet — projects you work on show here.' : 'No projects yet — press New Project to start.');
 
-  table('recent-docs', summary.recentDocuments, [
-    { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.kind)} · ${esc(r.projectNumber)}</div>${madeBy(r)}` },
-    { value: (r) => `<span class="status-pill ${r.isOverdue ? 'pill-danger' : ''}">${esc(r.status)}</span>` },
-    { cls: 'muted num', value: (r) => when(r.lastEditedAt || r.updatedAt) },
-  ], 'None yet — documents you work on show here.');
+  renderRecentDocs(summary.recentDocuments || []);
 
   table('delivery-list', summary.recentDeliveryNotes, [
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectName)}</div>${madeBy(r)}` },
