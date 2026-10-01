@@ -1946,3 +1946,28 @@ under "Letterhead layout".
     3. updates, and opens again by itself.
   - At launch it just updates.
   - Turned off, it asks first, as before.
+
+## Batch 76 — Updates that work with a private repository, and ask first
+
+- **Why the update at launch didn't happen:** ScaffoldPro checks GitHub with
+  git, which can't sign in by itself. It then fell back to GitHub's public
+  web API, which can't see a private repository. So it said "Up to date"
+  when it couldn't actually tell.
+- **GitHub access token** (Settings › Updates): a fine-grained token
+  (Contents: Read-only, the Scaffold-Pro repository only) lets ScaffoldPro
+  check for and download new versions itself.
+  - git's fetch and pull send it as a header, and the web API check uses it
+    too (`GitHubToken`, `UpdateChecker.authArgs`).
+  - It's kept in `~/Library/Application Support/ScaffoldPro/github-token`,
+    readable only by this Mac's user. The Keychain would ask for
+    permission again after every update, because the app is rebuilt.
+- **When GitHub can't be reached,** the launch screen now says "Couldn't
+  check for updates" (not "Up to date"). "Check Now" says what to do.
+- **Updates ask first.** At launch, and every 30 minutes while it's open, a
+  new version brings up "Update Now / Later" (no countdown). Update Now:
+  1. saves what's open;
+  2. makes a backup;
+  3. updates, and opens again by itself.
+
+  Later asks again in an hour.
+

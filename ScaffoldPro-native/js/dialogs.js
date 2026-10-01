@@ -183,29 +183,29 @@
     await new Promise((r) => setTimeout(r, 1200));
   };
 
-  // "Updating ScaffoldPro in 15 s": resolves 'now' when the time's up (or
-  // Update Now), 'later' if put off. Saves what's open before 'now'.
-  window.appUpdateCountdown = function appUpdateCountdown(seconds, latest) {
+  // "A new version is ready — Update Now / Later": resolves 'now' or
+  // 'later'. With Update Now, what's open is saved before it resolves.
+  window.appUpdatePrompt = function appUpdatePrompt(latest) {
     ensureStyles();
     return new Promise((resolve) => {
       const backdrop = document.createElement('div');
       backdrop.className = 'app-dialog-backdrop';
       backdrop.innerHTML = `<div class="app-dialog" data-no-icon role="alertdialog" aria-modal="true">
         <div class="app-dialog-head"><div class="app-dialog-icon" aria-hidden="true">↻</div><div class="app-dialog-title">A new version of ScaffoldPro is ready</div></div>
-        <div class="app-dialog-body">Your work is saved and backed up first, then ScaffoldPro updates and opens again by itself (about a minute).${latest ? `\n${esc(latest)}` : ''}\n\n<b class="countdown">Updating in ${seconds} s</b></div>
-        <div class="app-dialog-buttons"><button type="button" class="later">Later (in an hour)</button><button type="button" class="primary now">Update Now</button></div></div>`;
+        <div class="app-dialog-body">Update now? Your work is saved and backed up first, then ScaffoldPro updates and opens again by itself (about a minute).${latest ? `\n${esc(latest)}` : ''}<span class="update-state"></span></div>
+        <div class="app-dialog-buttons"><button type="button" class="later">Later</button><button type="button" class="primary now">Update Now</button></div></div>`;
       (document.body || document.documentElement).appendChild(backdrop);
-      let left = seconds;
       let done = false;
+      const state = backdrop.querySelector('.update-state');
       const finish = async (answer) => {
         if (done) return;
         done = true;
-        clearInterval(timer);
+        document.removeEventListener('keydown', onKey, true);
         if (answer === 'now') {
-          backdrop.querySelector('.countdown').textContent = 'Saving your work…';
           for (const b of backdrop.querySelectorAll('button')) b.disabled = true;
+          state.textContent = '\n\nSaving your work…';
           await window.saveOpenWork();
-          backdrop.querySelector('.countdown').textContent = 'Backing up and updating…';
+          state.textContent = '\n\nBacking up and updating…';
           // The update's own screen takes over; if it can't start, this goes.
           setTimeout(() => backdrop.remove(), 10000);
         } else {
@@ -213,11 +213,11 @@
         }
         resolve(answer);
       };
-      const timer = setInterval(() => {
-        left -= 1;
-        if (left <= 0) { finish('now'); return; }
-        backdrop.querySelector('.countdown').textContent = `Updating in ${left} s`;
-      }, 1000);
+      const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); finish('later'); }
+        if (e.key === 'Enter') { e.preventDefault(); finish('now'); }
+      };
+      document.addEventListener('keydown', onKey, true);
       backdrop.querySelector('.later').addEventListener('click', () => finish('later'));
       backdrop.querySelector('.now').addEventListener('click', () => finish('now'));
       backdrop.querySelector('.now').focus();

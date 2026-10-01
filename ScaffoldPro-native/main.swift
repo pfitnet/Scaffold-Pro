@@ -12206,8 +12206,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "app:updates":
             // Settings › Updates: { automatic? } changes the setting; "check" checks now.
             if let auto = payload["automatic"] as? Bool { AppDelegate.autoUpdate = auto }
+            if payload.keys.contains("token") { GitHubToken.set(payload["token"] as? String) }
             if (payload["check"] as? Bool) == true { (NSApp.delegate as? AppDelegate)?.checkForUpdates(manual: true) }
-            respond(id: id, encodable: ["automatic": AppDelegate.autoUpdate])
+            respond(id: id, encodable: ["automatic": AppDelegate.autoUpdate, "hasToken": GitHubToken.get() != nil])
         case "app:relaunch":
             respondNull(id: id)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { relaunchApp() }
@@ -14808,7 +14809,35 @@ struct UpdateInfo {
     var installer: URL?
 }
 
+/// A GitHub access token (read-only, for this repository) so updates can be
+/// checked and downloaded from a private repository without signing in to
+/// git. Kept in a file only this Mac's user can read (not the Keychain,
+/// which would ask again after every update, as the app is rebuilt).
+enum GitHubToken {
+    static var file: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ScaffoldPro", isDirectory: true).appendingPathComponent("github-token")
+    }
+    static func get() -> String? { (try? String(contentsOf: file, encoding: .utf8)).flatMap { nonBlank($0) } }
+    static func set(_ token: String?) {
+        guard let t = nonBlank(token) else { try? FileManager.default.removeItem(at: file); return }
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data(t.utf8).write(to: file, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+    }
+}
+
 enum UpdateChecker {
+    /// The last check couldn't reach GitHub at all (so "up to date" isn't known).
+    static var lastCheckUnknown = false
+
+    /// git options that sign in to GitHub with the saved token, if any.
+    static var authArgs: [String] {
+        guard let token = GitHubToken.get() else { return ["-c", "credential.interactive=never"] }
+        let basic = Data("x-access-token:\(token)".utf8).base64EncodedString()
+        return ["-c", "credential.interactive=never", "-c", "http.https://github.com/.extraheader=Authorization: Basic \(basic)"]
+    }
+
     static func resource(_ name: String) -> String? {
         guard let url = Bundle.main.resourceURL?.appendingPathComponent(name),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
@@ -14851,6 +14880,8 @@ enum UpdateChecker {
         guard let url = URL(string: "https://api.github.com/repos/\(parts[0])/\(repo)/commits/\(branch)") else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue("application/vnd.github.sha", forHTTPHeaderField: "Accept")
+        // A private repository needs the token.
+        if let token = GitHubToken.get() { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         let done = DispatchSemaphore(value: 0)
         var sha: String?
         URLSession.shared.dataTask(with: request) { data, response, _ in
@@ -14870,7 +14901,8 @@ enum UpdateChecker {
               FileManager.default.fileExists(atPath: source),
               let top = git(["rev-parse", "--show-toplevel"], in: source), !top.isEmpty else { return nil }
         let installer = URL(fileURLWithPath: top).appendingPathComponent("Install ScaffoldPro.command")
-        let fetched = git(["-c", "credential.interactive=never", "fetch", "--quiet", "origin"], in: top, timeout: 30) != nil
+        lastCheckUnknown = false
+        let fetched = git(authArgs + ["fetch", "--quiet", "origin"], in: top, timeout: 30) != nil
         var newest = 0
         var newestRef: String?
         for ref in ["@{u}", "origin/main", "HEAD"] {
@@ -14885,8 +14917,13 @@ enum UpdateChecker {
         // Couldn't reach GitHub with git: ask its web API instead.
         if !fetched {
             let branch = git(["rev-parse", "--abbrev-ref", "@{u}"], in: top).map { String($0.split(separator: "/").last ?? "main") } ?? "main"
-            if let sha = latestOnGitHub(repoDir: top, branch: branch), sha != installed,
-               git(["merge-base", "--is-ancestor", sha, installed], in: top) == nil {
+            guard let sha = latestOnGitHub(repoDir: top, branch: branch) else {
+                // Neither git nor GitHub's web API could be reached (a
+                // private repository needs a token: Settings › Updates).
+                lastCheckUnknown = true
+                return nil
+            }
+            if sha != installed, git(["merge-base", "--is-ancestor", sha, installed], in: top) == nil {
                 return UpdateInfo(changes: nil, latest: nil, installer: FileManager.default.fileExists(atPath: installer.path) ? installer : nil)
             }
         }
@@ -15237,7 +15274,7 @@ final class Updater: NSObject {
         screen.setTitle("Updating ScaffoldPro")
         show("Getting the latest version…", "", progress: nil)
         DispatchQueue.global(qos: .userInitiated).async {
-            let pulled = UpdateChecker.git(["-c", "credential.interactive=never", "pull", "--ff-only", "--quiet"], in: self.repoDir, timeout: 90) != nil
+            let pulled = UpdateChecker.git(UpdateChecker.authArgs + ["pull", "--ff-only", "--quiet"], in: self.repoDir, timeout: 90) != nil
             let state = self.localState()
             DispatchQueue.main.async {
                 if state.hasNew {
@@ -15520,7 +15557,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
                     if let info = info, info.installer != nil {
                         self.offerUpdateOnLaunchScreen(info, screen: screen)
                     } else {
-                        screen.status("Up to date", busy: false)
+                        screen.status(UpdateChecker.lastCheckUnknown ? "Couldn't check for updates" : "Up to date", busy: false)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             self.finishLaunching()
                             if let info = info { self.offerUpdate(info) }
@@ -15563,12 +15600,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             }
             u.start()
         }
-        // Updating automatically (Settings › Updates): nothing is open yet,
-        // so it simply goes ahead.
-        if AppDelegate.autoUpdate { begin(0) } else { screen.setButtons(["Update Now", "Later"], begin) }
+        // Asks first; Update Now does the rest by itself.
+        screen.setButtons(["Update Now", "Later"], begin)
     }
 
-    /// Settings › Updates: update by itself when a new version is found.
+    /// Settings › Updates: check for new versions while ScaffoldPro is open
+    /// (and offer them, to update with one click).
     static let autoUpdateKey = "updates.automatic"
     static var autoUpdate: Bool {
         get { UserDefaults.standard.object(forKey: autoUpdateKey) as? Bool ?? true }
@@ -15579,9 +15616,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     private var updatePostponedUntil = Date.distantPast
 
     /// While ScaffoldPro is open: every 30 minutes, is there a newer
-    /// version? If so (and updating automatically), it saves what's open,
-    /// makes a backup and updates — after a 15-second warning that can put
-    /// it off for an hour.
+    /// version? If so it asks; "Update Now" saves what's open, makes a
+    /// backup, updates and reopens by itself. "Later" asks again in an hour.
     private func startUpdateWatch() {
         updateTimer?.invalidate()
         updateTimer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { [weak self] _ in self?.backgroundUpdateCheck() }
@@ -15603,7 +15639,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     private func updateAutomatically(_ info: UpdateInfo, installer: URL) {
         guard updater == nil else { return }
         let latest = nonBlank(info.latest).map { "Latest: “\($0)”." } ?? ""
-        let js = "return window.appUpdateCountdown ? await window.appUpdateCountdown(15, latest) : 'now';"
+        let js = "return window.appUpdatePrompt ? await window.appUpdatePrompt(latest) : 'now';"
         let proceed: () -> Void = { [weak self] in
             guard let self = self else { return }
             // A backup first (in the background), then the update.
@@ -15671,6 +15707,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             DispatchQueue.main.async {
                 self.checkingForUpdates = false
                 if let info = info { if manual { self.offerUpdate(info) } else { self.offerOrUpdate(info) } }
+                else if manual && UpdateChecker.lastCheckUnknown {
+                    self.showUpdateAlert("Updates couldn't be checked", "GitHub couldn't be reached from ScaffoldPro. If the Scaffold-Pro repository is private, add a GitHub access token in Settings › Updates (or open the Scaffold-Pro folder in GitHub Desktop and press Fetch origin), then check again.")
+                }
                 else if manual { self.showUpdateAlert("ScaffoldPro is up to date", "This is the latest version on GitHub (as far as can be checked from this Mac).") }
             }
         }

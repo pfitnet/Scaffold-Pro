@@ -162,9 +162,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
-    "mtime": 1790859660.5532362,
-    "seen": 1790859822.4402163,
-    "ast_hash": "f33996ced5fbf21dcb67ef8936d51611",
+    "mtime": 1790860651.3345633,
+    "seen": 1790860744.0792005,
+    "ast_hash": "cc666791c277ac580b0af37323a339ea",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/sidebar.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1790859511.2750494,
-    "seen": 1790859822.4402225,
-    "ast_hash": "735cb5d1108042248f2563422b1d13c3",
+    "mtime": 1790860620.2533386,
+    "seen": 1790860744.0792062,
+    "ast_hash": "c76ef364662849290f84a62a6de4b514",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790859816.1155782,
-    "seen": 1790859822.4402304,
-    "ast_hash": "33998572b2ecc885b52445addb37d24c",
+    "mtime": 1790860739.4040673,
+    "seen": 1790860744.0792139,
+    "ast_hash": "1226de60bbeb61e72ed7cf30851db6a4",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
-    "mtime": 1790859532.5045497,
-    "seen": 1790859822.4402425,
-    "ast_hash": "fd52ab8662584b01cf3cb22d858fee34",
+    "mtime": 1790860620.2569935,
+    "seen": 1790860744.0792258,
+    "ast_hash": "1b6e61fda98b87ed44d657cc239b417f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/sites.html": {
@@ -468,9 +468,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dialogs.js": {
-    "mtime": 1790859660.5536976,
-    "seen": 1790859822.4401937,
-    "ast_hash": "4eabc95ac78e45ed13d0d2c9ee184290",
+    "mtime": 1790860620.255574,
+    "seen": 1790860744.0791805,
+    "ast_hash": "237a5e89a44fd2a1e9569bd8963942b0",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/user.js": {
