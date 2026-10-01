@@ -2024,3 +2024,7 @@ under "Letterhead layout".
     rest in place, and "Show fewer" folds it back. Quick Actions always
     shows all its tiles.
   - The Dashboard now receives up to 30 of each list, so the count is right.
+  - "My Recently Changed Documents" groups its documents into a bracket per
+    kind: Quotations, BOQs, Delivery Notes and Invoices. Only the kinds in
+    the list are shown. It shows the 5 most recent; "and N more" brings in
+    the rest, bracketed the same way.
