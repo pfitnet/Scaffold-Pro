@@ -1201,3 +1201,9 @@ a.button-like.primary:hover { background: var(--accent-hover); }
 
 .person-edit { flex: none; width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: none; background: transparent; box-shadow: none; color: var(--text-tertiary); }
 .person-edit:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+
+/* Unread count on the sidebar's Chat. */
+.nav-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; animation: dot-pop .3s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes dot-pop { from { transform: scale(0); } to { transform: scale(1); } }
+.person-chat { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; text-decoration: none; font-size: 15px; }
+.person-chat:hover { background: color-mix(in srgb, var(--text) 8%, transparent); text-decoration: none; }

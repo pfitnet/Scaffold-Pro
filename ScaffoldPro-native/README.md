@@ -2097,3 +2097,31 @@ under "Letterhead layout".
   - Only the person asked can sign, from their own Mac with their own
     signature.
 - Announcements can now go to one person (used for these replies).
+
+## Batch 80 — Chat
+
+- **Chat** (sidebar, with an unread count) has three kinds of
+  conversation:
+  - Everyone;
+  - your team (set on the User or Team page);
+  - a direct message with each person. 💬 on a Team card opens one.
+- **Messages:**
+  - They travel through the shared folder like the rest of the data
+    (`chat_messages.json`), checked every 1.5 seconds.
+  - "… is typing" shows with bouncing dots. Each Mac writes a small
+    `Typing/<device>.json` in the shared folder, not the log.
+- **Emoji and reactions:**
+  - The emoji picker has Recent, Smileys, Gestures, Site and Hearts tabs.
+  - Hover a message to react (👍 ❤️ 😂 or any emoji), reply, edit or
+    delete your own. ↑ edits your last message.
+  - A message of 1–3 emoji only is shown large, with a pop.
+- **GIFs and pictures:**
+  - GIF search uses GIPHY: paste a free API key once (developers.giphy.com).
+  - GIFs and pictures can also be sent from the Mac. They're kept in the
+    shared folder's `Chat Files/`.
+- **@Name** mentions are highlighted, yours in yellow.
+- **Animations:**
+  - messages slide in;
+  - the send arrow whooshes;
+  - reactions pop;
+  - a "New messages ↓" pill appears when you've scrolled up.

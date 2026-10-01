@@ -21,6 +21,7 @@ const ICONS = {
   letters: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
+  chat: '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3h0a2 2 0 0 1-2-2z"/><path d="M7 8.5h6M7 11h3.5"/>',
   team: '<circle cx="7" cy="7.5" r="2.5"/><circle cx="13.5" cy="7.5" r="2.5"/><path d="M2.5 16c.4-2.6 2.2-4 4.5-4s4.1 1.4 4.5 4M10.5 12.7c.8-.5 1.8-.7 3-.7 2.3 0 4.1 1.4 4.5 4"/>',
   user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.5-3.3 2.9-5 6-5s5.5 1.7 6 5"/>',
 };
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { page: 'dashboard', label: 'Dashboard', href: 'index.html', key: '1' },
   { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
   { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
+  { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },
   { page: 'price-lists', label: 'Material List', href: 'price-lists.html', key: '2' },
   { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
@@ -82,8 +84,10 @@ function renderSidebar(activePage) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
     }
+    if (item.page === 'chat') link.insertAdjacentHTML('beforeend', '<span class="nav-badge hidden" id="chat-badge"></span>');
     sidebar.appendChild(link);
   }
+  if (window.refreshChatBadge) window.refreshChatBadge();
   // Pinned to the bottom left: the sharing status, then the User tab.
   const foot = document.createElement('div');
   foot.className = 'sidebar-foot';
@@ -428,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');
@@ -446,3 +450,23 @@ function addBackButton() {
   });
   content.prepend(button);
 }
+
+// Unread chat messages: a count on the sidebar's Chat (read marks are kept
+// on this Mac, by js/chat.js).
+window.refreshChatBadge = async function refreshChatBadge() {
+  const badge = document.getElementById('chat-badge');
+  if (!badge || !window.api || !window.api.chat) return;
+  let page;
+  try { page = await window.api.chat.page(); } catch (e) { return; }
+  if (!page || !page.me) return;
+  let marks = {};
+  try { marks = JSON.parse(localStorage.getItem(`chat.read:${page.me.toLowerCase()}`) || '{}'); } catch (e) { marks = {}; }
+  let current = null;
+  try { current = document.body.dataset.page === 'chat' ? localStorage.getItem('chat.current') : null; } catch (e) { /* ignore */ }
+  const unread = page.conversations.filter((c) => c.lastAt && c.lastAuthor && c.lastAuthor.toLowerCase() !== page.me.toLowerCase()
+    && (!marks[c.id] || marks[c.id] < c.lastAt) && c.id !== current).length;
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  badge.classList.toggle('hidden', !unread);
+};
+if (!window.__chatBadgeTimer) window.__chatBadgeTimer = setInterval(() => window.refreshChatBadge(), 20000);
+window.refreshChatBadge();
