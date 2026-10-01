@@ -95,9 +95,11 @@
   function refresh() {
     apply();
     for (const old of grid.querySelectorAll('.widget-bar, .widget-resize, .widget-guides')) old.remove();
-    if (!grid.classList.contains('customising')) return;
-    guides();
-    for (const w of widgets()) { w.prepend(bar(w)); w.appendChild(handle(w)); }
+    if (grid.classList.contains('customising')) {
+      guides();
+      for (const w of widgets()) { w.prepend(bar(w)); w.appendChild(handle(w)); }
+    }
+    if (grid.classList.contains('packed')) repack();
   }
 
   // How many columns the grid has right now (fewer in a narrow window).
@@ -144,6 +146,7 @@
       const r = target.getBoundingClientRect();
       const after = ev.clientY > r.top + r.height / 2 || (Math.abs(ev.clientY - (r.top + r.height / 2)) < r.height / 4 && ev.clientX > r.left + r.width / 2);
       grid.insertBefore(w, after ? target.nextSibling : target);
+      repack();
     };
     const up = () => {
       document.removeEventListener('pointermove', move);
@@ -156,14 +159,28 @@
   }
 
   // Panels are packed like tiles: each takes as many thin grid rows as
-  // it's tall, so a short panel doesn't leave a gap under it beside a tall
-  // one — the next panel moves up into the space.
+  // it's tall, so the next panel moves up into the space beside a taller
+  // one. Then each panel is stretched down to meet the one below it (or the
+  // bottom of the Dashboard), so no empty patch is left under a short one.
   const ROW = 2;
   function pack() {
     const gap = parseFloat(getComputedStyle(grid).getPropertyValue('--widget-gap')) || 14;
-    for (const w of widgets()) {
+    const shown = widgets().filter((w) => getComputedStyle(w).display !== 'none');
+    // 1. Each at its own height.
+    for (const w of shown) w.style.alignSelf = 'start';
+    for (const w of shown) {
       const h = w.getBoundingClientRect().height;
       w.style.gridRowEnd = `span ${Math.max(1, Math.ceil((h + gap) / ROW))}`;
+    }
+    // 2. Where they landed; stretch each down to the next one under it.
+    const boxes = shown.map((w) => ({ w, r: w.getBoundingClientRect() }));
+    const bottom = Math.max(...boxes.map((b) => b.r.bottom));
+    for (const { w, r } of boxes) {
+      const below = boxes.filter((o) => o.w !== w && o.r.top >= r.bottom - 1 && o.r.left < r.right - 1 && o.r.right > r.left + 1);
+      const to = below.length ? Math.min(...below.map((o) => o.r.top)) - gap : bottom;
+      if (to - r.bottom < ROW) continue;
+      w.style.gridRowEnd = `span ${Math.max(1, Math.round((to - r.top + gap) / ROW))}`;
+      w.style.alignSelf = 'stretch';
     }
   }
   let packing = 0;
@@ -175,8 +192,11 @@
     load();
     apply();
     grid.classList.add('packed');
+    // Repacked when what's in a panel changes size (not the panel itself,
+    // which the packing stretches), and when the window does.
     const watch = new ResizeObserver(repack);
-    for (const w of widgets()) watch.observe(w);
+    for (const w of widgets()) for (const child of w.children) watch.observe(child);
+    window.addEventListener('resize', repack);
     repack();
     button.addEventListener('click', () => {
       const on = !grid.classList.contains('customising');
