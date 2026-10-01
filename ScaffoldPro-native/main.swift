@@ -3077,23 +3077,23 @@ final class AppDatabase {
             clientCount: clientsStore.readAll().filter { !$0.isArchived }.count,
             priceListItemCount: priceListItemsStore.readAll().filter { !$0.isArchived }.count,
             currency: settings.currency,
-            outstandingQuotations: Array(outstanding.prefix(8)),
-            unpaidInvoices: Array(unpaid.prefix(8)),
+            outstandingQuotations: Array(outstanding.prefix(30)),
+            unpaidInvoices: Array(unpaid.prefix(30)),
             unpaidTotal: doubleOf(unpaidTotal),
             overdueCount: overdue.count,
             overdueTotal: doubleOf(overdueTotal),
             // Mine: the ones this Mac's user last worked on (the others are
             // in the team's activity).
             recentDeliveryNotes: Array(rows.filter { $0.kind == "Delivery Note" && $0.mine }
-                .sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(5)),
-            recentDocuments: Array(rows.filter { $0.mine }.sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(8)),
-            recentActivity: Array(listActivity(projectId: nil, limit: 200).filter { $0.mine }.prefix(10))
+                .sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(30)),
+            recentDocuments: Array(rows.filter { $0.mine }.sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(30)),
+            recentActivity: Array(listActivity(projectId: nil, limit: 200).filter { $0.mine }.prefix(30))
         )
-        summary.teamActivity = Array(listActivity(projectId: nil, limit: 200).filter { !$0.mine }.prefix(10))
-        summary.myProjects = myRecentProjects(rows: rows, limit: 6)
+        summary.teamActivity = Array(listActivity(projectId: nil, limit: 200).filter { !$0.mine }.prefix(30))
+        summary.myProjects = myRecentProjects(rows: rows, limit: 30)
         summary.userName = TeamSync.memberName
         summary.inspectionsDue = inspectionsDue(withinDays: 3)
-        summary.myTasks = Array(listTasks().filter { $0.mine && !$0.task.done }.prefix(8))
+        summary.myTasks = Array(listTasks().filter { $0.mine && !$0.task.done }.prefix(30))
         let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let unsigned = rows.filter { r in
             guard r.kind == "Quotation", r.status == "Issued", r.mine, let q = quotations[r.id] else { return false }
@@ -3103,7 +3103,7 @@ final class AppDatabase {
             if invoicedQuotationIds.contains(r.id) { row.status = "Invoiced" }
             return row
         }.sorted { ($0.status == "Invoiced" ? 0 : 1, $1.date) < ($1.status == "Invoiced" ? 0 : 1, $0.date) }
-        summary.awaitingSignedCopy = Array(unsigned.prefix(8))
+        summary.awaitingSignedCopy = Array(unsigned.prefix(30))
         summary.awaitingSignedCopyCount = unsigned.count
         return summary
     }

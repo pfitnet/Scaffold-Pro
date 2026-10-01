@@ -2020,3 +2020,7 @@ under "Letterhead layout".
   - Panels stretch down to meet the panel below them (or the bottom of the
     Dashboard), so no empty patch is left under a short panel beside a
     tall one.
+  - Each Dashboard list shows its first 5. "and 7 more" under it shows the
+    rest in place, and "Show fewer" folds it back. Quick Actions always
+    shows all its tiles.
+  - The Dashboard now receives up to 30 of each list, so the count is right.

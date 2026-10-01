@@ -33,6 +33,31 @@ function statCard(value, label, tone) {
   return el;
 }
 
+// Each list shows its first 5; "and 7 more" under it shows the rest (and
+// "Show fewer" folds it back). `total` when there are more than were sent.
+const SHOWN = 5;
+function limitList(box, total) {
+  const rows = [...box.querySelectorAll('tbody > tr')];
+  const old = box.querySelector(':scope > .more-btn');
+  if (old) old.remove();
+  const all = Math.max(rows.length, total || 0);
+  if (all <= SHOWN) return;
+  const open = box.dataset.expanded === '1';
+  rows.forEach((tr, i) => tr.classList.toggle('hidden', !open && i >= SHOWN));
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'link-btn more-btn';
+  more.dataset.noIcon = '';
+  const notSent = all - rows.length;
+  more.textContent = open ? `Show fewer${notSent > 0 ? ` (and ${notSent} older not shown)` : ''}` : `and ${all - SHOWN} more`;
+  more.addEventListener('click', (e) => {
+    e.stopPropagation();
+    box.dataset.expanded = open ? '' : '1';
+    limitList(box, total);
+  });
+  box.appendChild(more);
+}
+
 function table(container, rows, columns, emptyText) {
   const el = document.getElementById(container);
   if (rows.length === 0) {
@@ -44,6 +69,7 @@ function table(container, rows, columns, emptyText) {
   for (const tr of el.querySelectorAll('tr[data-url]')) {
     tr.addEventListener('click', () => { location.href = tr.dataset.url; });
   }
+  limitList(el);
 }
 
 let projectsCache = [];
@@ -89,7 +115,8 @@ function renderAwaitingQuotations(summary) {
         <button class="icon-btn not-needed-btn" title="Not needed — take it off this list (e.g. accepted by email, or not going ahead)" aria-label="Signed copy not needed">${window.ICONS.dismiss}</button>
       </td>
     </tr>`).join('')}</tbody></table>
-    ${total > rows.length ? `<div class="small-note" style="padding:6px 4px 0;">and ${total - rows.length} more</div>` : ''}`;
+`;
+  limitList(list, total);
   const refresh = async () => {
     const fresh = await window.api.dashboard.summary();
     renderAwaitingQuotations(fresh);
@@ -205,13 +232,14 @@ async function loadDashboard() {
   const taskBox = document.getElementById('my-tasks-list');
   const myTasks = summary.myTasks || [];
   const reloadTasks = async () => {
-    const fresh = (await window.api.tasks.list()).filter((r) => r.mine && !r.task.done).slice(0, 8);
+    const fresh = (await window.api.tasks.list()).filter((r) => r.mine && !r.task.done);
     renderMyTasks(fresh);
   };
   const renderMyTasks = (rows) => {
     if (!rows.length) { taskBox.innerHTML = '<div class="empty-inline">Nothing to do — <a href="tasks.html">add a task</a>.</div>'; return; }
     taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`;
     window.wireTaskRows(taskBox, rows, reloadTasks, { projects });
+    limitList(taskBox);
   };
   renderMyTasks(myTasks);
 
@@ -219,7 +247,7 @@ async function loadDashboard() {
   const expiring = await window.api.adminDocuments.expiring(30);
   if (expiring.length > 0) {
     document.getElementById('attention-block').classList.remove('hidden');
-    table('attention-list', expiring.slice(0, 8).map((i) => Object.assign({ url: 'admin.html' }, i)), [
+    table('attention-list', expiring.map((i) => Object.assign({ url: 'admin.html' }, i)), [
       { value: (i) => `<strong>${esc(i.originalName)}</strong><div class="sub">${esc(i.ownerName)} · ${esc(i.category)}</div>` },
       { cls: 'num', value: (i) => i.daysLeft < 0 ? `<span class="status-pill pill-danger">Expired ${-i.daysLeft} day(s) ago</span>`
         : i.daysLeft === 0 ? '<span class="status-pill pill-danger">Expires today</span>' : `<span class="muted">Expires in ${i.daysLeft} day(s)</span>` },
