@@ -15,6 +15,8 @@
       <input type="text" id="search-box" placeholder="Search clients" />
       <label class="small-note"><input type="checkbox" id="show-archived" /> Show archived</label>
       <span class="toolbar-spacer"></span>
+      <button id="import-xlsx-btn" data-no-icon title="Add or update clients from an Excel (.xlsx) or CSV file">Import from Excel…</button>
+      <button id="export-xlsx-btn" data-no-icon title="Save the clients as an Excel file (.xlsx) — edit it and import it back">Export to Excel</button>
       <button class="primary" id="new-btn">+ New Client</button>
     </div>
 
@@ -57,6 +59,7 @@
   <script>
     initPartyPage({
       api: window.api.clients,
+      kind: 'clients',
       fields: ['companyName', 'clientReference', 'contactPerson', 'phone', 'email', 'address', 'addressLine2', 'addressLine3', 'city', 'postalCode', 'country', 'defaultMarkupPercent', 'billingInfo', 'notes'],
       newTitle: 'New Client',
       newLabel: '+ New Client',

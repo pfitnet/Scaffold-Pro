@@ -134,8 +134,9 @@ function render() {
   if (document.activeElement !== termsBox) termsBox.value = d.terms || '';
   document.getElementById('signature-check').checked = !!d.signatureSection;
   const standardBtn = document.getElementById('standard-terms-btn');
-  standardBtn.disabled = !d.standardTerms;
-  standardBtn.title = d.standardTerms ? 'Put in the standard terms from Settings › BOQ Defaults' : 'No standard terms yet: add them in Settings › BOQ Defaults';
+  standardBtn.disabled = isIssued;
+  standardBtn.title = 'Put in the standard terms (change them in Settings › BOQ Defaults)';
+  termsBox.disabled = isIssued;
   notesBox.disabled = isIssued;
 }
 

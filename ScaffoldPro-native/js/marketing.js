@@ -256,6 +256,7 @@ function init() {
   document.getElementById('ref-csv-btn').addEventListener('click', exportReferences);
   const params = new URLSearchParams(location.search);
   if (params.get('tab')) showTab(params.get('tab'));
+  if (params.get('new') === '1') { showTab('leads'); openLead(null); }
   load().then(() => {
     const leadId = params.get('lead');
     const lead = leadId && leads.find((l) => l.id === leadId);

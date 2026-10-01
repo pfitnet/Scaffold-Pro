@@ -15,6 +15,8 @@
       <input type="text" id="search-box" placeholder="Search sites" />
       <label class="small-note"><input type="checkbox" id="show-archived" /> Show archived</label>
       <span class="toolbar-spacer"></span>
+      <button id="import-xlsx-btn" data-no-icon title="Add or update sites from an Excel (.xlsx) or CSV file">Import from Excel…</button>
+      <button id="export-xlsx-btn" data-no-icon title="Save the sites as an Excel file (.xlsx) — edit it and import it back">Export to Excel</button>
       <button class="primary" id="new-btn">+ New Site</button>
     </div>
 
@@ -53,6 +55,7 @@
   <script>
     initPartyPage({
       api: window.api.sites,
+      kind: 'sites',
       fields: ['name', 'siteReference', 'contactPerson', 'phone', 'email', 'address', 'city', 'postalCode', 'country', 'notes'],
       newTitle: 'New Site',
       newLabel: '+ New Site',

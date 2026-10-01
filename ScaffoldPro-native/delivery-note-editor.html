@@ -7,10 +7,9 @@
   <style>
     .boq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
     .qty-input { width: 70px; padding: 3px 6px; }
-    .header-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
-    .header-fields label { font-size: 11px; color: var(--text-secondary); }
-    .picker-results { max-height: 320px; overflow-y: auto; }
+    .header-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; margin-bottom: 16px; padding: 14px 16px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .header-fields .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .header-fields .field input, .header-fields .field select { width: 100%; }
     .quotation-import {
       display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
       padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);

@@ -532,7 +532,7 @@ async function createNewInvoice() {
   const notes = currentDeliveryNotes.filter((d) => d.status !== 'Cancelled');
   const box = document.getElementById('inv-dns');
   if (!notes.length) {
-    box.innerHTML = '<div class="empty-inline">No delivery notes yet. Make one from a quotation (Delivery Notes › New Delivery Note) — or invoice the whole quotation below.</div>';
+    box.innerHTML = '<div class="empty-inline">No delivery notes yet. Make one from a quotation (Delivery Notes › New Delivery Note) — or choose “A whole quotation” above.</div>';
   } else {
     // Grouped by the quotation they deliver; not yet invoiced first.
     const groups = {};
@@ -565,7 +565,7 @@ function setInvoiceMode(fromQuotation) {
   invoiceFromQuotation = fromQuotation;
   document.getElementById('inv-quotation-field').classList.toggle('hidden', !fromQuotation);
   document.getElementById('inv-dn-field').classList.toggle('hidden', fromQuotation);
-  document.getElementById('inv-mode-toggle').textContent = fromQuotation ? 'Invoice delivery notes instead…' : 'Invoice a whole quotation instead…';
+  for (const b of document.querySelectorAll('#inv-mode button')) b.classList.toggle('active', (b.dataset.mode === 'quotation') === fromQuotation);
 }
 
 function chosenNotes() {
@@ -628,7 +628,9 @@ function updateInvoiceSummary() {
 function setupInvoiceSheet() {
   const close = () => document.getElementById('invoice-modal').classList.add('hidden');
   document.getElementById('inv-quotation').addEventListener('change', loadInvoiceSource);
-  document.getElementById('inv-mode-toggle').addEventListener('click', () => { setInvoiceMode(!invoiceFromQuotation); loadInvoiceSource(); });
+  for (const b of document.querySelectorAll('#inv-mode button')) {
+    b.addEventListener('click', () => { setInvoiceMode(b.dataset.mode === 'quotation'); loadInvoiceSource(); });
+  }
   for (const el of document.querySelectorAll('input[name="inv-charge"], #inv-months, #inv-delivery, #inv-other')) {
     el.addEventListener('input', updateInvoiceSummary);
     el.addEventListener('change', updateInvoiceSummary);
@@ -938,6 +940,15 @@ async function init() {
     afterChange: refreshHistory,
   });
   await refreshHistory();
+  // ?new=1 (the Dashboard's Quick Actions): start the new one straight away.
+  const url = new URL(location.href);
+  if (url.searchParams.get('new') === '1') {
+    url.searchParams.delete('new');
+    history.replaceState(null, '', url.toString());
+    const start = { boq: 'new-boq-btn', quotations: 'new-quotation-btn', invoices: 'new-invoice-btn', delivery: 'new-delivery-note-btn',
+      letters: 'new-letter-btn', inspections: 'record-inspection-btn', tasks: 'new-task-btn' }[url.searchParams.get('tab')];
+    if (start) document.getElementById(start).click();
+  }
 }
 
 init();

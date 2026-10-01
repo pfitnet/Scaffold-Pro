@@ -134,7 +134,7 @@ let scrolledOnce = false;
 function renderWeek(byDay, today) {
   const days = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
   const box = document.getElementById('cal-week');
-  const head = '<div></div>' + days.map((d) => `<div class="${ymd(d) === today ? 'today' : ''}">${d.toLocaleDateString('en-GB', { weekday: 'short' })} <span class="wd-num">${d.getDate()}</span></div>`).join('');
+  const head = '<div></div>' + days.map((d) => `<div class="${ymd(d) === today ? 'today' : ''}" data-day="${ymd(d)}">${d.toLocaleDateString('en-GB', { weekday: 'short' })} <span class="wd-num">${d.getDate()}</span></div>`).join('');
   const allDay = '<div class="gutter">all day</div>' + days.map((d) => {
     const list = (byDay[ymd(d)] || []).filter((e) => !e.time);
     return `<div data-day="${ymd(d)}">${list.map(chip).join('')}</div>`;
@@ -155,7 +155,10 @@ function renderWeek(byDay, today) {
   }).join('');
   const body = box.querySelector('.week-body');
   const keepScroll = body ? body.scrollTop : null;
-  box.innerHTML = `<div class="week-head">${head}</div><div class="week-allday">${allDay}</div><div class="week-body"><div class="week-hours">${gutter}${cols}</div></div>`;
+  // One scroller for the day heads, the all-day row and the hours, so the
+  // columns stay lined up whether or not a scroll bar is showing; the heads
+  // stay put at the top while the hours scroll under them.
+  box.innerHTML = `<div class="week-body"><div class="week-top"><div class="week-head">${head}</div><div class="week-allday">${allDay}</div></div><div class="week-hours">${gutter}${cols}</div></div>`;
   const newBody = box.querySelector('.week-body');
   // Opens at 7 a.m. the first time; keeps its place after that.
   newBody.scrollTop = keepScroll !== null && scrolledOnce ? keepScroll : 7 * HOUR_PX;

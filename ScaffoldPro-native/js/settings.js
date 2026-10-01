@@ -142,6 +142,7 @@ async function loadSettings() {
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
   document.getElementById('minimumMonthlyRental-input').value = settings.minimumMonthlyRental ?? 1000;
   document.getElementById('boqTerms-input').value = settings.boqTerms || '';
+  document.getElementById('linkedNumbers-input').checked = settings.linkedNumbers !== false;
   document.getElementById('documentLanguage-input').value = settings.documentLanguage === 'Chinese' ? 'Chinese' : 'English';
   document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
   document.getElementById('markupRounding-input').value = settings.markupRoundUp ? 'Up' : 'Nearest';
@@ -182,6 +183,7 @@ async function saveSettings() {
   const minMonthly = document.getElementById('minimumMonthlyRental-input').value;
   payload.minimumMonthlyRental = minMonthly === '' ? 1000 : Math.max(0, Number(minMonthly) || 0);
   payload.boqTerms = document.getElementById('boqTerms-input').value;
+  payload.linkedNumbers = document.getElementById('linkedNumbers-input').checked;
   payload.documentLanguage = document.getElementById('documentLanguage-input').value;
   payload.defaultMinimumHireMonths = Math.max(1, Math.round(Number(document.getElementById('defaultMinimumHireMonths-input').value) || 2));
   const eur = Number(document.getElementById('eurRate-input').value);

@@ -116,7 +116,7 @@ function updateAwaitingCount(summary) {
 
 // "New Quotation / Invoice / Delivery Note" from the Dashboard: pick the
 // project, then land on that tab of the project page.
-function pickProjectThen(title, tab) {
+function pickProjectThen(title, tab, startNew) {
   const active = projectsCache.filter((p) => p.status !== 'Archived' && p.status !== 'Completed');
   if (active.length === 0) {
     alert('Create a project first.');
@@ -128,7 +128,7 @@ function pickProjectThen(title, tab) {
   const modal = document.getElementById('pick-project-modal');
   modal.classList.remove('hidden');
   document.getElementById('pick-go-btn').onclick = () => {
-    location.href = `project-detail.html?number=${document.getElementById('pick-project-select').value}&tab=${tab}`;
+    location.href = `project-detail.html?number=${document.getElementById('pick-project-select').value}&tab=${tab}${startNew ? '&new=1' : ''}`;
   };
 }
 
@@ -241,9 +241,38 @@ async function loadDashboard() {
   }
 }
 
-document.getElementById('qa-quotation').addEventListener('click', () => pickProjectThen('New Quotation — Choose a Project', 'quotations'));
-document.getElementById('qa-invoice').addEventListener('click', () => pickProjectThen('New Invoice — Choose a Project', 'invoices'));
-document.getElementById('qa-delivery').addEventListener('click', () => pickProjectThen('New Delivery Note — Choose a Project', 'delivery'));
+
+// Quick Actions: start anything new in one click. Document kinds ask for
+// the project first, then open that project's tab and start the new one.
+const QA_SVG = (paths) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const QUICK_ACTIONS = [
+  { label: 'Project', color: '#5B7DB1', icon: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/><path d="M10 9v4.5M7.75 11.25h4.5"/>', go: () => { location.href = 'projects.html?new=1'; } },
+  { label: 'Quotation', color: '#8E72A8', icon: '<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="M7 11h6M7 14h4"/>', go: () => pickProjectThen('New Quotation — Choose a Project', 'quotations', true) },
+  { label: 'BOQ', color: '#4F8A8F', icon: '<rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 7.5h14M3 11.5h14M8 7.5v9"/>', go: () => pickProjectThen('New BOQ — Choose a Project', 'boq', true) },
+  { label: 'Delivery Note', color: '#5E8C6A', icon: '<path d="M2.5 5.5h9v8h-9z"/><path d="M11.5 8.5h3l2.5 2.5v2.5h-5.5"/><circle cx="6" cy="14.5" r="1.5"/><circle cx="14" cy="14.5" r="1.5"/>', go: () => pickProjectThen('New Delivery Note — Choose a Project', 'delivery', true) },
+  { label: 'Invoice', color: '#A66A6A', icon: '<path d="M5 2.5h10v15l-2-1.3-1.7 1.3-1.3-1.3-1.3 1.3L7 16.2l-2 1.3z"/><path d="M8 7h4M8 10h4M8 13h2.5"/>', go: () => pickProjectThen('New Invoice — Choose a Project', 'invoices', true) },
+  { label: 'Task', color: '#6E8F4E', icon: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>', go: newTaskQuick },
+  { label: 'Inspection', color: '#B07A5E', icon: '<path d="M10 2.5 16 5v4.5c0 3.8-2.6 6.7-6 8-3.4-1.3-6-4.2-6-8V5z"/><path d="m7.3 10 2 2 3.6-4"/>', go: () => pickProjectThen('Record Inspection — Choose a Project', 'inspections', true) },
+  { label: 'Letter', color: '#7A7F9A', icon: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>', go: () => pickProjectThen('New Letter — Choose a Project', 'letters', true) },
+  { label: 'Client', color: '#9A8458', icon: '<rect x="4" y="3" width="12" height="14" rx="1.2"/><path d="M7 6.5h2M11 6.5h2M7 9.5h2M11 9.5h2M8.5 17v-3h3v3"/>', go: () => { location.href = 'clients.html?new=1'; } },
+  { label: 'Site', color: '#B0705E', icon: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>', go: () => { location.href = 'sites.html?new=1'; } },
+  { label: 'Lead', color: '#4F7FA0', icon: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>', go: () => { location.href = 'marketing.html?tab=leads&new=1'; } },
+];
+
+async function newTaskQuick() {
+  const people = await window.api.tasks.people();
+  const projects = projectsCache.filter((p) => p.status !== 'Archived');
+  if (await window.editTask(null, { projects, people })) location.reload();
+}
+
+function renderQuickActions() {
+  const box = document.getElementById('quick-actions');
+  box.innerHTML = QUICK_ACTIONS.map((a, i) => `<button class="qa-tile" data-no-icon data-i="${i}" style="--qa:${a.color}" title="New ${esc(a.label)}">
+    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text"><small>New</small><span>${esc(a.label)}</span></span></button>`).join('');
+  for (const b of box.querySelectorAll('.qa-tile')) b.addEventListener('click', () => QUICK_ACTIONS[Number(b.dataset.i)].go());
+}
+renderQuickActions();
+
 document.getElementById('pick-cancel-btn').addEventListener('click', () => document.getElementById('pick-project-modal').classList.add('hidden'));
 
 loadDashboard();
