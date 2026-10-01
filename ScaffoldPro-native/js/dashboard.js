@@ -268,7 +268,7 @@ async function newTaskQuick() {
 function renderQuickActions() {
   const box = document.getElementById('quick-actions');
   box.innerHTML = QUICK_ACTIONS.map((a, i) => `<button class="qa-tile" data-no-icon data-i="${i}" style="--qa:${a.color}" title="New ${esc(a.label)}">
-    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text"><small>New</small><span>${esc(a.label)}</span></span></button>`).join('');
+    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text">New ${esc(a.label)}</span></button>`).join('');
   for (const b of box.querySelectorAll('.qa-tile')) b.addEventListener('click', () => QUICK_ACTIONS[Number(b.dataset.i)].go());
 }
 renderQuickActions();
