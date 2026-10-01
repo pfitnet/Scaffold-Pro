@@ -1,26 +1,47 @@
 'use strict';
 
-// The Dashboard's panels as widgets: "Customise" lets each person drag
-// them into their own order, drag a panel's right edge to make it ¼, ½, ¾
-// or full width (it snaps to the columns, shown while dragging), and hide
-// the ones they don't want (and show them again). Remembered for the
-// person on this Mac.
+// The Dashboard's panels as widgets. "Customise" opens the widget editor:
+//   • drag a panel by its grip to move it — the others make room;
+//   • drag its right edge to make it ¼, ½, ¾ or full width (it snaps to
+//     the column guides);
+//   • the Widgets tray on the right holds the ones not on the Dashboard:
+//     drag one onto the Dashboard to add it, or drag a panel into the tray
+//     (or press its ×) to take it off.
+// Remembered for the person on this Mac.
 //
 //   window.setupWidgets(grid, button, userName);
 //
 // A panel's starting width is its data-span (1–4 quarters; 2 if not given).
 
 (function () {
+  const svg = (p) => `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
   const GRIP = '<svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="7" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="7" cy="13" r="1.3"/></svg>';
+  const CROSS = '<svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  // What each widget is, for the tray.
+  const ABOUT = {
+    quick: [svg('<path d="M11 2.5 4.5 11H10l-1 6.5L15.5 9H10z"/>'), 'Start a new project, quotation, task…'],
+    tasks: [svg('<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>'), 'Your open tasks'],
+    inspections: [svg('<path d="M10 2.5 16 5v4.5c0 3.8-2.6 6.7-6 8-3.4-1.3-6-4.2-6-8V5z"/><path d="m7.3 10 2 2 3.6-4"/>'), 'Scaffolds due for inspection'],
+    projects: [svg('<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>'), 'Projects you’ve worked on'],
+    quotations: [svg('<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/>'), 'Issued, waiting for the signed copy'],
+    unpaid: [svg('<path d="M5 2.5h10v15l-2-1.3-1.7 1.3-1.3-1.3-1.3 1.3L7 16.2l-2 1.3z"/><path d="M8 7h4M8 10h4"/>'), 'Invoices still to be paid'],
+    documents: [svg('<rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 7h6M7 10h6M7 13h4"/>'), 'Documents you changed lately'],
+    deliveries: [svg('<path d="M2.5 5.5h9v8h-9z"/><path d="M11.5 8.5h3l2.5 2.5v2.5h-5.5"/><circle cx="6" cy="14.5" r="1.5"/><circle cx="14" cy="14.5" r="1.5"/>'), 'Your latest delivery notes'],
+    activity: [svg('<path d="M2.5 10h3l2-5 3 10 2-5h5"/>'), 'What you’ve done lately'],
+    team: [svg('<circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16c.4-2.8 2.3-4.3 4.7-4.3s4.3 1.5 4.7 4.3"/><circle cx="14" cy="8" r="2"/><path d="M13 11.9c2.2-.2 3.8 1 4.2 3.6"/>'), 'What the rest of the team did'],
+    attention: [svg('<path d="M10 3 2.5 16.5h15z"/><path d="M10 8v4M10 14.5v.01"/>'), 'Certificates expiring'],
+  };
   const COLS = 4;
   const SIZE_NAME = { 1: '¼ width', 2: '½ width', 3: '¾ width', 4: 'Full width' };
   let grid = null;
+  let tray = null;
   let key = 'dashboard.layout';
   let layout = { order: [], hidden: [], span: {} };
 
   const widgets = () => [...grid.querySelectorAll(':scope > [data-widget]')];
   const defaultSpan = (w) => Number(w.dataset.defaultSpan || w.dataset.span) || 2;
   const spanOf = (w) => layout.span[w.dataset.widget] || defaultSpan(w);
+  const customising = () => grid.classList.contains('customising');
 
   function load() {
     try { layout = Object.assign({ order: [], hidden: [], span: {} }, JSON.parse(localStorage.getItem(key) || '{}')); } catch (e) { /* default */ }
@@ -46,6 +67,13 @@
     }
   }
 
+  function setHidden(w, off) {
+    const id = w.dataset.widget;
+    layout.hidden = layout.hidden.filter((x) => x !== id);
+    if (off) layout.hidden.push(id);
+    w.classList.toggle('widget-off', off);
+  }
+
   function setSpan(w, n) {
     n = Math.max(1, Math.min(COLS, n));
     if (n === defaultSpan(w)) delete layout.span[w.dataset.widget];
@@ -56,19 +84,15 @@
   }
 
   function bar(w) {
-    const id = w.dataset.widget;
-    const off = layout.hidden.includes(id);
     const el = document.createElement('div');
     el.className = 'widget-bar';
-    el.innerHTML = `<span class="widget-grip" title="Drag to move">${GRIP}</span>
-      <span class="widget-name">${w.dataset.title || id}</span>
+    el.innerHTML = `<span class="widget-grip" title="Drag to move — or into the Widgets tray to take it off">${GRIP}</span>
+      <span class="widget-name">${w.dataset.title || w.dataset.widget}</span>
       <span class="widget-size-label" title="Drag the right edge to change the width">${SIZE_NAME[spanOf(w)]}</span>
-      <button class="widget-toggle" data-no-icon>${off ? 'Show' : 'Hide'}</button>`;
-    el.querySelector('.widget-toggle').addEventListener('click', () => {
-      layout.hidden = off ? layout.hidden.filter((x) => x !== id) : layout.hidden.concat(id);
-      save(); refresh();
-    });
-    el.querySelector('.widget-grip').addEventListener('pointerdown', (e) => startDrag(e, w));
+      <button class="widget-remove" data-no-icon title="Take it off the Dashboard (it goes to the Widgets tray)" aria-label="Remove">${CROSS}</button>`;
+    el.querySelector('.widget-remove').addEventListener('click', () => { setHidden(w, true); save(); refresh(); });
+    // The whole bar is the handle.
+    el.addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) startDrag(e, w); });
     return el;
   }
 
@@ -92,13 +116,39 @@
     return g;
   }
 
+  // The tray of widgets not on the Dashboard.
+  function drawTray() {
+    if (!customising()) { if (tray) { tray.remove(); tray = null; } document.body.classList.remove('widget-editing'); return; }
+    document.body.classList.add('widget-editing');
+    if (!tray) {
+      tray = document.createElement('aside');
+      tray.className = 'widget-tray';
+      document.body.appendChild(tray);
+    }
+    const off = widgets().filter((w) => w.classList.contains('widget-off'));
+    tray.innerHTML = `<div class="tray-head"><div class="tray-title">Widgets</div>
+      <div class="tray-sub">Drag one onto the Dashboard to add it. Drag a panel here to take it off.</div></div>
+      <div class="tray-list">${off.length ? off.map((w) => {
+        const [icon, about] = ABOUT[w.dataset.widget] || ['', ''];
+        return `<div class="tray-card" data-for="${w.dataset.widget}" title="Drag onto the Dashboard — or click to add it at the end">
+          <span class="tray-icon">${icon}</span><span class="tray-text"><b>${w.dataset.title || w.dataset.widget}</b><small>${about}</small></span>
+          <span class="tray-grip">${GRIP}</span></div>`;
+      }).join('') : '<div class="tray-empty">Every widget is on the Dashboard.</div>'}</div>
+      <div class="tray-drop">Drop here to take it off</div>`;
+    for (const card of tray.querySelectorAll('.tray-card')) {
+      const w = widgets().find((x) => x.dataset.widget === card.dataset.for);
+      card.addEventListener('pointerdown', (e) => startDrag(e, w, card));
+    }
+  }
+
   function refresh() {
     apply();
     for (const old of grid.querySelectorAll('.widget-bar, .widget-resize, .widget-guides')) old.remove();
-    if (grid.classList.contains('customising')) {
+    if (customising()) {
       guides();
       for (const w of widgets()) { w.prepend(bar(w)); w.appendChild(handle(w)); }
     }
+    drawTray();
     if (grid.classList.contains('packed')) repack();
   }
 
@@ -123,6 +173,7 @@
       const width = ev.clientX - left;
       const n = Math.round((width + gap) / (colW + gap));
       setSpan(w, Math.max(1, Math.min(cols, n)) * scale);
+      repack();
     };
     const up = () => {
       document.removeEventListener('pointermove', move);
@@ -135,52 +186,116 @@
     document.addEventListener('pointerup', up);
   }
 
-  // Drag a widget by its grip: it goes before (or after) the one under the pointer.
-  function startDrag(e, w) {
+  // Drag a widget — from its bar, or from the tray: a card follows the
+  // pointer; over the Dashboard the widget takes its place there (the
+  // others move to make room), over the tray it comes off.
+  function startDrag(e, w, fromCard) {
+    if (e.button !== 0) return;
     e.preventDefault();
+    const ghost = document.createElement('div');
+    ghost.className = 'widget-ghost';
+    const [icon] = ABOUT[w.dataset.widget] || [''];
+    ghost.innerHTML = `${icon}<span>${w.dataset.title || w.dataset.widget}</span>`;
+    document.body.appendChild(ghost);
+    // Kept inside the window (it flips to the pointer's left near the edge).
+    const place = (ev) => {
+      const x = ev.clientX + 12 + ghost.offsetWidth > innerWidth - 6 ? ev.clientX - ghost.offsetWidth - 12 : ev.clientX + 12;
+      ghost.style.transform = `translate(${x}px, ${ev.clientY + 10}px)`;
+    };
+    place(e);
+    document.body.classList.add('widget-dragging-any');
+    if (fromCard) fromCard.classList.add('picked');
     w.classList.add('widget-dragging');
+    let moved = false;
     const move = (ev) => {
+      moved = true;
+      place(ev);
       const over = document.elementFromPoint(ev.clientX, ev.clientY);
-      const target = over && over.closest('[data-widget]');
-      if (!target || target === w || target.parentElement !== grid) return;
-      const r = target.getBoundingClientRect();
-      const after = ev.clientY > r.top + r.height / 2 || (Math.abs(ev.clientY - (r.top + r.height / 2)) < r.height / 4 && ev.clientX > r.left + r.width / 2);
-      grid.insertBefore(w, after ? target.nextSibling : target);
-      repack();
+      if (!over) return;
+      const overTray = over.closest('.widget-tray');
+      if (tray) tray.classList.toggle('drop-here', !!overTray && !w.classList.contains('widget-off'));
+      if (overTray) {
+        if (!w.classList.contains('widget-off')) { setHidden(w, true); repack(); }
+        return;
+      }
+      const g = grid.getBoundingClientRect();
+      const inGrid = ev.clientX >= g.left && ev.clientX <= g.right && ev.clientY >= g.top - 20 && ev.clientY <= g.bottom + 60;
+      if (!inGrid) return;
+      if (w.classList.contains('widget-off')) setHidden(w, false);
+      const target = over.closest('[data-widget]');
+      if (target && target !== w && target.parentElement === grid) {
+        const r = target.getBoundingClientRect();
+        const after = ev.clientY > r.top + r.height / 2 || (Math.abs(ev.clientY - (r.top + r.height / 2)) < r.height / 4 && ev.clientX > r.left + r.width / 2);
+        const ref = after ? target.nextSibling : target;
+        if (ref !== w && w.nextSibling !== ref) { grid.insertBefore(w, ref); repack(); }
+      } else if (!target && ev.clientY > g.bottom - 10 && grid.lastElementChild !== w) {
+        grid.appendChild(w);
+        repack();
+      }
     };
     const up = () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
+      ghost.remove();
+      document.body.classList.remove('widget-dragging-any');
       w.classList.remove('widget-dragging');
+      // A click on a tray card (no drag) adds it at the end.
+      if (fromCard && !moved) { setHidden(w, false); grid.appendChild(w); }
       save();
+      refresh();
     };
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', up);
   }
 
-  // Panels are packed like tiles: each takes as many thin grid rows as
-  // it's tall, so the next panel moves up into the space beside a taller
-  // one. Then each panel is stretched down to meet the one below it (or the
-  // bottom of the Dashboard), so no empty patch is left under a short one.
+  // Packing, so the Dashboard has no empty patches:
+  //  1. each panel takes as many thin grid rows as it's tall, in order
+  //     (the next one moves up beside a taller one);
+  //  2. a panel with empty columns beside it all the way down its side
+  //     widens into them;
+  //  3. each grows up to the panel above it (or the top) and down to the
+  //     one below it (or the bottom).
   const ROW = 2;
   function pack() {
     const gap = parseFloat(getComputedStyle(grid).getPropertyValue('--widget-gap')) || 14;
     const shown = widgets().filter((w) => getComputedStyle(w).display !== 'none');
-    // 1. Each at its own height.
-    for (const w of shown) w.style.alignSelf = 'start';
+    if (!shown.length) return;
+    for (const w of shown) { w.style.gridColumn = ''; w.style.gridRow = ''; w.style.alignSelf = 'start'; }
     for (const w of shown) {
       const h = w.getBoundingClientRect().height;
       w.style.gridRowEnd = `span ${Math.max(1, Math.ceil((h + gap) / ROW))}`;
     }
-    // 2. Where they landed; stretch each down to the next one under it.
-    const boxes = shown.map((w) => ({ w, r: w.getBoundingClientRect() }));
-    const bottom = Math.max(...boxes.map((b) => b.r.bottom));
-    for (const { w, r } of boxes) {
-      const below = boxes.filter((o) => o.w !== w && o.r.top >= r.bottom - 1 && o.r.left < r.right - 1 && o.r.right > r.left + 1);
-      const to = below.length ? Math.min(...below.map((o) => o.r.top)) - gap : bottom;
-      if (to - r.bottom < ROW) continue;
-      w.style.gridRowEnd = `span ${Math.max(1, Math.round((to - r.top + gap) / ROW))}`;
-      w.style.alignSelf = 'stretch';
+    const g = grid.getBoundingClientRect();
+    const cols = columns();
+    const colGap = parseFloat(getComputedStyle(grid).columnGap) || 0;
+    const step = (g.width + colGap) / cols;
+    const items = shown.map((w) => {
+      const r = w.getBoundingClientRect();
+      const c0 = Math.max(0, Math.round((r.left - g.left) / step));
+      const r0 = Math.max(0, Math.round((r.top - g.top) / ROW));
+      return { w, c0, c1: Math.min(cols, c0 + Math.max(1, Math.round((r.width + colGap) / step))), r0, r1: r0 + Math.max(1, Math.ceil((r.height + gap) / ROW)) };
+    });
+    const bottom = Math.max(...items.map((i) => i.r1));
+    const clear = (c, ra, rb, self) => items.every((o) => o === self || o.c1 <= c || o.c0 > c || o.r1 <= ra || o.r0 >= rb);
+    // 2. Widen into empty columns beside it — not while customising, so a
+    //    panel shows the width it was given while it's being arranged.
+    if (!customising()) for (const it of items) {
+      while (it.c1 < cols && clear(it.c1, it.r0, it.r1, it)) it.c1 += 1;
+      while (it.c0 > 0 && clear(it.c0 - 1, it.r0, it.r1, it)) it.c0 -= 1;
+    }
+    // 3. Grow up to the one above (or the top), then down to the next one below.
+    for (const it of items) {
+      const above = items.filter((o) => o !== it && o.r1 <= it.r0 && o.c0 < it.c1 && o.c1 > it.c0);
+      it.r0 = above.length ? Math.max(...above.map((o) => o.r1)) : 0;
+    }
+    for (const it of items) {
+      const below = items.filter((o) => o !== it && o.r0 >= it.r1 && o.c0 < it.c1 && o.c1 > it.c0);
+      it.r1 = below.length ? Math.min(...below.map((o) => o.r0)) : bottom;
+    }
+    for (const it of items) {
+      it.w.style.gridColumn = `${it.c0 + 1} / ${it.c1 + 1}`;
+      it.w.style.gridRow = `${it.r0 + 1} / ${it.r1 + 1}`;
+      it.w.style.alignSelf = 'stretch';
     }
   }
   let packing = 0;
@@ -196,10 +311,12 @@
     // which the packing stretches), and when the window does.
     const watch = new ResizeObserver(repack);
     for (const w of widgets()) for (const child of w.children) watch.observe(child);
+    new MutationObserver(repack).observe(grid, { attributes: true, subtree: false, childList: true, attributeFilter: ['class'] });
+    for (const w of widgets()) new MutationObserver(repack).observe(w, { attributes: true, attributeFilter: ['class'] });
     window.addEventListener('resize', repack);
     repack();
     button.addEventListener('click', () => {
-      const on = !grid.classList.contains('customising');
+      const on = !customising();
       grid.classList.toggle('customising', on);
       button.textContent = on ? 'Done' : 'Customise';
       button.classList.toggle('primary', on);

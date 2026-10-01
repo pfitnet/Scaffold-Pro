@@ -325,7 +325,7 @@ const QUICK_ACTIONS = [
   { label: 'Inspection', color: '#B07A5E', icon: '<path d="M10 2.5 16 5v4.5c0 3.8-2.6 6.7-6 8-3.4-1.3-6-4.2-6-8V5z"/><path d="m7.3 10 2 2 3.6-4"/>', go: () => pickProjectThen('Record Inspection — Choose a Project', 'inspections', true) },
   { label: 'Letter', color: '#7A7F9A', icon: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>', go: () => pickProjectThen('New Letter — Choose a Project', 'letters', true) },
   { label: 'Client', color: '#9A8458', icon: '<rect x="4" y="3" width="12" height="14" rx="1.2"/><path d="M7 6.5h2M11 6.5h2M7 9.5h2M11 9.5h2M8.5 17v-3h3v3"/>', go: () => { location.href = 'clients.html?new=1'; } },
-  { label: 'Site', color: '#B0705E', icon: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>', go: () => { location.href = 'sites.html?new=1'; } },
+  { label: 'Site', color: '#B0705E', icon: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>', go: () => { location.href = 'clients.html?newSite=1'; } },
   { label: 'Lead', color: '#4F7FA0', icon: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>', go: () => { location.href = 'marketing.html?tab=leads&new=1'; } },
 ];
 
@@ -342,6 +342,9 @@ function renderQuickActions() {
   for (const b of box.querySelectorAll('.qa-tile')) b.addEventListener('click', () => QUICK_ACTIONS[Number(b.dataset.i)].go());
 }
 renderQuickActions();
+
+window.announcements.render(document.getElementById('announce-bar'));
+document.getElementById('announce-btn').addEventListener('click', () => window.announcements.compose());
 
 document.getElementById('pick-cancel-btn').addEventListener('click', () => document.getElementById('pick-project-modal').classList.add('hidden'));
 

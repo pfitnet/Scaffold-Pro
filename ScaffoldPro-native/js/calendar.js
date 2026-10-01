@@ -44,6 +44,18 @@ function mondayOf(d) {
   return x;
 }
 
+// Where the week view starts: the day before (so today is the 2nd column
+// — the standard), today, Monday or Sunday. Remembered on this Mac.
+let weekMode = 'yesterday';
+try { weekMode = localStorage.getItem('calendar.weekStart') || 'yesterday'; } catch (e) { /* ignore */ }
+function weekStartFor(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (weekMode === 'yesterday') x.setDate(x.getDate() - 1);
+  else if (weekMode === 'monday') x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  else if (weekMode === 'sunday') x.setDate(x.getDate() - x.getDay());
+  return x;
+}
+
 async function load() {
   const start = view === 'week' ? new Date(weekStart) : gridStart();
   const end = new Date(start);
@@ -190,7 +202,7 @@ function setView(v) {
   view = v;
   try { localStorage.setItem('calendar.view', v); } catch (e) { /* ignore */ }
   const anchor = selected ? new Date(`${selected}T00:00:00`) : new Date();
-  weekStart = mondayOf(anchor);
+  weekStart = weekStartFor(anchor);
   month = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   load();
 }
@@ -198,12 +210,20 @@ function setView(v) {
 (async function init() {
   const now = new Date();
   month = new Date(now.getFullYear(), now.getMonth(), 1);
-  weekStart = mondayOf(now);
+  weekStart = weekStartFor(now);
   selected = ymd(now);
+  const startSel = document.getElementById('cal-week-start');
+  startSel.value = weekMode;
+  startSel.addEventListener('change', () => {
+    weekMode = startSel.value;
+    try { localStorage.setItem('calendar.weekStart', weekMode); } catch (e) { /* ignore */ }
+    weekStart = weekStartFor(selected ? new Date(`${selected}T00:00:00`) : new Date());
+    load();
+  });
   for (const b of document.querySelectorAll('#cal-view button')) b.addEventListener('click', () => setView(b.dataset.view));
   document.getElementById('cal-prev').addEventListener('click', () => go(-1));
   document.getElementById('cal-next').addEventListener('click', () => go(1));
-  document.getElementById('cal-today').addEventListener('click', () => { const n = new Date(); month = new Date(n.getFullYear(), n.getMonth(), 1); weekStart = mondayOf(n); selected = ymd(n); load(); });
+  document.getElementById('cal-today').addEventListener('click', () => { const n = new Date(); month = new Date(n.getFullYear(), n.getMonth(), 1); weekStart = weekStartFor(n); selected = ymd(n); load(); });
   await window.loadPersonColors();
   await load();
 })();

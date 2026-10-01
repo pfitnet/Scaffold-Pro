@@ -33,14 +33,12 @@ const NAV_ITEMS = [
   { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
   { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
   { page: 'price-lists', label: 'Material List', href: 'price-lists.html', key: '2' },
-  { page: 'sites', label: 'Sites', href: 'sites.html', key: '3' },
-  { page: 'clients', label: 'Clients', href: 'clients.html', key: '4' },
-  { page: 'projects', label: 'Projects', href: 'projects.html', key: '5' },
-  { page: 'letters', label: 'Letters', href: 'letters.html', key: '6' },
-  { page: 'stock', label: 'Stock', href: 'stock.html', key: '7' },
-  { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '8' },
+  { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
+  { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
+  { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },
+  { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '6' },
   { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
-  { page: 'admin', label: 'Admin', href: 'admin.html', key: '9' },
+  { page: 'admin', label: 'Admin', href: 'admin.html', key: '7' },
   { page: 'settings', label: 'Settings', href: 'settings.html', key: ',' },
 ];
 
@@ -428,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'price-lists.html', 'sites.html', 'clients.html', 'projects.html', 'letters.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

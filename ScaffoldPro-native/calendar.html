@@ -11,6 +11,8 @@
     .cal-filter { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 9px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; user-select: none; }
     .cal-filter input { margin: 0; }
     .cal-filter.off { opacity: 0.5; }
+    .cal-week-start { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+    .cal-week-start select { --control-h: 28px; font-size: 12px; }
     .cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--border); gap: 1px; }
     .cal-head { background: var(--header-bg); font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 6px 8px; text-align: left; }
@@ -79,6 +81,13 @@
         <button data-view="week" class="active" data-no-icon>Week</button>
         <button data-view="month" data-no-icon>Month</button>
       </div>
+      <label class="cal-week-start" title="Which day the week view starts on">Week starts
+        <select id="cal-week-start">
+          <option value="yesterday">Yesterday (today 2nd)</option>
+          <option value="today">Today</option>
+          <option value="monday">Monday</option>
+          <option value="sunday">Sunday</option>
+        </select></label>
       <div class="cal-filters" id="cal-filters"></div>
     </div>
 

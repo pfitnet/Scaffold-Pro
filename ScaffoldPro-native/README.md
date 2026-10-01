@@ -2030,3 +2030,39 @@ under "Letterhead layout".
     the rest, bracketed the same way.
   - "and N more" is a proper button (full width, with a chevron) rather than
     a blue link. An empty My Tasks panel has a "+ New Task" button.
+
+## Batch 78 — Announcements, widget editor, Clients & Sites, calendar week
+
+- **Announcements:**
+  - "Announce" on the Dashboard posts a message to everyone, or to your
+    team. Your team is set on the User page.
+  - It shows in a bar at the top of the Dashboard of everyone it's for; the
+    bar is hidden when there's none. Important ones are shown first,
+    highlighted.
+  - Each person can close one, and it stays closed on every Mac they use.
+    Whoever posted it can take it down for everyone.
+  - It can run until a date.
+  - Stored in `announcements.json` and `user_teams.json`, shared like
+    tasks.
+- **Widget editor:** Customise opens a Widgets tray.
+  - Drag a widget from the tray onto the Dashboard to add it. Drag a panel
+    by its bar into the tray, or press its ×, to take it off.
+  - A card follows the pointer, and the other panels make room.
+- **No empty patches:** panels widen into empty columns beside them and
+  grow up and down to meet their neighbours. They don't widen while you
+  customise, so a panel shows the width you gave it.
+- **Calendar:** today is the 2nd column of the week by default. "Week
+  starts" can be Yesterday, Today, Monday or Sunday, and is remembered.
+- **Letters** are only in each project's Letters tab; they're gone from the
+  sidebar. ⌘ shortcuts are renumbered.
+- **Clients & Sites** are one page:
+  - Clients on the left, sites on the right, and a curved line from a
+    client to each site it has had a project at (thicker for more
+    projects).
+  - Hover or click either side to light up its lines.
+  - Click a line for its project(s).
+  - Drag a client's dot onto a site to start a new project for the two;
+    the project form opens with both already chosen.
+  - ✎ or double-click opens the details.
+  - `sites.html` links still work: they land on the site.
+- **Marketing › Top Clients** is for reading only (not clickable).

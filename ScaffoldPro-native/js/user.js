@@ -102,7 +102,18 @@ async function load() {
   renderHead();
   renderStats();
   renderLists();
+  const teamBox = document.getElementById('team-input');
+  if (document.activeElement !== teamBox) teamBox.value = page.team || '';
+  document.getElementById('team-names').innerHTML = (page.teams || []).map((t) => `<option value="${esc(t)}"></option>`).join('');
 }
+
+document.getElementById('team-save').addEventListener('click', async () => {
+  const r = await window.api.users.setTeam(document.getElementById('team-input').value.trim());
+  if (r && r.ok === false) { alert(r.error); return; }
+  await load();
+  await window.appAlert(page.team ? `You’re in the ${page.team} team.` : 'You’re not in a team.');
+});
+document.getElementById('team-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('team-save').click(); });
 
 document.getElementById('name-save').addEventListener('click', async () => {
   const name = document.getElementById('name-input').value.trim();

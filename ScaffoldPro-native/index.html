@@ -14,9 +14,12 @@
         <div class="subtitle" id="today-line"></div>
       </div>
       <div class="header-actions">
+        <button id="announce-btn" data-no-icon title="Post an announcement to everyone, or to your team">Announce</button>
         <button id="customise-btn" data-no-icon title="Move, resize, hide or show the Dashboard’s panels">Customise</button>
       </div>
     </div>
+
+    <div class="announce-bar hidden" id="announce-bar" aria-live="polite"></div>
 
     <div class="backup-reminder hidden" id="backup-reminder"></div>
 
@@ -87,6 +90,7 @@
   <script src="js/signed-copy.js"></script>
   <script src="js/task-editor.js"></script>
   <script src="js/widgets.js"></script>
+  <script src="js/announcements.js"></script>
   <script src="js/dashboard.js"></script>
 </body>
 </html>

@@ -3,74 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <title>Sites — ScaffoldPro</title>
-  <link rel="stylesheet" href="css/styles.css" />
-</head>
-<body data-page="sites">
-  <nav id="sidebar"></nav>
-  <main id="content">
-    <h1>Sites</h1>
-    <div class="subtitle">Locations where work takes place</div>
-
-    <div class="toolbar">
-      <input type="text" id="search-box" placeholder="Search sites" />
-      <label class="small-note"><input type="checkbox" id="show-archived" /> Show archived</label>
-      <span class="toolbar-spacer"></span>
-      <button id="import-xlsx-btn" data-no-icon title="Add or update sites from an Excel (.xlsx) or CSV file">Import from Excel…</button>
-      <button id="export-xlsx-btn" data-no-icon title="Save the sites as an Excel file (.xlsx) — edit it and import it back">Export to Excel</button>
-      <button class="primary" id="new-btn">+ New Site</button>
-    </div>
-
-    <div id="list-container"></div>
-  </main>
-
-  <div class="modal-backdrop hidden" id="modal-backdrop">
-    <div class="modal wide">
-      <h2 id="sheet-title">New Site</h2>
-      <div class="form-grid">
-        <div class="field span-2"><label>Site Name</label><input type="text" id="f-name" /></div>
-        <div class="field"><label>Site Reference / Code</label><input type="text" id="f-siteReference" /></div>
-        <div class="field"><label>Contact Person</label><input type="text" id="f-contactPerson" /></div>
-        <div class="field"><label>Phone</label><input type="text" id="f-phone" /></div>
-        <div class="field"><label>Email</label><input type="text" id="f-email" /></div>
-        <div class="field span-2"><label>Address</label><input type="text" id="f-address" /></div>
-        <div class="field"><label>City</label><input type="text" id="f-city" /></div>
-        <div class="field"><label>Postal Code</label><input type="text" id="f-postalCode" /></div>
-        <div class="field"><label>Country</label><input type="text" id="f-country" /></div>
-        <div class="field span-2"><label>Notes</label><textarea id="f-notes" rows="2"></textarea></div>
-      </div>
-      <div class="error-text hidden" id="form-error"></div>
-      <div class="actions">
-        <button id="archive-btn" class="hidden left">Archive</button>
-        <button id="cancel-btn">Cancel</button>
-        <button class="primary" id="save-btn">Save</button>
-      </div>
-      <div id="related"></div>
-    </div>
-  </div>
-
-  <script src="js/dialogs.js"></script>
-  <script src="js/sidebar.js"></script>
-  <script src="js/icons.js"></script>
-  <script src="js/party-page.js"></script>
+  <!-- Sites are on the Clients & Sites page now; old links still land there. -->
   <script>
-    initPartyPage({
-      api: window.api.sites,
-      kind: 'sites',
-      fields: ['name', 'siteReference', 'contactPerson', 'phone', 'email', 'address', 'city', 'postalCode', 'country', 'notes'],
-      newTitle: 'New Site',
-      newLabel: '+ New Site',
-      titleOf: (s) => s.name,
-      requiredMessage: 'Site name is required.',
-      emptyTitle: 'No sites yet',
-      emptyBody: 'Add a site before creating a project there.',
-      searchText: (s) => [s.name, s.siteReference, s.address, s.city, s.contactPerson].join(' '),
-      columns: [
-        { title: 'Site', value: (s) => escapeHTML(s.name) + (s.isArchived ? ' <span class="status-pill">Archived</span>' : '') },
-        { title: 'Reference', value: (s) => escapeHTML(s.siteReference || '—') },
-        { title: 'Address', value: (s) => escapeHTML([s.address, s.city].filter(Boolean).join(', ') || '—') },
-        { title: 'Contact', value: (s) => escapeHTML(s.contactPerson || '—') },
-      ],
-    });
+    (function () {
+      const q = new URLSearchParams(location.search);
+      let to = 'clients.html';
+      if (q.get('id')) to += `?site=${encodeURIComponent(q.get('id'))}`;
+      else if (q.get('new') === '1') to += '?newSite=1';
+      location.replace(to);
+    })();
   </script>
-</body>
+</head>
+<body></body>
 </html>

@@ -303,6 +303,49 @@ struct UserProfile: Codable {
     var updatedAt: String
 }
 
+/// The team a person is in (e.g. "Office", "Site"), set on their User
+/// page — who "my team" is when posting an announcement.
+struct TeamMembership: Codable {
+    /// The person's name, lower-cased.
+    var id: String
+    var name: String
+    var team: String
+    var updatedAt: String
+}
+
+/// A message for the team: shown in a bar at the top of the Dashboard of
+/// everyone it's for (everyone, or one team) until it runs out or they
+/// close it.
+struct Announcement: Codable {
+    var id: String
+    var message: String
+    /// "Everyone", or a team's name.
+    var audience: String
+    var author: String
+    var createdAt: String
+    /// Last day it's shown (yyyy-MM-dd); nil = until it's taken down.
+    var showUntil: String?
+    var important: Bool
+    /// Who has closed it (lower-cased names).
+    var dismissedBy: [String]
+}
+
+struct AnnouncementRow: Codable {
+    var announcement: Announcement
+    var mine: Bool
+}
+
+struct AnnouncementsPage: Codable {
+    var me: String
+    var myTeam: String?
+    /// Every team someone is in.
+    var teams: [String]
+    /// Shown to me now (not closed, not run out).
+    var visible: [AnnouncementRow]
+    /// The ones I posted that are still running.
+    var mine: [AnnouncementRow]
+}
+
 /// The User page: this Mac's user, their colour, and their own work.
 struct UserPage: Codable {
     var name: String
@@ -317,6 +360,8 @@ struct UserPage: Codable {
     /// Documents (and projects) they made, and ones they were the last to work on.
     var createdCount: Int
     var lastWorkedCount: Int
+    var team: String? = nil
+    var teams: [String] = []
 }
 
 struct MyProject: Codable {
@@ -2798,6 +2843,8 @@ final class AppDatabase {
     let tasksStore: JSONStore<TeamTask>
     let liabilityPaymentsStore: JSONStore<LiabilityPayment>
     let employeesStore: JSONStore<Employee>
+    let teamMembershipsStore: JSONStore<TeamMembership>
+    let announcementsStore: JSONStore<Announcement>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -2834,6 +2881,8 @@ final class AppDatabase {
         tasksStore = JSONStore(fileURL: dataDir.appendingPathComponent("tasks.json"))
         liabilityPaymentsStore = JSONStore(fileURL: dataDir.appendingPathComponent("liability_payments.json"))
         employeesStore = JSONStore(fileURL: dataDir.appendingPathComponent("employees.json"))
+        teamMembershipsStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_teams.json"))
+        announcementsStore = JSONStore(fileURL: dataDir.appendingPathComponent("announcements.json"))
     }
 
     // ---- Document rows (client/site pages, Dashboard, search) ----
@@ -3630,7 +3679,97 @@ final class AppDatabase {
                         myProjects: myRecentProjects(rows: rows, limit: 12),
                         myDocuments: Array(mine.prefix(15)),
                         myActivity: Array(listActivity(projectId: nil, limit: 400).filter { $0.mine && $0.by != nil }.prefix(20)),
-                        createdCount: created, lastWorkedCount: lastWorked)
+                        createdCount: created, lastWorkedCount: lastWorked,
+                        team: teamOf(me), teams: allTeams())
+    }
+
+    // ---- Teams and announcements ----
+
+    func teamOf(_ name: String) -> String? {
+        teamMembershipsStore.readAll().first { $0.id == name.lowercased() }?.team
+    }
+
+    func allTeams() -> [String] {
+        var seen: [String: String] = [:]
+        for m in teamMembershipsStore.readAll() where seen[m.team.lowercased()] == nil { seen[m.team.lowercased()] = m.team }
+        return seen.values.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    /// This Mac's user's team; blank takes them out of any team.
+    func setMyTeam(_ raw: String?) -> String? {
+        let me = TeamSync.memberName
+        guard nonBlank(me) != nil else { return "Enter your name first." }
+        var all = teamMembershipsStore.readAll()
+        all.removeAll { $0.id == me.lowercased() }
+        if let team = nonBlank(raw) {
+            // The same spelling as others in that team.
+            let existing = allTeams().first { $0.lowercased() == team.lowercased() } ?? team
+            all.append(TeamMembership(id: me.lowercased(), name: me, team: existing, updatedAt: nowISO()))
+        }
+        teamMembershipsStore.writeAll(all)
+        return nil
+    }
+
+    private func announcementRunning(_ a: Announcement) -> Bool {
+        guard let until = nonBlank(a.showUntil) else { return true }
+        return until >= todayYMD()
+    }
+
+    func announcementsPage() -> AnnouncementsPage {
+        let me = TeamSync.memberName
+        let key = me.lowercased()
+        let myTeam = teamOf(me)
+        // Important ones first, then the newest.
+        let running = announcementsStore.readAll().filter { announcementRunning($0) }.sorted { a, b in
+            if a.important != b.important { return a.important }
+            return a.createdAt > b.createdAt
+        }
+        let team = myTeam?.lowercased() ?? ""
+        let forMe = running.filter { a in
+            if a.audience == "Everyone" || a.author.lowercased() == key { return true }
+            return !team.isEmpty && a.audience.lowercased() == team
+        }
+        let visible = forMe.filter { !$0.dismissedBy.contains(key) }.map { AnnouncementRow(announcement: $0, mine: $0.author.lowercased() == key) }
+        let mine = running.filter { $0.author.lowercased() == key }.map { AnnouncementRow(announcement: $0, mine: true) }
+        return AnnouncementsPage(me: me, myTeam: myTeam, teams: allTeams(), visible: visible, mine: mine)
+    }
+
+    func postAnnouncement(_ payload: [String: Any]) -> String? {
+        let me = TeamSync.memberName
+        guard nonBlank(me) != nil else { return "Enter your name on the User page first." }
+        guard let message = nonBlank(payload["message"] as? String) else { return "Write the announcement." }
+        let wanted = nonBlank(payload["audience"] as? String) ?? "Everyone"
+        var audience = "Everyone"
+        if wanted != "Everyone" {
+            guard let team = teamOf(me) else { return "Set your team on the User page to announce to your team." }
+            audience = team
+        }
+        var until = nonBlank(payload["showUntil"] as? String)
+        if let u = until, u.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) == nil { until = nil }
+        let a = Announcement(id: makeId("announcement"), message: message, audience: audience, author: me, createdAt: nowISO(),
+                             showUntil: until, important: (payload["important"] as? Bool) ?? false, dismissedBy: [])
+        announcementsStore.insert(a)
+        return nil
+    }
+
+    /// Closes it on this person's Dashboard (on every Mac they use).
+    func dismissAnnouncement(id: String) -> String? {
+        let key = TeamSync.memberName.lowercased()
+        var all = announcementsStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "That announcement has been taken down." }
+        if !all[i].dismissedBy.contains(key) { all[i].dismissedBy.append(key) }
+        announcementsStore.writeAll(all)
+        return nil
+    }
+
+    /// Takes it down for everyone (only whoever posted it).
+    func deleteAnnouncement(id: String) -> String? {
+        var all = announcementsStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return nil }
+        guard all[i].author.lowercased() == TeamSync.memberName.lowercased() else { return "Only \(all[i].author) can take this announcement down." }
+        all.remove(at: i)
+        announcementsStore.writeAll(all)
+        return nil
     }
 
     // ---- Signed copies of quotations ----
@@ -12603,6 +12742,20 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "users:setColor":
             let error = db.setUserColor(name: TeamSync.memberName, color: payload["color"] as? String)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "users:setTeam":
+            let error = db.setMyTeam(payload["team"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "announcements:page":
+            respond(id: id, encodable: db.announcementsPage())
+        case "announcements:post":
+            let error = db.postAnnouncement(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "announcements:dismiss":
+            let error = db.dismissAnnouncement(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "announcements:delete":
+            let error = db.deleteAnnouncement(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "users:setName":
             let error = db.renameUser(to: (payload["name"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -16621,10 +16774,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         addSubmenu(main, "Edit", edit)
 
-        // Go — ⌘1…⌘9 for the sidebar sections (Settings is ⌘,), ⌘[ / ⌘] for back/forward.
+        // Go — ⌘1…⌘7 for the sidebar sections (letters are in each project; sites are with clients) (Settings is ⌘,), ⌘[ / ⌘] for back/forward.
         let go = NSMenu(title: "Go")
-        let sections: [(String, String)] = [("Dashboard", "index.html"), ("Material List", "price-lists.html"), ("Sites", "sites.html"),
-                                            ("Clients", "clients.html"), ("Projects", "projects.html"), ("Letters", "letters.html"),
+        let sections: [(String, String)] = [("Dashboard", "index.html"), ("Material List", "price-lists.html"),
+                                            ("Clients & Sites", "clients.html"), ("Projects", "projects.html"),
                                             ("Stock", "stock.html"), ("Accounting", "accounts.html"), ("Admin", "admin.html")]
         for (index, entry) in sections.enumerated() {
             let i = item(entry.0, #selector(goToPage(_:)), "\(index + 1)", page: entry.1)
