@@ -57,6 +57,7 @@ function renderPeople() {
           <div class="person-name">${esc(p.name)}${p.isMe ? ' <span class="you-pill">You</span>' : ''}</div>
           <div class="person-role">${esc([p.title, p.team && `${p.team} team`].filter(Boolean).join(' · ') || 'No team yet')}</div>
         </div>
+        ${p.isMe ? '' : `<a class="person-chat" href="chat.html?with=${encodeURIComponent(p.name)}" title="Message ${esc(p.name)}" aria-label="Message">💬</a>`}
         <button class="person-edit" data-no-icon title="Team, title, signing" aria-label="Edit">${EDIT}</button>
       </div>
       ${p.canSign ? `<div class="signer-pill">${PEN} Signs &amp; chops quotations${p.isMe ? (p.hasSignature ? '' : ' — <b>add your signature</b>') : ''}</div>` : ''}

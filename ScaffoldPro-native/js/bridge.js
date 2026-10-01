@@ -392,6 +392,18 @@
       setName: (name) => callNative('users:setName', { name: name }),
       setTeam: (team) => callNative('users:setTeam', { team: team }),
     },
+    // Chat: Everyone, your team, and direct messages.
+    chat: {
+      page: () => callNative('chat:page'),
+      messages: (conversation) => callNative('chat:messages', { conversation }),
+      send: (input) => callNative('chat:send', input),
+      edit: (id, text, del) => callNative('chat:edit', { id, text, delete: !!del }),
+      react: (id, emoji) => callNative('chat:react', { id, emoji }),
+      typing: (conversation) => callNative('chat:typing', { conversation }),
+      attach: (conversation) => callNative('chat:attach', { conversation }),
+      file: (file) => callNative('chat:file', { file }),
+      setGifKey: (key) => callNative('chat:setGifKey', { key }),
+    },
     // Asking a director to sign and chop a quotation.
     signatures: {
       page: () => callNative('signatures:page'),

@@ -341,6 +341,48 @@ struct TeamPage: Codable {
     var sharing: Bool
 }
 
+/// A chat message. `conversation` is "everyone", "team:<team>" (lower
+/// case) or "dm:<name>|<name>" (the two names lower-cased, in order).
+struct ChatMessage: Codable {
+    var id: String
+    var conversation: String
+    var author: String
+    var text: String
+    var createdAt: String
+    var editedAt: String? = nil
+    var deleted: Bool? = nil
+    /// A GIF from GIPHY (its address), or a picture sent from a Mac (its
+    /// file name in the shared folder's "Chat Files").
+    var gifURL: String? = nil
+    var file: String? = nil
+    var fileName: String? = nil
+    /// The message it answers.
+    var replyTo: String? = nil
+    /// Emoji → who reacted with it (lower-cased names).
+    var reactions: [String: [String]]? = nil
+}
+
+struct ChatConversation: Codable {
+    var id: String
+    var title: String
+    /// "everyone", "team" or "dm"
+    var kind: String
+    /// For a direct message: the other person.
+    var with: String?
+    var lastText: String?
+    var lastAuthor: String?
+    var lastAt: String?
+    var count: Int
+}
+
+struct ChatPage: Codable {
+    var me: String
+    var myTeam: String?
+    var people: [String]
+    var conversations: [ChatConversation]
+    var gifKey: String?
+}
+
 /// A request for a director to sign (and chop) a quotation.
 struct SignRequest: Codable {
     var id: String
@@ -1970,6 +2012,8 @@ struct CompanySettings: Codable {
     /// delivery notes for Qt26001-004 are H26001-004 and DN26001-004, the
     /// quotation from BQ26001-004 is Qt26001-004 (nil = on; false = off).
     var linkedNumbers: Bool? = nil
+    /// A GIPHY API key, for searching GIFs in Chat (nil = no GIF search).
+    var giphyKey: String? = nil
 }
 
 /// A price-list item and quantity put into every new BOQ.
@@ -2920,6 +2964,7 @@ final class AppDatabase {
     let teamMembershipsStore: JSONStore<TeamMembership>
     let announcementsStore: JSONStore<Announcement>
     let signRequestsStore: JSONStore<SignRequest>
+    let chatStore: JSONStore<ChatMessage>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -2959,6 +3004,7 @@ final class AppDatabase {
         teamMembershipsStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_teams.json"))
         announcementsStore = JSONStore(fileURL: dataDir.appendingPathComponent("announcements.json"))
         signRequestsStore = JSONStore(fileURL: dataDir.appendingPathComponent("sign_requests.json"))
+        chatStore = JSONStore(fileURL: dataDir.appendingPathComponent("chat_messages.json"))
     }
 
     // ---- Document rows (client/site pages, Dashboard, search) ----
@@ -3907,6 +3953,118 @@ final class AppDatabase {
             logActivity(projectId: project.id, signed ? "Signed and chopped by \(r.signer)" : "Not signed by \(r.signer)", reference: r.number)
         }
         return nil
+    }
+
+    // ---- Chat ----
+
+    static func dmId(_ a: String, _ b: String) -> String {
+        "dm:" + [a.lowercased(), b.lowercased()].sorted().joined(separator: "|")
+    }
+
+    /// Whether this person may read a conversation.
+    func chatAllowed(_ conversation: String, for name: String) -> Bool {
+        let key = name.lowercased()
+        if conversation == "everyone" { return true }
+        if conversation.hasPrefix("team:") { return teamOf(name)?.lowercased() == String(conversation.dropFirst(5)) }
+        if conversation.hasPrefix("dm:") { return conversation.dropFirst(3).split(separator: "|").map { String($0) }.contains(key) }
+        return false
+    }
+
+    func chatPage() -> ChatPage {
+        let me = TeamSync.memberName
+        let key = me.lowercased()
+        let myTeam = teamOf(me)
+        let people = teamPage().people.map { $0.name }.filter { $0.lowercased() != key }
+        let messages = chatStore.readAll().filter { $0.deleted != true }
+        var byConversation: [String: [ChatMessage]] = [:]
+        for m in messages { byConversation[m.conversation, default: []].append(m) }
+        func summary(_ id: String, _ title: String, _ kind: String, with: String?) -> ChatConversation {
+            let list = byConversation[id] ?? []
+            let last = list.max { $0.createdAt < $1.createdAt }
+            let text = last.map { m -> String in
+                if !m.text.isEmpty { return m.text }
+                return m.gifURL != nil ? "GIF" : (m.file != nil ? "Picture" : "")
+            }
+            return ChatConversation(id: id, title: title, kind: kind, with: with, lastText: text, lastAuthor: last?.author, lastAt: last?.createdAt, count: list.count)
+        }
+        var list = [summary("everyone", "Everyone", "everyone", with: nil)]
+        if let team = myTeam { list.append(summary("team:" + team.lowercased(), "\(team) team", "team", with: nil)) }
+        // A direct message with each person (ones with messages first).
+        var dms = people.map { summary(AppDatabase.dmId(me, $0), $0, "dm", with: $0) }
+        // People who've written to me but aren't on the Team list.
+        for (id, msgs) in byConversation where id.hasPrefix("dm:") && chatAllowed(id, for: me) && !dms.contains(where: { $0.id == id }) {
+            let names: [String] = id.dropFirst(3).split(separator: "|").map { String($0) }
+            var other = "Someone"
+            if let m = msgs.first(where: { $0.author.lowercased() != key }) { other = m.author }
+            else if let n = names.first(where: { $0 != key }) { other = n }
+            dms.append(summary(id, other, "dm", with: other))
+        }
+        dms.sort { a, b in
+            if (a.lastAt != nil) != (b.lastAt != nil) { return a.lastAt != nil }
+            if let x = a.lastAt, let y = b.lastAt, x != y { return x > y }
+            return a.title.localizedCaseInsensitiveCompare(b.title) == .orderedAscending
+        }
+        return ChatPage(me: me, myTeam: myTeam, people: people, conversations: list + dms, gifKey: getCompanySettings().giphyKey)
+    }
+
+    /// The conversation's messages (the last `limit`), oldest first.
+    func chatMessages(conversation: String, limit: Int = 300) -> [ChatMessage] {
+        guard chatAllowed(conversation, for: TeamSync.memberName) else { return [] }
+        let list = chatStore.readAll().filter { $0.conversation == conversation }.sorted { $0.createdAt < $1.createdAt }
+        return Array(list.suffix(limit))
+    }
+
+    func sendChat(conversation: String, text raw: String?, gifURL: String?, file: String?, fileName: String?, replyTo: String?) -> Result<ChatMessage, WorkerError> {
+        let me = TeamSync.memberName
+        guard nonBlank(me) != nil else { return .failure(WorkerError(message: "Enter your name on the User page first.")) }
+        guard chatAllowed(conversation, for: me) else { return .failure(WorkerError(message: "You’re not in that conversation.")) }
+        let text = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty || gifURL != nil || file != nil else { return .failure(WorkerError(message: "Write a message.")) }
+        guard text.count <= 4000 else { return .failure(WorkerError(message: "That message is too long.")) }
+        if let g = gifURL, !(g.hasPrefix("https://") && g.count < 600) { return .failure(WorkerError(message: "That GIF can’t be sent.")) }
+        let m = ChatMessage(id: makeId("msg"), conversation: conversation, author: me, text: text, createdAt: nowISO(),
+                            gifURL: gifURL, file: file, fileName: fileName, replyTo: nonBlank(replyTo))
+        chatStore.insert(m)
+        return .success(m)
+    }
+
+    func editChat(id: String, text: String?, delete: Bool) -> String? {
+        var all = chatStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "That message isn’t there any more." }
+        guard all[i].author.lowercased() == TeamSync.memberName.lowercased() else { return "You can only change your own messages." }
+        if delete {
+            all[i].deleted = true
+            all[i].text = ""
+            all[i].gifURL = nil
+            all[i].file = nil
+        } else {
+            guard let t = nonBlank(text) else { return "Write a message." }
+            all[i].text = t
+            all[i].editedAt = nowISO()
+        }
+        chatStore.writeAll(all)
+        return nil
+    }
+
+    /// Adds my reaction, or takes it away if it's already there.
+    func reactChat(id: String, emoji: String) -> String? {
+        let key = TeamSync.memberName.lowercased()
+        guard !emoji.isEmpty, emoji.count <= 4 else { return "Choose an emoji." }
+        var all = chatStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == id }) else { return "That message isn’t there any more." }
+        var reactions = all[i].reactions ?? [:]
+        var who = reactions[emoji] ?? []
+        if who.contains(key) { who.removeAll { $0 == key } } else { who.append(key) }
+        reactions[emoji] = who.isEmpty ? nil : who
+        all[i].reactions = reactions.isEmpty ? nil : reactions
+        chatStore.writeAll(all)
+        return nil
+    }
+
+    /// Where pictures sent in chat are kept: the shared folder (so the other
+    /// Macs see them), else this Mac's data folder.
+    var chatFilesFolder: URL {
+        (TeamSync.current?.root ?? dataDir).appendingPathComponent("Chat Files", isDirectory: true)
     }
 
     /// Withdraws a request that hasn't been signed yet (whoever asked).
@@ -7577,6 +7735,11 @@ final class AppDatabase {
         }
         settingsStore.writeAll([settings])
         return settings
+    }
+
+    /// Saves settings changed in code (not from the Settings page).
+    func saveCompanySettingsDirect(_ settings: CompanySettings) {
+        settingsStore.writeAll([settings])
     }
 
     func setLogoPath(_ path: String?) {
@@ -11912,6 +12075,36 @@ final class TeamSync {
         only?.contains(store) ?? true
     }
 
+    // MARK: who's typing in Chat (a small file per Mac, not the log)
+
+    private var typingFolder: URL { root.appendingPathComponent("Typing", isDirectory: true) }
+
+    func setTyping(_ conversation: String?) {
+        let file = typingFolder.appendingPathComponent("\(device).json")
+        guard let conversation = conversation else { try? FileManager.default.removeItem(at: file); return }
+        let body: [String: Any] = ["name": TeamSync.memberName, "conversation": conversation, "at": Date().timeIntervalSince1970]
+        try? FileManager.default.createDirectory(at: typingFolder, withIntermediateDirectories: true)
+        if let data = try? JSONSerialization.data(withJSONObject: body) { try? data.write(to: file, options: .atomic) }
+    }
+
+    /// Who else is typing in a conversation (in the last 6 seconds).
+    func typing(in conversation: String) -> [String] {
+        let fm = FileManager.default
+        let now = Date().timeIntervalSince1970
+        var names: [String] = []
+        for url in (try? fm.contentsOfDirectory(at: typingFolder, includingPropertiesForKeys: nil)) ?? [] where url.pathExtension == "json" {
+            guard url.deletingPathExtension().lastPathComponent != device,
+                  let data = try? Data(contentsOf: url),
+                  let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  body["conversation"] as? String == conversation,
+                  let at = body["at"] as? Double, now - at < 6,
+                  let name = body["name"] as? String,
+                  name.lowercased() != TeamSync.memberName.lowercased() else { continue }
+            if !names.contains(name) { names.append(name) }
+        }
+        return names
+    }
+
     /// This Mac already has a log here (maybe still in iCloud only).
     var hasOwnLog: Bool {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: ownFolder.path)) ?? []
@@ -13024,6 +13217,43 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             struct ImageResult: Encodable { var dataURL: String? }
             let url = db.signatureImageURL(TeamSync.memberName, (payload["which"] as? String) ?? "signature")
             respond(id: id, encodable: ImageResult(dataURL: (try? Data(contentsOf: url)).map { "data:image/png;base64," + $0.base64EncodedString() }))
+        case "chat:page":
+            respond(id: id, encodable: db.chatPage())
+        case "chat:messages":
+            struct ChatMessagesResult: Encodable { var messages: [ChatMessage]; var typing: [String] }
+            let conversation = (payload["conversation"] as? String) ?? ""
+            respond(id: id, encodable: ChatMessagesResult(messages: db.chatMessages(conversation: conversation),
+                                                           typing: TeamSync.current?.typing(in: conversation) ?? []))
+        case "chat:send":
+            TeamSync.current?.setTyping(nil)
+            switch db.sendChat(conversation: (payload["conversation"] as? String) ?? "", text: payload["text"] as? String,
+                               gifURL: payload["gifURL"] as? String, file: nil, fileName: nil, replyTo: payload["replyTo"] as? String) {
+            case .success(let m): respond(id: id, encodable: m)
+            case .failure(let e): respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
+            }
+        case "chat:edit":
+            let error = db.editChat(id: (payload["id"] as? String) ?? "", text: payload["text"] as? String, delete: (payload["delete"] as? Bool) ?? false)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "chat:react":
+            let error = db.reactChat(id: (payload["id"] as? String) ?? "", emoji: (payload["emoji"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "chat:typing":
+            let conversation = payload["conversation"] as? String
+            if let c = conversation, db.chatAllowed(c, for: TeamSync.memberName) { TeamSync.current?.setTyping(c) } else { TeamSync.current?.setTyping(nil) }
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+        case "chat:attach":
+            handleChatAttach(id: id, conversation: (payload["conversation"] as? String) ?? "")
+        case "chat:file":
+            struct ChatFile: Encodable { var dataURL: String? }
+            let name = ((payload["file"] as? String) ?? "").replacingOccurrences(of: "/", with: "")
+            let url = db.chatFilesFolder.appendingPathComponent(name)
+            let type = url.pathExtension.lowercased() == "gif" ? "image/gif" : url.pathExtension.lowercased() == "png" ? "image/png" : "image/jpeg"
+            respond(id: id, encodable: ChatFile(dataURL: name.isEmpty ? nil : (try? Data(contentsOf: url)).map { "data:\(type);base64," + $0.base64EncodedString() }))
+        case "chat:setGifKey":
+            var settings = db.getCompanySettings()
+            settings.giphyKey = nonBlank(payload["key"] as? String)
+            db.saveCompanySettingsDirect(settings)
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
         case "announcements:page":
             respond(id: id, encodable: db.announcementsPage())
         case "announcements:post":
@@ -15142,6 +15372,50 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         respond(id: id, encodable: PriceImportResult(ok: true, error: nil, added: counts.added, updated: counts.updated))
     }
 
+    // MARK: Chat pictures
+
+    /// A picture or GIF from this Mac, sent in a chat message.
+    private func handleChatAttach(id: String, conversation: String) {
+        guard let window = window else { respondNull(id: id); return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.gif, .png, .jpeg, .heic]
+        panel.message = "Choose a picture or GIF to send."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            guard size <= 12_000_000 else {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "That picture is too big to send (12 MB at most)."))
+                return
+            }
+            var ext = url.pathExtension.lowercased()
+            var data = try? Data(contentsOf: url)
+            // HEIC photos are sent as JPEG, so every Mac can show them.
+            if ext == "heic", let d = data, let rep = NSBitmapImageRep(data: d), let jpg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.82]) {
+                data = jpg
+                ext = "jpg"
+            }
+            guard let body = data else {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "That picture couldn’t be read."))
+                return
+            }
+            let name = "\(makeId("chatfile")).\(ext == "jpeg" ? "jpg" : ext)"
+            do {
+                try FileManager.default.createDirectory(at: self.db.chatFilesFolder, withIntermediateDirectories: true)
+                try body.write(to: self.db.chatFilesFolder.appendingPathComponent(name), options: .atomic)
+            } catch {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "The picture couldn’t be saved."))
+                return
+            }
+            switch self.db.sendChat(conversation: conversation, text: nil, gifURL: nil, file: name, fileName: url.lastPathComponent, replyTo: nil) {
+            case .success(let m): self.respond(id: id, encodable: m)
+            case .failure(let e): self.respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
+            }
+        }
+    }
+
     // MARK: Signing and chopping quotations (Team › Signatures)
 
     /// The director signs: the quotation's PDF is made with their signature
@@ -17131,7 +17405,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             i.target = self
             go.addItem(i)
         }
-        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Team", "team.html"), ("Marketing", "marketing.html")] {
+        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Chat", "chat.html"), ("Team", "team.html"), ("Marketing", "marketing.html")] {
             let extra = item(title, #selector(goToPage(_:)), "", page: page)
             extra.target = self
             go.addItem(extra)
