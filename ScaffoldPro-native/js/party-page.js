@@ -123,6 +123,36 @@ function initPartyPage(config) {
     await refresh();
   }
 
+  // Excel: export the list (archived ones too when they're shown), or
+  // import a file — matched by reference, else by name; shown first.
+  const what = config.kind === 'sites' ? 'site' : 'client';
+  async function exportExcel() {
+    const r = await window.api.parties.exportXLSX(config.kind, $('show-archived').checked);
+    if (r && r.ok === false) await appAlert(r.error);
+  }
+  async function importExcel() {
+    const p = await window.api.parties.importPreview(config.kind);
+    if (!p) return;
+    if (!p.ok) { await appAlert(`Nothing was imported.\n\n${p.error}`); return; }
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    const lines = [
+      `Import ${plural(p.rowsFound, what)} from “${p.fileName}”?`,
+      '',
+      `${plural(p.toAdd, `new ${what}`)} will be added and ${plural(p.toUpdate, `existing ${what}`)} updated (matched by reference, or else by name). Blank cells leave what’s already there.`,
+      '',
+      `Columns used: ${p.columns.join(', ')}.`,
+    ];
+    if (p.samples && p.samples.length) lines.push('', ...p.samples.map((x) => `• ${x}`));
+    if (!await appConfirm(lines.join('\n'), { ok: 'Import' })) return;
+    const r = await window.api.parties.importApply(p.token);
+    if (!r || !r.ok) { await appAlert((r && r.error) || 'The import didn’t finish.'); return; }
+    await refresh();
+    const done = `${plural(r.added, what)} added, ${plural(r.updated, what)} updated.`;
+    await appAlert(r.skipped && r.skipped.length ? `${done}\n\nNot imported:\n${r.skipped.join('\n')}` : done);
+  }
+  if ($('import-xlsx-btn')) $('import-xlsx-btn').addEventListener('click', importExcel);
+  if ($('export-xlsx-btn')) $('export-xlsx-btn').addEventListener('click', exportExcel);
+
   $('new-btn').addEventListener('click', () => openSheet(null));
   $('cancel-btn').addEventListener('click', closeSheet);
   $('save-btn').addEventListener('click', save);

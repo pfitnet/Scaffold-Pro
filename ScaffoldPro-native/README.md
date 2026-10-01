@@ -1971,3 +1971,43 @@ under "Letterhead layout".
 
   Later asks again in an hour.
 
+
+## Batch 77 — Tidier inputs, Quick Actions, resizable widgets, Excel lists, matching numbers
+
+- **Calendar:** the week's day headings, all-day row and hours are now one
+  scrolling grid, so the columns line up whether or not a scroll bar shows.
+  The headings stay at the top while the hours scroll.
+- **Dashboard Quick Actions** (¼ width): a tile with an icon for each New
+  Project, Quotation, BOQ, Delivery Note, Invoice, Task, Inspection, Letter,
+  Client, Site and Lead. Document kinds ask for the project, then start the
+  new one straight away (`project-detail.html?…&new=1`).
+- **Widgets resize by dragging:** in Customise, drag a panel's right edge.
+  It snaps to ¼, ½, ¾ or full width, with the column guides shown. Panels
+  pack upwards into the space beside a taller one, so there are no gaps.
+- **Input boxes redesigned:** every text box, pop-up and date field is now
+  the same height (30px) and the same quiet style, with its own pop-up
+  arrow. Labels are one style.
+  - The quotation's top is grouped into cards: Letter, Dates & Pricing,
+    Key Terms.
+  - Minimum hire is an option tile with "[2 | months]" in one box.
+  - The invoice and delivery note editors' fields sit in a card.
+- **New Invoice dialog:** a "From delivery notes / A whole quotation"
+  switch replaces the link. Rent to charge is two option cards.
+- **Material picker:** each bracket (Pinned, Base Items…) fills the box, so
+  none is shown cut off. Each scroll moves to the next whole bracket, and a
+  long bracket's list scrolls first. The heading shows "2 of 6".
+- **BOQ "Use Standard Terms"** was greyed out until terms were saved in
+  Settings. It now always works, with built-in standard terms
+  (`defaultBOQTerms`) until your own are set in Settings › BOQ Defaults.
+- **Clients and Sites to and from Excel:** "Export to Excel" saves a real
+  .xlsx file. "Import from Excel…" reads .xlsx or .csv and finds the column
+  titles (Company Name / Site Name, Phone, Email…).
+  - Each row is matched by reference, or else by name. You see how many
+    will be added and updated before anything changes.
+  - Blank cells leave what's already there.
+- **Linked documents share a number:**
+  - The delivery notes and invoices made from Qt26001-004 are DN26001-004
+    and H26001-004; a second one is H26001-004-2.
+  - The quotation made from BQ26001-004 is Qt26001-004.
+  - This only applies when both number formats run per project, or both
+    don't. Switch it off in Settings › Documents & Numbering.

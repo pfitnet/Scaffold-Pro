@@ -225,24 +225,29 @@
   <div class="modal-backdrop hidden" id="invoice-modal">
     <div class="modal wide">
       <h2>New Invoice</h2>
+      <div class="segmented seg-full" id="inv-mode" role="tablist" aria-label="Invoice from">
+        <button type="button" data-mode="dn" class="active" data-no-icon>From delivery notes</button>
+        <button type="button" data-mode="quotation" data-no-icon>A whole quotation</button>
+      </div>
       <div class="field" id="inv-dn-field">
-        <label>Delivery notes to invoice <span class="small-note">— what was delivered, at the prices of the quotation it was delivered for</span></label>
+        <label>Delivery notes to invoice</label>
         <div class="dn-pick" id="inv-dns"></div>
+        <span class="field-hint">What was delivered, at the prices of the quotation it was delivered for.</span>
       </div>
       <div class="field hidden" id="inv-quotation-field">
-        <label for="inv-quotation">Invoice a whole quotation instead (e.g. a deposit before delivery)</label>
+        <label for="inv-quotation">Quotation</label>
         <select id="inv-quotation"></select>
+        <span class="field-hint">For example a deposit before anything is delivered.</span>
       </div>
-      <button class="link-btn" id="inv-mode-toggle" type="button">Invoice a whole quotation instead…</button>
       <div class="field hidden" id="inv-rental">
         <label>Rent to charge</label>
-        <div class="choice-group">
-          <label class="inline-check"><input type="radio" name="inv-charge" value="one" checked /> One month’s rent</label>
-          <label class="inline-check"><input type="radio" name="inv-charge" value="full" /> Full hire period of
-            <input type="number" id="inv-months" min="1" step="1" /> months</label>
+        <div class="choice-cards">
+          <label class="choice-card"><input type="radio" name="inv-charge" value="one" checked /><span>One month’s rent</span></label>
+          <label class="choice-card"><input type="radio" name="inv-charge" value="full" /><span>Full hire period</span>
+            <span class="input-group input-group-sm"><input type="number" id="inv-months" min="1" step="1" /><span class="input-suffix">months</span></span></label>
         </div>
       </div>
-      <div class="field">
+      <div class="field check-list" id="inv-include">
         <label class="inline-check hidden" id="inv-delivery-row"><input type="checkbox" id="inv-delivery" checked /> Include delivery charges</label>
         <label class="inline-check hidden" id="inv-other-row"><input type="checkbox" id="inv-other" checked /> Include <span id="inv-other-names">other charges</span></label>
       </div>

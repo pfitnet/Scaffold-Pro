@@ -1850,6 +1850,10 @@ struct CompanySettings: Codable {
     var documentLanguage: String? = nil
     /// Standard terms for the landscape BOQ's Terms box (Settings → BOQ Defaults).
     var boqTerms: String? = nil
+    /// Documents made from another share its number: the invoice and
+    /// delivery notes for Qt26001-004 are H26001-004 and DN26001-004, the
+    /// quotation from BQ26001-004 is Qt26001-004 (nil = on; false = off).
+    var linkedNumbers: Bool? = nil
 }
 
 /// A price-list item and quantity put into every new BOQ.
@@ -1879,6 +1883,15 @@ Following rental charges are to be paid monthly on the first day of the month.
 Delivery charges are to be paid within 7 days against each truck's delivery.
 (ii) Delivery : Minimum of 5 days upon order confirmation.
 (iii) Modification : Extra works & modifications of works will be subject to an extra charge.
+"""
+
+/// The landscape BOQ's standard terms when none are set in Settings › BOQ
+/// Defaults, so "Use Standard Terms" always has something to put in.
+let defaultBOQTerms = """
+1. Quantities are estimated from the drawings provided; the quantities actually delivered are charged.
+2. Rental is charged monthly from the date of delivery until the materials are returned.
+3. Lost or damaged materials are charged at the sale price.
+4. Delivery and collection are charged separately unless stated.
 """
 
 let defaultQuotationAcceptance = "Order shall be confirmed and regarded as properly accepted upon signature by all parties AND such signed copy is returned to Proficiency (HK) Limited via instant electronic communication means. This quotation shall be valid for 7 business days against the issue date."
@@ -1923,6 +1936,51 @@ func nextDocumentNumber(template rawTemplate: String, projectNumber: String, exi
         candidate = before + String(format: "%03d", next) + after
     }
     return candidate
+}
+
+/// The {SEQ} part of a number made from `template` — "004" from
+/// Qt26001-004 with "Qt{PROJECT}-{SEQ}", "004-2" from Qt26001-004-2 —
+/// or nil when the number doesn't follow the template.
+func sequencePart(of number: String, template rawTemplate: String, projectNumber: String) -> String? {
+    var template = rawTemplate.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !template.contains("{SEQ}") { template += "-{SEQ}" }
+    let tokens: [(token: String, pattern: String)] = [
+        ("{PROJECT}", NSRegularExpression.escapedPattern(for: projectNumber)), ("{YYYY}", "\\d{4}"), ("{YY}", "\\d{2}"), ("{SEQ}", "(\\d+(?:-\\d+)*)"),
+    ]
+    var pattern = "^"
+    var rest = Substring(template)
+    while let first = rest.first {
+        if let t = tokens.first(where: { rest.hasPrefix($0.token) }) {
+            pattern += t.pattern
+            rest = rest.dropFirst(t.token.count)
+        } else {
+            pattern += NSRegularExpression.escapedPattern(for: String(first))
+            rest = rest.dropFirst()
+        }
+    }
+    pattern += "$"
+    guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+          let m = re.firstMatch(in: number, range: NSRange(number.startIndex..., in: number)),
+          m.numberOfRanges > 1, let r = Range(m.range(at: 1), in: number) else { return nil }
+    return String(number[r])
+}
+
+/// A number with a given sequence: `template` with {SEQ} = `sequence`, and
+/// "-2", "-3"… after it when that number is already used.
+func linkedDocumentNumber(template rawTemplate: String, projectNumber: String, existing: [String], sequence: String, date: Date = Date()) -> String {
+    var template = rawTemplate.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !template.contains("{SEQ}") { template += "-{SEQ}" }
+    let year = Calendar.current.component(.year, from: date)
+    let base = template
+        .replacingOccurrences(of: "{PROJECT}", with: projectNumber)
+        .replacingOccurrences(of: "{YYYY}", with: String(year))
+        .replacingOccurrences(of: "{YY}", with: String(format: "%02d", year % 100))
+        .replacingOccurrences(of: "{SEQ}", with: sequence)
+    let used = Set(existing.map { $0.lowercased() })
+    if !used.contains(base.lowercased()) { return base }
+    var n = 2
+    while used.contains("\(base)-\(n)".lowercased()) { n += 1 }
+    return "\(base)-\(n)"
 }
 
 // ---- PDF documents (layout of the company's quotation Qt26193) ----
@@ -4633,7 +4691,7 @@ final class AppDatabase {
         detail.chineseNames = chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription })
         detail.terms = boq.terms
         detail.signatureSection = boq.signatureSection == true
-        detail.standardTerms = getCompanySettings().boqTerms
+        detail.standardTerms = getCompanySettings().boqTerms ?? defaultBOQTerms
         detail.language = boq.language
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         detail.lineSort = boq.lineSort ?? "code"
@@ -5225,7 +5283,11 @@ final class AppDatabase {
         let settings = getCompanySettings()
         var quotation = Quotation(
             id: makeId("quotation"), projectId: projectId, sourceBOQId: sourceBOQId,
-            quotationNumber: nextQuotationNumber(projectNumber: projectNumber, projectId: projectId),
+            // Made from a BOQ: the BOQ's number (BQ26001-004 → Qt26001-004).
+            quotationNumber: sourceBOQId.flatMap { getBOQ(id: $0) }.flatMap {
+                linkedNumber(type: "QT", sourceType: "BOQ", sourceNumber: $0.boqNumber, projectNumber: projectNumber,
+                             existing: quotationsStore.readAll().map { $0.quotationNumber })
+            } ?? nextQuotationNumber(projectNumber: projectNumber, projectId: projectId),
             status: "Draft", quotationDate: nowISO(), pricingMode: resolvedPricingMode, validUntil: nil,
             paymentTerms: settings.defaultPaymentTerms,
             // No sales tax in Hong Kong: new quotations carry none.
@@ -6414,7 +6476,10 @@ final class AppDatabase {
 
         var invoice = Invoice(
             id: makeId("invoice"), projectId: projectId, sourceQuotationId: quotation.id,
-            invoiceNumber: nextInvoiceNumber(projectNumber: projectNumber, projectId: projectId),
+            // The quotation's number: H26001-004 for Qt26001-004.
+            invoiceNumber: linkedNumber(type: "INV", sourceType: "QT", sourceNumber: quotation.quotationNumber, projectNumber: projectNumber,
+                                        existing: invoicesStore.readAll().map { $0.invoiceNumber })
+                ?? nextInvoiceNumber(projectNumber: projectNumber, projectId: projectId),
             status: "Draft", invoiceDate: nowISO(), dueDate: dueDate, paymentTerms: quotation.paymentTerms ?? settings.defaultPaymentTerms,
             discountType: quotation.discountType, discountValue: quotation.discountValue, taxRatePercent: quotation.taxRatePercent,
             amountPaid: 0, notes: settings.defaultNotes, createdAt: nowISO(), updatedAt: nowISO()
@@ -6754,9 +6819,16 @@ final class AppDatabase {
         let siteContact = projectsStore.readAll().first(where: { $0.id == projectId })
             .flatMap { project in sitesStore.readAll().first(where: { $0.id == project.siteId }) }
             .flatMap { nonBlank($0.contactPerson) }
+        // From a quotation (or an invoice): its number, DN26001-004 for Qt26001-004.
+        let existingNumbers = deliveryNotesStore.readAll().map { $0.deliveryNoteNumber }
+        let linked: String? = sourceInvoiceId.flatMap { getInvoice(id: $0) }.flatMap {
+            linkedNumber(type: "DN", sourceType: "INV", sourceNumber: $0.invoiceNumber, projectNumber: projectNumber, existing: existingNumbers)
+        } ?? sourceQuotationId.flatMap { getQuotation(id: $0) }.flatMap {
+            linkedNumber(type: "DN", sourceType: "QT", sourceNumber: $0.quotationNumber, projectNumber: projectNumber, existing: existingNumbers)
+        }
         let note = DeliveryNote(
             id: makeId("dn"), projectId: projectId, sourceQuotationId: sourceQuotationId, sourceInvoiceId: sourceInvoiceId,
-            deliveryNoteNumber: nextDeliveryNoteNumber(projectNumber: projectNumber, projectId: projectId),
+            deliveryNoteNumber: linked ?? nextDeliveryNoteNumber(projectNumber: projectNumber, projectId: projectId),
             status: "Draft", deliveryDate: nowISO(), deliveryAddress: siteAddress, deliveredBy: nil, receivedBy: nil,
             notes: nil, createdAt: nowISO(), updatedAt: nowISO(), contactPerson: siteContact
         )
@@ -7098,6 +7170,7 @@ final class AppDatabase {
         if let v = format("numberFormatInvoice") { settings.numberFormatInvoice = v }
         if let v = format("numberFormatDeliveryNote") { settings.numberFormatDeliveryNote = v }
         if let v = format("numberFormatLetter") { settings.numberFormatLetter = v }
+        if let v = payload["linkedNumbers"] as? Bool { settings.linkedNumbers = v ? nil : false }
         if let v = optionalText("signatoryName") { settings.signatoryName = v }
         if let v = optionalText("signatoryTitle") { settings.signatoryTitle = v }
         if let v = optionalText("termsURL") { settings.termsURL = v }
@@ -7144,6 +7217,20 @@ final class AppDatabase {
         var settings = getCompanySettings()
         settings.logoPath = path
         settingsStore.writeAll([settings])
+    }
+
+    /// The number for a document made from another (its source): the same
+    /// sequence — the invoice for Qt26001-004 is H26001-004, a second one
+    /// H26001-004-2. nil (the next number is used) when switched off in
+    /// Settings, when the source's number doesn't follow its format, or
+    /// when one format runs per project and the other doesn't (a per-
+    /// project 004 isn't the company's 4th quotation of the year).
+    func linkedNumber(type: String, sourceType: String, sourceNumber: String, projectNumber: String, existing: [String]) -> String? {
+        guard getCompanySettings().linkedNumbers != false else { return nil }
+        let target = numberFormat(type), source = numberFormat(sourceType)
+        guard target.contains("{PROJECT}") == source.contains("{PROJECT}"),
+              let seq = sequencePart(of: sourceNumber, template: source, projectNumber: projectNumber) else { return nil }
+        return linkedDocumentNumber(template: target, projectNumber: projectNumber, existing: existing, sequence: seq)
     }
 
     func numberFormat(_ type: String) -> String {
@@ -10313,6 +10400,287 @@ struct ParsedPriceRow {
     var rentalPrice: Double?
 }
 
+
+// MARK: - Clients & sites to and from Excel
+//
+// Export writes a real .xlsx (the parts zipped with macOS's /usr/bin/zip);
+// import reads .xlsx or .csv, finds the row of column titles, and matches
+// each row to an existing record by its reference, else its name. Nothing
+// is written until the person has seen what will be added and updated.
+
+enum SpreadsheetWriter {
+    private static func xml(_ s: String) -> String {
+        var out = ""
+        for ch in s.unicodeScalars {
+            switch ch {
+            case "&": out += "&amp;"
+            case "<": out += "&lt;"
+            case ">": out += "&gt;"
+            case "\"": out += "&quot;"
+            default:
+                // Control characters aren't allowed in the XML (tab and line breaks are).
+                if ch.value < 0x20 && ch != "\t" && ch != "\n" && ch != "\r" { continue }
+                out.unicodeScalars.append(ch)
+            }
+        }
+        return out
+    }
+
+    private static func columnName(_ index: Int) -> String {
+        var n = index + 1
+        var name = ""
+        while n > 0 {
+            let r = (n - 1) % 26
+            name = String(UnicodeScalar(65 + r)!) + name
+            n = (n - 1) / 26
+        }
+        return name
+    }
+
+    /// One worksheet: the first row is the column titles (bold, kept at the
+    /// top while scrolling); cells are text, so phone numbers keep their zeros.
+    static func writeXLSX(sheetName: String, rows: [[String]], to url: URL) throws {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent("xlsx-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: dir) }
+        let colCount = rows.map { $0.count }.max() ?? 0
+        var widths: [Int] = Array(repeating: 10, count: colCount)
+        for row in rows { for (i, v) in row.enumerated() { widths[i] = min(60, max(widths[i], (v.split(separator: "\n").map { $0.count }.max() ?? 0) + 2)) } }
+        var sheet = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>
+        """
+        for (i, w) in widths.enumerated() { sheet += "<col min=\"\(i + 1)\" max=\"\(i + 1)\" width=\"\(w)\" customWidth=\"1\"/>" }
+        sheet += "</cols><sheetData>"
+        for (r, row) in rows.enumerated() {
+            sheet += "<row r=\"\(r + 1)\">"
+            for (c, value) in row.enumerated() where !value.isEmpty {
+                sheet += "<c r=\"\(columnName(c))\(r + 1)\" t=\"inlineStr\"\(r == 0 ? " s=\"1\"" : "")><is><t xml:space=\"preserve\">\(xml(value))</t></is></c>"
+            }
+            sheet += "</row>"
+        }
+        sheet += "</sheetData></worksheet>"
+        let files: [String: String] = [
+            "[Content_Types].xml": """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>
+            """,
+            "_rels/.rels": """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>
+            """,
+            "xl/workbook.xml": """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="\(xml(String(sheetName.prefix(31))))" sheetId="1" r:id="rId1"/></sheets></workbook>
+            """,
+            "xl/_rels/workbook.xml.rels": """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>
+            """,
+            "xl/styles.xml": """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>
+            """,
+            "xl/worksheets/sheet1.xml": sheet,
+        ]
+        for (path, content) in files {
+            let file = dir.appendingPathComponent(path)
+            try fm.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(content.utf8).write(to: file)
+        }
+        let zipped = dir.appendingPathComponent("out.xlsx")
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        p.currentDirectoryURL = dir
+        p.arguments = ["-q", "-X", "-r", zipped.path, "[Content_Types].xml", "_rels", "xl"]
+        p.standardOutput = Pipe()
+        p.standardError = Pipe()
+        try p.run()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else { throw BackupError(message: "The Excel file couldn't be made.") }
+        if fm.fileExists(atPath: url.path) { try fm.removeItem(at: url) }
+        try fm.copyItem(at: zipped, to: url)
+    }
+}
+
+/// The columns of the Clients and Sites spreadsheets: title, the record's
+/// field, and other titles recognised on import.
+struct PartyColumn {
+    var title: String
+    var key: String
+    var aliases: [String]
+}
+
+enum PartySheet {
+    static let clients: [PartyColumn] = [
+        PartyColumn(title: "Company Name", key: "companyName", aliases: ["company", "client", "clientname", "name", "companyname"]),
+        PartyColumn(title: "Client Reference", key: "clientReference", aliases: ["reference", "ref", "clientref", "code", "clientcode"]),
+        PartyColumn(title: "Contact Person", key: "contactPerson", aliases: ["contact", "attn", "attention"]),
+        PartyColumn(title: "Phone", key: "phone", aliases: ["tel", "telephone", "mobile", "phoneno", "contactno"]),
+        PartyColumn(title: "Email", key: "email", aliases: ["emailaddress", "mail"]),
+        PartyColumn(title: "Address Line 1", key: "address", aliases: ["address", "address1", "addressline1"]),
+        PartyColumn(title: "Address Line 2", key: "addressLine2", aliases: ["address2"]),
+        PartyColumn(title: "Address Line 3", key: "addressLine3", aliases: ["address3"]),
+        PartyColumn(title: "City", key: "city", aliases: ["district", "town"]),
+        PartyColumn(title: "Postal Code", key: "postalCode", aliases: ["postcode", "zip", "zipcode"]),
+        PartyColumn(title: "Country", key: "country", aliases: []),
+        PartyColumn(title: "Default Markup (%)", key: "defaultMarkupPercent", aliases: ["markup", "defaultmarkup", "markuppercent"]),
+        PartyColumn(title: "Billing Information", key: "billingInfo", aliases: ["billing", "billinginfo", "billingaddress"]),
+        PartyColumn(title: "Notes", key: "notes", aliases: ["note", "remarks", "remark"]),
+        PartyColumn(title: "Archived", key: "isArchived", aliases: []),
+    ]
+    static let sites: [PartyColumn] = [
+        PartyColumn(title: "Site Name", key: "name", aliases: ["site", "name", "sitename"]),
+        PartyColumn(title: "Site Reference", key: "siteReference", aliases: ["reference", "ref", "siteref", "code", "sitecode"]),
+        PartyColumn(title: "Address", key: "address", aliases: ["siteaddress", "address1", "addressline1", "location"]),
+        PartyColumn(title: "Contact Person", key: "contactPerson", aliases: ["contact", "sitecontact"]),
+        PartyColumn(title: "Phone", key: "phone", aliases: ["tel", "telephone", "mobile", "phoneno", "contactno"]),
+        PartyColumn(title: "Email", key: "email", aliases: ["emailaddress", "mail"]),
+        PartyColumn(title: "City", key: "city", aliases: ["district", "town"]),
+        PartyColumn(title: "Postal Code", key: "postalCode", aliases: ["postcode", "zip", "zipcode"]),
+        PartyColumn(title: "Country", key: "country", aliases: []),
+        PartyColumn(title: "Notes", key: "notes", aliases: ["note", "remarks", "remark"]),
+        PartyColumn(title: "Archived", key: "isArchived", aliases: []),
+    ]
+
+    static func columns(_ kind: String) -> [PartyColumn] { kind == "sites" ? sites : clients }
+
+    static func normalise(_ s: String) -> String {
+        s.lowercased().unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
+    }
+
+    /// Finds the title row (in the first 15 rows) and which column is which.
+    /// nil when there's no column for the name.
+    static func interpret(_ sheet: SpreadsheetSheet, kind: String) -> (header: Int, map: [Int: PartyColumn])? {
+        let cols = columns(kind)
+        for (r, row) in sheet.rows.prefix(15).enumerated() {
+            var map: [Int: PartyColumn] = [:]
+            var used = Set<String>()
+            for (c, cell) in row.enumerated() {
+                let n = normalise(cell)
+                guard !n.isEmpty else { continue }
+                // Exact titles first, then the other names for a column.
+                if let col = cols.first(where: { normalise($0.title) == n && !used.contains($0.key) })
+                    ?? cols.first(where: { $0.aliases.contains(n) && !used.contains($0.key) }) {
+                    map[c] = col
+                    used.insert(col.key)
+                }
+            }
+            if used.contains(cols[0].key) { return (r, map) }
+        }
+        return nil
+    }
+}
+
+struct PartyImportPreview: Codable {
+    var ok: Bool
+    var error: String?
+    var token: String?
+    var fileName: String?
+    var sheetName: String?
+    var columns: [String]
+    var rowsFound: Int
+    var toAdd: Int
+    var toUpdate: Int
+    var samples: [String]
+}
+
+struct PartyImportResult: Codable {
+    var ok: Bool
+    var error: String?
+    var added: Int
+    var updated: Int
+    var skipped: [String]
+}
+
+extension AppDatabase {
+    private func partyValue(_ v: String?) -> String { v ?? "" }
+
+    /// The spreadsheet rows (titles first) for Export to Excel.
+    func partySheetRows(kind: String, includeArchived: Bool) -> [[String]] {
+        let cols = PartySheet.columns(kind)
+        var rows = [cols.map { $0.title }]
+        if kind == "sites" {
+            for s in listSites(includeArchived: includeArchived) {
+                let values: [String: String] = ["name": s.name, "siteReference": partyValue(s.siteReference), "address": partyValue(s.address),
+                    "contactPerson": partyValue(s.contactPerson), "phone": partyValue(s.phone), "email": partyValue(s.email), "city": partyValue(s.city),
+                    "postalCode": partyValue(s.postalCode), "country": partyValue(s.country), "notes": partyValue(s.notes), "isArchived": s.isArchived ? "Yes" : ""]
+                rows.append(cols.map { values[$0.key] ?? "" })
+            }
+        } else {
+            for c in listClients(includeArchived: includeArchived) {
+                let values: [String: String] = ["companyName": c.companyName, "clientReference": partyValue(c.clientReference), "contactPerson": partyValue(c.contactPerson),
+                    "phone": partyValue(c.phone), "email": partyValue(c.email), "address": partyValue(c.address), "addressLine2": partyValue(c.addressLine2),
+                    "addressLine3": partyValue(c.addressLine3), "city": partyValue(c.city), "postalCode": partyValue(c.postalCode), "country": partyValue(c.country),
+                    "defaultMarkupPercent": c.defaultMarkupPercent.map { $0 == $0.rounded() ? String(Int($0)) : String($0) } ?? "",
+                    "billingInfo": partyValue(c.billingInfo), "notes": partyValue(c.notes), "isArchived": c.isArchived ? "Yes" : ""]
+                rows.append(cols.map { values[$0.key] ?? "" })
+            }
+        }
+        return rows
+    }
+
+    /// The record's fields as the form would send them.
+    private func partyPayload(kind: String, id: String) -> [String: Any]? {
+        if kind == "sites" {
+            guard let s = getSite(id: id) else { return nil }
+            return ["name": s.name, "siteReference": partyValue(s.siteReference), "address": partyValue(s.address), "contactPerson": partyValue(s.contactPerson),
+                    "phone": partyValue(s.phone), "email": partyValue(s.email), "city": partyValue(s.city), "postalCode": partyValue(s.postalCode),
+                    "country": partyValue(s.country), "notes": partyValue(s.notes)]
+        }
+        guard let c = getClient(id: id) else { return nil }
+        return ["companyName": c.companyName, "clientReference": partyValue(c.clientReference), "contactPerson": partyValue(c.contactPerson),
+                "phone": partyValue(c.phone), "email": partyValue(c.email), "address": partyValue(c.address), "addressLine2": partyValue(c.addressLine2),
+                "addressLine3": partyValue(c.addressLine3), "city": partyValue(c.city), "postalCode": partyValue(c.postalCode), "country": partyValue(c.country),
+                "defaultMarkupPercent": c.defaultMarkupPercent.map { String($0) } ?? "", "billingInfo": partyValue(c.billingInfo), "notes": partyValue(c.notes),
+                "vatNumber": partyValue(c.vatNumber)]
+    }
+
+    /// Each imported row with the record it updates (nil: a new one).
+    /// Matched by reference when both have one, else by name.
+    func matchPartyRows(kind: String, rows: [[String: String]]) -> [(row: [String: String], matchId: String?)] {
+        let nameKey = PartySheet.columns(kind)[0].key
+        let refKey = kind == "sites" ? "siteReference" : "clientReference"
+        let existing: [(id: String, name: String, ref: String)] = kind == "sites"
+            ? allSites().map { ($0.id, $0.name, $0.siteReference ?? "") }
+            : allClients().map { ($0.id, $0.companyName, $0.clientReference ?? "") }
+        let norm = { (s: String) in s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        return rows.map { row -> (row: [String: String], matchId: String?) in
+            let ref = norm(row[refKey] ?? "")
+            let name = norm(row[nameKey] ?? "")
+            let hit = (!ref.isEmpty ? existing.first { norm($0.ref) == ref } : nil) ?? existing.first { norm($0.name) == name }
+            return (row, hit?.id)
+        }
+    }
+
+    /// Adds and updates the records. Blank cells leave what's there.
+    func applyPartyImport(kind: String, rows: [(row: [String: String], matchId: String?)]) -> PartyImportResult {
+        var added = 0, updated = 0
+        var skipped: [String] = []
+        for (row, matchId) in rows {
+            // A blank Archived cell leaves it as it is.
+            let archived = row["isArchived"].flatMap { $0.isEmpty ? nil : ["yes", "y", "true", "1", "archived"].contains($0.lowercased()) }
+            var fields = row.filter { $0.key != "isArchived" && !$0.value.isEmpty }
+            let label = fields[PartySheet.columns(kind)[0].key] ?? "?"
+            if let id = matchId, var payload = partyPayload(kind: kind, id: id) {
+                for (k, v) in fields { payload[k] = v }
+                let error = kind == "sites" ? updateSite(id: id, payload: payload) : updateClient(id: id, payload: payload)
+                if let e = error { skipped.append("\(label): \(e)"); continue }
+                if let a = archived { _ = kind == "sites" ? setSiteArchived(id: id, archived: a) : setClientArchived(id: id, archived: a) }
+                updated += 1
+            } else {
+                if kind != "sites", let m = fields["defaultMarkupPercent"], Double(m.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)) == nil {
+                    fields["defaultMarkupPercent"] = nil
+                }
+                let newId = kind == "sites" ? createSite(fields).id : createClient(fields).id
+                if archived == true { _ = kind == "sites" ? setSiteArchived(id: newId, archived: true) : setClientArchived(id: newId, archived: true) }
+                added += 1
+            }
+        }
+        return PartyImportResult(ok: true, error: nil, added: added, updated: updated, skipped: skipped)
+    }
+}
+
 struct PriceImportPreview: Codable {
     var ok: Bool
     var error: String?
@@ -11543,6 +11911,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// A parsed-but-not-yet-applied price import, keyed by the preview's
     /// token, so the person can review it before anything changes.
     private var pendingPriceImport: (token: String, sourceKey: String, rows: [ParsedPriceRow])?
+    private var pendingPartyImport: (token: String, kind: String, rows: [(row: [String: String], matchId: String?)])?
 
     init(db: AppDatabase, storage: FileStorage) {
         self.db = db
@@ -11636,6 +12005,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handlePriceImportPreview(id: id, sourceKey: (payload["sourceKey"] as? String) ?? "")
         case "priceLists:importApply":
             handlePriceImportApply(id: id, token: (payload["token"] as? String) ?? "")
+        case "parties:exportXLSX":
+            handlePartyExport(id: id, kind: (payload["kind"] as? String) ?? "clients", includeArchived: (payload["includeArchived"] as? Bool) ?? false)
+        case "parties:importPreview":
+            handlePartyImportPreview(id: id, kind: (payload["kind"] as? String) ?? "clients")
+        case "parties:importApply":
+            handlePartyImportApply(id: id, token: (payload["token"] as? String) ?? "")
         case "priceLists:exportCSV":
             handlePriceExportCSV(id: id, sourceKey: (payload["sourceKey"] as? String) ?? "")
         case "projects:list":
@@ -14298,6 +14673,91 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         pendingPriceImport = nil
         let counts = db.applyPriceImport(sourceKey: pending.sourceKey, rows: pending.rows, apply: true)
         respond(id: id, encodable: PriceImportResult(ok: true, error: nil, added: counts.added, updated: counts.updated))
+    }
+
+    // MARK: Clients & sites to and from Excel
+
+    private func handlePartyExport(id: String, kind: String, includeArchived: Bool) {
+        guard let window = window else { respondNull(id: id); return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx")].compactMap { $0 }
+        panel.nameFieldStringValue = "ScaffoldPro \(kind == "sites" ? "Sites" : "Clients").xlsx"
+        panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
+            do {
+                try SpreadsheetWriter.writeXLSX(sheetName: kind == "sites" ? "Sites" : "Clients",
+                                                rows: self.db.partySheetRows(kind: kind, includeArchived: includeArchived), to: url)
+                self.storage.revealInFinder(url)
+                self.respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+            } catch let e as BackupError {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
+            } catch {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "The Excel file couldn't be saved there."))
+            }
+        }
+    }
+
+    private func handlePartyImportPreview(id: String, kind: String) {
+        guard let window = window else { respondNull(id: id); return }
+        let what = kind == "sites" ? "sites" : "clients"
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx"), .commaSeparatedText].compactMap { $0 }
+        panel.message = "Choose an Excel (.xlsx) or CSV file of \(what) to add or update."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
+            func fail(_ message: String) {
+                self.respond(id: id, encodable: PartyImportPreview(ok: false, error: message, token: nil, fileName: url.lastPathComponent, sheetName: nil, columns: [], rowsFound: 0, toAdd: 0, toUpdate: 0, samples: []))
+            }
+            do {
+                let sheets = url.pathExtension.lowercased() == "csv" ? try SpreadsheetReader.readCSV(url) : try SpreadsheetReader.readXLSX(url)
+                // A sheet named after the list first (e.g. "Clients"), else the first one that makes sense.
+                let ordered = sheets.filter { $0.name.lowercased().contains(what.dropLast()) } + sheets
+                guard let (sheet, found) = ordered.lazy.compactMap({ sh -> (SpreadsheetSheet, (header: Int, map: [Int: PartyColumn]))? in
+                    PartySheet.interpret(sh, kind: kind).map { (sh, $0) }
+                }).first else {
+                    fail("No list of \(what) was recognised. The file needs a row of column titles with “\(PartySheet.columns(kind)[0].title)” — the easiest start is Export to Excel, then edit that file.")
+                    return
+                }
+                let nameKey = PartySheet.columns(kind)[0].key
+                var rows: [[String: String]] = []
+                for row in sheet.rows.dropFirst(found.header + 1) {
+                    var values: [String: String] = [:]
+                    for (c, col) in found.map where c < row.count { values[col.key] = row[c].trimmingCharacters(in: .whitespacesAndNewlines) }
+                    guard !(values[nameKey] ?? "").isEmpty else { continue }
+                    rows.append(values)
+                }
+                guard !rows.isEmpty else { fail("The column titles were found, but there were no \(what) beneath them."); return }
+                let matched = self.db.matchPartyRows(kind: kind, rows: rows)
+                let token = UUID().uuidString
+                self.pendingPartyImport = (token, kind, matched)
+                let titles = found.map.sorted { $0.key < $1.key }.map { $0.value.title }
+                let samples = matched.prefix(5).map { m -> String in
+                    ([m.row[nameKey] ?? ""] + [m.row["contactPerson"], m.row["phone"]].compactMap { $0 }.filter { !$0.isEmpty }).joined(separator: " · ")
+                        + (m.matchId == nil ? "  (new)" : "  (update)")
+                }
+                self.respond(id: id, encodable: PartyImportPreview(ok: true, error: nil, token: token, fileName: url.lastPathComponent, sheetName: sheet.name,
+                    columns: titles, rowsFound: rows.count, toAdd: matched.filter { $0.matchId == nil }.count,
+                    toUpdate: matched.filter { $0.matchId != nil }.count, samples: Array(samples)))
+            } catch let e as BackupError {
+                fail(e.message)
+            } catch {
+                fail("This file couldn't be read.")
+            }
+        }
+    }
+
+    private func handlePartyImportApply(id: String, token: String) {
+        guard let pending = pendingPartyImport, pending.token == token else {
+            respond(id: id, encodable: PartyImportResult(ok: false, error: "This import has expired — please choose the file again.", added: 0, updated: 0, skipped: []))
+            return
+        }
+        pendingPartyImport = nil
+        respond(id: id, encodable: db.applyPartyImport(kind: pending.kind, rows: pending.rows))
     }
 
     /// Section 49: export a price list to CSV (opens in Excel/Numbers).

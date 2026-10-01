@@ -13,14 +13,8 @@
         <h1>Dashboard</h1>
         <div class="subtitle" id="today-line"></div>
       </div>
-      <div class="header-actions quick-actions">
+      <div class="header-actions">
         <button id="customise-btn" data-no-icon title="Move, resize, hide or show the Dashboard’s panels">Customise</button>
-        <button onclick="location.href='projects.html?new=1'">New Project</button>
-        <button id="qa-quotation">New Quotation</button>
-        <button id="qa-invoice">New Invoice</button>
-        <button id="qa-delivery">New Delivery Note</button>
-        <button onclick="location.href='clients.html?new=1'">New Client</button>
-        <button onclick="location.href='sites.html?new=1'">New Site</button>
       </div>
     </div>
 
@@ -29,15 +23,19 @@
     <div class="stat-grid" id="stat-grid"></div>
 
     <div class="dash-grid" id="dash-grid">
+      <section class="panel" data-widget="quick" data-title="Quick Actions" data-span="1">
+        <h3 class="panel-title">Quick Actions</h3>
+        <div class="qa-grid" id="quick-actions"></div>
+      </section>
+      <section class="panel" data-widget="tasks" data-title="My Tasks" data-span="3">
+        <h3 class="panel-title">My Tasks <a href="tasks.html" class="panel-link">All tasks</a></h3>
+        <div id="my-tasks-list"></div>
+      </section>
       <section data-widget="inspections" data-title="Scaffold Inspections Due" class="panel hidden" id="inspections-panel">
         <h3 class="panel-title">Scaffold Inspections Due</h3>
         <div id="inspections-due-list"></div>
       </section>
-      <section class="panel" data-widget="tasks" data-title="My Tasks">
-        <h3 class="panel-title">My Tasks <a href="tasks.html" class="panel-link">All tasks</a></h3>
-        <div id="my-tasks-list"></div>
-      </section>
-      <section class="panel" data-widget="projects" data-title="My Active &amp; Recent Projects">
+      <section class="panel" data-widget="projects" data-title="My Active &amp; Recent Projects" data-span="3">
         <h3 class="panel-title">My Active &amp; Recent Projects</h3>
         <div id="recent-projects"></div>
       </section>

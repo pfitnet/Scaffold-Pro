@@ -55,6 +55,12 @@
       setArchived: (id, archived) => callNative('sites:setArchived', { id: id, archived: archived }),
       detail: (id) => callNative('sites:detail', { id: id }),
     },
+    // Clients or sites ('clients' / 'sites') to and from Excel.
+    parties: {
+      exportXLSX: (kind, includeArchived) => callNative('parties:exportXLSX', { kind: kind, includeArchived: !!includeArchived }),
+      importPreview: (kind) => callNative('parties:importPreview', { kind: kind }),
+      importApply: (token) => callNative('parties:importApply', { token: token }),
+    },
     dashboard: {
       summary: () => callNative('dashboard:summary'),
     },

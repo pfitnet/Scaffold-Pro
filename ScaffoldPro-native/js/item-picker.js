@@ -56,8 +56,9 @@
     const box = document.createElement('section');
     box.className = `picker-group${extraClass ? ` ${extraClass}` : ''}`;
     box.innerHTML = `
-      <div class="picker-group-head"><span>${title}</span><span class="picker-group-count">${list.length}</span></div>
-      <table class="picker-group-table"><thead><tr>${headHTML}</tr></thead><tbody></tbody></table>`;
+      <div class="picker-group-head"><span>${title}</span><span class="picker-group-count">${list.length} item${list.length === 1 ? '' : 's'}</span></div>
+      <div class="picker-group-scroll"><table class="picker-group-table"><thead><tr>${headHTML}</tr></thead><tbody></tbody></table></div>`;
+    box.dataset.key = title;
     const tbody = box.querySelector('tbody');
     for (const item of list) {
       const tr = makeRow(item);
@@ -107,10 +108,50 @@
     const firstCode = (list) => list.map((i) => String(i.itemCode || '')).sort(byCode)[0] || '';
     const ordered = [...groups].sort((a, b) => byCode(firstCode(a[1]), firstCode(b[1])));
     for (const [name, list] of ordered) fragment.appendChild(groupBox(esc(name), list, headHTML, makeRow, '', container, args));
+    // Keep the place: the bracket shown, and how far down its list.
     const scroll = container.scrollTop;
+    const inner = new Map([...container.querySelectorAll('.picker-group')].map((g) => [g.dataset.key, g.querySelector('.picker-group-scroll').scrollTop]));
     container.innerHTML = '';
     container.appendChild(fragment);
+    const boxes = [...container.querySelectorAll('.picker-group')];
+    boxes.forEach((g, i) => {
+      g.querySelector('.picker-group-count').insertAdjacentHTML('beforeend', boxes.length > 1 ? ` · ${i + 1} of ${boxes.length}` : '');
+      if (inner.has(g.dataset.key)) g.querySelector('.picker-group-scroll').scrollTop = inner.get(g.dataset.key);
+    });
     container.scrollTop = scroll;
+    pageByBracket(container);
+  }
+
+  // Each bracket fills the box (so none is shown cut in half), and each
+  // scroll moves to the next (or previous) whole bracket. Inside a long
+  // bracket the list scrolls first; once it's at its end, the next scroll
+  // turns the page. A flick's after-scroll doesn't turn more than one.
+  const paged = new WeakSet();
+  function pageByBracket(container) {
+    if (paged.has(container)) return;
+    paged.add(container);
+    let last = 0;
+    container.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || e.ctrlKey) return;
+      const now = performance.now();
+      const fresh = now - last > 180;
+      last = now;
+      const dir = Math.sign(e.deltaY);
+      const list = e.target instanceof Element && e.target.closest('.picker-group-scroll');
+      if (list && (dir > 0 ? list.scrollTop + list.clientHeight < list.scrollHeight - 1 : list.scrollTop > 0)) return;
+      const groups = [...container.querySelectorAll(':scope > .picker-group')];
+      if (!groups.length) return;
+      let at = 0;
+      for (let i = 0; i < groups.length; i++) {
+        if (Math.abs(groups[i].offsetTop - container.scrollTop) < Math.abs(groups[at].offsetTop - container.scrollTop)) at = i;
+      }
+      const to = at + dir;
+      // Past the first or last bracket: the page itself scrolls.
+      if (to < 0 || to >= groups.length) return;
+      e.preventDefault();
+      if (!fresh) return;
+      container.scrollTo({ top: groups[to].offsetTop, behavior: 'smooth' });
+    }, { passive: false });
   }
 
   window.renderPickerGroups = function renderPickerGroups(container, items, headHTML, makeRow) {

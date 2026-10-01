@@ -13,12 +13,6 @@
     .totals-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
     .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
     .totals-box .row.grand { font-size: 18px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
-    .header-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .header-fields .field { display: flex; flex-direction: column; gap: 4px; }
-    .header-fields .field.full { grid-column: 1 / -1; }
-    .letter-fields { grid-template-columns: repeat(4, 1fr); padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-    .header-fields label { font-size: 11px; color: var(--text-secondary); }
-    .picker-results { max-height: 320px; overflow-y: auto; }
     .boq-reference {
       display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
       padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
@@ -30,12 +24,9 @@
     .boq-import-controls { display: inline-flex; align-items: center; gap: 8px; }
     .boq-import-controls.hidden { display: none; }
     #boq-import-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-    .hire-control { display: flex; align-items: center; gap: 8px; }
-    .hire-control input[type="number"] { width: 60px; }
     .inline-check { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text); }
     .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
     .markup-price { display: block; font-size: 11px; color: var(--accent); }
-    .key-terms-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
     .extra-section { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
     .extra-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
     .extra-head .controls { display: flex; gap: 4px; }
@@ -101,42 +92,54 @@
       </div>
 
       <!-- The standard quotation's letter fields (as on Qt26193) -->
-      <div class="header-fields letter-fields">
-        <div class="field full"><label>Re: (subject line)</label><input type="text" id="q-subject" placeholder="e.g. 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez" /></div>
-        <div class="field"><label>Your Ref. No.</label><input type="text" id="q-clientRef" /></div>
-        <div class="field"><label>Site Ref.</label><input type="text" id="q-siteRef" placeholder="e.g. MTR 1601" /></div>
-        <div class="field"><label>Sent</label><input type="text" id="q-deliveryMethod" placeholder="BY EMAIL ONLY" /></div>
-        <div class="field" id="q-hire-field"><label>Minimum Hire</label>
-          <div class="hire-control">
-            <label class="inline-check"><input type="checkbox" id="q-minimumHireEnabled" /> Apply</label>
-            <input type="number" id="q-minimumHireMonths" min="1" step="1" title="Months" /> <span class="small-note">months</span>
+      <section class="form-card">
+        <div class="form-card-title">Letter</div>
+        <div class="form-row">
+          <div class="field"><label for="q-subject">Re: (subject line)</label><input type="text" id="q-subject" placeholder="e.g. 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez" /></div>
+        </div>
+        <div class="form-row cols-3">
+          <div class="field"><label for="q-clientRef">Your Ref. No.</label><input type="text" id="q-clientRef" /></div>
+          <div class="field"><label for="q-siteRef">Site Ref.</label><input type="text" id="q-siteRef" placeholder="e.g. MTR 1601" /></div>
+          <div class="field"><label for="q-deliveryMethod">Sent</label><input type="text" id="q-deliveryMethod" placeholder="BY EMAIL ONLY" /></div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="option-tile" id="q-hire-field">
+            <label class="option-check"><input type="checkbox" id="q-minimumHireEnabled" /><span><b>Minimum hire</b><small>The shortest period the rent is charged for</small></span></label>
+            <span class="input-group input-group-sm"><input type="number" id="q-minimumHireMonths" min="1" step="1" title="Months" aria-label="Minimum hire in months" /><span class="input-suffix">months</span></span>
+          </div>
+          <div class="option-tile" id="q-min-monthly-field">
+            <label class="option-check" title="The monthly rental charge is at least this amount (Settings › Quotations)"><input type="checkbox" id="q-minimumMonthlyChargeEnabled" /><span><b>Minimum monthly rental charge</b><small id="q-min-monthly-label">Apply (HK$ 1,000.00)</small></span></label>
           </div>
         </div>
-        <div class="field" id="q-min-monthly-field"><label>Minimum Monthly Rental Charge</label>
-          <label class="inline-check" title="The monthly rental charge is at least this amount (Settings › Quotations)"><input type="checkbox" id="q-minimumMonthlyChargeEnabled" /> <span id="q-min-monthly-label">Apply (HK$ 1,000.00)</span></label>
-        </div>
-      </div>
+      </section>
 
-      <div class="header-fields">
-        <div class="field"><label>Date</label><input type="date" id="doc-date-input" /></div>
-        <div class="field"><label>Pricing</label>
-          <select id="pricing-mode-select">
-            <option value="Sale">Sale</option>
-            <option value="Rental">Rental</option>
-          </select>
-        </div>
-        <div class="field"><label>Valid Until</label><input type="date" id="valid-until-input" /></div>
-        <div class="field"><label for="adjustment-input">Markup / Discount</label><input type="text" id="adjustment-input" placeholder="e.g. +30%, -15% or -1000" title="+30% marks every item up 30% (unit prices rounded to 0.1, up or off as set in Settings); -15% takes 15% off; -1000 takes 1,000 off. Leave blank for none." /><span class="small-note hidden" id="client-markup-hint"></span></div>
-        <!-- No sales tax in Hong Kong: shown only on an older document that still has a tax rate, so it can be set to 0. -->
-        <div class="field hidden" id="tax-rate-field"><label>Tax Rate (%) — set to 0</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
-        <div class="field full"><label for="key-terms-input">Key Terms</label>
-          <div class="key-terms-actions">
-            <button type="button" id="key-terms-standard-btn">Start from Standard Terms</button>
-            <span class="small-note">Printed in the Terms and Conditions. Leave blank to use the standard key terms from Settings.</span>
+      <section class="form-card">
+        <div class="form-card-title">Dates &amp; Pricing</div>
+        <div class="form-row cols-4">
+          <div class="field"><label for="doc-date-input">Date</label><input type="date" id="doc-date-input" /></div>
+          <div class="field"><label for="valid-until-input">Valid Until</label><input type="date" id="valid-until-input" /></div>
+          <div class="field"><label for="pricing-mode-select">Pricing</label>
+            <select id="pricing-mode-select">
+              <option value="Sale">Sale</option>
+              <option value="Rental">Rental</option>
+            </select>
           </div>
-          <textarea id="key-terms-input" rows="7" placeholder="Blank: the standard key terms from Settings are printed (shown below).&#10;e.g. (i) Payment : First two month's rental is to be paid upon order confirmation."></textarea>
+          <div class="field"><label for="adjustment-input">Markup / Discount</label><input type="text" id="adjustment-input" placeholder="e.g. +30%, -15% or -1000" title="+30% marks every item up 30% (unit prices rounded to 0.1, up or off as set in Settings); -15% takes 15% off; -1000 takes 1,000 off. Leave blank for none." /><span class="field-hint hidden" id="client-markup-hint"></span></div>
+          <!-- No sales tax in Hong Kong: shown only on an older document that still has a tax rate, so it can be set to 0. -->
+          <div class="field hidden" id="tax-rate-field"><label for="tax-rate-input">Tax Rate (%) — set to 0</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
         </div>
-      </div>
+      </section>
+
+      <section class="form-card">
+        <div class="form-card-head">
+          <div class="form-card-title">Key Terms</div>
+          <button type="button" id="key-terms-standard-btn">Start from Standard Terms</button>
+        </div>
+        <div class="field">
+          <span class="field-hint">Printed in the Terms and Conditions. Leave blank to use the standard key terms from Settings.</span>
+          <textarea id="key-terms-input" aria-label="Key terms" rows="7" placeholder="Blank: the standard key terms from Settings are printed (shown below).&#10;e.g. (i) Payment : First two month's rental is to be paid upon order confirmation."></textarea>
+        </div>
+      </section>
 
       <div class="boq-grid">
         <div>

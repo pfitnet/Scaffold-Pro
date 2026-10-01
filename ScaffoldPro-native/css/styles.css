@@ -36,6 +36,11 @@
   --sidebar-width: 212px;
   --radius: 6px;
   --radius-lg: 10px;
+  --field-bg: #ffffff;
+  --field-border: #d9d9de;
+  --field-hover: #c3c3c9;
+  --control-h: 30px;
+  --seg-active: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   color-scheme: light;
@@ -69,6 +74,10 @@
     --shadow-control: 0 0.5px 1px rgba(0, 0, 0, 0.4);
     --shadow-sheet: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255, 255, 255, 0.10);
     --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+    --field-bg: #1f1f21;
+    --field-border: #3a3a3e;
+    --field-hover: #505055;
+    --seg-active: #4a4a4f;
     color-scheme: dark;
   }
 }
@@ -176,25 +185,52 @@ h3 { font-size: 13px; font-weight: 600; }
 
 /* ---------- Controls ---------- */
 
-input[type="text"], input[type="number"], input[type="date"], input[type="month"], input[type="email"], select, textarea {
+/* Text boxes, pop-ups and date fields: one height, one quiet style —
+   a soft inset box that lights up in the accent colour while typing. */
+input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="month"], input[type="email"],
+input[type="search"], input[type="password"], input[type="tel"], input[type="url"], select, textarea {
   font: inherit;
   font-size: 13px;
-  padding: 5px 8px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--panel);
+  height: var(--control-h);
+  padding: 0 10px;
+  border: 1px solid var(--field-border);
+  border-radius: 7px;
+  background-color: var(--field-bg);
   color: var(--text);
-  box-shadow: var(--shadow-control);
+  box-shadow: none;
   outline: none;
-  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+  vertical-align: middle;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
 }
-input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, input[type="month"]:focus, select:focus, textarea:focus {
+textarea { height: auto; min-height: 60px; padding: 8px 10px; }
+select {
+  -webkit-appearance: none; appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 12'%3E%3Cpath d='M2 4.5 5 1.5l3 3M2 7.5l3 3 3-3' fill='none' stroke='%238e8e93' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 9px 11px;
+  text-overflow: ellipsis;
+}
+select[multiple], select[size] { height: auto; padding: 4px; background-image: none; }
+input[type="date"], input[type="time"], input[type="month"] { padding-right: 6px; }
+input::-webkit-datetime-edit { padding: 0; }
+input::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+input::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+input::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
+input[type="number"]::-webkit-inner-spin-button { opacity: 0.45; }
+input[type="text"]:hover:not(:disabled):not(:focus), input[type="number"]:hover:not(:disabled):not(:focus), input[type="date"]:hover:not(:disabled):not(:focus),
+input[type="time"]:hover:not(:disabled):not(:focus), input[type="month"]:hover:not(:disabled):not(:focus), input[type="email"]:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus), textarea:hover:not(:disabled):not(:focus) { border-color: var(--field-hover); }
+input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="month"]:focus, input[type="email"]:focus,
+input[type="search"]:focus, input[type="password"]:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--focus-ring);
+  background-color: var(--panel);
 }
-input:disabled, select:disabled, textarea:disabled { opacity: 0.6; }
+input:disabled, select:disabled, textarea:disabled { opacity: 0.55; }
 input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
-input[type="checkbox"] { accent-color: var(--accent); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; vertical-align: -3px; flex: none; }
 #search-box { min-width: 240px; }
 
 textarea { width: 100%; resize: vertical; line-height: 1.45; }
@@ -265,7 +301,8 @@ tbody tr:hover td { background: var(--row-hover); }
 tr[style*="cursor: pointer"]:hover td, .link-row:hover td { background: var(--accent-soft); }
 .num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.row-no, th.row-no { width: 40px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-td input[type="text"], td input[type="number"], td input[type="date"] { box-shadow: none; padding: 3px 6px; }
+td input[type="text"], td input[type="number"], td input[type="date"], td select { --control-h: 27px; padding: 0 7px; border-radius: 6px; }
+td select { padding-right: 24px; background-position: right 7px center; }
 
 th.sortable { cursor: default; }
 th.sortable:hover { color: var(--text); }
@@ -313,7 +350,13 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .stat-card .label { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
 .stat-card.tone-danger .value { color: var(--danger); }
 
-.dash-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.dash-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; position: relative; align-items: start; }
+.dash-grid > [data-widget] { grid-column: span 2; position: relative; min-width: 0; }
+.dash-grid.packed { --widget-gap: 14px; grid-auto-rows: 2px; row-gap: 0; }
+.dash-grid.packed > [data-widget] { margin-bottom: var(--widget-gap); }
+.dash-grid > [data-span="1"] { grid-column: span 1; }
+.dash-grid > [data-span="3"] { grid-column: span 3; }
+.dash-grid > [data-span="4"] { grid-column: 1 / -1; }
 .empty-inline { color: var(--text-tertiary); padding: 10px 2px; font-size: 13px; }
 
 .backup-reminder {
@@ -403,9 +446,9 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
   box-shadow: var(--shadow-sheet);
   animation: sheet-in 0.16s ease;
 }
-.modal h2 { font-size: 15px; margin-bottom: 14px; }
+.modal h2 { font-size: 16px; font-weight: 650; margin-bottom: 16px; }
 .modal.wide { width: 660px; }
-.modal .field { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+.modal .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
 .modal .field label { font-size: 12px; color: var(--text-secondary); }
 .modal .field input, .modal .field select { width: 100%; }
 /* Tick boxes and radio buttons keep their own size (not the full width). */
@@ -413,14 +456,68 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .modal .inline-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
 .modal .choice-group { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .modal .choice-group input[type="number"] { width: 64px; }
-.modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
 .modal .actions .left { margin-right: auto; }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.form-grid .field input[type="checkbox"], .form-grid .field input[type="radio"] { width: auto; }
 .form-grid .field { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
 .form-grid .field label { font-size: 12px; color: var(--text-secondary); }
 .form-grid .span-2 { grid-column: 1 / -1; }
 .form-grid textarea, .form-grid input, .form-grid select { width: 100%; }
+/* Labels over fields: one quiet style everywhere. */
+.field > label:not(.inline-check):not(.option-check):not(.choice-card), .details-bar .field > label, .header-fields .field > label {
+  font-size: 12px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.005em;
+}
+.field-hint { display: block; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.35; }
+.field-hint.hidden { display: none; }
+
+/* A group of fields in a card with a small heading (the editors' tops). */
+.form-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px 16px; margin: 0 0 14px; }
+.form-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin: 0 0 10px; }
+.form-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.form-card-head .form-card-title { margin: 0; }
+.form-card .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.form-card .field input:not([type="checkbox"]):not([type="radio"]), .form-card .field select { width: 100%; }
+.form-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px 14px; }
+.form-row + .form-row { margin-top: 12px; }
+.form-row.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-row.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .form-row.cols-3, .form-row.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* An on/off option with its setting beside it (Minimum hire ☐ [2 months]). */
+.option-tile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--content); min-height: 50px; }
+.option-tile.hidden { display: none; }
+.option-check { display: flex; align-items: center; gap: 10px; cursor: pointer; min-width: 0; }
+.option-check > span { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.option-check b { font-weight: 500; font-size: 13px; color: var(--text); }
+.option-check small { font-size: 11.5px; color: var(--text-tertiary); }
+
+/* A number with its unit inside the same box: [ 2   months ]. */
+.input-group { display: inline-flex; align-items: stretch; height: var(--control-h); border: 1px solid var(--field-border); border-radius: 7px; background: var(--field-bg); overflow: hidden; flex: none; }
+.input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+.input-group input, .input-group input:focus, .input-group input:hover { border: none !important; box-shadow: none !important; height: 100%; width: 64px !important; border-radius: 0; background: transparent; padding: 0 4px 0 10px; }
+.input-suffix { display: inline-flex; align-items: center; padding: 0 10px; font-size: 12px; color: var(--text-secondary); background: var(--header-bg); border-left: 1px solid var(--field-border); }
+.input-group-sm { --control-h: 28px; }
+.input-group:has(input:disabled) { opacity: 0.55; }
+
+/* Segmented control: [ Week | Month ]. */
+.segmented { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.segmented button { border: none; border-radius: 6px; padding: 4px 12px; box-shadow: none; background: transparent; color: var(--text-secondary); }
+.segmented button:hover:not(.active) { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.segmented button.active { background: var(--seg-active); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.06); }
+.segmented.seg-full { display: flex; margin: 0 0 14px; }
+.segmented.seg-full button { flex: 1; }
+
+/* Choices as cards (one ticked), e.g. how much rent to charge. */
+.choice-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.choice-card { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--content); cursor: pointer; min-height: 46px; font-size: 13px; color: var(--text); }
+.choice-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice-card .input-group { margin-left: auto; }
+.check-list { gap: 8px !important; }
+.check-list:not(:has(label:not(.hidden))) { display: none !important; }
+
 .optional-details { margin-top: 4px; }
 .optional-details summary { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
 
@@ -541,7 +638,10 @@ table.price-table td.row-actions { white-space: nowrap; text-align: right; }
 
 @media (max-width: 1180px) {
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dash-grid, .overview-grid { grid-template-columns: 1fr; }
+  .overview-grid { grid-template-columns: 1fr; }
+  .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-grid > [data-span="1"], .dash-grid > [data-span="2"] { grid-column: span 1; }
+  .dash-grid > [data-span="3"], .dash-grid > [data-span="4"] { grid-column: 1 / -1; }
   .page-header { flex-direction: column; }
   .header-actions { justify-content: flex-start; }
 }
@@ -557,10 +657,10 @@ table.price-table td.row-actions { white-space: nowrap; text-align: right; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Settings bar on BOQ / quotation editors */
-.details-bar { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin: 0 0 16px; padding: 10px 12px;
+.details-bar { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin: 0 0 16px; padding: 14px 16px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-.details-bar .field { display: flex; flex-direction: column; gap: 4px; }
-.details-bar .field label { font-size: 11px; color: var(--text-secondary); }
+.details-bar .field { display: flex; flex-direction: column; gap: 5px; }
+.details-bar .field label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
 .details-bar .field.grow { flex: 1; min-width: 220px; }
 .details-bar #boq-markup-input { width: 110px; }
 .line-tag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
@@ -683,6 +783,14 @@ tr.row-selected td { background: var(--accent-soft) !important; }
 
 /* "Add Materials": a box per category (js/item-picker.js). */
 .picker-group { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px; overflow: hidden; }
+/* The picker's brackets are pages: each fills the box and the box scrolls
+   (and snaps) a whole bracket at a time — js/item-picker.js. */
+.picker-results { position: relative; height: clamp(340px, calc(100vh - 290px), 620px); overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: thin; }
+.picker-results > .picker-group { height: 100%; display: flex; flex-direction: column; scroll-snap-align: start; scroll-snap-stop: always; }
+.picker-results > .picker-group:last-child { margin-bottom: 0; }
+.picker-group-head { flex: none; }
+.picker-group-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.picker-group-scroll .picker-group-table thead th { position: sticky; top: 0; z-index: 1; background: var(--panel); box-shadow: inset 0 -1px 0 var(--hairline); }
 .picker-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 10px; background: var(--header-bg); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12.5px; }
 .picker-group-count { font-weight: 400; font-size: 11px; color: var(--text-tertiary); }
 .picker-group-table { width: 100%; margin: 0; table-layout: fixed; }
@@ -868,16 +976,41 @@ a.chain-doc:hover { background: var(--accent-soft); color: var(--accent); text-d
 .due-row input[type="time"] { width: 110px !important; flex: none; }
 th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2px 4px; }
 
-/* Dashboard widgets: Customise to move, resize, hide or show them. */
-.dash-grid > .widget-wide { grid-column: 1 / -1; }
+/* Dashboard widgets: Customise to move, resize (by the right edge, in
+   quarters that snap to the column guides), hide or show them. */
 .dash-grid > .widget-off { display: none; }
 .dash-grid.customising > .widget-off { display: block; opacity: 0.45; }
-.dash-grid.customising > .widget-off > :not(.widget-bar) { display: none; }
-.dash-grid.customising > [data-widget] { outline: 1px dashed var(--border-strong); outline-offset: 2px; }
+.dash-grid.customising > .widget-off > :not(.widget-bar):not(.widget-resize) { display: none; }
+.dash-grid.customising > [data-widget] { outline: 1px dashed var(--border-strong); outline-offset: 2px; z-index: 1; }
+.widget-guides { position: absolute; inset: -6px 0; display: grid; grid-template-columns: inherit; gap: inherit; pointer-events: none; z-index: 0; }
+.widget-guides > div { border-radius: var(--radius-lg); background: color-mix(in srgb, var(--accent) 4%, transparent); border: 1px dashed color-mix(in srgb, var(--accent) 22%, transparent); transition: background .15s, border-color .15s; }
+.dash-grid.resizing .widget-guides > div { background: color-mix(in srgb, var(--accent) 8%, transparent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.dash-grid.resizing, .dash-grid.resizing * { cursor: ew-resize !important; user-select: none; }
+.widget-resize { position: absolute; top: 0; bottom: 0; right: -9px; width: 14px; cursor: ew-resize; z-index: 2; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.widget-resize::after { content: ''; width: 5px; height: 38px; border-radius: 3px; background: var(--border-strong); transition: background .12s, height .12s; }
+.widget-resize:hover::after, .widget-resizing .widget-resize::after { background: var(--accent); height: 56px; }
+.widget-resizing { outline: 2px solid var(--accent) !important; }
 .widget-bar { display: flex; align-items: center; gap: 8px; margin: -4px -4px 10px; padding: 4px 6px; border-radius: 6px; background: var(--header-bg); font-size: 12px; }
-.widget-bar .widget-name { flex: 1; font-weight: 600; color: var(--text-secondary); }
+.widget-bar .widget-name { flex: 1; font-weight: 600; color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-size-label { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 1px 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .widget-bar button { font-size: 11px; padding: 1px 8px; }
 .widget-grip { cursor: grab; color: var(--text-tertiary); display: inline-flex; padding: 2px; touch-action: none; }
 .widget-dragging { opacity: 0.6; box-shadow: var(--shadow-sheet); }
+
+/* Dashboard Quick Actions: a tile for each "New …", icon and words. */
+.qa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 4px 6px; }
+.qa-tile { display: flex; align-items: center; gap: 9px; padding: 6px 7px; border-radius: 9px; border: 1px solid transparent; background: transparent; box-shadow: none;
+  text-align: left; font: inherit; color: var(--text); cursor: pointer; min-width: 0; transition: background .12s, border-color .12s, transform .08s; }
+.qa-tile:hover { background: color-mix(in srgb, var(--qa) 9%, transparent); border-color: color-mix(in srgb, var(--qa) 22%, transparent); }
+.qa-tile:active { transform: scale(0.98); }
+.qa-icon { flex: none; width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--qa) 15%, transparent); color: color-mix(in srgb, var(--qa) 82%, var(--text)); }
+.qa-icon svg { width: 18px; height: 18px; }
+.qa-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.qa-text small { font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; }
+.qa-text span { font-size: 13px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
 .token-row { display: flex; gap: 6px; }
 .token-row input { flex: 1; }
+
+.linked-numbers-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; max-width: 780px; font-size: 13px; line-height: 1.45; }
+.linked-numbers-check input { margin-top: 2px; }

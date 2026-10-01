@@ -127,6 +127,7 @@
           <div class="field"><label>Delivery Note</label><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /><span class="number-example" id="numberFormatDeliveryNote-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label></div>
           <div class="field"><label>Letter</label><input type="text" id="numberFormatLetter-input" data-type="LT" placeholder="L{PROJECT}-{SEQ}" /><span class="number-example" id="numberFormatLetter-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-LT" min="1" step="1" placeholder="1" /></label></div>
     </div>
+    <label class="inline-check linked-numbers-check"><input type="checkbox" id="linkedNumbers-input" /> Linked documents share one number — the delivery notes and invoices made from <b>Qt26001-004</b> are <b>DN26001-004</b> and <b>H26001-004</b> (a second one <b>H26001-004-2</b>), and the quotation made from <b>BQ26001-004</b> is <b>Qt26001-004</b>. Used when both formats run per project (or both don’t).</label>
         </div>
       </details>
 
@@ -146,7 +147,7 @@
     <div id="default-items-list"></div>
     <div class="settings-grid" style="margin-top:16px;">
           <div class="field" style="grid-column: 1 / -1;"><label>Standard terms for the landscape BOQ (put in with “Use Standard Terms” in a BOQ)</label>
-            <textarea id="boqTerms-input" rows="5" placeholder="e.g. 1. Rental is charged monthly from the date of delivery.&#10;2. Lost or damaged materials are charged at the sale price."></textarea></div>
+            <textarea id="boqTerms-input" rows="5" placeholder="Blank: these built-in terms are used —&#10;1. Quantities are estimated from the drawings provided; the quantities actually delivered are charged.&#10;2. Rental is charged monthly from the date of delivery until the materials are returned.&#10;3. Lost or damaged materials are charged at the sale price.&#10;4. Delivery and collection are charged separately unless stated."></textarea></div>
           <div class="field"><label>Item names on delivery notes, quotations and BOQs (each document can choose its own)</label>
             <select id="documentLanguage-input"><option value="English">English</option><option value="Chinese">中文 Chinese (e.g. “2.07m橫杆”)</option></select></div>
     </div>
