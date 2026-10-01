@@ -158,6 +158,48 @@ function render() {
   renderBlocks();
   renderTotals();
   renderSignedBar();
+  renderDirectorBar();
+}
+
+// Signed and chopped by a director: ask for it, see it's waiting, open it.
+function renderDirectorBar() {
+  const d = currentDetail;
+  const bar = document.getElementById('director-bar');
+  bar.classList.toggle('hidden', d.status === 'Cancelled');
+  if (d.status === 'Cancelled') return;
+  const day = (iso) => { const x = new Date(iso); return isNaN(x) ? '' : x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
+  bar.classList.toggle('signed-done', !!d.directorSignedBy && !d.signPendingWith);
+  if (d.signPendingWith) {
+    bar.innerHTML = `<span class="signed-text"><span class="status-pill pill-warning">To sign</span>
+        Waiting for ${window.personTag(d.signPendingWith)} to sign and chop it.</span>
+      <span class="signed-actions"><button data-dir="withdraw">Withdraw</button></span>`;
+  } else if (d.directorSignedBy) {
+    bar.innerHTML = `<span class="signed-text"><span class="status-pill pill-success">Signed &amp; chopped</span>
+        By ${window.personTag(d.directorSignedBy)}${d.directorSignedAt ? ` on ${esc(day(d.directorSignedAt))}` : ''}${d.directorSignedExists ? '' : ' — the signed PDF is no longer in the project folder'}.</span>
+      <span class="signed-actions">${d.directorSignedExists ? '<button data-dir="open">Open Signed PDF</button>' : ''}<button data-dir="ask">Send to Sign Again…</button></span>`;
+  } else {
+    bar.innerHTML = `<span class="signed-text">Not signed by a director yet.</span>
+      <span class="signed-actions"><button class="primary" data-dir="ask">Send to Sign…</button></span>`;
+  }
+}
+
+function setupDirectorBar() {
+  document.getElementById('director-bar').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-dir]');
+    if (!b) return;
+    const d = currentDetail;
+    if (b.dataset.dir === 'ask') {
+      if (await window.askToSign(d.id, d.quotationNumber)) await loadDetail();
+    } else if (b.dataset.dir === 'withdraw') {
+      if (!await appConfirm(`Withdraw the request for ${d.signPendingWith} to sign ${d.quotationNumber}?`, { ok: 'Withdraw' })) return;
+      const r = await window.api.signatures.withdraw(d.signRequestId);
+      if (r && r.ok === false) { await appAlert(r.error); return; }
+      await loadDetail();
+    } else if (b.dataset.dir === 'open') {
+      const r = await window.api.signatures.openFile(d.directorSignedPath);
+      if (r && r.ok === false) await appAlert(r.error);
+    }
+  });
 }
 
 // The client's signed copy: shown once the quotation is issued. A file
@@ -751,6 +793,7 @@ async function init() {
   await loadDetail();
   if (!currentDetail) return;
   setupSignedBar();
+  setupDirectorBar();
   window.setupLinkedDrawings({ kind: 'Quotation', id: quotationId, projectNumber: currentDetail.projectNumber });
 
   document.getElementById('status-select').addEventListener('change', async (e) => {
