@@ -101,12 +101,13 @@
             <option value="Issued">Issued</option>
             <option value="Cancelled">Cancelled</option>
           </select>
-          <button id="export-pdf-btn">Export PDF</button>
+          <button type="button" class="export-menu" id="export-btn" data-no-icon>Export</button>
+          <button id="export-pdf-btn" class="hidden" tabindex="-1">Export PDF</button>
           <button id="print-btn">Print…</button>
           <button id="delete-btn" class="danger-btn">Delete…</button>
           <span class="save-state" id="save-state"></span>
         </div>
-        <a id="back-link" href="letters.html">&larr; All letters</a>
+        <a id="back-link" class="hidden" href="letters.html" aria-hidden="true"></a>
       </div>
 
       <div class="letter-fields">
