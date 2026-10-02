@@ -1305,3 +1305,30 @@ button.mx-chip.on { background: var(--accent-soft); border-color: var(--accent);
 .undo-toast { display: flex; align-items: center; gap: 12px; pointer-events: auto; font-size: 12.5px; }
 .undo-toast button { padding: 2px 10px; font-size: 12px; font-weight: 600; color: var(--accent); }
 button.multiply-btn { font-size: 12px; padding: 3px 10px; }
+
+/* Delivery charges by weight: Settings table and the "+ Delivery Charge" sheet (js/delivery-rates.js). */
+table.delivery-rates { max-width: 520px; }
+table.delivery-rates input { width: 110px; text-align: right; }
+.dr-band-label { font-weight: 600; white-space: nowrap; }
+.dr-weight { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 14px; border-radius: 10px; font-size: 13px;
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.dr-scale { font-size: 18px; color: var(--accent); }
+.dr-bands { display: flex; flex-direction: column; gap: 6px; }
+.dr-band { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; cursor: pointer;
+  background: var(--content); transition: border-color .12s, background .12s; }
+.dr-band:hover { border-color: var(--border-strong); }
+.dr-band.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
+.modal .dr-band input[type="radio"] { width: auto; margin: 0; }
+.dr-band-name { flex: 1; font-size: 13px; font-weight: 600; display: flex; flex-direction: column; }
+.dr-band-name small { font-weight: 400; color: var(--text-secondary); font-size: 12px; }
+.dr-band-price { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.dr-pill { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.dr-counts { display: flex; gap: 14px; }
+.dr-counts .field { flex: 1; }
+.dr-preview { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.dr-line { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 12px; font-size: 13px; border-top: 1px solid var(--hairline); }
+.dr-line:first-child { border-top: none; }
+.dr-line small { display: block; color: var(--text-secondary); font-size: 12px; margin-top: 1px; }
+.dr-line b { font-variant-numeric: tabular-nums; }
+.dr-line.total { background: var(--header-bg); font-weight: 600; }
+.dr-no { font-size: 11.5px; font-weight: 700; color: var(--text-tertiary); }
