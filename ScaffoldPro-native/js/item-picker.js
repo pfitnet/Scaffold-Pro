@@ -123,8 +123,14 @@
     container.classList.toggle('more-below', more);
     const top = container.getBoundingClientRect().top;
     for (const head of container.querySelectorAll('.picker-group-head')) {
-      const stuck = head.parentElement.getBoundingClientRect().top < top - 0.5 && Math.abs(head.getBoundingClientRect().top - top) < 1;
+      const group = head.parentElement;
+      const box = group.getBoundingClientRect();
+      const stuck = box.top < top - 0.5 && box.bottom > top && Math.abs(head.getBoundingClientRect().top - top) < 1;
       head.classList.toggle('stuck', stuck);
+      // Scrolled into: the box starts at the list's top edge, with rounded corners.
+      const r = parseFloat(getComputedStyle(group).borderTopLeftRadius) || 0;
+      const clip = box.top < top - 0.5 && box.bottom > top ? `inset(${(top - box.top).toFixed(1)}px 0 0 0 round ${r}px)` : '';
+      if (group.style.clipPath !== clip) group.style.clipPath = clip;
     }
   }
   function watchEdges(container) {
