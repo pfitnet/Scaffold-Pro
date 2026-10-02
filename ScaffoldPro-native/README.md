@@ -2454,3 +2454,16 @@ under "Letterhead layout".
   quotation already has that number, it gets "-2" and so on. Issued
   quotations keep their number. The project history records the old
   number.
+
+## Batch 96 — Linked BOQ / quotation: View and Remove Link; toolbar fix
+
+- **Linked row → buttons.** On a quotation linked to a BOQ, the row "Linked
+  to BQ… — a change to either is made to the other" is now just a link
+  mark, **View BQ…** (opens the BOQ) and **Remove Link**. The BOQ shows
+  the same for each quotation linked to it: **View Qt…** and **Remove
+  Link**. What the link does is in the link mark's tooltip.
+- **Fixed (from Batch 95):** in the BOQ and quotation editors, the
+  Items-in icon's wrapper ran on past its own list. That hid the BOQ's
+  **Pricing** list and the quotation's **From BOQ** list, and pulled the
+  toolbar buttons into the wrapper. Each icon now holds only its own
+  list.

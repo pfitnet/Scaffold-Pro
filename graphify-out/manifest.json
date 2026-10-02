@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/boq-editor.js": {
-    "mtime": 1790932329.1981683,
-    "seen": 1790932479.9306483,
-    "ast_hash": "73fd8c8e6b1bfc7593cec942ff6f9245",
+    "mtime": 1790932574.8503523,
+    "seen": 1790932665.5052996,
+    "ast_hash": "e01c8798a1be5d4ec5c3a97dee56e0e3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1790926584.3530378,
-    "seen": 1790926817.4845197,
-    "ast_hash": "03943c3ce15b7891146f4e40049eedf3",
+    "mtime": 1790932563.305766,
+    "seen": 1790932665.5053282,
+    "ast_hash": "6e473169c009e01c73628d2bf74bff56",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790932474.020189,
-    "seen": 1790932479.9307177,
-    "ast_hash": "f00b82ae8e361692a5d373d2cfe0ad26",
+    "mtime": 1790932662.2081807,
+    "seen": 1790932665.5053456,
+    "ast_hash": "97fcc3c92dafee20341171a6105c3642",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/boq-editor.html": {
-    "mtime": 1790932323.9342291,
-    "seen": 1790932479.93072,
-    "ast_hash": "42e743c2f1cdf00dee482b42c6317d1f",
+    "mtime": 1790932620.521369,
+    "seen": 1790932665.5053475,
+    "ast_hash": "673a306f389b9d774fb3cbe454c99309",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/clients.html": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1790932314.7725146,
-    "seen": 1790932479.9307306,
-    "ast_hash": "eb4732b1a2c9501a9187ba7837d6134d",
+    "mtime": 1790932620.5217478,
+    "seen": 1790932665.5053577,
+    "ast_hash": "d07e67261c5b3bff9ffacf678f5f7767",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
