@@ -443,7 +443,7 @@ async function deleteExpense() {
   await load();
 }
 
-// ---------- CSV ----------
+// ---------- Excel (the table goes as CSV text; the app saves it as .xlsx) ----------
 
 function csvLine(cells) {
   return cells.map((c) => {
@@ -459,7 +459,7 @@ async function exportCSV() {
   const head = t.csvHead || (tab === 'receivables'
     ? ['Invoice', 'Date', 'Due', 'Project No.', 'Project', 'Client', 'Total', 'Paid', 'Balance', 'Status'] : t.head);
   const lines = [csvLine(head)].concat(t.rows.map((r) => csvLine(r.csv)));
-  const r = await window.api.accounts.saveCSV(`${names[tab]} ${f.p.from === '0000-01-01' ? 'all' : f.p.from} to ${f.p.to === '9999-12-31' ? ymd(new Date()) : f.p.to}.csv`, lines.join('\r\n'));
+  const r = await window.api.accounts.saveCSV(`${names[tab]} ${f.p.from === '0000-01-01' ? 'all' : f.p.from} to ${f.p.to === '9999-12-31' ? ymd(new Date()) : f.p.to}.xlsx`, lines.join('\r\n'));
   if (!r.ok) alert(r.error);
 }
 

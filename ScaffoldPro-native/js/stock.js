@@ -262,7 +262,7 @@ async function saveModal() {
   await load();
 }
 
-// ---------- CSV ----------
+// ---------- Excel (the table goes as CSV text; the app saves it as .xlsx) ----------
 
 function csvLine(cells) {
   return cells.map((c) => {
@@ -278,7 +278,7 @@ async function exportCSV(which) {
     rows = [['Code', 'Item', 'Unit', 'In Yard', 'On Hire', 'Owned', 'Weight Owned (kg)', 'On hire by project']]
       .concat(filteredItems().map((i) => [i.itemCode, i.itemName, i.unit, Math.round(i.inYard), Math.round(i.onHire), Math.round(i.owned),
         i.weightKg ? (i.weightKg * i.owned).toFixed(1) : '', i.onHireByProject.map((p) => `${p.projectNumber}: ${Math.round(p.quantity)}`).join('; ')]));
-    name = `Stock List ${today()}.csv`;
+    name = `Stock List ${today()}.xlsx`;
   } else if (which === 'sites') {
     const select = document.getElementById('site-filter').value;
     rows = [['Site', 'Site Address', 'Code', 'Item', 'Unit', 'Qty on Site', 'Weight (kg)', 'Project', 'Managed by']];
@@ -288,12 +288,12 @@ async function exportCSV(which) {
           r.item.weightKg ? (r.item.weightKg * r.quantity).toFixed(1) : '', r.project.projectNumber, r.project.clientName || '']);
       }
     }
-    name = `Stock by Site ${today()}.csv`;
+    name = `Stock by Site ${today()}.xlsx`;
   } else {
     rows = [['Date', 'Movement', 'Code', 'Item', 'Unit', 'Quantity', 'Project', 'Reference', 'Notes']]
       .concat(filteredMovements().map((m) => [m.movement.date, KIND_LABELS[m.movement.kind] || m.movement.kind, m.movement.itemCode,
         m.movement.itemDescription, m.movement.unit, Math.round(m.movement.quantity), m.projectNumber || '', m.movement.reference || '', m.movement.notes || '']));
-    name = `Stock Movements ${today()}.csv`;
+    name = `Stock Movements ${today()}.xlsx`;
   }
   const r = await window.api.accounts.saveCSV(name, rows.map(csvLine).join('\r\n'));
   if (!r.ok) alert(r.error);

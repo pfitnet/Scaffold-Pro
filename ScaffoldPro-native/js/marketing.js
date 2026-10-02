@@ -167,7 +167,7 @@ async function exportReferences() {
   const cell = (c) => { const t = String(c ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const out = [['Project No.', 'Project', 'Client', 'Site', 'Scaffolding', 'Started', 'Status', 'Quoted', 'Invoiced']];
   for (const r of rows) out.push([r.projectNumber, r.name, r.clientName || '', r.siteName || '', (r.structures || []).join('; '), r.startDate || '', r.status, r.quotedValue.toFixed(2), r.invoicedValue.toFixed(2)]);
-  const r = await window.api.accounts.saveCSV(`Project References ${today()}.csv`, out.map((row) => row.map(cell).join(',')).join('\r\n'), { adminFolder: 'Marketing' });
+  const r = await window.api.accounts.saveCSV(`Project References ${today()}.xlsx`, out.map((row) => row.map(cell).join(',')).join('\r\n'), { adminFolder: 'Marketing' });
   if (r && r.ok === false) alert(r.error);
 }
 

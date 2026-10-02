@@ -11410,7 +11410,7 @@ enum SpreadsheetReader {
 
     static func readXLSX(_ file: URL) throws -> [SpreadsheetSheet] {
         guard let workbook = unzipEntry(file, "xl/workbook.xml") else {
-            throw BackupError(message: "This file couldn't be opened as an Excel workbook (.xlsx). If it's an older .xls file, open it in Excel or Numbers and save it as .xlsx or .csv first.")
+            throw BackupError(message: "This file couldn't be opened as an Excel workbook (.xlsx). If it's an older .xls or a .csv file, open it in Excel or Numbers and save it as an Excel workbook (.xlsx) first.")
         }
         let shared = unzipEntry(file, "xl/sharedStrings.xml").map(SharedStringsParser.parse) ?? []
         let rels = unzipEntry(file, "xl/_rels/workbook.xml.rels").map { XMLAttributeCollector.collect($0, ["Relationship"]) } ?? []
@@ -11439,7 +11439,15 @@ enum SpreadsheetReader {
         } else {
             throw BackupError(message: "This CSV file couldn't be read.")
         }
-        let text = raw.hasPrefix("\u{FEFF}") ? String(raw.dropFirst()) : raw
+        return [SpreadsheetSheet(name: file.deletingPathExtension().lastPathComponent, rows: parseCSV(raw))]
+    }
+
+    /// CSV text as rows of cells (commas, or semicolons when the first line
+    /// has more of them; quoted cells may hold commas, quotes and line breaks).
+    static func parseCSV(_ raw: String) -> [[String]] {
+        // "\r\n" is one Character in Swift: made "\n" first, so it ends a row.
+        let text = (raw.hasPrefix("\u{FEFF}") ? String(raw.dropFirst()) : raw)
+            .replacingOccurrences(of: "\r\n", with: "\n")
         let firstLine = text.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
         let delimiter: Character = (firstLine.filter { $0 == ";" }.count > firstLine.filter { $0 == "," }.count) ? ";" : ","
         var rows: [[String]] = []
@@ -11469,7 +11477,7 @@ enum SpreadsheetReader {
             }
             i += 1
         }
-        return [SpreadsheetSheet(name: file.deletingPathExtension().lastPathComponent, rows: rows)]
+        return rows
     }
 }
 
@@ -11520,9 +11528,33 @@ enum SpreadsheetWriter {
         return name
     }
 
+    /// A cell that reads as a plain number (1234, -5, 4391.80), written as
+    /// one so Excel can add it up. Not one with a leading zero (00001, a
+    /// phone number) or a very long one (an account number): those stay text.
+    private static func plainNumber(_ s: String) -> String? {
+        guard s.count <= 15, s.range(of: "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$", options: .regularExpression) != nil else { return nil }
+        return s
+    }
+
+    /// A sheet name Excel accepts: up to 31 characters, none of : \ / ? * [ ].
+    static func sheetName(_ s: String) -> String {
+        let cleaned = String(s.map { ":\\/?*[]".contains($0) ? "-" : $0 }).trimmingCharacters(in: .whitespaces)
+        return cleaned.isEmpty ? "Sheet1" : String(cleaned.prefix(31))
+    }
+
+    /// Columns kept as text even with `numbers` (by their title): codes,
+    /// numbers that are names (Project No. 26212, item code 3.10), phones,
+    /// accounts and references.
+    private static func textOnlyColumn(_ title: String) -> Bool {
+        title.range(of: "code|\\bno\\b|no\\.|number|phone|tel\\b|mobile|fax|account|ref", options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
     /// One worksheet: the first row is the column titles (bold, kept at the
-    /// top while scrolling); cells are text, so phone numbers keep their zeros.
-    static func writeXLSX(sheetName: String, rows: [[String]], to url: URL) throws {
+    /// top while scrolling); cells are text, so phone numbers keep their zeros
+    /// — unless `numbers`, when plain numbers are written as numbers (keeping
+    /// their 1 or 2 decimals), except in code / number / phone columns.
+    static func writeXLSX(sheetName: String, rows: [[String]], to url: URL, numbers: Bool = false) throws {
+        let textColumns = Set((rows.first ?? []).enumerated().filter { textOnlyColumn($0.element) }.map { $0.offset })
         let fm = FileManager.default
         let dir = fm.temporaryDirectory.appendingPathComponent("xlsx-\(UUID().uuidString)")
         defer { try? fm.removeItem(at: dir) }
@@ -11545,7 +11577,14 @@ enum SpreadsheetWriter {
             let style = r == 0 ? " s=\"1\"" : ""
             for (c, value) in row.enumerated() where !value.isEmpty {
                 let ref = columnName(c) + String(r + 1)
-                sheet += "<c r=\"" + ref + "\" t=\"inlineStr\"" + style + "><is><t xml:space=\"preserve\">" + xml(value) + "</t></is></c>"
+                if numbers && r > 0 && !textColumns.contains(c), let n = plainNumber(value) {
+                    // 2 decimals → style 2 (#,##0.00), 1 → style 3 (#,##0.0), whole → General.
+                    let decimals = n.split(separator: ".").dropFirst().first?.count ?? 0
+                    let numberStyle = decimals >= 2 ? " s=\"2\"" : (decimals == 1 ? " s=\"3\"" : "")
+                    sheet += "<c r=\"" + ref + "\"" + numberStyle + "><v>" + n + "</v></c>"
+                } else {
+                    sheet += "<c r=\"" + ref + "\" t=\"inlineStr\"" + style + "><is><t xml:space=\"preserve\">" + xml(value) + "</t></is></c>"
+                }
             }
             sheet += "</row>"
         }
@@ -11561,7 +11600,7 @@ enum SpreadsheetWriter {
             """,
             "xl/workbook.xml": """
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="\(xml(String(sheetName.prefix(31))))" sheetId="1" r:id="rId1"/></sheets></workbook>
+            <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="\(xml(Self.sheetName(sheetName)))" sheetId="1" r:id="rId1"/></sheets></workbook>
             """,
             "xl/_rels/workbook.xml.rels": """
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -11569,7 +11608,7 @@ enum SpreadsheetWriter {
             """,
             "xl/styles.xml": """
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>
+            <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>
             """,
             "xl/worksheets/sheet1.xml": sheet,
         ]
@@ -14975,14 +15014,20 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// into the project's own folder under a meaningful filename
     /// (sections 31-32) and opens it. Print: renders the same PDF and
     /// opens the standard macOS print dialog (section 54) — nothing saved.
-    /// Saves a CSV the Accounts or Stock page made into Administration/
-    /// Accounts, and opens it (Numbers or Excel).
+    /// Saves a table a page made (Accounts, Stock, Employees, delivery
+    /// schedule, inspection register, reference list) as an Excel workbook
+    /// into Administration/Accounts (or the folder the page names), and opens
+    /// it. The page sends the table as CSV text; it's written as .xlsx, with
+    /// plain numbers as numbers.
     private func handleSaveAccountsCSV(id: String, payload: [String: Any]) {
-        let name = ((payload["fileName"] as? String) ?? "").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-        guard name.hasSuffix(".csv"), !name.hasPrefix("."), let csv = payload["csv"] as? String else {
+        let given = ((payload["fileName"] as? String) ?? "").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let lower = given.lowercased()
+        guard lower.hasSuffix(".csv") || lower.hasSuffix(".xlsx"), !given.hasPrefix("."), let csv = payload["csv"] as? String else {
             respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved."))
             return
         }
+        let base = (given as NSString).deletingPathExtension
+        let name = base + ".xlsx"
         // Accounts' own folder, unless the page names another: a project's
         // subfolder (a quotation's delivery schedule) or an Administration one.
         var folder = storage.administrationCategoryFolder("Accounts")
@@ -14994,12 +15039,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let destination = folder.appendingPathComponent(name)
-            // With a byte-order mark, so Excel reads the text as UTF-8.
-            try Data(("\u{FEFF}" + csv).utf8).write(to: destination, options: .atomic)
+            try SpreadsheetWriter.writeXLSX(sheetName: base, rows: SpreadsheetReader.parseCSV(csv), to: destination, numbers: true)
             self.openForUser(destination)
             respond(id: id, encodable: SimpleResult(ok: true, error: nil))
         } catch {
-            respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved: \(error.localizedDescription)"))
+            respond(id: id, encodable: SimpleResult(ok: false, error: "The Excel file couldn't be saved: \(error.localizedDescription)"))
         }
     }
 
@@ -16561,8 +16605,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx"), .commaSeparatedText].compactMap { $0 }
-        panel.message = "Choose an Excel (.xlsx) or CSV file to update “\(list.displayName)”."
+        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx")].compactMap { $0 }
+        panel.message = "Choose an Excel workbook (.xlsx) to update “\(list.displayName)”."
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
             guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
@@ -16757,8 +16801,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx"), .commaSeparatedText].compactMap { $0 }
-        panel.message = "Choose an Excel (.xlsx) or CSV file of \(what) to add or update."
+        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx")].compactMap { $0 }
+        panel.message = "Choose an Excel workbook (.xlsx) of \(what) to add or update."
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
             guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
@@ -16819,34 +16863,30 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         respond(id: id, encodable: db.applyPartyImport(kind: pending.kind, rows: pending.rows))
     }
 
-    /// Section 49: export a price list to CSV (opens in Excel/Numbers).
-    /// Unlike documents, the export keeps the item code — it's what lets
-    /// an edited copy be imported back and matched to the right items.
+    /// Section 49: export a price list to Excel (.xlsx). Unlike documents,
+    /// the export keeps the item code — it's what lets an edited copy be
+    /// imported back and matched to the right items.
     private func handlePriceExportCSV(id: String, sourceKey: String) {
         guard let window = window, let list = db.listPriceLists().first(where: { $0.sourceKey == sourceKey }) else { respondNull(id: id); return }
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.commaSeparatedText]
-        panel.nameFieldStringValue = "\(list.displayName.replacingOccurrences(of: "/", with: "-")).csv"
+        panel.allowedContentTypes = [UTType(filenameExtension: "xlsx")].compactMap { $0 }
+        panel.nameFieldStringValue = "\(list.displayName.replacingOccurrences(of: "/", with: "-")).xlsx"
         panel.directoryURL = storage.appRoot
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
             guard response == .OK, let url = panel.url else { self.respondNull(id: id); return }
-            func csv(_ value: String) -> String {
-                value.contains(",") || value.contains("\"") || value.contains("\n") ? "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : value
-            }
             func num(_ v: Double?) -> String { v.map { String(format: "%.2f", $0) } ?? "" }
-            var lines = ["Item Code,Category,Item,Unit,Weight (kg),Sale Price (\(list.currency)),Rental Price (\(list.currency))"]
+            var rows = [["Item Code", "Category", "Item", "Unit", "Weight (kg)", "Sale Price (\(list.currency))", "Rental Price (\(list.currency))"]]
             for item in self.db.allPriceListItems(sourceKey: sourceKey) {
-                lines.append([csv(item.itemCode), csv(item.category ?? ""), csv(item.itemName), csv(item.unit),
-                              num(item.weightKg), num(item.unitSalePrice), num(item.unitRentalPrice)].joined(separator: ","))
+                rows.append([item.itemCode, item.category ?? "", item.itemName, item.unit,
+                             num(item.weightKg), num(item.unitSalePrice), num(item.unitRentalPrice)])
             }
             do {
-                // UTF-8 with a byte-order mark so Excel shows symbols correctly.
-                try Data(("\u{FEFF}" + lines.joined(separator: "\r\n") + "\r\n").utf8).write(to: url, options: .atomic)
+                try SpreadsheetWriter.writeXLSX(sheetName: list.displayName, rows: rows, to: url, numbers: true)
                 self.revealOne(url)
                 self.respond(id: id, encodable: SimpleResult(ok: true, error: nil))
             } catch {
-                self.respond(id: id, encodable: SimpleResult(ok: false, error: "The file couldn't be saved there."))
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "The Excel file couldn't be saved there."))
             }
         }
     }
