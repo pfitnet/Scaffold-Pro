@@ -2557,3 +2557,23 @@ Every form control is now drawn by the app instead of macOS, on every page
   (tables, dialogs) get the same treatment as they appear.
 - **Opting out:** add `data-native` to a field (or a box around it) to
   keep the system's control there.
+
+## Batch 102 — A livelier Dashboard
+
+- **Greeting:** "Good morning / afternoon / evening, William" over the date.
+  Under it, a **Today** line of chips: open tasks, quotations awaiting
+  reply, overdue invoices, inspections due. Clicking one scrolls to its
+  panel, which glows for a moment.
+- **Number tiles:** each has an icon, and its figure counts up when the
+  page opens. Each tile goes where its figure comes from: Active
+  projects → Projects, Unpaid → the Unpaid Invoices panel, Overdue →
+  Accounting, Quotations → their panel. Tiles lift on hover, with an
+  arrow. When something is overdue, Unpaid shows a meter of how much of
+  it is overdue. "Nothing overdue" shows in green.
+- **Counts** beside the panel titles (My Tasks, Quotations Awaiting Reply,
+  Unpaid Invoices, Inspections).
+- **Small animations:** the tiles and panels rise in one after another as
+  the page opens; a row under the pointer gets an accent edge; Quick
+  Action icons lift on hover. Nothing moves when the Mac is set to
+  Reduce Motion.
+- Still information first: no decorative charts.

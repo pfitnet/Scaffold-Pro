@@ -1473,3 +1473,61 @@ body input[type="number"] { padding-right: 22px; }
 /* A list opened from a select: a little tighter than a menu, as long as it needs (and scrolls). */
 .hm-list .hm-item { padding-top: 5px; padding-bottom: 5px; }
 .hm-group { padding-top: 8px; }
+
+/* ---------- Dashboard: livelier (js/dashboard.js) ---------- */
+/* Panels and number tiles rise in one after another when the page opens. */
+.dash-enter { animation: dashRise .42s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes dashRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* A panel picked from a tile or the Today line glows for a moment. */
+.widget-pulse { animation: widgetPulse 1.3s ease-out; }
+@keyframes widgetPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 35% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+.dash-hello-name { color: var(--accent); }
+/* "Today: 3 open tasks · 2 quotations awaiting reply …" */
+.dash-brief { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; color: var(--text-secondary); }
+.brief-lead { margin-right: 2px; }
+.brief-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; min-width: 0; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text); box-shadow: none; cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, background-color .12s ease; }
+.brief-chip b { color: var(--accent); font-weight: 700; }
+.brief-chip.danger b { color: var(--danger); }
+.brief-chip.warn b { color: var(--warning); }
+.brief-chip:hover { transform: translateY(-1px); border-color: var(--accent); background: var(--accent-soft); }
+.brief-chip.danger:hover { border-color: var(--danger); background: var(--danger-soft); }
+
+/* Number tiles: icon, a figure that counts up, its label; the tile is a way to where it comes from. */
+.stat-card { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+button.stat-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; width: 100%; height: auto; min-width: 0; margin: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer; box-shadow: none; }
+.stat-card.stat-link:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); box-shadow: 0 8px 22px rgba(0, 0, 0, .10); background: var(--panel); }
+.stat-card.stat-link:active { transform: translateY(0) scale(.99); }
+.stat-card.stat-link:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.stat-icon { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent);
+  transition: transform .2s cubic-bezier(.2, 1.4, .4, 1); }
+.stat-icon svg { width: 17px; height: 17px; }
+.stat-card.stat-link:hover .stat-icon { transform: scale(1.08) rotate(-4deg); }
+.stat-card.tone-danger .stat-icon { background: var(--danger-soft); color: var(--danger); }
+.stat-card.tone-good .stat-icon { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+.stat-card.tone-good .value { color: var(--success); }
+.stat-go { color: var(--text-tertiary); opacity: 0; transform: translateX(-4px); transition: opacity .15s ease, transform .15s ease; }
+.stat-card.stat-link:hover .stat-go { opacity: 1; transform: none; color: var(--accent); }
+.stat-card .value { font-variant-numeric: normal; }
+/* How much of the unpaid total is overdue: the fill in red on a lighter red track. */
+.stat-meter { height: 5px; margin-top: 10px; border-radius: 3px; background: var(--danger-soft); overflow: hidden; }
+.stat-meter span { display: block; height: 100%; width: calc(var(--to) * 100%); border-radius: 3px; background: var(--danger); transform-origin: left; animation: meterGrow .8s cubic-bezier(.2, .8, .2, 1) .25s both; }
+@keyframes meterGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stat-meter-label { margin-top: 4px; font-size: 11px; color: var(--text-tertiary); }
+
+/* A panel's count beside its title. */
+.panel-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 17px; margin-left: 7px; padding: 0 5px; border-radius: 9px;
+  background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 700; letter-spacing: 0; vertical-align: 1px; animation: dot-pop .3s cubic-bezier(.2, 1.6, .4, 1); }
+/* Rows: an accent edge slides in on the one under the pointer. */
+.dash-grid table.compact tr.link-row td:first-child { transition: box-shadow .14s ease; }
+.dash-grid table.compact tr.link-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+/* Quick Actions: the icon lifts. */
+.qa-icon { transition: transform .2s cubic-bezier(.2, 1.4, .4, 1); }
+.qa-tile:hover .qa-icon { transform: translateY(-1px) scale(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .dash-enter, .widget-pulse, .stat-meter span, .panel-count { animation: none; }
+  .stat-card, .stat-icon, .qa-icon, .brief-chip { transition: none; }
+}
