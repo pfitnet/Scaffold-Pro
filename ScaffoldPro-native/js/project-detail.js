@@ -327,7 +327,7 @@ function renderFileList(containerId, items, api, opts) {
   function fileRow(item) {
     const tr = document.createElement('tr');
     const missingBadge = item.fileExists ? '' : ' <span class="status-pill" style="color:var(--danger);">File unavailable</span>';
-    const categoryCell = opts.showCategory ? `<td>${esc(item.category)}</td>` : '';
+    const categoryCell = opts.showCategory ? `<td class="c-cat">${esc(item.category)}</td>` : '';
     // The name shown is the file's name in Finder; the name it was
     // uploaded under is kept underneath when different (section 33).
     const shownName = item.storedFilename || item.originalName;
@@ -336,15 +336,15 @@ function renderFileList(containerId, items, api, opts) {
     // Drawings: the BOQ or quotation this drawing belongs to.
     const current = item.linkedKind && item.linkedId ? `${item.linkedKind}|${item.linkedId}` : '';
     const linkCell = opts.linkChoices
-      ? `<td><select class="link-select">${opts.linkChoices.map((c) => `<option value="${c.value}" ${c.value === current ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select></td>`
+      ? `<td class="c-for"><select class="link-select">${opts.linkChoices.map((c) => `<option value="${c.value}" ${c.value === current ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}</select></td>`
       : '';
     tr.innerHTML = `
-      <td>${esc(shownName)}${missingBadge}${uploadedAs}</td>
+      <td class="c-name">${esc(shownName)}${missingBadge}${uploadedAs}</td>
       ${categoryCell}${linkCell}
-      <td>${esc(item.fileType)}</td>
-      <td>${formatFileSize(item.fileSizeBytes)}</td>
-      <td>${(item.uploadedAt || '').slice(0, 10)}</td>
-      <td><input type="text" class="desc-input" value="${(item.description || '').replace(/"/g, '&quot;')}" placeholder="Add a description" /></td>
+      <td class="c-type">${esc(item.fileType)}</td>
+      <td class="c-size">${formatFileSize(item.fileSizeBytes)}</td>
+      <td class="c-date">${(item.uploadedAt || '').slice(0, 10)}</td>
+      <td class="c-desc"><input type="text" class="desc-input" value="${(item.description || '').replace(/"/g, '&quot;')}" placeholder="Add a description" /></td>
       <td class="file-actions"></td>`;
 
     tr.querySelector('.desc-input').addEventListener('change', async (e) => {
@@ -707,9 +707,12 @@ function esc(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+const tabCounts = {};
 function setCount(tab, n) {
   const el = document.getElementById(`count-${tab}`);
   if (el) el.textContent = n > 0 ? String(n) : '';
+  tabCounts[tab] = n;
+  renderStats();
 }
 
 function showTab(name) {
@@ -740,33 +743,105 @@ function formatWhen(iso) {
   return isNaN(d) ? iso : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const SVG = (paths, size = 16) => `<svg viewBox="0 0 20 20" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const PD_ICONS = {
+  client: '<path d="M3.5 17V5.5a1 1 0 0 1 .7-1l6-2a.7.7 0 0 1 .9.7V17"/><path d="M11 7.5h4.5a1 1 0 0 1 1 1V17M2 17h16M6.5 7h1.5M6.5 10h1.5M6.5 13h1.5M13.5 11h1M13.5 13.8h1"/>',
+  site: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>',
+  person: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.8-3 3.2-4.5 6-4.5s5.2 1.5 6 4.5"/>',
+  calendar: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/>',
+  flag: '<path d="M4.5 17.5V3.5"/><path d="M4.5 4h10l-2 3.5 2 3.5h-10"/>',
+  clock: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4.3l2.8 1.7"/>',
+  hash: '<path d="M8 3 6.5 17M13.5 3 12 17M3.5 7.5h14M2.5 12.5h14"/>',
+  status: '<circle cx="10" cy="10" r="7"/><path d="m7 10.2 2.2 2.2 4-4.4"/>',
+};
+// The same look and colours as the Dashboard's Quick Actions.
+const PD_ACTIONS = [
+  { action: 'new-boq', label: 'New BOQ', color: '#4F8A8F', icon: '<rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 7.5h14M3 11.5h14M8 7.5v9"/>' },
+  { action: 'new-quotation', label: 'New Quotation', color: '#8E72A8', icon: '<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="M7 11h6M7 14h4"/>' },
+  { action: 'new-delivery-note', label: 'New Delivery Note', color: '#5E8C6A', icon: '<path d="M2.5 5.5h9v8h-9z"/><path d="M11.5 8.5h3l2.5 2.5v2.5h-5.5"/><circle cx="6" cy="14.5" r="1.5"/><circle cx="14" cy="14.5" r="1.5"/>' },
+  { action: 'new-invoice', label: 'New Invoice', color: '#A66A6A', icon: '<path d="M5 2.5h10v15l-2-1.3-1.7 1.3-1.3-1.3-1.3 1.3L7 16.2l-2 1.3z"/><path d="M8 7h4M8 10h4M8 13h2.5"/>' },
+  { action: 'new-letter', label: 'New Letter', color: '#7A7F9A', icon: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>' },
+  { action: 'record-inspection', label: 'Record Inspection', color: '#B07A5E', icon: '<path d="M10 2.5 16 5v4.5c0 3.8-2.6 6.7-6 8-3.4-1.3-6-4.2-6-8V5z"/><path d="m7.3 10 2 2 3.6-4"/>' },
+  { action: 'new-task', label: 'New Task', color: '#6E8F4E', icon: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>' },
+  { action: 'upload-drawing', label: 'Upload Drawing', color: '#5B7DB1', icon: '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="m2.5 13.5 4-4 3 3 2.5-2.5 5.5 5.5"/><circle cx="13.5" cy="7.3" r="1.3"/>' },
+  { action: 'upload-document', label: 'Upload Document', color: '#9A8458', icon: '<path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 12.5V3.5"/><path d="M6.5 7 10 3.5 13.5 7"/>' },
+];
+// The stages a project goes through, in order; On Hold and Archived sit outside them.
+const STAGES = ['Planning', 'Quotation', 'Active', 'Completed'];
+const statusClass = (s) => `st-${String(s || '').toLowerCase().replace(/[^a-z]+/g, '-')}`;
+
 function renderProjectHeader() {
   const p = currentProject;
   document.title = `${p.projectNumber} — ScaffoldPro`;
+  const hero = document.getElementById('pd-hero');
+  hero.className = `pd-hero ${statusClass(p.status)}`;
   document.getElementById('project-header').innerHTML = `
-    <div class="eyebrow">Project ${esc(p.projectNumber)}</div>
+    <div class="pd-eyebrow"><span class="eyebrow pd-number" title="Copy the project number" role="button" tabindex="0">Project ${esc(p.projectNumber)}</span><span class="pd-status"><i></i>${esc(p.status)}</span></div>
     <h1>${esc(p.name)}</h1>
-    <div class="subtitle">
-      ${p.client ? `<a href="clients.html?id=${p.client.id}">${esc(p.client.companyName)}</a>` : 'No client'} ·
-      ${p.site ? `<a href="sites.html?id=${p.site.id}">${esc(p.site.name)}</a>` : 'No site'}
+    <div class="subtitle pd-where">
+      <span>${SVG(PD_ICONS.client, 14)}${p.client ? `<a href="clients.html?id=${p.client.id}">${esc(p.client.companyName)}</a>` : 'No client'}</span>
+      <span>${SVG(PD_ICONS.site, 14)}${p.site ? `<a href="sites.html?id=${p.site.id}">${esc(p.site.name)}</a>` : 'No site'}</span>
     </div>`;
+  const number = document.querySelector('.pd-number');
+  const copy = () => { if (window.copyText) window.copyText(p.projectNumber); number.classList.add('copied'); setTimeout(() => number.classList.remove('copied'), 1200); };
+  number.addEventListener('click', copy);
+  number.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy(); } });
+  renderStages();
+  renderStats();
   renderOverview();
+}
+
+// Planning › Quotation › Active › Completed, the project's stage lit up; a click moves it there.
+function renderStages() {
+  const p = currentProject;
+  const box = document.getElementById('pd-stages');
+  const at = STAGES.indexOf(p.status);
+  const aside = at < 0 ? `<li class="pd-stage-aside ${statusClass(p.status)}"><i></i>${esc(p.status)}</li>` : '';
+  box.innerHTML = STAGES.map((s, i) => `<li class="${i < at ? 'done' : ''}${i === at ? 'now' : ''}"><button type="button" data-no-icon class="pd-stage${i < at ? ' done' : ''}${i === at ? ' now' : ''}" data-status="${s}" ${i === at ? 'aria-current="step"' : ''} title="${i === at ? `This project is at ${s}` : `Move to ${s}`}">
+      <span class="pd-stage-dot">${i < at ? SVG('<path d="m5.5 10.5 3 3 6-7"/>', 11) : ''}</span><span>${s}</span></button></li>`).join('') + aside;
+}
+
+async function setProjectStatus(status) {
+  if (!status || status === currentProject.status) return;
+  await window.api.projects.updateStatus(currentProject.id, status);
+  currentProject.status = status;
+  document.getElementById('status-select').value = status;
+  renderProjectHeader();
+  await refreshHistory();
+}
+
+// What the project holds: a tile per kind, opening its tab.
+function renderStats() {
+  const box = document.getElementById('pd-stats');
+  if (!box || !currentProject) return;
+  const files = (fileCounts.drawings || 0) + (fileCounts.documents || 0);
+  const tiles = [
+    ['boq', 'BOQs', tabCounts.boq], ['quotations', 'Quotations', tabCounts.quotations], ['delivery', 'Delivery Notes', tabCounts.delivery],
+    ['invoices', 'Invoices', tabCounts.invoices], ['files', 'Drawings & Docs', tabCounts.files != null ? tabCounts.files : files],
+    ['tasks', 'Open Tasks', tabCounts.tasks],
+  ];
+  box.innerHTML = tiles.map(([tab, label, n]) => `<button type="button" class="pd-stat${n ? '' : ' zero'}" data-tab="${tab}" data-no-icon>
+    <b>${n || 0}</b><span>${label}</span></button>`).join('');
+  for (const b of box.querySelectorAll('.pd-stat')) b.addEventListener('click', () => {
+    showTab(b.dataset.tab);
+    document.getElementById('tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function renderOverview() {
   const p = currentProject;
   const rows = [
-    ['Project Number', p.projectNumber],
-    ['Status', p.status],
-    ['Client', p.client ? p.client.companyName : '—'],
-    ['Site', p.site ? [p.site.name, p.site.address].filter(Boolean).join(', ') : '—'],
-    ['Project Manager', p.projectManager || '—'],
-    ['Start Date', formatDay(p.startDate)],
-    ['Expected Completion', formatDay(p.expectedCompletionDate)],
-    ['Created', formatDay(p.createdAt)],
+    [PD_ICONS.hash, 'Project Number', p.projectNumber],
+    [PD_ICONS.status, 'Status', p.status],
+    [PD_ICONS.client, 'Client', p.client ? p.client.companyName : '—'],
+    [PD_ICONS.site, 'Site', p.site ? [p.site.name, p.site.address].filter(Boolean).join(', ') : '—'],
+    [PD_ICONS.person, 'Project Manager', p.projectManager || '—'],
+    [PD_ICONS.calendar, 'Start Date', formatDay(p.startDate)],
+    [PD_ICONS.flag, 'Expected Completion', formatDay(p.expectedCompletionDate)],
+    [PD_ICONS.clock, 'Created', formatDay(p.createdAt)],
   ];
   document.getElementById('overview-details').innerHTML =
-    rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+    rows.map(([icon, k, v]) => `<div class="pd-field${v === '—' ? ' empty' : ''}"><span class="pd-field-icon">${SVG(icon, 15)}</span><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
   const desc = document.getElementById('overview-description');
   desc.textContent = p.projectDescription || 'No description yet.';
   desc.classList.toggle('muted', !p.projectDescription);
@@ -775,16 +850,36 @@ function renderOverview() {
   notes.classList.toggle('muted', !p.internalNotes);
 }
 
+function renderQuickActions() {
+  const box = document.getElementById('pd-quick-actions');
+  box.innerHTML = PD_ACTIONS.map((a) => `<button class="qa-tile" data-no-icon data-action="${a.action}" style="--qa:${a.color}" title="${esc(a.label)}">
+    <span class="qa-icon">${SVG(a.icon)}</span><span class="qa-text">${esc(a.label)}</span></button>`).join('');
+  for (const b of box.querySelectorAll('[data-action]')) b.addEventListener('click', () => runQuickAction(b.dataset.action));
+}
+
 function runQuickAction(action) {
+  const click = (tab, id) => { if (tab) showTab(tab); document.getElementById(id).click(); };
   switch (action) {
-    case 'new-boq': document.getElementById('new-boq-btn').click(); break;
-    case 'new-quotation': document.getElementById('new-quotation-btn').click(); break;
-    case 'new-invoice': document.getElementById('new-invoice-btn').click(); break;
-    case 'new-delivery-note': document.getElementById('new-delivery-note-btn').click(); break;
-    case 'upload-drawing': showTab('files'); document.getElementById('upload-drawing-btn').click(); break;
-    case 'upload-document': showTab('files'); document.getElementById('upload-document-btn').click(); break;
+    case 'new-boq': click(null, 'new-boq-btn'); break;
+    case 'new-quotation': click(null, 'new-quotation-btn'); break;
+    case 'new-invoice': click(null, 'new-invoice-btn'); break;
+    case 'new-delivery-note': click(null, 'new-delivery-note-btn'); break;
+    case 'new-letter': click(null, 'new-letter-btn'); break;
+    case 'record-inspection': click('inspections', 'record-inspection-btn'); break;
+    case 'new-task': click('tasks', 'new-task-btn'); break;
+    case 'upload-drawing': click('files', 'upload-drawing-btn'); break;
+    case 'upload-document': click('files', 'upload-document-btn'); break;
     default: break;
   }
+}
+
+// Recent activity as a timeline: a dot per entry down a line, newest first.
+function activityTimeline(list) {
+  if (!list.length) return '<div class="empty-inline">No activity recorded yet.</div>';
+  return `<ol class="pd-timeline">${list.map((e, i) => `<li style="--i:${i}">
+    <span class="pd-tl-dot" aria-hidden="true"></span>
+    <div class="pd-tl-what">${esc(e.action)}${e.by ? ` ${window.personTag(e.by)}` : ''}</div>
+    <div class="pd-tl-meta">${e.reference ? `<span class="pd-tl-ref">${esc(e.reference)}</span>` : ''}<span>${esc(formatWhen(e.createdAt))}</span></div></li>`).join('')}</ol>`;
 }
 
 async function refreshHistory() {
@@ -795,7 +890,7 @@ async function refreshHistory() {
         list.map((e) => `<tr><td class="nowrap muted">${formatWhen(e.createdAt)}</td><td>${esc(e.action)}${e.by ? ` ${window.personTag(e.by)}` : ''}</td><td>${esc(e.reference || '')}</td></tr>`).join('')
       }</tbody></table>`;
   document.getElementById('history-list').innerHTML = render(entries);
-  document.getElementById('overview-activity').innerHTML = render(entries.slice(0, 5));
+  document.getElementById('overview-activity').innerHTML = activityTimeline(entries.slice(0, 6));
 }
 
 function setupEditSheet() {
@@ -864,17 +959,22 @@ async function init() {
   setupEditSheet();
   setupInvoiceSheet();
   setupDeliveryNoteSheet();
-  for (const b of document.querySelectorAll('.quick-actions [data-action]')) {
-    b.addEventListener('click', () => runQuickAction(b.dataset.action));
-  }
+  renderQuickActions();
+  document.querySelector('.pd-all-history').addEventListener('click', () => showTab('history'));
 
   const statusSelect = document.getElementById('status-select');
   statusSelect.innerHTML = STATUSES.map((s) => `<option value="${s}" ${s === project.status ? 'selected' : ''}>${s}</option>`).join('');
-  statusSelect.addEventListener('change', async () => {
-    await window.api.projects.updateStatus(project.id, statusSelect.value);
-    currentProject.status = statusSelect.value;
-    renderOverview();
-    await refreshHistory();
+  statusSelect.addEventListener('change', () => setProjectStatus(statusSelect.value));
+  document.getElementById('pd-stages').addEventListener('click', (e) => {
+    const b = e.target.closest('.pd-stage');
+    if (b) setProjectStatus(b.dataset.status);
+  });
+  // A soft light follows the pointer across the header.
+  const hero = document.getElementById('pd-hero');
+  hero.addEventListener('pointermove', (e) => {
+    const r = hero.getBoundingClientRect();
+    hero.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    hero.style.setProperty('--my', `${e.clientY - r.top}px`);
   });
 
   document.getElementById('reveal-folder-btn').addEventListener('click', () => {

@@ -684,6 +684,13 @@ struct ProjectListEntry: Codable {
     /// Who made it, and who last worked on it (their names).
     var createdBy: String? = nil
     var lastEditedBy: String? = nil
+    /// Its documents (not cancelled ones) and when one last changed, for
+    /// the Projects list's cards.
+    var boqCount = 0
+    var quotationCount = 0
+    var invoiceCount = 0
+    var deliveryNoteCount = 0
+    var lastActivityAt: String? = nil
 }
 
 struct ProjectDetail: Codable {
@@ -4658,6 +4665,26 @@ final class AppDatabase {
     }
     func listProjectsRaw() -> [Project] {
         projectsStore.readAll().sorted { $0.projectNumber > $1.projectNumber }
+    }
+    /// For the Projects list: each project's documents counted (not the
+    /// cancelled ones) and when any of them last changed.
+    struct ProjectStats {
+        var boqs = 0, quotations = 0, invoices = 0, deliveryNotes = 0
+        var lastActivityAt = ""
+    }
+    func projectStats() -> [String: ProjectStats] {
+        var out: [String: ProjectStats] = [:]
+        func note(_ projectId: String, _ updatedAt: String, _ add: (inout ProjectStats) -> Void) {
+            var st = out[projectId] ?? ProjectStats()
+            add(&st)
+            if updatedAt > st.lastActivityAt { st.lastActivityAt = updatedAt }
+            out[projectId] = st
+        }
+        for b in boqsStore.readAll() { note(b.projectId, b.updatedAt) { $0.boqs += 1 } }
+        for q in quotationsStore.readAll() where q.status != "Cancelled" { note(q.projectId, q.updatedAt) { $0.quotations += 1 } }
+        for i in invoicesStore.readAll() where i.status != "Cancelled" { note(i.projectId, i.updatedAt) { $0.invoices += 1 } }
+        for d in deliveryNotesStore.readAll() where d.status != "Cancelled" { note(d.projectId, d.updatedAt) { $0.deliveryNotes += 1 } }
+        return out
     }
     func getProject(id: String) -> Project? {
         projectsStore.readAll().first { $0.id == id }
@@ -16252,6 +16279,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let clients = db.allClients()
         let sites = db.allSites()
         let names = db.authorsByRecord("projects.json")
+        let stats = db.projectStats()
         return db.listProjectsRaw().map { p in
             var entry = ProjectListEntry(
                 id: p.id, projectNumber: p.projectNumber, name: p.name,
@@ -16261,6 +16289,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             )
             entry.createdBy = names[p.id]?.createdBy
             entry.lastEditedBy = names[p.id]?.lastEditedBy
+            if let st = stats[p.id] {
+                entry.boqCount = st.boqs
+                entry.quotationCount = st.quotations
+                entry.invoiceCount = st.invoices
+                entry.deliveryNoteCount = st.deliveryNotes
+                entry.lastActivityAt = st.lastActivityAt.isEmpty ? nil : st.lastActivityAt
+            }
             return entry
         }
     }
