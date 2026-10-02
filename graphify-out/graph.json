@@ -6638,7 +6638,7 @@
       "file_type": "code",
       "norm_label": "adddeliverycharge()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L574"
+      "source_location": "L577"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_addfrompicker",
@@ -6650,7 +6650,7 @@
       "file_type": "code",
       "norm_label": "addfrompicker()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L692"
+      "source_location": "L695"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_allowstatuschange",
@@ -6674,7 +6674,7 @@
       "file_type": "code",
       "norm_label": "blockcall()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L414"
+      "source_location": "L417"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_esc",
@@ -6698,7 +6698,7 @@
       "file_type": "code",
       "norm_label": "formatadjustment()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L611"
+      "source_location": "L614"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_getquotationidfromurl",
@@ -6722,7 +6722,7 @@
       "file_type": "code",
       "norm_label": "importfromboq()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L761"
+      "source_location": "L764"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_init",
@@ -6734,7 +6734,7 @@
       "file_type": "code",
       "norm_label": "init()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L777"
+      "source_location": "L780"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_linktoboq",
@@ -6746,7 +6746,7 @@
       "file_type": "code",
       "norm_label": "linktoboq()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L742"
+      "source_location": "L745"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_loaddetail",
@@ -6806,7 +6806,7 @@
       "file_type": "code",
       "norm_label": "parseadjustment()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L618"
+      "source_location": "L621"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_populateboqreference",
@@ -6818,7 +6818,7 @@
       "file_type": "code",
       "norm_label": "populateboqreference()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L719"
+      "source_location": "L722"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_populatecategories",
@@ -6830,7 +6830,7 @@
       "file_type": "code",
       "norm_label": "populatecategories()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L708"
+      "source_location": "L711"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_priceformode",
@@ -6866,7 +6866,7 @@
       "file_type": "code",
       "norm_label": "removeline()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L603"
+      "source_location": "L606"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_render",
@@ -6878,7 +6878,7 @@
       "file_type": "code",
       "norm_label": "render()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L84"
+      "source_location": "L87"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_renderblocks",
@@ -6890,7 +6890,7 @@
       "file_type": "code",
       "norm_label": "renderblocks()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L420"
+      "source_location": "L423"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_renderdirectorbar",
@@ -6902,7 +6902,7 @@
       "file_type": "code",
       "norm_label": "renderdirectorbar()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L174"
+      "source_location": "L177"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_renderletterfields",
@@ -6914,7 +6914,7 @@
       "file_type": "code",
       "norm_label": "renderletterfields()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L540"
+      "source_location": "L543"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_renderlineitems",
@@ -6926,7 +6926,7 @@
       "file_type": "code",
       "norm_label": "renderlineitems()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L283"
+      "source_location": "L286"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_renderpickerresults",
@@ -6938,7 +6938,7 @@
       "file_type": "code",
       "norm_label": "renderpickerresults()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L666"
+      "source_location": "L669"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_rendersignedbar",
@@ -6950,7 +6950,7 @@
       "file_type": "code",
       "norm_label": "rendersignedbar()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L216"
+      "source_location": "L219"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_rendertotals",
@@ -6962,7 +6962,7 @@
       "file_type": "code",
       "norm_label": "rendertotals()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L367"
+      "source_location": "L370"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_saveheader",
@@ -6974,7 +6974,7 @@
       "file_type": "code",
       "norm_label": "saveheader()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L641"
+      "source_location": "L644"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_saveletterfield",
@@ -6986,7 +6986,7 @@
       "file_type": "code",
       "norm_label": "saveletterfield()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L564"
+      "source_location": "L567"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_setimportopen",
@@ -6998,7 +6998,7 @@
       "file_type": "code",
       "norm_label": "setimportopen()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L735"
+      "source_location": "L738"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_setupdirectorbar",
@@ -7010,7 +7010,7 @@
       "file_type": "code",
       "norm_label": "setupdirectorbar()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L195"
+      "source_location": "L198"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_setupsignedbar",
@@ -7022,7 +7022,7 @@
       "file_type": "code",
       "norm_label": "setupsignedbar()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L265"
+      "source_location": "L268"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_unlinkboq",
@@ -7034,7 +7034,7 @@
       "file_type": "code",
       "norm_label": "unlinkboq()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L753"
+      "source_location": "L756"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_updateline",
@@ -7046,7 +7046,7 @@
       "file_type": "code",
       "norm_label": "updateline()",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L597"
+      "source_location": "L600"
     },
     {
       "id": "scaffoldpro_native_js_settings_afterrestore",
@@ -10692,7 +10692,7 @@
       "file_type": "code",
       "norm_label": "esc()",
       "source_file": "ScaffoldPro-native/js/linked-drawings.js",
-      "source_location": "L16"
+      "source_location": "L17"
     },
     {
       "id": "scaffoldpro_native_js_linked_drawings_refresh",
@@ -10704,7 +10704,7 @@
       "file_type": "code",
       "norm_label": "refresh()",
       "source_file": "ScaffoldPro-native/js/linked-drawings.js",
-      "source_location": "L25"
+      "source_location": "L26"
     },
     {
       "id": "scaffoldpro_native_js_qty_tab_focusbox",
@@ -19458,7 +19458,7 @@
       "file_type": "code",
       "norm_label": "watchedges()",
       "source_file": "ScaffoldPro-native/js/item-picker.js",
-      "source_location": "L130"
+      "source_location": "L136"
     },
     {
       "id": "scaffoldpro_native_js_dialogs_actionlabel",
@@ -23896,7 +23896,7 @@
       "file_type": "code",
       "norm_label": "block_kinds",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L408"
+      "source_location": "L411"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_letter_fields",
@@ -23907,7 +23907,7 @@
       "file_type": "code",
       "norm_label": "letter_fields",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L538"
+      "source_location": "L541"
     },
     {
       "id": "scaffoldpro_native_js_quotation_editor_multiply",
@@ -34251,7 +34251,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/item-picker.js",
-      "source_location": "L131",
+      "source_location": "L137",
       "weight": 1.0
     },
     {
@@ -34635,7 +34635,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/linked-drawings.js",
-      "source_location": "L38",
+      "source_location": "L39",
       "weight": 1.0
     },
     {
@@ -36927,7 +36927,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L594",
+      "source_location": "L597",
       "weight": 1.0
     },
     {
@@ -36939,7 +36939,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L705",
+      "source_location": "L708",
       "weight": 1.0
     },
     {
@@ -36951,7 +36951,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L417",
+      "source_location": "L420",
       "weight": 1.0
     },
     {
@@ -36963,7 +36963,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L772",
+      "source_location": "L775",
       "weight": 1.0
     },
     {
@@ -36975,7 +36975,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L774",
+      "source_location": "L777",
       "weight": 1.0
     },
     {
@@ -36987,7 +36987,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L779",
+      "source_location": "L782",
       "weight": 1.0
     },
     {
@@ -36999,7 +36999,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L784",
+      "source_location": "L787",
       "weight": 1.0
     },
     {
@@ -37011,7 +37011,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L793",
+      "source_location": "L796",
       "weight": 1.0
     },
     {
@@ -37023,7 +37023,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L797",
+      "source_location": "L800",
       "weight": 1.0
     },
     {
@@ -37035,7 +37035,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L808",
+      "source_location": "L811",
       "weight": 1.0
     },
     {
@@ -37047,7 +37047,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L819",
+      "source_location": "L822",
       "weight": 1.0
     },
     {
@@ -37059,7 +37059,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L820",
+      "source_location": "L823",
       "weight": 1.0
     },
     {
@@ -37071,7 +37071,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L824",
+      "source_location": "L827",
       "weight": 1.0
     },
     {
@@ -37083,7 +37083,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L898",
+      "source_location": "L901",
       "weight": 1.0
     },
     {
@@ -37095,7 +37095,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L907",
+      "source_location": "L910",
       "weight": 1.0
     },
     {
@@ -37107,7 +37107,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L920",
+      "source_location": "L923",
       "weight": 1.0
     },
     {
@@ -37119,7 +37119,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L924",
+      "source_location": "L927",
       "weight": 1.0
     },
     {
@@ -37131,7 +37131,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L750",
+      "source_location": "L753",
       "weight": 1.0
     },
     {
@@ -37167,7 +37167,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L636",
+      "source_location": "L639",
       "weight": 1.0
     },
     {
@@ -37179,127 +37179,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L606",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_setimportopen",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L117",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_localday",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L121",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_formatadjustment",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L138",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_saveheader",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L151",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_renderlineitems",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L166",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_renderblocks",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L167",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_rendertotals",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L168",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_rendersignedbar",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L169",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_renderdirectorbar",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L170",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_quotation_editor_render",
-      "target": "scaffoldpro_native_js_quotation_editor_lockstatusoptions",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L93",
+      "source_location": "L609",
       "weight": 1.0
     },
     {
@@ -37311,7 +37191,127 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L98",
+      "source_location": "L101",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_setimportopen",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L120",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_localday",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L124",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_formatadjustment",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_saveheader",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L154",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_renderlineitems",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L169",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_renderblocks",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L170",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_rendertotals",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L171",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_rendersignedbar",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L172",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_renderdirectorbar",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L173",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_quotation_editor_render",
+      "target": "scaffoldpro_native_js_quotation_editor_lockstatusoptions",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/quotation-editor.js",
+      "source_location": "L96",
       "weight": 1.0
     },
     {
@@ -37323,7 +37323,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L441",
+      "source_location": "L444",
       "weight": 1.0
     },
     {
@@ -37335,7 +37335,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L453",
+      "source_location": "L456",
       "weight": 1.0
     },
     {
@@ -37347,7 +37347,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L487",
+      "source_location": "L490",
       "weight": 1.0
     },
     {
@@ -37359,7 +37359,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L503",
+      "source_location": "L506",
       "weight": 1.0
     },
     {
@@ -37371,7 +37371,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L510",
+      "source_location": "L513",
       "weight": 1.0
     },
     {
@@ -37383,7 +37383,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L187",
+      "source_location": "L190",
       "weight": 1.0
     },
     {
@@ -37395,7 +37395,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L560",
+      "source_location": "L563",
       "weight": 1.0
     },
     {
@@ -37407,7 +37407,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L327",
+      "source_location": "L330",
       "weight": 1.0
     },
     {
@@ -37419,7 +37419,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L334",
+      "source_location": "L337",
       "weight": 1.0
     },
     {
@@ -37431,7 +37431,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L337",
+      "source_location": "L340",
       "weight": 1.0
     },
     {
@@ -37443,7 +37443,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L342",
+      "source_location": "L345",
       "weight": 1.0
     },
     {
@@ -37455,7 +37455,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L681",
+      "source_location": "L684",
       "weight": 1.0
     },
     {
@@ -37467,7 +37467,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L685",
+      "source_location": "L688",
       "weight": 1.0
     },
     {
@@ -37479,7 +37479,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L687",
+      "source_location": "L690",
       "weight": 1.0
     },
     {
@@ -37491,7 +37491,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L228",
+      "source_location": "L231",
       "weight": 1.0
     },
     {
@@ -37503,7 +37503,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L372",
+      "source_location": "L375",
       "weight": 1.0
     },
     {
@@ -37515,7 +37515,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L386",
+      "source_location": "L389",
       "weight": 1.0
     },
     {
@@ -37527,7 +37527,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L643",
+      "source_location": "L646",
       "weight": 1.0
     },
     {
@@ -37539,7 +37539,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L646",
+      "source_location": "L649",
       "weight": 1.0
     },
     {
@@ -37551,7 +37551,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L663",
+      "source_location": "L666",
       "weight": 1.0
     },
     {
@@ -37563,7 +37563,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L569",
+      "source_location": "L572",
       "weight": 1.0
     },
     {
@@ -37575,7 +37575,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L201",
+      "source_location": "L204",
       "weight": 1.0
     },
     {
@@ -37587,7 +37587,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L756",
+      "source_location": "L759",
       "weight": 1.0
     },
     {
@@ -37599,7 +37599,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L758",
+      "source_location": "L761",
       "weight": 1.0
     },
     {
@@ -37611,7 +37611,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L600",
+      "source_location": "L603",
       "weight": 1.0
     },
     {
@@ -102780,7 +102780,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/item-picker.js",
-      "source_location": "L130",
+      "source_location": "L136",
       "weight": 1.0
     },
     {
@@ -103132,7 +103132,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/linked-drawings.js",
-      "source_location": "L16",
+      "source_location": "L17",
       "weight": 1.0
     },
     {
@@ -104749,7 +104749,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L174",
+      "source_location": "L177",
       "weight": 1.0
     },
     {
@@ -104760,7 +104760,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L195",
+      "source_location": "L198",
       "weight": 1.0
     },
     {
@@ -104771,7 +104771,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L216",
+      "source_location": "L219",
       "weight": 1.0
     },
     {
@@ -104793,7 +104793,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L265",
+      "source_location": "L268",
       "weight": 1.0
     },
     {
@@ -104804,7 +104804,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L283",
+      "source_location": "L286",
       "weight": 1.0
     },
     {
@@ -104826,7 +104826,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L367",
+      "source_location": "L370",
       "weight": 1.0
     },
     {
@@ -104837,7 +104837,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L408",
+      "source_location": "L411",
       "weight": 1.0
     },
     {
@@ -104848,7 +104848,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L414",
+      "source_location": "L417",
       "weight": 1.0
     },
     {
@@ -104870,7 +104870,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L420",
+      "source_location": "L423",
       "weight": 1.0
     },
     {
@@ -104914,7 +104914,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L538",
+      "source_location": "L541",
       "weight": 1.0
     },
     {
@@ -104925,7 +104925,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L540",
+      "source_location": "L543",
       "weight": 1.0
     },
     {
@@ -104947,7 +104947,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L564",
+      "source_location": "L567",
       "weight": 1.0
     },
     {
@@ -104958,7 +104958,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L574",
+      "source_location": "L577",
       "weight": 1.0
     },
     {
@@ -104969,7 +104969,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L597",
+      "source_location": "L600",
       "weight": 1.0
     },
     {
@@ -104980,7 +104980,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L603",
+      "source_location": "L606",
       "weight": 1.0
     },
     {
@@ -104991,7 +104991,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L611",
+      "source_location": "L614",
       "weight": 1.0
     },
     {
@@ -105002,7 +105002,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L618",
+      "source_location": "L621",
       "weight": 1.0
     },
     {
@@ -105024,7 +105024,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L641",
+      "source_location": "L644",
       "weight": 1.0
     },
     {
@@ -105035,7 +105035,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L666",
+      "source_location": "L669",
       "weight": 1.0
     },
     {
@@ -105046,7 +105046,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L692",
+      "source_location": "L695",
       "weight": 1.0
     },
     {
@@ -105068,7 +105068,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L708",
+      "source_location": "L711",
       "weight": 1.0
     },
     {
@@ -105079,7 +105079,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L719",
+      "source_location": "L722",
       "weight": 1.0
     },
     {
@@ -105090,7 +105090,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L735",
+      "source_location": "L738",
       "weight": 1.0
     },
     {
@@ -105101,7 +105101,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L742",
+      "source_location": "L745",
       "weight": 1.0
     },
     {
@@ -105112,7 +105112,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L753",
+      "source_location": "L756",
       "weight": 1.0
     },
     {
@@ -105123,7 +105123,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L761",
+      "source_location": "L764",
       "weight": 1.0
     },
     {
@@ -105134,7 +105134,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L777",
+      "source_location": "L780",
       "weight": 1.0
     },
     {
@@ -105145,7 +105145,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L84",
+      "source_location": "L87",
       "weight": 1.0
     },
     {
@@ -123240,7 +123240,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L879",
+      "source_location": "L882",
       "weight": 1.0
     },
     {
@@ -123252,7 +123252,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L891",
+      "source_location": "L894",
       "weight": 1.0
     },
     {
@@ -123264,7 +123264,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L899",
+      "source_location": "L902",
       "weight": 1.0
     },
     {
@@ -123276,7 +123276,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L900",
+      "source_location": "L903",
       "weight": 1.0
     },
     {
@@ -123288,7 +123288,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L909",
+      "source_location": "L912",
       "weight": 1.0
     },
     {
@@ -123300,7 +123300,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/quotation-editor.js",
-      "source_location": "L267",
+      "source_location": "L270",
       "weight": 1.0
     },
     {
@@ -123660,7 +123660,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "ScaffoldPro-native/js/linked-drawings.js",
-      "source_location": "L76",
+      "source_location": "L77",
       "weight": 1.0
     },
     {
@@ -126305,5 +126305,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "0feef70e1c085543e3e65291ba39d33687e661bc"
+  "built_at_commit": "e16091a12bccc02b3f6909525e2d072706530ea7"
 }

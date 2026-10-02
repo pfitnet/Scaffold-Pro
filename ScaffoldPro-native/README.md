@@ -2376,3 +2376,19 @@ under "Letterhead layout".
     signing line with the chop at its end.
 - **BOQs:** the "Signature section" option is gone; BOQs no longer have a
   signature block. The Terms box stays.
+
+## Batch 92 — Icons for Page and Items in; drawings after linking a BOQ; rounded picker top
+
+- **Toolbar icons:** "Page" and "Items in" next to the document's selects
+  are now icons (a portrait and landscape page; a 文A translate mark) in the
+  quotation, BOQ and delivery note editors. Hovering shows what they are.
+- **Drawings after linking a BOQ:** linking a quotation to a BOQ (or
+  removing the link) now refreshes the quotation's Drawings box straight
+  away. The BOQ and its drawings, marked "From BQ…", show without reopening
+  the quotation. They were already in the exported PDF; only the box
+  wasn't redrawn.
+- **Material list, rounded top while scrolling:** when a bracket is
+  scrolled part-way, it starts at the top of the list as a rounded box with
+  a border all round its heading, never a square-cornered cut. The extra
+  rounded box inside each bracket (around the column headings and rows) is
+  gone, so each bracket is one clean box.

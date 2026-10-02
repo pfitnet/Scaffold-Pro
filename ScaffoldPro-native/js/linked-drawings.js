@@ -7,6 +7,7 @@
 // document's own pages when it's exported as a PDF or printed.
 //
 //   window.setupLinkedDrawings({ kind: 'BOQ' | 'Quotation', id, projectNumber })
+//   window.refreshLinkedDrawings()   // e.g. after a quotation is linked to a BOQ
 //
 // Needs an element with id="linked-drawings" and a button with
 // id="upload-linked-drawing-btn" on the page. Drawings can also be dragged
@@ -88,5 +89,7 @@
       await refresh();
     });
     refresh();
+    // Shown again when what the document follows changes (a BOQ linked or unlinked).
+    window.refreshLinkedDrawings = refresh;
   };
 })();

@@ -77,6 +77,9 @@ async function loadDetail() {
   document.getElementById('quotation-body').classList.remove('hidden');
   render();
   window.docLanguage.show(currentDetail);
+  // Linked to a BOQ (or not any more): its drawings come with it.
+  if (loadDetail.boq !== undefined && loadDetail.boq !== (currentDetail.sourceBOQId || null) && window.refreshLinkedDrawings) window.refreshLinkedDrawings();
+  loadDetail.boq = currentDetail.sourceBOQId || null;
   document.getElementById('orientation-select').value = currentDetail.orientation || 'Portrait';
   window.deliverySchedule.refresh(currentDetail);
 }
