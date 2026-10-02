@@ -18710,7 +18710,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
     @objc func goToPage(_ sender: NSMenuItem) {
         guard let page = sender.representedObject as? String else { return }
-        runJS("location.href = '\(page)';")
+        // (Through the page, so unsaved settings are asked about first.)
+        runJS("window.appNavigate ? window.appNavigate('\(page)') : (location.href = '\(page)');")
     }
 
     @objc func appUndo(_ sender: Any?) {
@@ -18734,11 +18735,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     }
 
     @objc func goBack(_ sender: Any?) {
-        if webView.canGoBack { webView.goBack() }
+        guard webView.canGoBack else { return }
+        runJS("window.appNavigate ? window.appNavigate(function(){ history.back(); }) : history.back();")
     }
 
     @objc func goForward(_ sender: Any?) {
-        if webView.canGoForward { webView.goForward() }
+        guard webView.canGoForward else { return }
+        runJS("window.appNavigate ? window.appNavigate(function(){ history.forward(); }) : history.forward();")
     }
 }
 

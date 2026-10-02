@@ -203,7 +203,7 @@ async function saveSettings() {
     if (v && !v.includes('{SEQ}')) {
       alert('Each document number format needs {SEQ} somewhere, so every number is different.');
       document.getElementById(`${f}-input`).focus();
-      return;
+      return false;
     }
     payload[f] = v;
   }
@@ -233,6 +233,7 @@ async function saveSettings() {
   const note = document.getElementById('saved-note');
   note.classList.remove('hidden');
   setTimeout(() => note.classList.add('hidden'), 2000);
+  return true;
 }
 
 // ---------- Automatic iCloud backup ----------
@@ -547,7 +548,8 @@ async function init() {
   await loadSettings();
   for (const ta of formatted) window.refreshParagraphPreview(ta);
   document.getElementById('save-btn').addEventListener('click', async () => {
-    await saveSettings();
+    // (Still unsaved when a number format needs fixing first.)
+    if (!(await saveSettings())) return;
     setSettingsDirty(false);
     document.getElementById('settings-changed-elsewhere').classList.add('hidden');
   });
@@ -616,6 +618,18 @@ init();
 
 // Before an automatic update: unsaved settings are saved.
 window.beforeAppUpdate = async () => { if (settingsDirty) await saveSettings(); };
+
+// Leaving Settings with unsaved changes (a sidebar link, ⌘K, Back, the Go
+// menu): Save, Don't Save, or Cancel to stay (sidebar.js › appNavigate).
+window.leaveNeedsAsk = () => settingsDirty;
+window.askBeforeLeave = async () => {
+  const pick = await window.appChoose('Save your changes to Settings?\n\nYou’ve changed some settings and haven’t saved them yet.', [
+    { label: 'Don’t Save', value: 'discard' }, { label: 'Save', value: 'save', primary: true }]);
+  if (!pick) return false;
+  if (pick === 'save' && !(await saveSettings())) return false;
+  setSettingsDirty(false);
+  return true;
+};
 
 // ---- Web Access (ScaffoldPro Web, served by this Mac) ----
 (async function setupWebAccess() {
