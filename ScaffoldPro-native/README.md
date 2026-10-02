@@ -2339,3 +2339,11 @@ under "Letterhead layout".
   ones, so it highlights as one rounded tile, not as separate boxes. Its
   icon still lines up with the tick boxes and its name with the task
   titles, at full and ¼ width.
+
+## Batch 90 — Material list: clean top edge
+
+- While a bracket's heading is held at the top of "Add Materials", the rows
+  sliding up under it fade away just below the heading, so you never see a
+  half-cut line of text or a sliver of an "+ Add" button. Only the heading
+  that's actually held at the top gets the fade. A bracket that's fully in
+  view shows its column headings as usual.

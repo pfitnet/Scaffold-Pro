@@ -121,6 +121,11 @@
   function edges(container) {
     const more = container.scrollTop + container.clientHeight < container.scrollHeight - 2;
     container.classList.toggle('more-below', more);
+    const top = container.getBoundingClientRect().top;
+    for (const head of container.querySelectorAll('.picker-group-head')) {
+      const stuck = head.parentElement.getBoundingClientRect().top < top - 0.5 && Math.abs(head.getBoundingClientRect().top - top) < 1;
+      head.classList.toggle('stuck', stuck);
+    }
   }
   function watchEdges(container) {
     edges(container);
