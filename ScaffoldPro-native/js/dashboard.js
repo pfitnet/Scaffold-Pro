@@ -46,7 +46,7 @@ function moreLabel(btn, open, hiddenCount, notSent) {
 }
 
 function limitList(box, total) {
-  const rows = [...box.querySelectorAll('tbody > tr')];
+  const rows = [...box.querySelectorAll('tbody > tr:not(.task-new-row)')];
   const old = box.querySelector(':scope > .more-btn');
   if (old) old.remove();
   const all = Math.max(rows.length, total || 0);
@@ -272,12 +272,15 @@ async function loadDashboard() {
     const fresh = (await window.api.tasks.list()).filter((r) => r.mine && !r.task.done);
     renderMyTasks(fresh);
   };
-  // "New Task" first, as a Quick Actions tile, then the tasks.
+  // "New Task" first, as a Quick Actions tile, then the tasks. It's the
+  // table's first row, so its icon lines up with the tick boxes and its
+  // name with the tasks' titles at every width.
   const renderMyTasks = (rows) => {
-    taskBox.innerHTML = newTaskTileHTML() + (rows.length
-      ? `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`
-      : '<div class="empty-widget"><span>Nothing to do.</span></div>');
-    taskBox.querySelector('#tasks-new-btn').addEventListener('click', newTaskQuick);
+    taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${newTaskRowHTML()}${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>` +
+      (rows.length ? '' : '<div class="empty-widget"><span>Nothing to do.</span></div>');
+    const add = taskBox.querySelector('#tasks-new-btn');
+    add.addEventListener('click', newTaskQuick);
+    add.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); newTaskQuick(); } });
     if (!rows.length) return;
     window.wireTaskRows(taskBox, rows, reloadTasks, { projects });
     limitList(taskBox);
@@ -328,11 +331,11 @@ const QUICK_ACTIONS = [
   { label: 'Lead', color: '#4F7FA0', icon: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>', go: () => { location.href = 'marketing.html?tab=leads&new=1'; } },
 ];
 
-// The New Task tile at the top of My Tasks — the Quick Actions look.
-function newTaskTileHTML() {
+// The New Task row at the top of My Tasks — the Quick Actions look.
+function newTaskRowHTML() {
   const a = QUICK_ACTIONS.find((x) => x.go === newTaskQuick);
-  return `<button type="button" class="qa-tile tasks-new-tile" id="tasks-new-btn" data-no-icon style="--qa:${a.color}" title="New Task">
-    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text">New Task</span></button>`;
+  return `<tr class="task-new-row" id="tasks-new-btn" role="button" tabindex="0" style="--qa:${a.color}" title="New Task">
+    <td class="task-check"><span class="qa-icon">${QA_SVG(a.icon)}</span></td><td colspan="3"><span class="qa-text">New Task</span></td></tr>`;
 }
 
 async function newTaskQuick() {
