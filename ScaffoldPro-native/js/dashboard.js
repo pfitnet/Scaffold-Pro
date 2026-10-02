@@ -274,9 +274,7 @@ async function loadDashboard() {
   };
   const renderMyTasks = (rows) => {
     if (!rows.length) {
-      taskBox.innerHTML = `<div class="empty-widget"><span>Nothing to do.</span>
-        <button type="button" class="add-btn" data-no-icon><svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>New Task</button></div>`;
-      taskBox.querySelector('.add-btn').addEventListener('click', newTaskQuick);
+      taskBox.innerHTML = '<div class="empty-widget"><span>Nothing to do.</span></div>';
       return;
     }
     taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`;
@@ -335,13 +333,28 @@ async function newTaskQuick() {
   if (await window.editTask(null, { projects, people })) location.reload();
 }
 
+// "New Task" is left out of Quick Actions while My Tasks (which has its
+// own New Task button) is on the Dashboard.
+function tasksWidgetShown() {
+  const w = document.querySelector('[data-widget="tasks"]');
+  return !!w && !w.classList.contains('widget-off') && !w.classList.contains('hidden');
+}
+
 function renderQuickActions() {
   const box = document.getElementById('quick-actions');
-  box.innerHTML = QUICK_ACTIONS.map((a, i) => `<button class="qa-tile" data-no-icon data-i="${i}" style="--qa:${a.color}" title="New ${esc(a.label)}">
-    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text">New ${esc(a.label)}</span></button>`).join('');
+  const skipTask = tasksWidgetShown();
+  box.innerHTML = QUICK_ACTIONS.map((a, i) => (skipTask && a.go === newTaskQuick ? '' : `<button class="qa-tile" data-no-icon data-i="${i}" style="--qa:${a.color}" title="New ${esc(a.label)}">
+    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text">New ${esc(a.label)}</span></button>`)).join('');
   for (const b of box.querySelectorAll('.qa-tile')) b.addEventListener('click', () => QUICK_ACTIONS[Number(b.dataset.i)].go());
 }
 renderQuickActions();
+document.getElementById('tasks-new-btn').addEventListener('click', newTaskQuick);
+// Hiding or showing My Tasks (Customise) brings New Task back, or takes it away.
+new MutationObserver(() => {
+  const shown = tasksWidgetShown();
+  if (shown !== renderQuickActions.lastShown) { renderQuickActions.lastShown = shown; renderQuickActions(); }
+}).observe(document.querySelector('[data-widget="tasks"]'), { attributes: true, attributeFilter: ['class'] });
+renderQuickActions.lastShown = tasksWidgetShown();
 
 window.announcements.render(document.getElementById('announce-bar'));
 document.getElementById('announce-btn').addEventListener('click', () => window.announcements.compose());

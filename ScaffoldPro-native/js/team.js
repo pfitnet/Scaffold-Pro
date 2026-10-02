@@ -36,38 +36,146 @@ function showTab(name) {
 
 // ---- People ----
 
+// People as folders: each team, the people in it (name — title), and the
+// devices each uses. Folders open and close (remembered on this Mac); drag
+// a person onto another team's folder to move them there.
+const FOLDER = '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/></svg>';
+const GLOBE = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2 2.2 2.9 4.5 2.9 7s-.9 4.8-2.9 7c-2-2.2-2.9-4.5-2.9-7S8 5.2 10 3z"/></svg>';
+const CHEVRON = '<svg class="tree-chev" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const NO_TEAM = '';
+
+let collapsed = new Set();
+try { collapsed = new Set(JSON.parse(localStorage.getItem('team.collapsed') || '[]')); } catch (e) { /* ignore */ }
+let extraTeams = [];
+try { extraTeams = JSON.parse(localStorage.getItem('team.extraTeams') || '[]'); } catch (e) { /* ignore */ }
+const saveCollapsed = () => { try { localStorage.setItem('team.collapsed', JSON.stringify([...collapsed])); } catch (e) { /* ignore */ } };
+
+function groups() {
+  const byTeam = new Map();
+  for (const p of team.people) {
+    const k = p.team || NO_TEAM;
+    if (!byTeam.has(k)) byTeam.set(k, []);
+    byTeam.get(k).push(p);
+  }
+  // Teams made here but no one moved in yet.
+  for (const t of extraTeams) if (!byTeam.has(t)) byTeam.set(t, []);
+  // Teams with a director first (e.g. "Director"), then A–Z; no team last.
+  return [...byTeam.entries()].sort(([a, pa], [b, pb]) => {
+    if ((a === NO_TEAM) !== (b === NO_TEAM)) return a === NO_TEAM ? 1 : -1;
+    const da = pa.some((p) => p.canSign), db = pb.some((p) => p.canSign);
+    if (da !== db) return da ? -1 : 1;
+    return a.localeCompare(b);
+  }).map(([name, people]) => [name, people.sort((x, y) => (y.canSign - x.canSign) || x.name.localeCompare(y.name))]);
+}
+
+function deviceRow(d) {
+  const web = /\(web\)$/.test(d.computer);
+  return `<div class="tree-row tree-device${d.outdated ? ' outdated' : ''}">
+    <span class="tree-indent"></span><span class="tree-indent"></span>
+    <span class="tree-icon">${web ? GLOBE : MAC}</span>
+    <span class="tree-label">${esc(d.computer)}</span>
+    <span class="tree-meta">${d.isThisMac ? 'this Mac' : `seen ${esc(when(d.lastSeen))}`}${d.outdated ? ' · needs updating' : ''}</span>
+  </div>`;
+}
+
+function personRow(p) {
+  const key = `p:${p.name}`;
+  const open = !collapsed.has(key);
+  const colour = window.personColor ? window.personColor(p.name) : '#8a8f98';
+  const facts = [p.position && p.position !== p.title ? p.position : null, p.employeeNumber, p.phone].filter(Boolean).map(esc).join(' · ');
+  return `<div class="tree-person${p.isMe ? ' me' : ''}" data-name="${esc(p.name)}" draggable="true">
+    <div class="tree-row tree-head" data-key="${esc(key)}">
+      <span class="tree-indent"></span>
+      <button class="tree-toggle${open ? ' open' : ''}" data-no-icon aria-label="${open ? 'Close' : 'Open'}">${CHEVRON}</button>
+      <span class="tree-avatar" style="background:${colour}">${esc(initials(p.name))}</span>
+      <span class="tree-label"><b>${esc(p.name)}</b>${p.title ? ` <span class="tree-title">— ${esc(p.title)}</span>` : ''}${p.isMe ? ' <span class="you-pill">You</span>' : ''}
+        ${p.canSign ? `<span class="signer-pill small">${PEN} Signs &amp; chops${p.isMe && !p.hasSignature ? ' — <b>add your signature</b>' : ''}</span>` : ''}</span>
+      <span class="tree-meta">${facts}${facts ? ' · ' : ''}${p.devices.length} device${p.devices.length === 1 ? '' : 's'}</span>
+      ${p.isMe ? '' : `<a class="person-chat" href="chat.html?with=${encodeURIComponent(p.name)}" title="Message ${esc(p.name)}" aria-label="Message">💬</a>`}
+      <button class="person-edit" data-no-icon title="Team, title, signing" aria-label="Edit">${EDIT}</button>
+    </div>
+    <div class="tree-children${open ? '' : ' hidden'}">
+      ${p.devices.length ? p.devices.map(deviceRow).join('') : '<div class="tree-row tree-device none"><span class="tree-indent"></span><span class="tree-indent"></span><span class="tree-label">No devices yet</span></div>'}
+    </div>
+  </div>`;
+}
+
 function renderPeople() {
-  const grid = document.getElementById('people-grid');
+  const box = document.getElementById('people-grid');
   document.getElementById('count-people').textContent = team.people.length || '';
   if (!team.people.length) {
-    grid.innerHTML = '<div class="empty-state"><h2>No one yet</h2><p>Enter your name on the User page; everyone sharing the data folder shows here with their Macs.</p></div>';
+    box.innerHTML = '<div class="empty-state"><h2>No one yet</h2><p>Enter your name on the User page; everyone sharing the data folder shows here with their Macs.</p></div>';
     return;
   }
-  grid.innerHTML = team.people.map((p) => {
-    const colour = window.personColor ? window.personColor(p.name) : '#8a8f98';
-    const devices = p.devices.length
-      ? p.devices.map((d) => `<div class="device${d.outdated ? ' outdated' : ''}">${MAC}<span class="device-name">${esc(d.computer)}</span>
-          <span class="device-seen">${d.isThisMac ? 'this Mac' : `seen ${esc(when(d.lastSeen))}`}${d.outdated ? ' · needs updating' : ''}</span></div>`).join('')
-      : '<div class="device none">No devices yet</div>';
-    const facts = [p.position, p.employeeNumber, p.phone].filter(Boolean).map(esc).join(' · ');
-    return `<article class="person-card${p.isMe ? ' me' : ''}" data-name="${esc(p.name)}">
-      <div class="person-head">
-        <span class="person-avatar" style="background:${colour}">${esc(initials(p.name))}</span>
-        <div class="person-id">
-          <div class="person-name">${esc(p.name)}${p.isMe ? ' <span class="you-pill">You</span>' : ''}</div>
-          <div class="person-role">${esc([p.title, p.team && `${p.team} team`].filter(Boolean).join(' · ') || 'No team yet')}</div>
+  const list = groups();
+  box.innerHTML = `<div class="tree-bar">
+      <button id="tree-expand" data-no-icon>Open All</button><button id="tree-collapse" data-no-icon>Close All</button>
+      <span class="toolbar-spacer"></span>
+      <span class="small-note">Drag a person onto a team to move them.</span>
+      <button id="tree-new-team" data-no-icon>+ New Team</button>
+    </div>
+    <div class="tree">${list.map(([name, people]) => {
+      const key = `t:${name}`;
+      const open = !collapsed.has(key);
+      return `<section class="tree-team" data-team="${esc(name)}">
+        <div class="tree-row tree-head team" data-key="${esc(key)}">
+          <button class="tree-toggle${open ? ' open' : ''}" data-no-icon aria-label="${open ? 'Close' : 'Open'}">${CHEVRON}</button>
+          <span class="tree-icon folder">${FOLDER}</span>
+          <span class="tree-label"><b>${esc(name || 'No team')}</b></span>
+          <span class="tree-meta">${people.length} ${people.length === 1 ? 'person' : 'people'}</span>
         </div>
-        ${p.isMe ? '' : `<a class="person-chat" href="chat.html?with=${encodeURIComponent(p.name)}" title="Message ${esc(p.name)}" aria-label="Message">💬</a>`}
-        <button class="person-edit" data-no-icon title="Team, title, signing" aria-label="Edit">${EDIT}</button>
-      </div>
-      ${p.canSign ? `<div class="signer-pill">${PEN} Signs &amp; chops quotations${p.isMe ? (p.hasSignature ? '' : ' — <b>add your signature</b>') : ''}</div>` : ''}
-      ${facts ? `<div class="person-facts">${facts}</div>` : ''}
-      <div class="person-devices">${devices}</div>
-    </article>`;
-  }).join('');
-  for (const card of grid.querySelectorAll('.person-card')) {
-    card.querySelector('.person-edit').addEventListener('click', () => openPerson(team.people.find((p) => p.name === card.dataset.name)));
+        <div class="tree-children${open ? '' : ' hidden'}">${people.length ? people.map(personRow).join('') : '<div class="tree-row tree-empty"><span class="tree-indent"></span><span class="tree-label">Drag people here</span></div>'}</div>
+      </section>`;
+    }).join('')}</div>`;
+
+  // Open and close.
+  for (const head of box.querySelectorAll('.tree-head')) {
+    head.addEventListener('click', (e) => {
+      if (e.target.closest('.person-edit, .person-chat')) return;
+      const k = head.dataset.key;
+      if (collapsed.has(k)) collapsed.delete(k); else collapsed.add(k);
+      saveCollapsed();
+      renderPeople();
+    });
   }
+  for (const row of box.querySelectorAll('.tree-person')) {
+    const p = team.people.find((x) => x.name === row.dataset.name);
+    row.querySelector('.person-edit').addEventListener('click', (e) => { e.stopPropagation(); openPerson(p); });
+    row.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', p.name); e.dataTransfer.effectAllowed = 'move'; row.classList.add('dragging'); });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+  }
+  // Drop a person on a team.
+  for (const folder of box.querySelectorAll('.tree-team')) {
+    folder.addEventListener('dragover', (e) => { e.preventDefault(); folder.classList.add('drop-here'); });
+    folder.addEventListener('dragleave', (e) => { if (!folder.contains(e.relatedTarget)) folder.classList.remove('drop-here'); });
+    folder.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      folder.classList.remove('drop-here');
+      const name = e.dataTransfer.getData('text/plain');
+      const p = team.people.find((x) => x.name === name);
+      const to = folder.dataset.team;
+      if (!p || (p.team || NO_TEAM) === to) return;
+      const r = await window.api.team.setPerson({ name, team: to });
+      if (r && r.ok === false) { await window.appAlert(r.error); return; }
+      extraTeams = extraTeams.filter((t) => t !== to);
+      try { localStorage.setItem('team.extraTeams', JSON.stringify(extraTeams)); } catch (err) { /* ignore */ }
+      collapsed.delete(`t:${to}`);
+      saveCollapsed();
+      await load();
+    });
+  }
+  box.querySelector('#tree-expand').addEventListener('click', () => { collapsed.clear(); saveCollapsed(); renderPeople(); });
+  box.querySelector('#tree-collapse').addEventListener('click', () => {
+    for (const [name, people] of list) { collapsed.add(`t:${name}`); for (const p of people) collapsed.add(`p:${p.name}`); }
+    saveCollapsed(); renderPeople();
+  });
+  box.querySelector('#tree-new-team').addEventListener('click', async () => {
+    const name = (await window.appPrompt('Name of the new team', '', { ok: 'Add Team', placeholder: 'e.g. Drafting Team' }) || '').trim();
+    if (!name) return;
+    if (!extraTeams.includes(name) && !list.some(([t]) => t.toLowerCase() === name.toLowerCase())) extraTeams.push(name);
+    try { localStorage.setItem('team.extraTeams', JSON.stringify(extraTeams)); } catch (e) { /* ignore */ }
+    renderPeople();
+  });
 }
 
 async function preview(which) {
