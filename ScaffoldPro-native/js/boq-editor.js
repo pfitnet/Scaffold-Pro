@@ -142,7 +142,7 @@ function render() {
   document.getElementById('signature-check').checked = !!d.signatureSection;
   const standardBtn = document.getElementById('standard-terms-btn');
   standardBtn.disabled = isIssued;
-  standardBtn.title = 'Put in the standard terms (change them in Settings › BOQ Defaults)';
+  standardBtn.title = 'Put in the standard terms — the same as quotations’ (Settings › Quotations), unless BOQ Defaults has its own';
   termsBox.disabled = isIssued;
   notesBox.disabled = isIssued;
 }

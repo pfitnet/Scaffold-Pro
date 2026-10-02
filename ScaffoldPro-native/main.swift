@@ -2094,9 +2094,10 @@ Delivery charges are to be paid within 7 days against each truck's delivery.
 (iii) Modification : Extra works & modifications of works will be subject to an extra charge.
 """
 
-/// The landscape BOQ's standard terms when none are set in Settings › BOQ
-/// Defaults, so "Use Standard Terms" always has something to put in.
-let defaultBOQTerms = """
+/// What the landscape BOQ's standard terms used to be. A BOQ (or Settings)
+/// still holding exactly these gets the quotations' terms instead — the BOQ
+/// and the quotation now share one set of standard terms.
+let legacyBOQTerms = """
 1. Quantities are estimated from the drawings provided; the quantities actually delivered are charged.
 2. Rental is charged monthly from the date of delivery until the materials are returned.
 3. Lost or damaged materials are charged at the sale price.
@@ -5257,9 +5258,9 @@ final class AppDatabase {
         detail.clientMarkupPercent = client?.defaultMarkupPercent
         detail.clientName = client?.companyName
         detail.chineseNames = chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription })
-        detail.terms = boq.terms
+        detail.terms = boq.terms.map { isLegacyBOQTerms($0) ? standardBOQTerms() : $0 }
         detail.signatureSection = boq.signatureSection == true
-        detail.standardTerms = getCompanySettings().boqTerms ?? defaultBOQTerms
+        detail.standardTerms = standardBOQTerms()
         detail.language = boq.language
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         detail.lineSort = boq.lineSort ?? "code"
@@ -6330,6 +6331,20 @@ final class AppDatabase {
             }
         }
         return (found > 0 ? doubleOf(kg) : nil, missing)
+    }
+
+    /// The landscape BOQ's standard terms ("Use Standard Terms"): its own
+    /// from Settings › BOQ Defaults if set, else the same standard terms as
+    /// quotations (Settings › Quotations, else the built-in ones).
+    func standardBOQTerms() -> String {
+        let settings = getCompanySettings()
+        if let own = settings.boqTerms, !isLegacyBOQTerms(own) { return own }
+        return settings.quotationTerms ?? defaultQuotationTerms
+    }
+
+    func isLegacyBOQTerms(_ text: String) -> Bool {
+        let squash = { (t: String) in t.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ") }
+        return squash(text) == squash(legacyBOQTerms)
     }
 
     func getQuotationDetail(id: String) -> QuotationDetail? {

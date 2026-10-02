@@ -2317,3 +2317,25 @@ under "Letterhead layout".
   - Lines read "Delivery of materials (2 – 6 tons) (from yard to site and
     from site to yard)", in truck/trip.
   - If no material has a weight, you pick the band yourself.
+
+## Batch 89 — BOQ terms match quotations; picker with no cut; New Task hover
+
+- **Landscape BOQ terms:** the standard terms are now the same as
+  quotations' standard key terms (Settings › Quotations, else the built-in
+  "(i) Payment … (ii) Delivery … (iii) Modification …").
+  - BOQs that still hold the old built-in four lines ("1. Quantities are
+    estimated …") show and print the quotation terms instead.
+  - "Use Standard Terms" puts these in.
+  - Settings › BOQ Defaults can still hold different terms for BOQs; leave
+    it blank to share the quotation terms.
+- **"Add Materials" list, no hard cut:**
+  - Each bracket's heading stays at the top of the list while its items
+    scroll under it.
+  - The bottom edge fades out softly while there are more items below, and
+    is crisp again at the end of the list.
+  - The list uses more of the window's height.
+  - This applies in BOQs, quotations, invoices and delivery notes.
+- **New Task hover:** New Task is now the same button as the Quick Actions
+  ones, so it highlights as one rounded tile, not as separate boxes. Its
+  icon still lines up with the tick boxes and its name with the task
+  titles, at full and ¼ width.

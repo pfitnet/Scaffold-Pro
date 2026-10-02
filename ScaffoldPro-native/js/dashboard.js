@@ -273,14 +273,13 @@ async function loadDashboard() {
     renderMyTasks(fresh);
   };
   // "New Task" first, as a Quick Actions tile, then the tasks. It's the
-  // table's first row, so its icon lines up with the tick boxes and its
-  // name with the tasks' titles at every width.
+  // table's first row (one Quick Actions button across it), with its icon
+  // over the tick boxes and its name over the tasks' titles.
   const renderMyTasks = (rows) => {
     taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${newTaskRowHTML()}${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>` +
       (rows.length ? '' : '<div class="empty-widget"><span>Nothing to do.</span></div>');
     const add = taskBox.querySelector('#tasks-new-btn');
     add.addEventListener('click', newTaskQuick);
-    add.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); newTaskQuick(); } });
     if (!rows.length) return;
     window.wireTaskRows(taskBox, rows, reloadTasks, { projects });
     limitList(taskBox);
@@ -334,8 +333,8 @@ const QUICK_ACTIONS = [
 // The New Task row at the top of My Tasks — the Quick Actions look.
 function newTaskRowHTML() {
   const a = QUICK_ACTIONS.find((x) => x.go === newTaskQuick);
-  return `<tr class="task-new-row" id="tasks-new-btn" role="button" tabindex="0" style="--qa:${a.color}" title="New Task">
-    <td class="task-check"><span class="qa-icon">${QA_SVG(a.icon)}</span></td><td colspan="3"><span class="qa-text">New Task</span></td></tr>`;
+  return `<tr class="task-new-row"><td colspan="4"><button type="button" class="qa-tile" id="tasks-new-btn" data-no-icon style="--qa:${a.color}" title="New Task">
+    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text">New Task</span></button></td></tr>`;
 }
 
 async function newTaskQuick() {

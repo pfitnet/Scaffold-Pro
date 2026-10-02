@@ -111,6 +111,23 @@
     container.innerHTML = '';
     container.appendChild(fragment);
     container.scrollTop = scroll;
+    watchEdges(container);
+  }
+
+  // No hard cut where the list's box ends: each box's heading stays at the
+  // top while its items scroll under it, and the bottom edge fades out while
+  // there's more below (it's crisp again at the end of the list).
+  const watched = new WeakSet();
+  function edges(container) {
+    const more = container.scrollTop + container.clientHeight < container.scrollHeight - 2;
+    container.classList.toggle('more-below', more);
+  }
+  function watchEdges(container) {
+    edges(container);
+    if (watched.has(container)) return;
+    watched.add(container);
+    container.addEventListener('scroll', () => edges(container), { passive: true });
+    new ResizeObserver(() => edges(container)).observe(container);
   }
 
   window.renderPickerGroups = function renderPickerGroups(container, items, headHTML, makeRow) {
