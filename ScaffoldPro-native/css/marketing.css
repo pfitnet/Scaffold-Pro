@@ -1,0 +1,153 @@
+/* Marketing › Overview (js/marketing-overview.js): an interactive look at how
+   quotations turn into work. Colours for the data: one blue in two steps —
+   the stronger step is "won", the lighter one "not won yet" (checked for
+   colour-blind readers and contrast on both surfaces). */
+.mo-viz {
+  --viz-won: #256abf;
+  --viz-open: #86b6ef;
+  --viz-grid: rgba(0, 0, 0, 0.07);
+  --viz-wash: rgba(36, 99, 199, 0.06);
+}
+@media (prefers-color-scheme: dark) {
+  .mo-viz {
+    --viz-won: #6da7ec;
+    --viz-open: #1c5cab;
+    --viz-grid: rgba(255, 255, 255, 0.08);
+    --viz-wash: rgba(109, 167, 236, 0.08);
+  }
+}
+
+/* Filters: one row above everything they change. */
+.mo-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; }
+.mo-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mo-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); animation: mo-pop .18s ease; }
+.mo-chip button { width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: transparent; box-shadow: none; color: inherit;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.mo-chip button:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+@keyframes mo-pop { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.mo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.mo-grid > .panel { margin: 0; min-width: 0; }
+.mo-hero { grid-column: 1 / -1; }
+.mo-clients { grid-column: 1; grid-row: 2; }
+.mo-sources { grid-column: 1; grid-row: 3; }
+.mo-list { grid-column: 2 / -1; grid-row: 2 / span 2; display: flex; flex-direction: column; }
+@media (max-width: 1100px) {
+  .mo-grid { grid-template-columns: minmax(0, 1fr); }
+  .mo-hero, .mo-clients, .mo-sources, .mo-list { grid-column: 1; grid-row: auto; }
+}
+.mo-panel-note { font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-tertiary); }
+
+/* The headline: one big number, its win rate, and a few figures beside it. */
+.mo-hero-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 18px; }
+.mo-figure { min-width: 240px; }
+.mo-kicker { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-secondary); }
+.mo-big { font-size: 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 4px; }
+.mo-big small { font-size: 22px; font-weight: 600; color: var(--text-secondary); letter-spacing: -0.01em; margin-right: 6px; }
+.mo-sub { font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mo-delta { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; padding: 1px 7px; border-radius: 999px; font-size: 12px; }
+.mo-delta.up { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.mo-delta.down { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.mo-delta.flat { color: var(--text-secondary); background: var(--hairline); }
+.mo-meter { margin-top: 12px; width: 260px; max-width: 100%; height: 8px; border-radius: 4px; background: var(--viz-open); overflow: hidden; }
+.mo-meter.none { background: var(--hairline); }
+.mo-meter-fill { height: 100%; width: 0; border-radius: 4px; background: var(--viz-won); transition: width .7s cubic-bezier(.2, .8, .2, 1); }
+.mo-meter-label { margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
+.mo-meter-label b { color: var(--text); font-weight: 650; }
+.mo-kpis { display: grid; grid-template-columns: repeat(3, minmax(120px, auto)); gap: 10px; }
+.mo-kpi { padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--text) 3.5%, transparent); border: 1px solid var(--hairline); }
+.mo-kpi-label { font-size: 11.5px; color: var(--text-secondary); }
+.mo-kpi-value { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; margin-top: 2px; white-space: nowrap; }
+.mo-kpi-sub { font-size: 11.5px; color: var(--text-tertiary); margin-top: 1px; white-space: nowrap; }
+@media (max-width: 760px) { .mo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mo-big { font-size: 40px; } }
+
+/* The month chart. */
+.mo-chart { position: relative; height: 250px; user-select: none; }
+.mo-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mo-chart .tick text { font-size: 11px; fill: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.mo-chart .tick line { stroke: var(--viz-grid); stroke-width: 1; shape-rendering: crispEdges; }
+.mo-chart .baseline { stroke: color-mix(in srgb, var(--text) 22%, transparent); stroke-width: 1; shape-rendering: crispEdges; }
+.mo-chart .xlab { font-size: 11.5px; fill: var(--text-secondary); text-anchor: middle; }
+.mo-chart .xlab.year { fill: var(--text-tertiary); font-size: 10.5px; }
+.mo-chart .seg-won { fill: var(--viz-won); }
+.mo-chart .seg-open { fill: var(--viz-open); }
+.mo-chart .bars { transform-box: fill-box; transform-origin: bottom; }
+.mo-chart.grow .bars { animation: mo-grow .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d, 0s); }
+@keyframes mo-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.mo-chart .col { cursor: pointer; outline: none; }
+.mo-chart .col .hit { fill: transparent; }
+.mo-chart .col:hover .hit, .mo-chart .col:focus-visible .hit { fill: var(--viz-wash); }
+.mo-chart .col:focus-visible .hit { stroke: var(--accent); stroke-width: 1.5; }
+.mo-chart .col .bars, .mo-chart .col .cap { transition: opacity .25s ease; }
+.mo-chart.picking .col:not(.on) .bars, .mo-chart.picking .col:not(.on) .cap { opacity: .28; }
+.mo-chart .col.on .hit { fill: var(--viz-wash); }
+.mo-chart .cap { font-size: 11.5px; font-weight: 650; fill: var(--text); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.mo-chart .cap.soft { font-weight: 500; fill: var(--text-secondary); }
+.mo-chart-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-tertiary); font-size: 13px; }
+
+.mo-chart-foot { display: flex; align-items: center; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+.mo-legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.mo-key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 8px; }
+.mo-key:first-child { margin-left: 0; }
+.mo-key.won { background: var(--viz-won); }
+.mo-key.open { background: var(--viz-open); }
+.mo-hint { font-size: 12px; color: var(--text-tertiary); margin-left: auto; }
+.mo-table { margin-top: 12px; }
+.mo-table table { font-variant-numeric: tabular-nums; }
+
+/* The hover card. */
+.mo-tip { position: fixed; z-index: 70; pointer-events: none; min-width: 190px; padding: 10px 12px; border-radius: 10px; background: var(--panel);
+  border: 1px solid var(--border); box-shadow: var(--shadow-menu); font-size: 12px; transition: opacity .12s; }
+.mo-tip-title { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+.mo-tip-value { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.mo-tip-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.mo-tip-row .k { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+.mo-tip-row .k.won { background: var(--viz-won); }
+.mo-tip-row .k.open { background: var(--viz-open); }
+.mo-tip-row .v { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
+.mo-tip-row .n { color: var(--text-secondary); }
+.mo-tip-foot { margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--hairline); color: var(--text-tertiary); }
+
+/* Leaderboards: Top Clients and lead sources. */
+.mo-board { display: flex; flex-direction: column; gap: 2px; }
+.mo-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "rank name val" "rank bar bar" "rank sub sub";
+  gap: 3px 10px; align-items: center; padding: 8px 8px 9px; border-radius: 9px; border: 1px solid transparent; text-align: left; width: 100%;
+  background: transparent; box-shadow: none; font: inherit; color: var(--text); transition: background .15s, border-color .15s, opacity .25s; }
+button.mo-row { cursor: pointer; }
+button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: transparent; }
+.mo-row.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.mo-board.picking .mo-row:not(.on) { opacity: .45; }
+.mo-rank { grid-area: rank; align-self: start; margin-top: 1px; width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700; color: var(--text-secondary); background: color-mix(in srgb, var(--text) 6%, transparent); }
+.mo-row:nth-child(1) .mo-rank { color: var(--accent); background: var(--accent-soft); }
+.mo-name { grid-area: name; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-val { grid-area: val; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mo-bar { grid-area: bar; display: flex; gap: 2px; height: 8px; }
+.mo-bar i { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: mo-bar-in .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d, 0s); }
+.mo-bar i:last-child { border-radius: 0 4px 4px 0; }
+.mo-bar i.won { background: var(--viz-won); }
+.mo-bar i.open { background: var(--viz-open); }
+@keyframes mo-bar-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.mo-sub-line { grid-area: sub; font-size: 11.5px; color: var(--text-secondary); }
+.mo-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 6px 2px; color: var(--text-tertiary); font-size: 13px; line-height: 1.45; }
+
+/* The quotations behind what's picked. */
+.mo-quotes { display: flex; flex-direction: column; }
+.mo-quote { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 9px 8px; border-radius: 8px; color: var(--text); text-decoration: none;
+  border-bottom: 1px solid var(--hairline); animation: mo-fade .3s ease both; animation-delay: var(--d, 0s); }
+.mo-quote:last-child { border-bottom: none; }
+.mo-quote:hover { background: var(--viz-wash); }
+.mo-quote .num { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.mo-quote .who { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-quote .amt { font-weight: 650; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.mo-quote .when { font-size: 12px; color: var(--text-tertiary); text-align: right; }
+.mo-pill { font-size: 10.5px; font-weight: 650; padding: 1px 7px; border-radius: 999px; letter-spacing: .02em; display: inline-flex; align-items: center; gap: 4px; }
+.mo-pill.won { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+.mo-pill.wait { color: var(--text-secondary); background: color-mix(in srgb, var(--text) 7%, transparent); }
+@keyframes mo-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mo-chart.grow .bars, .mo-bar i, .mo-quote, .mo-chip { animation: none; }
+  .mo-meter-fill { transition: none; }
+}

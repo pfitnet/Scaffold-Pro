@@ -22,10 +22,6 @@ function short(v) {
   if (n >= 1e3) return `${(n / 1e3).toLocaleString('en-US', { maximumFractionDigits: 0 })}k`;
   return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
-function monthName(key) {
-  const [y, m] = key.split('-').map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' });
-}
 function today() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -49,36 +45,6 @@ function renderStats() {
     card(`${Math.round(summary.winRate * 100)}%`, `Won — ${summary.wonCount} of ${summary.quotedCount}`) +
     card(`${cur} ${short(summary.averageQuote)}`, 'Average quotation') +
     card(`${summary.openLeads}`, `Open leads · ${cur} ${short(summary.pipelineValue)} estimated`);
-}
-
-function renderChart() {
-  const max = Math.max(1, ...summary.months.map((m) => m.quotedValue));
-  document.getElementById('mk-chart').innerHTML = summary.months.map((m) => {
-    const won = m.quotedCount ? m.quotedValue * (m.wonCount / m.quotedCount) : 0;
-    return `<div class="mk-bar-stack" title="${esc(monthName(m.month))}: ${m.quotedCount} sent (${money(m.quotedValue)}), ${m.wonCount} won">
-      <div class="quoted mk-q" style="height:${(m.quotedValue / max) * 100}%"></div>
-      <div class="won" style="height:${(won / max) * 100}%"></div></div>`;
-  }).join('');
-  document.getElementById('mk-months').innerHTML = summary.months.map((m) => `<div>${esc(monthName(m.month))}</div>`).join('');
-}
-
-function renderClients() {
-  const box = document.getElementById('mk-clients');
-  if (!summary.topClients.length) { box.innerHTML = '<div class="empty-inline">No quotations or invoices yet.</div>'; return; }
-  box.innerHTML = `<table class="compact"><tbody>${summary.topClients.map((c) => `
-    <tr class="display-row">
-      <td><strong>${esc(c.name)}</strong><div class="sub">${c.quotations} quotation${c.quotations === 1 ? '' : 's'} · ${c.won} won${c.lastActivity ? ` · last ${esc(c.lastActivity)}` : ''}</div></td>
-      <td class="num">${money(c.invoiced)}<div class="sub">invoiced</div></td></tr>`).join('')}</tbody></table>`;
-  // For reading only: the client's details are changed on Clients & Sites.
-}
-
-function renderSources() {
-  const box = document.getElementById('mk-sources');
-  const entries = Object.entries(summary.leadSources || {}).sort((a, b) => b[1] - a[1]);
-  if (!entries.length) { box.innerHTML = '<div class="empty-inline">Add leads (and where they came from) to see which channels bring work.</div>'; return; }
-  const max = Math.max(...entries.map((e) => e[1]));
-  box.innerHTML = `<div class="mk-sources">${entries.map(([k, v]) => `<div class="mk-source"><span>${esc(k)}</span>
-    <div class="track"><div class="fill" style="width:${(v / max) * 100}%"></div></div><span class="num">${v}</span></div>`).join('')}</div>`;
 }
 
 // ---- follow-ups ----
@@ -219,9 +185,7 @@ async function load() {
   if (!summary) return;
   await window.loadPersonColors();
   renderStats();
-  renderChart();
-  renderClients();
-  renderSources();
+  window.marketingOverview.render(summary, leads);
   renderFollowUps();
   renderBoard();
   renderReferences();

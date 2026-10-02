@@ -238,6 +238,24 @@ struct MarketingMonth: Codable {
     var wonCount: Int
 }
 
+/// One quotation sent in the last 12 months, for Marketing's interactive
+/// overview (filtering by month and client, and the list under the chart).
+struct MarketingQuote: Codable {
+    var id: String
+    var number: String
+    /// yyyy-MM-dd and yyyy-MM.
+    var date: String
+    var month: String
+    var clientId: String?
+    var clientName: String?
+    var projectNumber: String?
+    var projectName: String?
+    var subject: String?
+    var value: Double
+    /// Invoiced or signed and chopped by the client.
+    var won: Bool
+}
+
 struct MarketingClient: Codable {
     var id: String
     var name: String
@@ -285,6 +303,8 @@ struct MarketingSummary: Codable {
     var pipelineValue: Double
     var leadSources: [String: Int]
     var topClients: [MarketingClient]
+    /// Every quotation behind `months`, newest first.
+    var quotes: [MarketingQuote] = []
     var followUps: [MarketingFollowUp]
     var references: [ProjectReference]
 }
@@ -3648,10 +3668,16 @@ final class AppDatabase {
         let monthKeys = (0..<12).reversed().compactMap { calendar.date(byAdding: .month, value: -$0, to: thisMonth) }.map { monthFormat.string(from: $0) }
         var months = Dictionary(uniqueKeysWithValues: monthKeys.map { ($0, MarketingMonth(month: $0, quotedCount: 0, quotedValue: 0, wonCount: 0)) })
         var quotedValue = Decimal(0), quotedCount = 0, wonCount = 0
+        var quotes: [MarketingQuote] = []
         for q in sent {
             let key = String(localDay(q.quotationDate).prefix(7))
             guard months[key] != nil else { continue }
             let v = value(q)
+            let project = projectById[q.projectId]
+            quotes.append(MarketingQuote(id: q.id, number: q.quotationNumber, date: localDay(q.quotationDate), month: key,
+                                         clientId: project?.clientId, clientName: project.flatMap { clientName[$0.clientId] },
+                                         projectNumber: project?.projectNumber, projectName: project?.name,
+                                         subject: nonBlank(q.subject), value: v, won: isWon(q)))
             months[key]!.quotedCount += 1
             months[key]!.quotedValue = doubleOf(decimalOf(months[key]!.quotedValue) + decimalOf(v))
             quotedCount += 1
@@ -3739,7 +3765,8 @@ final class AppDatabase {
             averageQuote: quotedCount > 0 ? doubleOf(roundToCents(quotedValue / Decimal(quotedCount))) : 0,
             newClients: clients.filter { !$0.isArchived && String(localDay($0.createdAt).prefix(7)) >= yearAgo }.count,
             openLeads: open.count, pipelineValue: doubleOf(open.reduce(Decimal(0)) { $0 + decimalOf($1.estimatedValue ?? 0) }),
-            leadSources: sources, topClients: topClients, followUps: Array(followUps.prefix(60)), references: references)
+            leadSources: sources, topClients: topClients, quotes: quotes.sorted { ($0.date, $0.number) > ($1.date, $1.number) },
+            followUps: Array(followUps.prefix(60)), references: references)
     }
 
     // ---- The user: their colour and their own work ----
