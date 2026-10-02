@@ -62,9 +62,12 @@ function renderLinkedBar() {
   bar.classList.toggle('hidden', !list.length);
   if (!list.length) return;
   const e = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  bar.innerHTML = `<strong>Linked</strong> with ${list.map((q) => `<span class="linked-doc"><a href="quotation-editor.html?id=${encodeURIComponent(q.id)}">${e(q.number)}</a>${q.status !== 'Draft' ? ` <span class="muted">(${e(q.status.toLowerCase())} — not changed)</span>` : ''}
-    <button data-unlink="${e(q.id)}" data-number="${e(q.number)}" title="Stop keeping ${e(q.number)} the same as this BOQ">Remove Link</button></span>`).join(', ')}
-    — a change here is made there too, and the other way round.`;
+  // Just the buttons for each linked quotation: View it, or Remove Link
+  // (what the link does is in the link mark's tooltip).
+  const mark = `<span class="link-mark" title="Linked: a change here is made to ${list.length === 1 ? 'the quotation' : 'these quotations'} too, and the other way round"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1"/></svg><span class="sr-only">Linked</span></span>`;
+  bar.innerHTML = mark + list.map((q) => `<span class="linked-doc">
+    <a class="button-like" href="quotation-editor.html?id=${encodeURIComponent(q.id)}"${q.status !== 'Draft' ? ` title="${e(q.status)} — not changed with the BOQ"` : ''}>View ${e(q.number)}</a>
+    <button data-unlink="${e(q.id)}" data-number="${e(q.number)}" title="Stop keeping ${e(q.number)} the same as this BOQ">Remove Link</button></span>`).join('');
   for (const b of bar.querySelectorAll('[data-unlink]')) {
     b.addEventListener('click', async () => {
       if (!await appConfirm(`Remove the link between this BOQ and ${b.dataset.number}?\n\nBoth stay as they are now; after this, changing one no longer changes the other.`)) return;

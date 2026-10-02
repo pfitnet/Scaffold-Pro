@@ -1383,3 +1383,7 @@ table.delivery-rates input { width: 110px; text-align: right; }
   .doc-titlebar { grid-template-columns: minmax(0, 1fr); }
   .doc-titlebar > .doc-authors-side { grid-column: 1; grid-row: auto; justify-self: start; text-align: left; white-space: normal; margin: -14px 0 14px; }
 }
+
+/* A linked BOQ and quotation: the link mark before View / Remove Link. */
+.link-mark { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
+  color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); cursor: help; flex: none; }

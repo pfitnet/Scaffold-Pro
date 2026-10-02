@@ -107,11 +107,17 @@ function render() {
   document.getElementById('import-boq-btn').disabled = isLocked;
   // Linked: kept the same as the BOQ, both ways, until the link is removed.
   const note = document.getElementById('boq-reference-note');
-  note.classList.toggle('linked', !!d.boqLinked);
-  note.textContent = d.boqLinked
-    ? `Linked to ${d.sourceBOQNumber} — a change to either is made to the other${d.sourceBOQStatus && d.sourceBOQStatus !== 'Draft' ? ` (while both are Drafts; ${d.sourceBOQNumber} is ${d.sourceBOQStatus.toLowerCase()})` : ''}${isLocked ? ' (while this quotation is a Draft)' : ''}`
-    : d.sourceBOQNumber ? `Items from ${d.sourceBOQNumber} — not linked` : 'Not linked to a BOQ';
-  document.getElementById('unlink-boq-btn').classList.toggle('hidden', !d.boqLinked);
+  // Linked: the row is just its buttons — View the BOQ, or Remove Link — with
+  // what the link does in the link mark's tooltip.
+  note.classList.toggle('hidden', !!d.boqLinked);
+  note.textContent = d.sourceBOQNumber ? `Items from ${d.sourceBOQNumber} — not linked` : 'Not linked to a BOQ';
+  document.getElementById('boq-link-actions').classList.toggle('hidden', !d.boqLinked);
+  if (d.boqLinked) {
+    document.getElementById('boq-link-mark').title = `Linked to ${d.sourceBOQNumber} — a change to either is made to the other${d.sourceBOQStatus && d.sourceBOQStatus !== 'Draft' ? ` (while both are Drafts; ${d.sourceBOQNumber} is ${d.sourceBOQStatus.toLowerCase()})` : ''}${isLocked ? ' (while this quotation is a Draft)' : ''}`;
+    const view = document.getElementById('view-boq-btn');
+    view.textContent = `View ${d.sourceBOQNumber}`;
+    view.href = `boq-editor.html?id=${encodeURIComponent(d.sourceBOQId)}`;
+  }
   // Linked: it follows that BOQ only — no importing from another one
   // (remove the link first).
   const toggle = document.getElementById('boq-import-toggle');
