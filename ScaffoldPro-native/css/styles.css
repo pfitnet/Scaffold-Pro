@@ -782,7 +782,12 @@ th.check-col, td.check-col { display: none; }
 tr.row-selected td { background: var(--accent-soft) !important; }
 
 /* "Add Materials": a box per category (js/item-picker.js). */
-.picker-group { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px; overflow: hidden; }
+.picker-results { max-height: max(360px, calc(100vh - 300px)); overflow-y: auto; overscroll-behavior: contain; --fade: 0px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent 100%); mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent 100%); }
+.picker-results.more-below { --fade: 64px; }
+/* overflow: clip (not hidden) rounds the corners without stopping the heading from sticking. */
+.picker-group { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px; overflow: clip; }
+.picker-results .picker-group-head { position: sticky; top: 0; z-index: 2; }
 .picker-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 10px; background: var(--header-bg); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12.5px; }
 .picker-group-count { font-weight: 400; font-size: 11px; color: var(--text-tertiary); }
 .picker-group-table { width: 100%; margin: 0; table-layout: fixed; }
@@ -829,7 +834,7 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .pin-btn:hover { opacity: 1; color: var(--warning); background: transparent; }
 .pin-btn.pinned { opacity: 1; color: #e0a800; }
 .picker-pinned { border-color: rgba(224, 168, 0, 0.55); }
-.picker-pinned .picker-group-head { background: rgba(224, 168, 0, 0.10); }
+.picker-pinned .picker-group-head { background: linear-gradient(rgba(224, 168, 0, 0.10), rgba(224, 168, 0, 0.10)), var(--panel); }
 
 /* Dashboard: a quotation's monthly and one-time charges. */
 .charge-line { white-space: nowrap; line-height: 1.35; }
@@ -940,14 +945,10 @@ td.task-check { width: 28px; }
 td.task-check input { margin-top: 2px; }
 /* My Tasks: tick boxes centred in their column, under the New Task icon. */
 #my-tasks-list td.task-check { width: 32px; text-align: center; }
-#my-tasks-list tr.task-new-row { cursor: pointer; }
-#my-tasks-list tr.task-new-row td { vertical-align: middle; padding-top: 5px; padding-bottom: 5px; border-top: none; }
-#my-tasks-list tr.task-new-row .qa-icon { display: flex; margin: 0 auto; }
-#my-tasks-list tr.task-new-row:hover td { background: color-mix(in srgb, var(--qa) 9%, transparent); }
-#my-tasks-list tr.task-new-row:hover td:first-child { border-radius: 9px 0 0 9px; }
-#my-tasks-list tr.task-new-row:hover td:last-child { border-radius: 0 9px 9px 0; }
-#my-tasks-list tr.task-new-row:active { transform: scale(0.99); }
-#my-tasks-list tr.task-new-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* New Task: one Quick Actions button across the first row — the row itself
+   never highlights; the icon sits over the tick boxes, the name over the titles. */
+#my-tasks-list tr.task-new-row td, #my-tasks-list tr.task-new-row:hover td { padding: 3px 0 5px; border-top: none; background: transparent; }
+#my-tasks-list tr.task-new-row .qa-tile { margin-left: -6px; width: calc(100% + 6px); padding-left: 7px; gap: 6px; }
 tr.task-done .task-title { text-decoration: line-through; color: var(--text-tertiary); }
 .task-overdue { color: var(--danger); font-weight: 500; }
 .status-pill.task-high { font-size: 10px; padding: 0 6px; }
@@ -1037,9 +1038,9 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
   table.compact.task-table td:not(:first-child) { grid-column: 2; }
   #my-tasks-list table.compact.task-table tr { grid-template-columns: 32px minmax(0, 1fr); }
   #my-tasks-list table.compact.task-table td:first-child { justify-self: center; }
-  #my-tasks-list table.compact tr.task-new-row { align-items: center; padding: 5px 4px; }
-  #my-tasks-list table.compact tr.task-new-row td:first-child { grid-row: auto; padding-top: 0; }
-  #my-tasks-list table.compact tr.task-new-row:hover { background: color-mix(in srgb, var(--qa) 9%, transparent); }
+  #my-tasks-list table.compact tr.task-new-row { display: block; padding: 2px 0 6px; }
+  #my-tasks-list table.compact.task-table tr.task-new-row td { padding: 0; justify-self: stretch; }
+  #my-tasks-list table.compact tr.task-new-row .qa-tile { margin-left: -2px; width: calc(100% + 2px); padding-left: 7px; gap: 12px; }
 }
 
 /* "and 7 more" under a Dashboard list. */
