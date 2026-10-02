@@ -2392,3 +2392,15 @@ under "Letterhead layout".
   a border all round its heading, never a square-cornered cut. The extra
   rounded box inside each bracket (around the column headings and rows) is
   gone, so each bracket is one clean box.
+
+## Batch 93 — Quotation Page setting (and director signing) remembered
+
+- **Fixed:** a quotation's Page setting snapped back to "Portrait —
+  letterhead". Quotations are loaded by a hand-written reader that keeps
+  older files loading, and it didn't know about the new Page field, so
+  "Landscape" was saved and then forgotten on the next load. It reads it
+  now.
+- The same reader also dropped a director's "Signed & Chopped" record (the
+  signed PDF, when and by whom). That's now kept too.
+- No other record type uses a hand-written reader, so nothing else was
+  affected.
