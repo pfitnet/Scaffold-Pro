@@ -2283,3 +2283,37 @@ under "Letterhead layout".
 - The month figures now come from the quotations themselves
   (`MarketingSummary.quotes`), so the won value is exact rather than an
   average.
+
+## Batch 88 — Delivery charges by weight
+
+- **New standard delivery charges** (per truck per trip, by the weight on
+  the truck):
+
+  | Weight | Charge |
+  |---|---|
+  | Under 500 kg | $1,200 |
+  | 500 kg – 1 ton | $1,800 |
+  | 1 – 2 tons | $2,200 |
+  | 2 – 6 tons | $3,300 |
+  | 6 – 8 tons | $3,800 |
+
+- **Settings › Quotations › Delivery charges by weight** is a table you can
+  change:
+  - "Up to (kg)" and the charge for each band.
+  - Bands are named for you (e.g. "2 – 6 tons").
+  - There's a spare row for a heavier band.
+  - "Use the standard rates" puts the bands above back.
+  - The single "Standard delivery charge" field is gone.
+- **"+ Delivery Charge" on a quotation** opens a sheet:
+  - It shows the materials' weight. Each item's weight comes from the
+    material list: by the item it was picked from, else the same code, else
+    the same name. Items with no weight are counted.
+  - It picks the matching band, marked Suggested. Any other band can be
+    chosen.
+  - Over 8 tons, it suggests a split: full trucks at 6 – 8 tons and the rest
+    at its own band (e.g. 10,240 kg → 1 × 6 – 8 tons + 1 × 2 – 6 tons).
+  - Trucks and trips per truck can be set (2 = delivery and collection). A
+    preview shows each D-line and the total before anything is added.
+  - Lines read "Delivery of materials (2 – 6 tons) (from yard to site and
+    from site to yard)", in truck/trip.
+  - If no material has a weight, you pick the band yourself.

@@ -568,20 +568,28 @@ async function saveLetterField(field, value) {
   await loadDetail();
 }
 
+// "+ Delivery Charge": priced by the materials' weight (Settings ›
+// Quotations › Delivery charges by weight) — see js/delivery-rates.js.
 async function addDeliveryCharge() {
-  const price = currentDetail.standardDeliveryCharge;
-  const r = await window.api.quotations.addLineItem({
-    quotationId: quotationId,
-    sourceKey: null,
-    priceListItemId: null,
-    itemCode: '',
-    description: 'Delivery of materials\n(from yard to site and from site to yard)',
-    unit: 'truck/trip',
-    quantity: 2,
-    appliedUnitPrice: price == null ? 0 : price,
-    section: 'Delivery',
+  const d = currentDetail;
+  const lines = await window.deliveryRates.open({
+    rates: d.deliveryRates, kg: d.materialsWeightKg || 0, missing: d.materialsWeightKg ? d.linesWithoutWeight : 0, currency: currencyLabel || 'HK$',
   });
-  if (!r.ok) { alert(r.error); return; }
+  if (!lines) return;
+  for (const l of lines) {
+    const r = await window.api.quotations.addLineItem({
+      quotationId: quotationId,
+      sourceKey: null,
+      priceListItemId: null,
+      itemCode: '',
+      description: `Delivery of materials (${l.label})\n(from yard to site and from site to yard)`,
+      unit: 'truck/trip',
+      quantity: l.trucks * l.trips,
+      appliedUnitPrice: l.price,
+      section: 'Delivery',
+    });
+    if (!r.ok) { alert(r.error); break; }
+  }
   await loadDetail();
 }
 

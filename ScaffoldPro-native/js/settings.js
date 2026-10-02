@@ -42,6 +42,39 @@ function readManpowerRates() {
   }
   return out;
 }
+// Delivery charges by weight: six rows (a blank "up to" leaves the row out).
+function renderDeliveryRates(rates) {
+  const list = (rates && rates.length ? rates : window.deliveryRates.DEFAULT).map((r) => Object.assign({}, r)).slice(0, 6);
+  while (list.length < 6) list.push({ upToKg: '', price: '' });
+  const body = document.getElementById('delivery-rates-body');
+  body.innerHTML = list.map((r, i) => `
+    <tr>
+      <td class="dr-band-label" id="dr-label-${i}"></td>
+      <td class="num"><input type="number" id="dr-kg-${i}" min="1" step="1" value="${escAttr(r.upToKg)}" placeholder="kg" /></td>
+      <td class="num"><input type="number" id="dr-price-${i}" min="0" step="0.01" value="${escAttr(r.price)}" /></td>
+    </tr>`).join('');
+  const labels = () => {
+    const filled = readDeliveryRates();
+    for (let i = 0; i < 6; i++) {
+      const kg = Number(document.getElementById(`dr-kg-${i}`).value);
+      const at = filled.findIndex((r) => r.upToKg === kg);
+      document.getElementById(`dr-label-${i}`).textContent = kg > 0 && at >= 0 ? window.deliveryRates.label(filled, at) : '—';
+    }
+  };
+  body.oninput = labels;
+  labels();
+}
+
+function readDeliveryRates() {
+  const out = [];
+  for (let i = 0; i < 6; i++) {
+    const kg = Number(document.getElementById(`dr-kg-${i}`).value);
+    const price = document.getElementById(`dr-price-${i}`).value;
+    if (!(kg > 0) || price === '') continue;
+    out.push({ upToKg: kg, price: Number(price) || 0 });
+  }
+  return out.sort((a, b) => a.upToKg - b.upToKg);
+}
 let currentAppearance = 'System';
 
 // ---------- BOQ Defaults: materials every new BOQ starts with ----------
@@ -138,7 +171,7 @@ async function loadSettings() {
   }
   if (!settings.paperSize) document.getElementById('paperSize-input').value = 'A4';
   for (const f of QUOTE_TEXT_FIELDS) document.getElementById(`${f}-input`).value = settings[f] || '';
-  document.getElementById('standardDeliveryCharge-input').value = settings.standardDeliveryCharge ?? '';
+  renderDeliveryRates(settings.deliveryRates);
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
   document.getElementById('minimumMonthlyRental-input').value = settings.minimumMonthlyRental ?? 1000;
   document.getElementById('boqTerms-input').value = settings.boqTerms || '';
@@ -175,8 +208,7 @@ async function saveSettings() {
     payload[f] = v;
   }
   for (const f of QUOTE_TEXT_FIELDS) payload[f] = document.getElementById(`${f}-input`).value;
-  const delivery = document.getElementById('standardDeliveryCharge-input').value;
-  payload.standardDeliveryCharge = delivery === '' ? null : Number(delivery);
+  payload.deliveryRates = readDeliveryRates();
   payload.termsNewPage = document.getElementById('termsNewPage-input').value;
   payload.markupRounding = document.getElementById('markupRounding-input').value;
   payload.manpowerRates = readManpowerRates();
@@ -518,6 +550,10 @@ async function init() {
     await saveSettings();
     setSettingsDirty(false);
     document.getElementById('settings-changed-elsewhere').classList.add('hidden');
+  });
+  document.getElementById('delivery-rates-reset').addEventListener('click', () => {
+    renderDeliveryRates(null);
+    setSettingsDirty(true);
   });
   // Typing in the form (not the sharing or backup controls further down).
   const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access')) setSettingsDirty(true); };

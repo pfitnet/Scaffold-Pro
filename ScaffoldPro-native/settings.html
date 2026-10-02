@@ -162,7 +162,6 @@
           <div class="field"><label>Signed by</label><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
           <div class="field"><label>Title</label><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
           <div class="field"><label>Terms &amp; Conditions web address</label><input type="text" id="termsURL-input" placeholder="www.pfitnet.com/TC" /></div>
-          <div class="field"><label>Standard delivery charge (HK$ per truck per trip)</label><input type="number" id="standardDeliveryCharge-input" min="0" step="0.01" placeholder="3800" /></div>
           <div class="field"><label>Minimum hire (months) — used when “Minimum Hire” is ticked on a rental quotation</label><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1" /></div>
           <div class="field"><label>Minimum monthly rental charge (HK$) — used when ticked on a rental quotation</label><input type="number" id="minimumMonthlyRental-input" min="0" step="0.01" placeholder="1000" /></div>
           <div class="field"><label>EUR → HKD exchange rate (SCAFOM list)</label><input type="number" id="eurRate-input" min="0" step="0.0001" /></div>
@@ -177,6 +176,13 @@
               <option value="Nearest">Round off to the nearest 0.1 (4.83 → 4.80)</option>
               <option value="Up">Round up to the next 0.1 (4.83 → 4.90)</option>
             </select>
+          </div>
+          <div class="field full"><label>Delivery charges by weight <span class="small-note">(per truck per trip — “+ Delivery Charge” on a quotation picks the band for the materials’ weight; heavier loads go on more trucks)</span></label>
+            <table class="compact delivery-rates">
+              <thead><tr><th>Weight on the truck</th><th class="num">Up to (kg)</th><th class="num">Charge (HK$)</th></tr></thead>
+              <tbody id="delivery-rates-body"></tbody>
+            </table>
+            <button type="button" class="link-btn" id="delivery-rates-reset" data-no-icon>Use the standard rates</button>
           </div>
           <div class="field full"><label>Standard manpower rates <span class="small-note">(“Standard Manpower Rates” / “Fill Standard Rates” on a quotation)</span></label>
             <table class="compact manpower-rates">
@@ -327,6 +333,7 @@
   <script src="js/sidebar.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/paragraph-format.js"></script>
+  <script src="js/delivery-rates.js"></script>
   <script src="js/settings.js"></script>
 </body>
 </html>

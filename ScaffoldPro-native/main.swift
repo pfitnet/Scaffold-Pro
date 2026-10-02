@@ -1689,6 +1689,12 @@ struct QuotationDetail: Codable {
     var materialsCharge: Double
     var deliveryTotal: Double
     var standardDeliveryCharge: Double?
+    /// Delivery charges by weight (Settings), lightest band first.
+    var deliveryRates: [DeliveryRate] = defaultDeliveryRates
+    /// The materials' weight (kg), from the material list; nil when none
+    /// of them has a weight. `linesWithoutWeight` counts those that don't.
+    var materialsWeightKg: Double? = nil
+    var linesWithoutWeight: Int = 0
     /// Whether "Minimum Hire of N Months" applies to this quotation.
     var minimumHireEnabled: Bool
     /// The months used when it does.
@@ -2002,7 +2008,8 @@ struct CompanySettings: Codable {
     var quotationTerms: String?
     /// "Order shall be confirmed … valid for 7 business days …"
     var quotationAcceptance: String?
-    /// Per truck per trip; pre-fills the "+ Delivery Charge" line.
+    /// Per truck per trip; what "+ Delivery Charge" used before the
+    /// charges went by weight (see `deliveryRates`).
     var standardDeliveryCharge: Double?
     /// Rental quotations: "Minimum Hire of N Months".
     var defaultMinimumHireMonths: Int?
@@ -2036,6 +2043,8 @@ struct CompanySettings: Codable {
     var linkedNumbers: Bool? = nil
     /// A GIPHY API key, for searching GIFs in Chat (nil = no GIF search).
     var giphyKey: String? = nil
+    /// Delivery charges by weight, lightest band first (nil = `defaultDeliveryRates`).
+    var deliveryRates: [DeliveryRate]? = nil
 }
 
 /// A price-list item and quantity put into every new BOQ.
@@ -2050,6 +2059,24 @@ struct ManpowerRate: Codable {
     var rate: Double
     var unit: String
 }
+
+/// A delivery charge band: per truck per trip for a load up to `upToKg`.
+struct DeliveryRate: Codable {
+    var upToKg: Double
+    var price: Double
+}
+
+/// The company's delivery charges by the weight on the truck (per truck
+/// per trip): under 500 kg $1,200; 500 kg – 1 ton $1,800; 1 – 2 tons
+/// $2,200; 2 – 6 tons $3,300; 6 – 8 tons $3,800. Heavier loads go on
+/// more than one truck.
+let defaultDeliveryRates = [
+    DeliveryRate(upToKg: 500, price: 1200),
+    DeliveryRate(upToKg: 1000, price: 1800),
+    DeliveryRate(upToKg: 2000, price: 2200),
+    DeliveryRate(upToKg: 6000, price: 3300),
+    DeliveryRate(upToKg: 8000, price: 3800),
+]
 
 /// As on the company's quotations (e.g. Qt26179).
 let defaultManpowerRates = [
@@ -6283,11 +6310,34 @@ final class AppDatabase {
         return nil
     }
 
+    /// The weight of a quotation's materials (quantity × the material
+    /// list's unit weight — by the item it was picked from, else the same
+    /// code, else the same name), and how many have no weight.
+    func quotationWeight(_ lines: [QuotationLineItem]) -> (kg: Double?, missing: Int) {
+        let items = priceListItemsStore.readAll()
+        var kg = Decimal(0)
+        var found = 0
+        var missing = 0
+        for line in lines where isMaterialLine(line) {
+            let note = DeliveryNoteLineItem(id: line.id, deliveryNoteId: "", sourceKey: line.sourceKey, priceListItemId: line.priceListItemId,
+                                            itemCode: line.itemCode, itemDescription: line.itemDescription, unit: line.unit,
+                                            quantity: line.quantity, section: line.section, sortOrder: line.sortOrder, notes: nil)
+            if let w = deliveryNoteWeight(note, in: items) {
+                kg += decimalOf(line.quantity.rounded()) * decimalOf(w)
+                found += 1
+            } else {
+                missing += 1
+            }
+        }
+        return (found > 0 ? doubleOf(kg) : nil, missing)
+    }
+
     func getQuotationDetail(id: String) -> QuotationDetail? {
         guard let q = quotationsStore.readAll().first(where: { $0.id == id }) else { return nil }
         guard let project = projectsStore.readAll().first(where: { $0.id == q.projectId }) else { return nil }
         let items = quotationLineItems(for: q.id)
         let totals = quotationMoney(q, lineItems: items)
+        let weight = quotationWeight(items)
         let client = clientsStore.readAll().first { $0.id == project.clientId }
         let site = sitesStore.readAll().first { $0.id == project.siteId }
         let sourceBOQNumber = q.sourceBOQId.flatMap { getBOQ(id: $0)?.boqNumber }
@@ -6303,6 +6353,8 @@ final class AppDatabase {
             subject: q.subject, clientRef: q.clientRef, siteRef: q.siteRef, deliveryMethod: q.deliveryMethod,
             hireMonths: hireMonths(q), materialsSubtotal: totals.materialsSubtotal, materialsCharge: totals.materialsCharge,
             deliveryTotal: totals.deliveryTotal, standardDeliveryCharge: getCompanySettings().standardDeliveryCharge,
+            deliveryRates: getCompanySettings().deliveryRates ?? defaultDeliveryRates,
+            materialsWeightKg: weight.kg, linesWithoutWeight: weight.missing,
             minimumHireEnabled: q.pricingMode == "Rental" && (q.minimumHireEnabled ?? true),
             minimumHireMonths: max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2),
             markupPercent: q.markupPercent, markupRoundUp: markupRoundsUp,
@@ -7788,6 +7840,14 @@ final class AppDatabase {
         if payload.keys.contains("quotationTerms") { settings.quotationTerms = (payload["quotationTerms"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } }
         if let v = optionalText("quotationAcceptance") { settings.quotationAcceptance = v }
         if payload.keys.contains("standardDeliveryCharge") { settings.standardDeliveryCharge = payload["standardDeliveryCharge"] as? Double }
+        if let list = payload["deliveryRates"] as? [[String: Any]] {
+            func number(_ v: Any?) -> Double? { (v as? Double) ?? (v as? Int).map(Double.init) }
+            let rates = list.compactMap { r -> DeliveryRate? in
+                guard let kg = number(r["upToKg"]), kg > 0, let price = number(r["price"]), price >= 0 else { return nil }
+                return DeliveryRate(upToKg: kg, price: price)
+            }.sorted { $0.upToKg < $1.upToKg }
+            settings.deliveryRates = rates.isEmpty ? nil : rates
+        }
         if let v = payload["defaultMinimumHireMonths"] as? Int { settings.defaultMinimumHireMonths = max(1, v) }
         if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
         if let v = payload["markupRounding"] as? String, ["Nearest", "Up"].contains(v) { settings.markupRoundUp = v == "Up" ? true : nil }
