@@ -1054,6 +1054,11 @@ extension Quotation {
         language = try c.decodeIfPresent(String.self, forKey: .language)
         boqLinked = try c.decodeIfPresent(Bool.self, forKey: .boqLinked)
         lineSort = try c.decodeIfPresent(String.self, forKey: .lineSort)
+        // Every field added later must be read here too, or it's lost on the next load.
+        directorSignedPath = try c.decodeIfPresent(String.self, forKey: .directorSignedPath)
+        directorSignedAt = try c.decodeIfPresent(String.self, forKey: .directorSignedAt)
+        directorSignedBy = try c.decodeIfPresent(String.self, forKey: .directorSignedBy)
+        orientation = try c.decodeIfPresent(String.self, forKey: .orientation)
     }
 }
 
