@@ -37,7 +37,7 @@ def kg(v): return f'{v:.1f} kg'
 def money(v): return f'{v:,.2f}'
 def qty(v): return f'{round(v):,}'
 
-def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, notes=None, terms=None, signature=None):
+def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, notes=None, terms=None, signature=None, extra=()):
     pw, ph = (842.88, 595.92) if landscape else (595.92, 842.88)
     left, top = 85.875, 53.625
     widths = [68.25, 174.75, 43.5, 51.75, 130.5, 128.25, 72.0] if landscape else [68.25, 186.54, 43.5, 51.75, 72.0]
@@ -47,7 +47,7 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
     ie = [left, 154.125, 424.125, 492.375, right] if landscape else [left, 154.125, 263.625, 331.875, right]
     cell = lambda x0, x1, t, size, align, up, font='body': dict(x0=x0, x1=x1, text=t, font=font, size=size, align=align, baselineUp=up)
     rows = [dict(kind='banner', height=27.75, fill='ED7D31', repeats=True, cells=[cell(left, right, 'PROFICIENCY QUOTATION', 19.99, 'center', 6.375, 'title')])]
-    for a, b, c, d in [('Project Code  :', info[0], 'Job Site          :', info[2]), ('Client             :', info[1], 'Structure        :', info[3])]:
+    for a, b, c, d in list(extra) + [('Project Code  :', info[0], 'Job Site          :', info[2]), ('Client             :', info[1], 'Structure        :', info[3])]:
         rows.append(dict(kind='info', height=15.75, fill='FDF9DF', repeats=True, cells=[
             cell(ie[0], ie[1], a, 10, 'left', 4.125), cell(ie[1], ie[2], b, 10, 'left', 4.125),
             cell(ie[2], ie[3], c, 10, 'left', 4.125), cell(ie[3], ie[4], d, 10, 'left', 4.125)]))
@@ -222,8 +222,29 @@ def law_check(original):
     theirs = Image.open(os.path.join(OUT, 'law_original.png')).convert('RGB')
     return ours, theirs
 
+# "python3 sheet.py quote" renders a landscape quotation: its number and
+# date, materials, delivery and fees after the subtotal, the terms and the
+# signature block (quotationSheetLayout in main.swift).
+QUOTE_MODE = len(sys.argv) > 1 and sys.argv[1] == 'quote'
+QUOTE_TERMS = ('The terms and conditions set out in www.pfitnet.com/TC are hereby expressively incorporated into this quotation with other relevant key terms set forth below.\n'
+               "(i) Payment : First two month's rental is to be paid upon order confirmation.\n"
+               'Following rental charges are to be paid monthly on the first day of the month.\n'
+               "Delivery charges are to be paid within 7 days against each truck's delivery.\n"
+               '(ii) Delivery : Minimum of 5 days upon order confirmation.\n'
+               '(iii) Modification : Extra works & modifications of works will be subject to an extra charge.\n'
+               'Order shall be confirmed and regarded as properly accepted upon signature by all parties AND such signed copy is returned to Proficiency (HK) Limited via instant electronic communication means. This quotation shall be valid for 7 business days against the issue date.')
+
 if __name__ == '__main__':
     import pymupdf
+    if QUOTE_MODE:
+        L = layout(True, 'Rental', 'HKD', ('26212 - Batch 3 of Materials - Rental - Lingma', 'Lingma', '1635 Kwu Tung Station', 'Truss-out at 5/F'), LAW[:8],
+                   charges=[('M', 'Minimum Hire of 2 Months — rental for the 2nd month', 4638.20),
+                            ('D1', 'Delivery of materials (2 – 6 tons) — 2 truck/trip × 3,300.00', 6600.0), ('A1', 'Design Fees: Design and Drawing', 1000.0)],
+                   terms=QUOTE_TERMS, signature=('Proficiency (HK) Limited', 'Richard Kwan', 'Director', 'Lingma Const. & Eng. Co. Ltd.'),
+                   extra=[('Quotation No. :', 'Qt26212-007', 'Date               :', '02/10/2026')])
+        render(L).save(os.path.join(OUT, 'quote_landscape.png'))
+        print('scale', L.get('scale'))
+        sys.exit()
     if LAW_MODE:
         ours, theirs = law_check(ORIGINAL)
         diff = ImageChops.difference(ours.convert('L'), theirs.convert('L'))

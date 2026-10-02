@@ -2347,3 +2347,32 @@ under "Letterhead layout".
   half-cut line of text or a sliver of an "+ Add" button. Only the heading
   that's actually held at the top gets the fade. A bracket that's fully in
   view shows its column headings as usual.
+
+## Batch 91 — Landscape quotations; no signature block on BOQs
+
+- **Quotation › Page:** "Portrait — letterhead" (as before) or "Landscape — BQ
+  sheet". The landscape quotation looks like the landscape BOQ:
+  - The orange "PROFICIENCY QUOTATION" banner, plus a row with the
+    quotation number and date over Project Code / Client / Job Site /
+    Structure.
+  - Each material with its weight, quantity, unit rate (markup and any
+    discount included) and total, then the Subtotal Amount and total weight.
+  - What's added after it, each on its own line:
+    - minimum monthly charge and minimum hire months (M);
+    - delivery D1, D2… (with trucks × rate);
+    - priced sections (A1…);
+    - discount and tax.
+    Then the Total Amount, the same as the portrait quotation's.
+  - Rates sections after the total, then the notes.
+  - Terms & Conditions: the same as the portrait quotation's (the web
+    address sentence, the key terms, and the acceptance and validity
+    paragraph).
+  - The signature block: "For and On Behalf of" Proficiency (HK) Limited,
+    with the signatory and title, and "Accepted By" the client with
+    "Date :".
+  - Export PDF, Print, Export Word, combining several quotations into one
+    PDF, and a director's "Signed & Chopped" copy all follow the chosen
+    page. On the landscape sheet, the signature sits on the company's
+    signing line with the chop at its end.
+- **BOQs:** the "Signature section" option is gone; BOQs no longer have a
+  signature block. The Terms box stays.

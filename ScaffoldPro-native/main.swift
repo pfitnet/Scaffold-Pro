@@ -1406,6 +1406,9 @@ struct Quotation: Codable {
     /// How its items are listed: nil/"code", "description" or "manual"
     /// (a linked quotation follows its BOQ's).
     var lineSort: String? = nil
+    /// How it's printed: nil = portrait on the letterhead (as Qt26193);
+    /// "Landscape" = the BQ sheet, with its terms and signature block.
+    var orientation: String? = nil
 }
 
 struct QuotationLineItem: Codable {
@@ -1740,6 +1743,8 @@ struct QuotationDetail: Codable {
     /// Item names on the PDF: the quotation's own choice (nil = Settings'), and Settings'.
     var language: String? = nil
     var defaultLanguage = "English"
+    /// "Portrait" (the letterhead) or "Landscape" (the BQ sheet).
+    var orientation = "Portrait"
     /// Kept in step with the BOQ above, both ways; and that BOQ's status
     /// (an issued one isn't changed).
     var boqLinked = false
@@ -5272,6 +5277,16 @@ final class AppDatabase {
 
     /// How the BQ sheet is printed; allowed on issued BOQs too, as it
     /// changes only the page, not the content.
+    /// Portrait (the letterhead) or Landscape (the BQ sheet) for a quotation.
+    func setQuotationOrientation(id: String, orientation: String) -> String? {
+        guard ["Landscape", "Portrait"].contains(orientation) else { return "Choose Landscape or Portrait." }
+        var qs = quotationsStore.readAll()
+        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+        qs[i].orientation = orientation == "Landscape" ? "Landscape" : nil
+        quotationsStore.writeAll(qs)
+        return nil
+    }
+
     func setBOQOrientation(id: String, orientation: String) -> String? {
         guard ["Landscape", "Portrait"].contains(orientation) else { return "Choose Landscape or Portrait." }
         var boqs = boqsStore.readAll()
@@ -6315,15 +6330,12 @@ final class AppDatabase {
     /// list's unit weight — by the item it was picked from, else the same
     /// code, else the same name), and how many have no weight.
     func quotationWeight(_ lines: [QuotationLineItem]) -> (kg: Double?, missing: Int) {
-        let items = priceListItemsStore.readAll()
+        let weights = quotationLineWeights(lines)
         var kg = Decimal(0)
         var found = 0
         var missing = 0
         for line in lines where isMaterialLine(line) {
-            let note = DeliveryNoteLineItem(id: line.id, deliveryNoteId: "", sourceKey: line.sourceKey, priceListItemId: line.priceListItemId,
-                                            itemCode: line.itemCode, itemDescription: line.itemDescription, unit: line.unit,
-                                            quantity: line.quantity, section: line.section, sortOrder: line.sortOrder, notes: nil)
-            if let w = deliveryNoteWeight(note, in: items) {
+            if let w = weights[line.id] {
                 kg += decimalOf(line.quantity.rounded()) * decimalOf(w)
                 found += 1
             } else {
@@ -6345,6 +6357,19 @@ final class AppDatabase {
     func isLegacyBOQTerms(_ text: String) -> Bool {
         let squash = { (t: String) in t.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ") }
         return squash(text) == squash(legacyBOQTerms)
+    }
+
+    /// Each material line's weight per unit, from the material list.
+    func quotationLineWeights(_ lines: [QuotationLineItem]) -> [String: Double] {
+        let items = priceListItemsStore.readAll()
+        var out: [String: Double] = [:]
+        for line in lines where isMaterialLine(line) {
+            let note = DeliveryNoteLineItem(id: line.id, deliveryNoteId: "", sourceKey: line.sourceKey, priceListItemId: line.priceListItemId,
+                                            itemCode: line.itemCode, itemDescription: line.itemDescription, unit: line.unit,
+                                            quantity: line.quantity, section: line.section, sortOrder: line.sortOrder, notes: nil)
+            if let w = deliveryNoteWeight(note, in: items) { out[line.id] = w }
+        }
+        return out
     }
 
     func getQuotationDetail(id: String) -> QuotationDetail? {
@@ -6397,6 +6422,7 @@ final class AppDatabase {
         detail.monthlyRental = totals.monthlyRental
         detail.charges = totals.charges
         detail.language = q.language
+        detail.orientation = q.orientation == "Landscape" ? "Landscape" : "Portrait"
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
         detail.boqLinked = q.boqLinked == true && sourceBOQ != nil
@@ -10465,7 +10491,8 @@ enum BQSheet {
                        lines: [BOQLineItem], grandTotal: Double, totalWeightKg: Double,
                        ratesSection: BOQRatesSection? = nil, charges: [BOQCharge] = [], notes: String? = nil,
                        terms: String? = nil, chinese: Bool = false,
-                       signature: (company: String, name: String, title: String, client: String)? = nil) -> SheetLayout {
+                       signature: (company: String, name: String, title: String, client: String)? = nil,
+                       extraInfo: [(String, String, String, String)] = []) -> SheetLayout {
         let pageWidth: Double = landscape ? 842.88 : 595.92
         let pageHeight: Double = landscape ? 595.92 : 842.88
         let left = 85.875
@@ -10489,8 +10516,8 @@ enum BQSheet {
         var rows: [SheetRow] = []
         rows.append(SheetRow(kind: "banner", height: 27.75, fill: orange,
                              cells: [cell(left, right, "PROFICIENCY QUOTATION", 19.99, "center", 6.375, font: "title")], repeats: true))
-        let infoRows = [("Project Code  :", info.projectCode, "Job Site          :", info.jobSite),
-                        ("Client             :", info.client, "Structure        :", info.structure)]
+        let infoRows = extraInfo + [("Project Code  :", info.projectCode, "Job Site          :", info.jobSite),
+                                    ("Client             :", info.client, "Structure        :", info.structure)]
         for r in infoRows {
             rows.append(SheetRow(kind: "info", height: 15.75, fill: cream, cells: [
                 cell(infoEdges[0], infoEdges[1], r.0, 10, "left", 4.125), cell(infoEdges[1], infoEdges[2], r.1, 10, "left", 4.125),
@@ -10713,10 +10740,17 @@ final class BQSheetRenderer {
     private var context: CGContext!
     private var rule: Double { 0.75 * layout.scale }
 
+    /// A director's signature and the company chop, drawn over the
+    /// "For and On Behalf of" line (a quotation signed in Team › Signatures).
+    private var signatureImage: CGImage?
+    private var chopImage: CGImage?
+
     private init(_ layout: SheetLayout) { self.layout = layout }
 
-    static func pdf(_ layout: SheetLayout) -> Data? {
+    static func pdf(_ layout: SheetLayout, signature: CGImage? = nil, chop: CGImage? = nil) -> Data? {
         let renderer = BQSheetRenderer(layout)
+        renderer.signatureImage = signature
+        renderer.chopImage = chop
         var box = CGRect(x: 0, y: 0, width: layout.pageWidth, height: layout.pageHeight)
         guard let consumer = CGDataConsumer(data: renderer.data as CFMutableData),
               let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return nil }
@@ -10808,9 +10842,31 @@ final class BQSheetRenderer {
             y = layout.top
             for row in rows {
                 for cell in row.cells { drawText(cell, rowBottom: y + row.height) }
+                if row.kind == "signature", let line = row.cells.first(where: { $0.lineBelow }) {
+                    drawSigning(over: line, rowTop: y, rowBottom: y + row.height)
+                }
                 y += row.height
             }
             context.endPDFPage()
+        }
+    }
+
+    /// The signature sits on the company's signing line; the chop overlaps
+    /// its right end, a little above and below the line.
+    private func drawSigning(over cell: SheetCell, rowTop: Double, rowBottom: Double) {
+        let h = layout.pageHeight
+        let room = rowBottom - rowTop
+        if let sig = signatureImage {
+            let maxW = (cell.x1 - cell.x0) * 0.62, maxH = room * 0.92
+            let k = min(maxW / Double(sig.width), maxH / Double(sig.height))
+            let w = Double(sig.width) * k, ht = Double(sig.height) * k
+            context.draw(sig, in: CGRect(x: cell.x0 + 6, y: h - rowBottom + 1, width: w, height: ht))
+        }
+        if let chop = chopImage {
+            let side = room * 1.45
+            let k = side / Double(max(chop.width, chop.height))
+            let w = Double(chop.width) * k, ht = Double(chop.height) * k
+            context.draw(chop, in: CGRect(x: cell.x1 - w - 4, y: h - rowBottom - ht * 0.25, width: w, height: ht))
         }
     }
 
@@ -13759,6 +13815,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
         case "boq:standardRates":
             respond(id: id, encodable: db.getCompanySettings().manpowerRates ?? defaultManpowerRates)
+        case "quotations:setOrientation":
+            let error = db.setQuotationOrientation(id: (payload["id"] as? String) ?? "", orientation: (payload["orientation"] as? String) ?? "")
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "boq:setOrientation":
             let error = db.setBOQOrientation(id: (payload["id"] as? String) ?? "", orientation: (payload["orientation"] as? String) ?? "")
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
@@ -15064,10 +15123,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: detail.structure ?? ""),
             lines: lines, grandTotal: detail.grandTotal, totalWeightKg: detail.totalWeightKg,
             ratesSection: detail.ratesSection, charges: detail.charges ?? [], notes: detail.notes,
-            terms: detail.terms, chinese: inChinese,
-            signature: detail.signatureSection
-                ? (company: company.companyName, name: company.signatoryName ?? "", title: company.signatoryTitle ?? "",
-                   client: client?.companyName ?? "") : nil)
+            terms: detail.terms, chinese: inChinese)
     }
 
     /// A BOQ's own pages as a PDF (landscape sheet or portrait letterhead,
@@ -15136,11 +15192,140 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Quotation not found.", path: nil))
             return
         }
+        // Landscape: the BQ sheet, as a BOQ's, with the terms and signatures.
+        if detail.orientation == "Landscape" {
+            var layout = quotationSheetLayout(detail)
+            if mode == .word {
+                let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+                layout.number = detail.quotationNumber
+                layout.projectNumber = detail.projectNumber
+                layout.subfolder = "Quotations"
+                layout.fileName = "\(detail.projectNumber)_Quotation_\(safe).docx"
+                respond(id: id, encodable: layout)
+                return
+            }
+            guard let data = BQSheetRenderer.pdf(layout) else {
+                respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the document.", path: nil))
+                return
+            }
+            deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
+                       projectNumber: detail.projectNumber, subfolder: "Quotations", documentNumber: detail.quotationNumber, docTypeTag: "Quotation",
+                       attachments: quotationAttachments(detail))
+            return
+        }
         let company = db.getCompanySettings()
         let letter = quotationLetter(detail, company: company)
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
                            documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
                            attachments: mode == .word ? [] : quotationAttachments(detail))
+    }
+
+    /// A quotation's own pages as a PDF, as it's set to print (portrait
+    /// letterhead or the landscape BQ sheet), signed if pictures are given.
+    private func quotationPDFData(_ detail: QuotationDetail, signature: CGImage? = nil, chop: CGImage? = nil) -> Data? {
+        let company = db.getCompanySettings()
+        if detail.orientation == "Landscape" {
+            return BQSheetRenderer.pdf(quotationSheetLayout(detail), signature: signature, chop: chop)
+        }
+        var letter = quotationLetter(detail, company: company)
+        if signature != nil, let i = letter.signatures.firstIndex(where: { $0.heading == "For and on Behalf of" }) {
+            letter.signatures[i].signatureImage = signature
+            letter.signatures[i].chopImage = chop
+        }
+        return PDFGenerator(paperSize: company.paperSize ?? "A4")?.generate(letter)
+    }
+
+    /// The landscape quotation: the BQ sheet ("PROFICIENCY QUOTATION") as for
+    /// a BOQ — the quotation number and date, each material with its weight
+    /// and price, the subtotal, then what's added to it (minimum charges,
+    /// delivery D1, D2…, priced sections, discount, tax) and the Total
+    /// Amount; rates after it; notes; the terms and conditions; and the
+    /// signature block ("For and On Behalf of" / "Accepted By").
+    private func quotationSheetLayout(_ detail: QuotationDetail) -> SheetLayout {
+        let company = db.getCompanySettings()
+        let project = db.getProjectByNumber(detail.projectNumber)
+        let client = project.flatMap { db.getClient(id: $0.clientId) }
+        let site = project.flatMap { db.getSite(id: $0.siteId) }
+        var jobSite = site.map { $0.name } ?? ""
+        if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
+        let clientName = nonBlank(client?.clientReference) ?? client?.companyName ?? ""
+        let projectCode = [detail.projectNumber, detail.projectName, detail.pricingMode, clientName].compactMap { nonBlank($0) }.joined(separator: " - ")
+        let structure = detail.sourceBOQId.flatMap { db.getBOQ(id: $0)?.structure }.flatMap { nonBlank($0) } ?? nonBlank(detail.subject) ?? ""
+        let inChinese = db.printsInChinese(detail.language)
+        let zh = inChinese
+            ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
+        let materials = detail.lineItems.filter { $0.blockId == nil && $0.section != "Delivery" }
+        let weights = db.quotationLineWeights(materials)
+        // Each at the rate charged (markup and any discount in it).
+        let lines = materials.map { l -> BOQLineItem in
+            let qty = l.quantity.rounded()
+            let total = detail.lineTotals[l.id] ?? (detail.effectiveUnitPrices[l.id] ?? l.appliedUnitPrice) * qty
+            let rate = qty > 0 && (l.discountType ?? "None") != "None" ? doubleOf(roundToCents(decimalOf(total) / decimalOf(qty)))
+                : (detail.effectiveUnitPrices[l.id] ?? l.appliedUnitPrice)
+            return BOQLineItem(id: l.id, boqId: detail.id, sourceKey: l.sourceKey, priceListItemId: l.priceListItemId, itemCode: l.itemCode,
+                               itemDescription: documentItemName(l.itemDescription, zh[l.id], inChinese: inChinese), unit: l.unit,
+                               quantity: qty, priceListUnitPrice: nil, appliedUnitPrice: rate, weightKg: weights[l.id],
+                               section: l.section, sortOrder: l.sortOrder, notes: nil)
+        }
+        let totalWeight = lines.reduce(0.0) { $0 + ($1.weightKg ?? 0) * $1.quantity }
+        // What's added after the materials' subtotal.
+        var charges: [BOQCharge] = []
+        if detail.pricingMode == "Rental" {
+            if detail.minimumMonthlyApplied && detail.monthlyRental > detail.materialsSubtotal {
+                charges.append(BOQCharge(code: "M", name: "Minimum Monthly Rental Charge (\(formatMoney(detail.monthlyRental)) a month)",
+                                         amount: doubleOf(decimalOf(detail.monthlyRental) - decimalOf(detail.materialsSubtotal))))
+            }
+            if detail.minimumHireEnabled && detail.hireMonths > 1 && detail.materialsCharge > detail.monthlyRental {
+                let months = detail.hireMonths == 2 ? "the 2nd month" : "months 2 – \(detail.hireMonths)"
+                charges.append(BOQCharge(code: "M", name: "Minimum Hire of \(detail.hireMonths) Months — rental for \(months)",
+                                         amount: doubleOf(decimalOf(detail.materialsCharge) - decimalOf(detail.monthlyRental))))
+            }
+        }
+        for (i, l) in detail.lineItems.filter({ $0.blockId == nil && $0.section == "Delivery" }).enumerated() {
+            let first = l.itemDescription.components(separatedBy: "\n").first ?? l.itemDescription
+            let unit = l.unit.trimmingCharacters(in: .whitespaces)
+            charges.append(BOQCharge(code: "D\(i + 1)", name: "\(first) — \(formatQuantity(l.quantity.rounded())) \(unit) × \(formatMoney(l.appliedUnitPrice))",
+                                     amount: detail.lineTotals[l.id] ?? l.appliedUnitPrice * l.quantity.rounded()))
+        }
+        for block in detail.blocks where block.kind == "Priced" {
+            let per = block.chargePeriod.map { " (per \($0.lowercased()))" } ?? ""
+            for (i, l) in detail.lineItems.filter({ $0.blockId == block.id }).sorted(by: { $0.sortOrder < $1.sortOrder }).enumerated() {
+                let title = nonBlank(block.title).map { "\($0)\(per): " } ?? ""
+                charges.append(BOQCharge(code: "\(block.prefix)\(i + 1)", name: "\(title)\(l.itemDescription.replacingOccurrences(of: "\n", with: " "))",
+                                         amount: detail.lineTotals[l.id] ?? l.appliedUnitPrice * l.quantity.rounded()))
+            }
+        }
+        if detail.discountAmount > 0 {
+            let percent = detail.discountType == "Percent" ? " \(formatMoney(detail.discountValue).replacingOccurrences(of: ".00", with: ""))%" : ""
+            charges.append(BOQCharge(code: "–", name: "Less\(percent) Discount", amount: -detail.discountAmount))
+        }
+        if detail.taxAmount > 0 {
+            let label = (company.pricesIncludeTax ?? false) ? "Tax / VAT included" : "Tax / VAT (\(formatMoney(detail.taxRatePercent))%)"
+            charges.append(BOQCharge(code: "–", name: label, amount: detail.taxAmount))
+        }
+        // Rates after the total: the first rates section.
+        let ratesBlock = detail.blocks.first { $0.kind == "Rates" }
+        let rates = ratesBlock.map { b in
+            BOQRatesSection(title: b.title, rates: detail.lineItems.filter { $0.blockId == b.id }.sorted { $0.sortOrder < $1.sortOrder }
+                .map { ManpowerRate(name: $0.itemDescription, rate: $0.appliedUnitPrice, unit: $0.unit) }, note: b.note)
+        }
+        let notes = ([nonBlank(detail.notes)] + detail.blocks.filter { $0.kind == "Note" }.map { nonBlank($0.note) }).compactMap { $0 }.joined(separator: "\n")
+        // The terms as on the portrait quotation: the web address, the key terms, the acceptance.
+        var terms: [String] = []
+        if let url = nonBlank(company.termsURL) {
+            terms.append("The terms and conditions set out in \(url) are hereby expressively incorporated into this quotation with other relevant key terms set forth below.")
+        }
+        terms.append(nonBlank(detail.keyTerms) ?? detail.standardKeyTerms)
+        terms.append(company.quotationAcceptance ?? defaultQuotationAcceptance)
+        return BQSheet.layout(
+            landscape: true, pricingMode: detail.pricingMode, currencyCode: company.currency,
+            info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: structure),
+            lines: lines, grandTotal: detail.materialsSubtotal, totalWeightKg: totalWeight,
+            ratesSection: rates, charges: charges, notes: nonBlank(notes),
+            terms: terms.joined(separator: "\n"), chinese: inChinese,
+            signature: (company: company.companyName, name: company.signatoryName ?? "", title: company.signatoryTitle ?? "",
+                        client: client?.companyName ?? detail.clientName ?? ""),
+            extraInfo: [("Quotation No. :", detail.quotationNumber, "Date               :", letterDate(detail.quotationDate))])
     }
 
     /// Everything added after a quotation's own pages: the BOQ it follows,
@@ -15254,8 +15439,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                       let generator = PDFGenerator(paperSize: paper) else { continue }
                 parts.append((detail.deliveryNoteNumber, detail.projectNumber, generator.generate(deliveryNoteLetter(detail, note: note, company: company))))
             } else {
-                guard let detail = db.getQuotationDetail(id: docId), let generator = PDFGenerator(paperSize: paper) else { continue }
-                var data = generator.generate(quotationLetter(detail, company: company))
+                guard let detail = db.getQuotationDetail(id: docId), var data = quotationPDFData(detail) else { continue }
                 if includeDrawings { data = PDFAttachments.append(quotationAttachments(detail), to: data, paperSize: paperSize) }
                 parts.append((detail.quotationNumber, detail.projectNumber, data))
             }
@@ -16155,15 +16339,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
-        var letter = quotationLetter(detail, company: company)
-        if let i = letter.signatures.firstIndex(where: { $0.heading == "For and on Behalf of" }) {
-            letter.signatures[i].signatureImage = signature
-            letter.signatures[i].chopImage = picture("chop")
-        }
         let paper = company.paperSize ?? "A4"
-        guard let generator = PDFGenerator(paperSize: paper) else { fail("Could not prepare the document."); return }
+        guard let pages = quotationPDFData(detail, signature: signature, chop: picture("chop")) else { fail("Could not prepare the document."); return }
         let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
-        let data = PDFAttachments.append(quotationAttachments(detail), to: generator.generate(letter), paperSize: size)
+        let data = PDFAttachments.append(quotationAttachments(detail), to: pages, paperSize: size)
         let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: detail.projectNumber, subfolder: "Quotations",

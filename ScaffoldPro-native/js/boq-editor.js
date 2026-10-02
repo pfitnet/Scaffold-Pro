@@ -135,11 +135,11 @@ function render() {
     notesBox.value = d.notes || '';
   }
 
-  // Terms and signature boxes: only on the landscape sheet.
+  // The Terms box: only on the landscape sheet. (A BOQ has no signature
+  // block — the landscape quotation is the one that's signed.)
   document.getElementById('sheet-extras').classList.toggle('hidden', (d.orientation || 'Landscape') !== 'Landscape');
   const termsBox = document.getElementById('terms-box');
   if (document.activeElement !== termsBox) termsBox.value = d.terms || '';
-  document.getElementById('signature-check').checked = !!d.signatureSection;
   const standardBtn = document.getElementById('standard-terms-btn');
   standardBtn.disabled = isIssued;
   standardBtn.title = 'Put in the standard terms — the same as quotations’ (Settings › Quotations), unless BOQ Defaults has its own';
@@ -514,11 +514,6 @@ async function init() {
     const r = await window.api.boq.updateSheetExtras(boqId, { terms: e.target.value });
     if (r && !r.ok) alert(r.error);
     currentDetail.terms = e.target.value;
-  });
-  document.getElementById('signature-check').addEventListener('change', async (e) => {
-    const r = await window.api.boq.updateSheetExtras(boqId, { signatureSection: e.target.checked });
-    if (r && !r.ok) alert(r.error);
-    currentDetail.signatureSection = e.target.checked;
   });
   document.getElementById('standard-terms-btn').addEventListener('click', async () => {
     const box = document.getElementById('terms-box');
