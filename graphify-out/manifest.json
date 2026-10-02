@@ -252,81 +252,81 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790954215.9733517,
-    "seen": 1790954221.574249,
-    "ast_hash": "8230b854b27df6c593af2ffb1f98cc2c",
+    "mtime": 1790955023.3053155,
+    "seen": 1790955026.447497,
+    "ast_hash": "48f128818258fcdf24bbf922b5f203ea",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
-    "mtime": 1790932883.565945,
-    "seen": 1790932988.7385373,
-    "ast_hash": "13e9d9ad36d7951c3fe811639db3ed5c",
+    "mtime": 1790954473.496944,
+    "seen": 1790955026.4474978,
+    "ast_hash": "1955fbf0b5bbb9cbb6b8f96f0f16e73e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/admin.html": {
-    "mtime": 1790932883.580908,
-    "seen": 1790932988.738538,
-    "ast_hash": "2553a3b279678d6d461526c2d1062a04",
+    "mtime": 1790954473.4919019,
+    "seen": 1790955026.4474986,
+    "ast_hash": "14494972be624b51b2663e69b43ed66d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/boq-editor.html": {
-    "mtime": 1790932883.5972583,
-    "seen": 1790932988.7385385,
-    "ast_hash": "e7d2efb5d3bc841c311ab9a71d9a0a8a",
+    "mtime": 1790954473.4958441,
+    "seen": 1790955026.447499,
+    "ast_hash": "efff7f9af8d2cae816f8fff33e4f6146",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/clients.html": {
-    "mtime": 1790932883.6447144,
-    "seen": 1790932988.7385402,
-    "ast_hash": "fad3b497dce80f27bb8ee417b02ad17e",
+    "mtime": 1790954473.5037384,
+    "seen": 1790955026.447501,
+    "ast_hash": "3b0e43ad383fa69006a506ab700e69ce",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/delivery-note-editor.html": {
-    "mtime": 1790932883.661242,
-    "seen": 1790932988.738541,
-    "ast_hash": "82b77410a5a9639bd612bea14b140e43",
+    "mtime": 1790954473.4894145,
+    "seen": 1790955026.4475017,
+    "ast_hash": "b7b66e2c6bfa6c73238d4587a3a22c8f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/index.html": {
-    "mtime": 1790932883.7124174,
-    "seen": 1790932988.7385416,
-    "ast_hash": "957028c61d258a91c71e5cecbafac603",
+    "mtime": 1790954473.4944792,
+    "seen": 1790955026.4475024,
+    "ast_hash": "0219bdac6594aa5911dc0268de05ec3c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/invoice-editor.html": {
-    "mtime": 1790932883.7288537,
-    "seen": 1790932988.7385423,
-    "ast_hash": "9ca1c0d637914c3a1cc3a02c8a33512f",
+    "mtime": 1790954473.504401,
+    "seen": 1790955026.447503,
+    "ast_hash": "ab1cc59bca69d52f7697d82177e13f8c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/price-lists.html": {
-    "mtime": 1790932883.7937586,
-    "seen": 1790932988.7385457,
-    "ast_hash": "cb74875f6ebb18c924e22c13beed5840",
+    "mtime": 1790954473.4988976,
+    "seen": 1790955026.4475067,
+    "ast_hash": "4904a415bbd4f8878aaf9cd76c608ba3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/project-detail.html": {
-    "mtime": 1790932883.8098502,
-    "seen": 1790932988.7385461,
-    "ast_hash": "99159bf69cee9735d92b743c53f59135",
+    "mtime": 1790954473.5011258,
+    "seen": 1790955026.4475074,
+    "ast_hash": "8529773864703c04c5ed2eea2f9330c8",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/projects.html": {
-    "mtime": 1790932883.8255572,
-    "seen": 1790932988.7385468,
-    "ast_hash": "42b901e411021af7f3702ec845bfbdb1",
+    "mtime": 1790954473.4936132,
+    "seen": 1790955026.4475079,
+    "ast_hash": "20c03e46d122ce558cda1e5d063192ab",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1790933512.287394,
-    "seen": 1790953606.631713,
-    "ast_hash": "f48e67d057485e099adad5b8299dfb33",
+    "mtime": 1790954473.490477,
+    "seen": 1790955026.4475088,
+    "ast_hash": "5240908798bacff81bc2adc378e5bfb6",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
-    "mtime": 1790932883.857776,
-    "seen": 1790932988.7385483,
-    "ast_hash": "f4289fa8e391e7e408d325db65031f21",
+    "mtime": 1790954473.5028932,
+    "seen": 1790955026.4475093,
+    "ast_hash": "f25dbd16e587227a454655295af31a3e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/sites.html": {
@@ -336,9 +336,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/stock.html": {
-    "mtime": 1790932883.8734508,
-    "seen": 1790932988.7385495,
-    "ast_hash": "dbe358d3caffe674adde6627b3a4449b",
+    "mtime": 1790954473.4888785,
+    "seen": 1790955026.4475107,
+    "ast_hash": "1d1f4c7482b2f3c983bbda155947359f",
     "semantic_hash": ""
   },
   "docs/reference/README.md": {
@@ -450,15 +450,15 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/letter-editor.html": {
-    "mtime": 1790932883.7441707,
-    "seen": 1790932988.7385435,
-    "ast_hash": "143884b548bad595c5c23a464480d3be",
+    "mtime": 1790954473.4980974,
+    "seen": 1790955026.4475048,
+    "ast_hash": "61c554319a499f62b8ac73e0fbd75e4b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/letters.html": {
-    "mtime": 1790932883.7619026,
-    "seen": 1790932988.7385445,
-    "ast_hash": "3fba8101c823b964719b9864dbeff325",
+    "mtime": 1790954473.4993749,
+    "seen": 1790955026.4475055,
+    "ast_hash": "7663fbb511818c85d7a0e884dd53b77e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/doc-authors.js": {
@@ -480,9 +480,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/user.html": {
-    "mtime": 1790932883.9253702,
-    "seen": 1790932988.7385516,
-    "ast_hash": "7fe868b665a9bb7f7af178b6c4a3ca1d",
+    "mtime": 1790954473.494957,
+    "seen": 1790955026.4475129,
+    "ast_hash": "9f66d4e0fca01f8f18de4bb820a22822",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/marketing.js": {
@@ -492,9 +492,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/marketing.html": {
-    "mtime": 1790932883.777593,
-    "seen": 1790932988.7385452,
-    "ast_hash": "d0c141ab304c66749dfe8d951d4c64af",
+    "mtime": 1790954473.5000215,
+    "seen": 1790955026.447506,
+    "ast_hash": "8f2ec05f890904e06f8df4b9193d6f0a",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/calendar.js": {
@@ -522,15 +522,15 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/calendar.html": {
-    "mtime": 1790932883.6127746,
-    "seen": 1790932988.738539,
-    "ast_hash": "ee298f770576c04d879545d8fae1e41e",
+    "mtime": 1790954473.4927628,
+    "seen": 1790955026.4474995,
+    "ast_hash": "9b34af7c5be60a2d5e86f453b8d57629",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/tasks.html": {
-    "mtime": 1790932883.8944952,
-    "seen": 1790932988.7385502,
-    "ast_hash": "dde6ad9bc6c014fb28952ecbc272b13e",
+    "mtime": 1790954473.5040128,
+    "seen": 1790955026.4475114,
+    "ast_hash": "573de90f18f9b7bf8b22ca94ba69a73b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/widgets.js": {
@@ -564,9 +564,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/team.html": {
-    "mtime": 1790932883.9094987,
-    "seen": 1790932988.7385511,
-    "ast_hash": "d6135f78a5f539c789f66caa87a2e4fc",
+    "mtime": 1790954473.49126,
+    "seen": 1790955026.4475121,
+    "ast_hash": "0a9c17c42ea1ccd574de4b2b4fe6f66e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/chat.js": {
@@ -576,9 +576,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/chat.html": {
-    "mtime": 1790932883.6285605,
-    "seen": 1790932988.7385395,
-    "ast_hash": "57b44134249dcba15b48cd48ec884286",
+    "mtime": 1790954473.4923623,
+    "seen": 1790955026.4475002,
+    "ast_hash": "9f32b80994e3ba236b1df2bd46bba24d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/multiply.js": {
@@ -606,15 +606,21 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/hover-menu.js": {
-    "mtime": 1790933528.2941623,
-    "seen": 1790953606.6316683,
-    "ast_hash": "6ccdd238f66931a0ebf8bdf3b8866255",
+    "mtime": 1790954473.4874876,
+    "seen": 1790955026.4474642,
+    "ast_hash": "0a961cc20763d09d664030074043e03f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/undo.js": {
     "mtime": 1790932959.97371,
     "seen": 1790932988.7385256,
     "ast_hash": "72527f248a006cb522a5843a3e9e35fa",
+    "semantic_hash": ""
+  },
+  "ScaffoldPro-native/js/controls.js": {
+    "mtime": 1790954839.914827,
+    "seen": 1790955026.4474506,
+    "ast_hash": "5c7f9e297744327c31c116d3f5c8dd60",
     "semantic_hash": ""
   }
 }

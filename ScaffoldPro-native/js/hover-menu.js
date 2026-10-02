@@ -1,30 +1,45 @@
 'use strict';
 
-// A drop-down list drawn by the app (not the system's pop-up menu) that
-// opens when the pointer rests on its button, or on a click, Return,
-// Space or ↓. ↑ ↓ move, Return picks, Escape closes.
+// A drop-down list drawn by the app (not the system's pop-up menu).
+// Two ways to open one:
+//   • hover (the default): when the pointer rests on its button, or on a
+//     click, Return, Space or ↓ — the Page / Items-in icons, "Start from
+//     Others";
+//   • press: on a click, Space, Return, ↑ or ↓ — every <select> (js/controls.js).
+// In the list ↑ ↓ move, typing jumps to a choice, Return picks, Escape closes.
 //
 //   window.hoverMenu.attach(button, {
-//     items: () => [{ label, sub, value, current, disabled }],
+//     items: () => [{ label, sub, value, current, disabled } | { group: 'Heading' }],
 //     onPick: (value) => …,
+//     openOn: 'hover' | 'press',
 //   });
 //   window.hoverMenu.forSelect(select);   // a <select> in a .tb-pick (set up
-//     by itself when the page loads): its
-//     icon (the <label for=…>) opens the list; picking sets the select's
-//     value and fires its "change", so the page's own code runs as before.
+//     by itself when the page loads): its icon (the <label for=…>) opens
+//     the list; picking sets the select's value and fires its "change", so
+//     the page's own code runs as before.
 //   window.hoverMenu.isOpen()             // a list is showing
 
 (function () {
+  if (window.hoverMenu) return;
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const CHECK = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
   let open = null; // { trigger, menu, close }
 
   function attach(trigger, options) {
+    const press = options.openOn === 'press';
     let menu = null;
     let leaveTimer = null;
     let enterTimer = null;
-    trigger.setAttribute('aria-haspopup', 'menu');
+    let typed = '';
+    let typedTimer = null;
+    trigger.setAttribute('aria-haspopup', press ? 'listbox' : 'menu');
     trigger.setAttribute('aria-expanded', 'false');
+    const isDisabled = () => trigger.disabled || trigger.getAttribute('aria-disabled') === 'true';
+
+    const onOutside = (e) => {
+      if (!menu || menu.contains(e.target) || trigger.contains(e.target)) return;
+      close(false);
+    };
 
     const close = (refocus) => {
       clearTimeout(leaveTimer);
@@ -34,6 +49,7 @@
       menu = null;
       m.classList.remove('open');
       setTimeout(() => m.remove(), 120);
+      document.removeEventListener('pointerdown', onOutside, true);
       trigger.setAttribute('aria-expanded', 'false');
       trigger.classList.remove('hm-active');
       if (open && open.trigger === trigger) open = null;
@@ -51,6 +67,7 @@
       // Below the button, or above it when there's no room underneath.
       let top = r.bottom + gap;
       if (top + h > window.innerHeight - 8 && r.top - gap - h > 8) top = r.top - gap - h;
+      else if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - 8 - h);
       menu.style.left = `${left}px`;
       menu.style.top = `${top}px`;
       menu.classList.toggle('above', top < r.top);
@@ -61,24 +78,33 @@
       if (menu) { if (focusItem) focusFirst(); return; }
       if (open) open.close();
       const items = options.items() || [];
-      if (!items.length) return;
+      if (!items.some((it) => !it.group)) return;
       menu = document.createElement('div');
-      menu.className = 'hm-menu';
-      menu.setAttribute('role', 'menu');
+      menu.className = `hm-menu${press ? ' hm-list' : ''}`;
+      menu.setAttribute('role', press ? 'listbox' : 'menu');
       menu.setAttribute('data-no-icon', '');
       menu.innerHTML = (options.heading ? `<div class="hm-heading">${esc(options.heading)}</div>` : '') +
-        items.map((it, i) => `<button type="button" class="hm-item${it.current ? ' current' : ''}" role="menuitemradio" aria-checked="${it.current ? 'true' : 'false'}" data-i="${i}" ${it.disabled ? 'disabled' : ''} data-no-icon tabindex="-1">
+        items.map((it, i) => it.group != null
+          ? `<div class="hm-heading hm-group">${esc(it.group)}</div>`
+          : `<button type="button" class="hm-item${it.current ? ' current' : ''}" role="${press ? 'option' : 'menuitemradio'}" aria-${press ? 'selected' : 'checked'}="${it.current ? 'true' : 'false'}" data-i="${i}" ${it.disabled ? 'disabled' : ''} data-no-icon tabindex="-1">
           <span class="hm-check">${it.current ? CHECK : ''}</span>
           <span class="hm-text"><span class="hm-label">${esc(it.label)}</span>${it.sub ? `<span class="hm-sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('');
       document.body.appendChild(menu);
       place();
+      // A long list opens at the current choice.
+      const current = menu.querySelector('.hm-item.current');
+      if (current && menu.scrollHeight > menu.clientHeight) menu.scrollTop = Math.max(0, current.offsetTop - menu.clientHeight / 2 + current.offsetHeight / 2);
       requestAnimationFrame(() => menu && menu.classList.add('open'));
       trigger.setAttribute('aria-expanded', 'true');
       trigger.classList.add('hm-active');
       open = { trigger, menu, close };
+      document.addEventListener('pointerdown', onOutside, true);
 
-      menu.addEventListener('pointerenter', () => clearTimeout(leaveTimer));
-      menu.addEventListener('pointerleave', scheduleClose);
+      if (!press) {
+        menu.addEventListener('pointerenter', () => clearTimeout(leaveTimer));
+        menu.addEventListener('pointerleave', scheduleClose);
+      }
+      menu.addEventListener('pointerdown', (e) => e.preventDefault()); // keeps focus where it is
       menu.addEventListener('click', (e) => {
         const b = e.target.closest('.hm-item');
         if (!b || b.disabled) return;
@@ -91,13 +117,24 @@
         const at = all.indexOf(document.activeElement);
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           e.preventDefault();
-          const next = e.key === 'ArrowDown' ? (at + 1) % all.length : (at - 1 + all.length) % all.length;
+          const next = e.key === 'ArrowDown' ? Math.min(all.length - 1, at + 1) : Math.max(0, at - 1);
           if (all[next]) all[next].focus();
+        } else if (e.key === 'Home' || e.key === 'End') {
+          e.preventDefault();
+          const item = e.key === 'Home' ? all[0] : all[all.length - 1];
+          if (item) item.focus();
         } else if (e.key === 'Escape') {
           e.preventDefault(); e.stopPropagation();
           close(true);
         } else if (e.key === 'Tab') {
           close(false);
+        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey && e.key !== ' ') {
+          // Typing jumps to the first choice that starts with what's typed.
+          typed += e.key.toLowerCase();
+          clearTimeout(typedTimer);
+          typedTimer = setTimeout(() => { typed = ''; }, 700);
+          const hit = all.find((b) => b.querySelector('.hm-label').textContent.trim().toLowerCase().startsWith(typed));
+          if (hit) hit.focus();
         }
       });
       menu.addEventListener('focusout', (e) => {
@@ -120,24 +157,66 @@
       }, 220);
     }
 
-    trigger.addEventListener('pointerenter', (e) => {
-      if (e.pointerType === 'touch' || trigger.disabled) return;
-      clearTimeout(leaveTimer);
-      clearTimeout(enterTimer);
-      enterTimer = setTimeout(() => show(false), 60);
-    });
-    trigger.addEventListener('pointerleave', scheduleClose);
-    trigger.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (trigger.disabled) return;
-      if (menu && menu.contains(document.activeElement)) close(true);
-      else show(true);
-    });
-    trigger.addEventListener('keydown', (e) => {
-      if (['ArrowDown', 'Enter', ' '].includes(e.key)) { e.preventDefault(); e.stopPropagation(); show(true); }
-      else if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); close(true); }
-    });
-    return { close: () => close(false) };
+    if (press) {
+      // A press opens it (not the system's menu); another closes it.
+      trigger.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        if (isDisabled()) return;
+        if (menu) { close(true); return; }
+        trigger.focus({ preventScroll: true });
+        show(true);
+      });
+      trigger.addEventListener('click', (e) => e.preventDefault());
+      trigger.addEventListener('keydown', (e) => {
+        if (isDisabled()) return;
+        if ([' ', 'Enter', 'ArrowDown', 'ArrowUp'].includes(e.key) && !e.metaKey && !e.ctrlKey) { e.preventDefault(); e.stopPropagation(); show(true); }
+        else if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); close(true); }
+      });
+    } else {
+      trigger.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'touch' || isDisabled()) return;
+        clearTimeout(leaveTimer);
+        clearTimeout(enterTimer);
+        enterTimer = setTimeout(() => show(false), 60);
+      });
+      trigger.addEventListener('pointerleave', scheduleClose);
+      trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (isDisabled()) return;
+        if (menu && menu.contains(document.activeElement)) close(true);
+        else show(true);
+      });
+      trigger.addEventListener('keydown', (e) => {
+        if (['ArrowDown', 'Enter', ' '].includes(e.key)) { e.preventDefault(); e.stopPropagation(); show(true); }
+        else if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); close(true); }
+      });
+    }
+    return { close: () => close(false), open: () => show(true) };
+  }
+
+  // A <select>'s choices as list items (with <optgroup> headings).
+  function selectItems(select) {
+    const out = [];
+    for (const child of select.children) {
+      if (child.tagName === 'OPTGROUP') {
+        out.push({ group: child.label });
+        for (const o of child.children) if (o.tagName === 'OPTION' && !o.hidden) out.push(optionItem(select, o, child.disabled));
+      } else if (child.tagName === 'OPTION' && !child.hidden) {
+        out.push(optionItem(select, child, false));
+      }
+    }
+    return out;
+  }
+  const optionItem = (select, o, groupOff) => ({
+    label: o.textContent, value: o.value, current: o.selected, disabled: select.disabled || o.disabled || groupOff,
+  });
+  // Picking sets the select's value and fires its events, as choosing in the system's menu does.
+  function pickInSelect(select, value) {
+    if (value === select.value) return;
+    select.value = value;
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   function forSelect(select, options = {}) {
@@ -149,14 +228,8 @@
     return attach(trigger, {
       heading: options.heading || trigger.textContent.trim(),
       minWidth: 220,
-      items: () => [...select.options].map((o) => ({
-        label: o.textContent, value: o.value, current: o.value === select.value, disabled: select.disabled || o.disabled,
-      })),
-      onPick: (value) => {
-        if (value === select.value) return;
-        select.value = value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      },
+      items: () => selectItems(select),
+      onPick: (value) => pickInSelect(select, value),
     });
   }
 
@@ -164,7 +237,7 @@
   window.addEventListener('resize', () => open && open.close());
   document.addEventListener('scroll', (e) => { if (open && !open.menu.contains(e.target)) open.close(); }, true);
 
-  window.hoverMenu = { attach, forSelect, isOpen: () => !!open };
+  window.hoverMenu = { attach, forSelect, selectItems, pickInSelect, isOpen: () => !!open };
 
   // Every icon picker on the page (.tb-pick) works this way.
   const setUp = () => document.querySelectorAll('.tb-pick select').forEach((select) => forSelect(select));

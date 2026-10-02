@@ -2529,3 +2529,31 @@ under "Letterhead layout".
 - Any page can use this: set `window.leaveNeedsAsk()` and
   `window.askBeforeLeave()`; leaving goes through `window.appNavigate()`
   (js/sidebar.js).
+
+## Batch 101 — The app's own controls (lists, numbers, dates, tick boxes)
+
+Every form control is now drawn by the app instead of macOS, on every page
+(`js/controls.js`, `js/hover-menu.js`, css/styles.css):
+
+- **Lists:** every drop-down opens the app's list instead of the system's
+  pop-up menu: a tick by the current choice, group headings, and it opens
+  scrolled to the current choice. Click, Space, Return, ↑ or ↓ open it;
+  ↑ ↓ move, typing jumps to a choice, Return picks, Escape closes, and a
+  click outside closes it.
+- **Numbers:** the system's ▲▼ arrows are gone. Resting the pointer on a
+  number field (or clicking into it) shows a small − / + stepper; hold it
+  to keep going. Typing and the arrow keys work as before.
+- **Dates and months:** the app's calendar (Monday first, as the Calendar
+  page) with Today and Clear. Click the field, or press Space or ⌥↓; the
+  arrow keys move around it and the arrows at the top change month. You
+  can still type the date.
+- **Tick boxes and round choices:** drawn by the app, with a small
+  animation when ticked.
+- **Colour wells:** rounded swatches. The colour panel itself is still
+  the Mac's.
+- **Nothing changes underneath:** the real field stays in the page and
+  keeps its value. Picking sets it and fires `input` and `change`, as the
+  system's controls do, so every page saves as before. Fields added later
+  (tables, dialogs) get the same treatment as they appear.
+- **Opting out:** add `data-native` to a field (or a box around it) to
+  keep the system's control there.
