@@ -126,7 +126,7 @@
     const cell = (c) => { const t = String(c ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
     const out = [['Date', 'Scaffold', 'Location', 'Competent person', 'Result', 'Remarks', 'Action taken', 'Next inspection due']];
     for (const r of [...records].reverse()) out.push([r.inspectedOn, r.structure, r.location || '', r.inspector, r.result, r.remarks || '', r.actionTaken || '', r.dismantled ? 'Dismantled' : r.nextDue || '']);
-    const res = await window.api.accounts.saveCSV(`${project.projectNumber} Scaffold Inspection Register.csv`, out.map((row) => row.map(cell).join(',')).join('\r\n'),
+    const res = await window.api.accounts.saveCSV(`${project.projectNumber} Scaffold Inspection Register.xlsx`, out.map((row) => row.map(cell).join(',')).join('\r\n'),
       { projectNumber: project.projectNumber, subfolder: 'Documents' });
     if (res && res.ok === false) alert(res.error);
   }

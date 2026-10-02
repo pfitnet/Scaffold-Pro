@@ -323,7 +323,7 @@
     alert(`${r.recorded} ${r.recorded === 1 ? 'expense' : 'expenses'} added to Accounting › Expenses under “Salaries & MPF”.${skipped}`);
   }
 
-  // ---------- CSV ----------
+  // ---------- Excel (the table goes as CSV text; the app saves it as .xlsx) ----------
 
   async function exportCSV() {
     const line = (cells) => cells.map((c) => {
@@ -338,7 +338,7 @@
           e.usualUnitsPerMonth || '', e.monthlyAllowance || '', m.pay, m.mpf, m.cost, e.annualLeaveDays || '', e.bankAccount || '',
           e.startDate || '', e.endDate || '', e.isArchived ? 'Yes' : ''];
       }));
-    const r = await window.api.accounts.saveCSV(`Employees ${ymd(new Date())}.csv`, rows.map(line).join('\r\n'), { adminFolder: 'Employees' });
+    const r = await window.api.accounts.saveCSV(`Employees ${ymd(new Date())}.xlsx`, rows.map(line).join('\r\n'), { adminFolder: 'Employees' });
     if (r && !r.ok) alert(r.error);
   }
 

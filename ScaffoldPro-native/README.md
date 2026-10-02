@@ -2601,3 +2601,22 @@ Every form control is now drawn by the app instead of macOS, on every page
 - **"Show 3 more":** under a Dashboard list (e.g. My Recently Changed
   Documents) each press shows the next 3, with how many are left; "Show
   fewer" folds it back to 5. The new rows slide in.
+
+## Batch 104 — Excel instead of CSV
+
+- **Every export is an Excel workbook (.xlsx):** the Material List,
+  Stock (stock list, by site, movements), Accounting, Employees, a BOQ's
+  or quotation's delivery schedule, the inspection register and the
+  project reference list. The buttons read **Export to Excel**.
+- In those workbooks the column titles are bold and stay at the top;
+  amounts, quantities and weights are real numbers (Excel can add them
+  up, with their 1 or 2 decimals). Codes and numbers that are names stay
+  as typed: item codes (3.10), project and employee numbers (00001),
+  phones, bank accounts and references.
+- **Imports take Excel workbooks:** the Material List's **Import from
+  Excel…** and Clients & Sites' import open .xlsx files. (A .csv or old
+  .xls file: open it in Excel or Numbers and save it as .xlsx first.)
+- Under the hood the pages still hand the table over as CSV text
+  (`accounts:saveCSV`); main.swift reads it (`SpreadsheetReader.parseCSV`,
+  which now also ends rows at Windows line breaks) and writes the .xlsx
+  (`SpreadsheetWriter.writeXLSX(…, numbers: true)`).

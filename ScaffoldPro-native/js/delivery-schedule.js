@@ -147,7 +147,7 @@
       out.push([l.itemDescription, l.unit || '', quoted, ...data.days.map((d) => d.quantities[l.id] || ''), scheduled(l.id), quoted - scheduled(l.id)]);
     }
     out.push(['Notes', '', '', ...data.days.map((d) => d.note || ''), '', '']);
-    const name = `${isBOQ() ? detail.boqNumber : detail.quotationNumber} Delivery Schedule.csv`;
+    const name = `${isBOQ() ? detail.boqNumber : detail.quotationNumber} Delivery Schedule.xlsx`;
     // Saved in the project's Quotations (or BOQ) folder, then opened.
     const r = await window.api.accounts.saveCSV(name, out.map((row) => row.map(cell).join(',')).join('\r\n'),
       { projectNumber: detail.projectNumber, subfolder: isBOQ() ? 'BOQ' : 'Quotations' });
