@@ -787,7 +787,7 @@ tr.row-selected td { background: var(--accent-soft) !important; }
 .picker-results.more-below { --fade: 64px; }
 /* clip-path (not overflow) rounds the corners, so the heading can still stick; while it's stuck the box is
    clipped from the list's top edge with rounded corners (js/item-picker.js), so its top is never square. */
-.picker-group { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px;
+.picker-group { --group-border: var(--border-strong); border: 1px solid var(--group-border); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px;
   clip-path: inset(0 round var(--radius-lg)); }
 .picker-results .picker-group-head { position: sticky; top: 0; z-index: 2; }
 /* While a heading is stuck, the rows going up under it fade away instead of being sliced. */
@@ -796,7 +796,7 @@ tr.row-selected td { background: var(--accent-soft) !important; }
 .picker-results .picker-group-head.stuck::after { opacity: 1; }
 /* The rounded top border of a stuck heading (over the box's own side borders). */
 .picker-results .picker-group-head.stuck::before { content: ''; position: absolute; left: -1px; right: -1px; top: 0; height: calc(var(--radius-lg) + 2px);
-  border: 1px solid var(--border-strong); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; pointer-events: none; }
+  border: 1px solid var(--group-border); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; pointer-events: none; }
 .picker-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 10px; background: var(--header-bg); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12.5px; }
 .picker-group-count { font-weight: 400; font-size: 11px; color: var(--text-tertiary); }
 .picker-group-table { width: 100%; margin: 0; table-layout: fixed; border: none; border-radius: 0; box-shadow: none; background: transparent; }
@@ -842,7 +842,9 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .pin-btn { flex: 0 0 auto; padding: 2px; min-width: 0; border: 0; background: transparent; box-shadow: none; color: var(--text-tertiary); opacity: 0.45; cursor: pointer; line-height: 0; }
 .pin-btn:hover { opacity: 1; color: var(--warning); background: transparent; }
 .pin-btn.pinned { opacity: 1; color: #e0a800; }
-.picker-pinned { border-color: rgba(224, 168, 0, 0.55); }
+/* An opaque gold: the stuck heading's top border is drawn over the box's side borders, and a see-through
+   colour would come out darker where the two overlap. */
+.picker-pinned { --group-border: color-mix(in srgb, #e0a800 55%, var(--panel)); }
 .picker-pinned .picker-group-head { background: linear-gradient(rgba(224, 168, 0, 0.10), rgba(224, 168, 0, 0.10)), var(--panel); }
 
 /* Dashboard: a quotation's monthly and one-time charges. */

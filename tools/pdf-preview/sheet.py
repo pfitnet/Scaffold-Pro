@@ -16,6 +16,7 @@
 # Liberation Sans Bold (Arial's metrics).
 import json, os, re, subprocess, sys
 from PIL import Image, ImageDraw, ImageFont, ImageChops
+from terms import formatted, LABEL_INDENT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out'); os.makedirs(OUT, exist_ok=True)
@@ -28,6 +29,9 @@ LAW_MODE = len(sys.argv) > 1 and sys.argv[1] == 'law'
 # "python3 sheet.py law --sign <pdf>" adds the signature block, as on the original.
 SIGN = '--sign' in sys.argv
 if SIGN: sys.argv.remove('--sign')
+# "python3 sheet.py quote long": every sample item, so the sheet has to shrink onto one page.
+QUOTE_LONG = 'long' in sys.argv
+if QUOTE_LONG: sys.argv.remove('long')
 ARGS = sys.argv[2:] if LAW_MODE else sys.argv[1:]
 ORIGINAL = ARGS[0] if len(ARGS) > 0 else os.path.join(HERE, '..', '..', 'docs', 'reference', 'BQ-CRBC-1635.pdf')
 BODY_TTF = ARGS[1] if len(ARGS) > 1 else os.path.join(APP, 'resources', 'fonts', 'Carlito-Regular.ttf')
@@ -37,7 +41,7 @@ def kg(v): return f'{v:.1f} kg'
 def money(v): return f'{v:,.2f}'
 def qty(v): return f'{round(v):,}'
 
-def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, notes=None, terms=None, signature=None, extra=()):
+def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, notes=None, terms=None, signature=None, extra=(), one_page=False):
     pw, ph = (842.88, 595.92) if landscape else (595.92, 842.88)
     left, top = 85.875, 53.625
     widths = [68.25, 174.75, 43.5, 51.75, 130.5, 128.25, 72.0] if landscape else [68.25, 186.54, 43.5, 51.75, 72.0]
@@ -99,7 +103,7 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
             rows.append(dict(kind=kind, height=14.25 + (9 if first else 0) + (9 if last else 0), fill=None, repeats=False,
                              cells=[c], joinNext=not last))
     if landscape and notes: text_box(notes, 'Notes', 'notes')
-    if landscape and terms: text_box(terms, 'Terms & Conditions', 'terms')
+    if landscape and terms: rows.extend(terms_box(terms, left, right))
     # The signature block under the table (company, name, title, client), as on Mr. Law's sheet.
     if landscape and signature:
         company, name, title, client = signature
@@ -112,17 +116,59 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
             rows.append(dict(kind='signature', height=h, fill=None, repeats=False, joinNext=i < len(texts) - 1, borderless=True,
                              cells=[ca, cell(le, rs, '', 10, 'left', 0), cb, cell(re_, right, '', 10, 'left', 0)]))
     return fit(dict(ok=True, kind='sheet', landscape=landscape, pageWidth=pw, pageHeight=ph, left=left, right=right, top=top,
-                    bottomLimit=ph - 53.25, rows=rows, number='BQ', title='PROFICIENCY QUOTATION', scale=1))
+                    bottomLimit=ph - 53.25, rows=rows, number='BQ', title='PROFICIENCY QUOTATION', scale=1), 0 if one_page else 0.7)
 
-def fit(L):
-    """BQSheet.fitToPage: shrink a sheet a little too long for one page onto it (to no less than 70%)."""
+def terms_box(text, left, right):
+    """BQSheet.termsBox: the terms with their markers and indents, as on the portrait quotation."""
+    pad = 2.625; width = right - left - 2 * pad; f = font(dict(font='body', size=12))
+    lines = []  # (marker, marker x, text, text x, colon, gap)
+    def hanging(marker, texts, l, indent, colon, gap):
+        mw = wid(marker, f) if marker else 0
+        tx = indent if indent is not None else l + max(18, mw + 6)
+        if marker: tx = max(tx, l + mw + (7.5 if colon else 5))
+        tx = min(tx, width - 120)
+        pieces = [p for t in texts for p in wrap(t, width - tx, f)] or ['']
+        for i, piece in enumerate(pieces):
+            lines.append((marker if i == 0 and marker else None, l, piece, tx, i == 0 and colon, gap if i == 0 else 0))
+    body = text.replace('\r\n', '\n').strip().split('\n')
+    heading = 'Terms & Conditions:'
+    first = body[0].strip()
+    if first.lower().startswith('term') and (first.endswith(':') or first.lower() in ('terms & conditions', 'terms and conditions')):
+        heading = first; body = body[1:]
+    lines.append((None, 0, heading, 0, False, 0))
+    previous = None
+    for p in formatted('\n'.join(body)):
+        is_text = p[0] == 'text'
+        gap = 0 if previous is None or (not is_text and previous is False) else 6
+        if is_text:
+            for i, t in enumerate(wrap(p[1], width, f)): lines.append((None, 0, t, 0, False, gap if i == 0 else 0))
+        else:
+            _, marker, texts, l, indent, colon = p
+            hanging(marker, texts, l, indent, colon, gap)
+        previous = is_text
+    rows = []
+    for i, (marker, mx, t, tx, colon, gap) in enumerate(lines):
+        first, last = i == 0, i == len(lines) - 1
+        c = dict(x0=left, x1=right, text=t, font='body', size=12, align='left', baselineUp=12.375 if last else 3.375)
+        m = re.search(r'(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?', t)
+        c['link'] = m.group(0) if m else None
+        if tx > 0 or marker:
+            c.update(textX=left + pad + tx, marker=marker, markerX=left + pad + mx, colon=colon)
+        rows.append(dict(kind='terms', height=14.25 + gap + (9 if first else 0) + (9 if last else 0), fill=None, repeats=False,
+                         cells=[c], joinNext=not last))
+    return rows
+
+def fit(L, smallest=0.7):
+    """BQSheet.fitToPage: shrink a sheet a little too long for one page onto it (to no less than `smallest`)."""
     h = sum(r['height'] for r in L['rows']); room = L['bottomLimit'] - L['top']
-    if h <= room or room / h < 0.7: return L
+    if h <= room or room / h < smallest: return L
     k = (room - 3) / h; cx = (L['left'] + L['right']) / 2; x = lambda v: cx + (v - cx) * k
     L.update(scale=k, left=x(L['left']), right=x(L['right']))
     for r in L['rows']:
         r['height'] *= k
-        for c in r['cells']: c.update(x0=x(c['x0']), x1=x(c['x1']), size=c['size'] * k, baselineUp=c['baselineUp'] * k)
+        for c in r['cells']:
+            c.update(x0=x(c['x0']), x1=x(c['x1']), size=c['size'] * k, baselineUp=c['baselineUp'] * k)
+            if c.get('textX') is not None: c.update(textX=x(c['textX']), markerX=x(c['markerX']))
     return L
 
 _fonts = {}
@@ -145,7 +191,8 @@ def wrap(text, width, f):
 
 def render(L):
     img = Image.new('RGB', (round(L['pageWidth'] * S), round(L['pageHeight'] * S)), 'white'); d = ImageDraw.Draw(img)
-    def rect(x, y, w, h, col): d.rectangle([x * S, y * S, (x + w) * S - 1, (y + h) * S - 1], fill=col)
+    # (At least a pixel, for the thin rules of a sheet shrunk a long way.)
+    def rect(x, y, w, h, col): d.rectangle([x * S, y * S, max(x * S, (x + w) * S - 1), max(y * S, (y + h) * S - 1)], fill=col)
     k = L.get('scale', 1); half = 0.375 * k; y = L['top']
     for r in L['rows']:
         if r['fill']: rect(L['left'] - half, y - half, L['right'] - L['left'] + 2 * half, r['height'] + 2 * half, '#' + r['fill'])
@@ -166,22 +213,25 @@ def render(L):
     for r in L['rows']:
         bottom = y + r['height']
         for c in r['cells']:
+            pad = 2.625 * k; base = bottom - c['baselineUp']
+            if c.get('marker'): d.text((c['markerX'] * S, base * S), c['marker'], font=font(c), fill='black', anchor='ls')
+            if c.get('colon'): d.text(((c['textX'] - 3.75 * k) * S, base * S), ':', font=font(c), fill='black', anchor='ls')
             if not c['text']: continue
-            f = font(c); pad = 2.625 * k; space = wid(' ', f)
-            room = c['x1'] - c['x0'] - 2 * pad - (space if c['align'] in ('right', 'money') else 0)
+            f = font(c); space = wid(' ', f); start = c['textX'] if c.get('textX') is not None else c['x0'] + pad
+            room = c['x1'] - pad - start - (space if c['align'] in ('right', 'money') else 0)
             if wid(c['text'], f) > room: f = font(c, max(c['size'] * room / wid(c['text'], f), c['size'] * 0.6))
-            base = bottom - c['baselineUp']; w = wid(c['text'], f)
+            w = wid(c['text'], f)
             put = lambda t, x: d.text((x * S, base * S), t, font=f, fill='black', anchor='ls')
             if c['align'] == 'center': put(c['text'], (c['x0'] + c['x1']) / 2 - w / 2)
             elif c['align'] == 'right': put(c['text'], c['x1'] - pad - space - w)
             elif c['align'] == 'money': put('$', c['x0'] + pad); put(c['text'], c['x1'] - pad - space - w)
             elif c.get('link') and c['link'] in c['text']:
-                x = c['x0'] + pad; pre, post = c['text'].split(c['link'], 1)
+                x = start; pre, post = c['text'].split(c['link'], 1)
                 put(pre, x); lx = x + wid(pre, f)
                 d.text((lx * S, base * S), c['link'], font=f, fill='#1155CC', anchor='ls')
                 rect(lx, base + 1.125 * k - half, wid(c['link'], f), 2 * half, '#1155CC')
                 put(post, lx + wid(c['link'], f))
-            else: put(c['text'], c['x0'] + pad)
+            else: put(c['text'], start)
         y = bottom
     return img
 
@@ -226,24 +276,34 @@ def law_check(original):
 # date, materials, delivery and fees after the subtotal, the terms and the
 # signature block (quotationSheetLayout in main.swift).
 QUOTE_MODE = len(sys.argv) > 1 and sys.argv[1] == 'quote'
-QUOTE_TERMS = ('The terms and conditions set out in www.pfitnet.com/TC are hereby expressively incorporated into this quotation with other relevant key terms set forth below.\n'
-               "(i) Payment : First two month's rental is to be paid upon order confirmation.\n"
-               'Following rental charges are to be paid monthly on the first day of the month.\n'
-               "Delivery charges are to be paid within 7 days against each truck's delivery.\n"
-               '(ii) Delivery : Minimum of 5 days upon order confirmation.\n'
-               '(iii) Modification : Extra works & modifications of works will be subject to an extra charge.\n'
+# The three parts are joined with a blank line, as quotationSheetLayout does.
+QUOTE_TERMS = ('The terms and conditions set out in www.pfitnet.com/TC are hereby expressively incorporated into this quotation with other relevant key terms set forth below.\n\n'
+               "Payment : First month's rental is to be paid upon order confirmation,\n"
+               'Extended hire shall be counted on a pro-rata (30-days) basis,\n'
+               'starting from its delivery to site until all materials have been returned to the yard.\n'
+               "Delivery charges are to be paid within 7 days against each trucks' delivery\n"
+               'Delivery : 5-7 Days against order confirmation\n'
+               'Insurance: C.A.R. & E.C. insurance is to be paid for by hirer for our workers on-site\n\n'
                'Order shall be confirmed and regarded as properly accepted upon signature by all parties AND such signed copy is returned to Proficiency (HK) Limited via instant electronic communication means. This quotation shall be valid for 7 business days against the issue date.')
 
 if __name__ == '__main__':
     import pymupdf
     if QUOTE_MODE:
-        L = layout(True, 'Rental', 'HKD', ('26212 - Batch 3 of Materials - Rental - Lingma', 'Lingma', '1635 Kwu Tung Station', 'Truss-out at 5/F'), LAW[:8],
+        L = layout(True, 'Rental', 'HKD', ('26212 - Batch 3 of Materials - Rental - Lingma', 'Lingma', '1635 Kwu Tung Station', 'Truss-out at 5/F'),
+                   SAMPLE + LAW if QUOTE_LONG else LAW[:8], one_page=True,
                    charges=[('M', 'Minimum Hire of 2 Months — rental for the 2nd month', 4638.20),
                             ('D1', 'Delivery of materials (2 – 6 tons) — 2 truck/trip × 3,300.00', 6600.0), ('A1', 'Design Fees: Design and Drawing', 1000.0)],
                    terms=QUOTE_TERMS, signature=('Proficiency (HK) Limited', 'Richard Kwan', 'Director', 'Lingma Const. & Eng. Co. Ltd.'),
                    extra=[('Quotation No. :', 'Qt26212-007', 'Date               :', '02/10/2026')])
-        render(L).save(os.path.join(OUT, 'quote_landscape.png'))
-        print('scale', L.get('scale'))
+        name = 'quote_landscape_long' if QUOTE_LONG else 'quote_landscape'
+        render(L).save(os.path.join(OUT, f'{name}.png'))
+        jp = os.path.join(OUT, f'{name}.json'); json.dump(L, open(jp, 'w'))
+        dp = os.path.join(OUT, f'word_{name}.docx')
+        subprocess.run(['node', '-e', f"require('{APP}/js/docx-export.js'); const fs=require('fs'); fs.writeFileSync('{dp}', buildSheetDocx(JSON.parse(fs.readFileSync('{jp}','utf8'))))"], check=True)
+        subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', OUT, dp], check=True, capture_output=True)
+        pages = pymupdf.open(dp[:-5] + '.pdf')
+        pages[0].get_pixmap(dpi=DPI).save(os.path.join(OUT, f'word_{name}.png'))
+        print('scale', L.get('scale'), 'word pages', len(pages))
         sys.exit()
     if LAW_MODE:
         ours, theirs = law_check(ORIGINAL)

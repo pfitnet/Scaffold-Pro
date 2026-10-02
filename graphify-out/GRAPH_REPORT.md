@@ -1,23 +1,23 @@
 # Graph Report - Scaffold-Pro  (2026-10-02)
 
 ## Corpus Check
-- 71 files · ~261,893 words
+- 72 files · ~263,564 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 33 file(s) not represented in the graph (top: .whl 16, .ttf 6, (none) 3)
 
 ## Summary
-- 2156 nodes · 8254 edges · 111 communities (90 shown, 21 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 304 edges (avg confidence: 0.83)
+- 2161 nodes · 8282 edges · 106 communities (87 shown, 19 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 305 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6b95242e`
+- Built from commit: `77f40ef8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - PDFGenerator
-- AppDatabase
+- .handle
 - AppDelegate
 - TeamSync
 - URL
@@ -32,7 +32,7 @@
 - settings.js
 - rich-editor.js
 - team.js
-- .deliveryNoteLetter
+- .append
 - accounts.js
 - stock.js
 - Quotation (standard Qt26193 style)
@@ -44,19 +44,19 @@
 - employees.js
 - quotation-editor.html (Quotation editor)
 - boq-editor.js
-- QuotationBlock
+- String
 - price-lists.js
-- .readAll
+- .getBOQ
 - sidebar.js
 - sheet.py
 - delivery-note-editor.js
 - paragraph-format.js
-- .append
+- .handlePartyImportPreview
 - Terms and Conditions
 - NativeBridge
 - Quotation Qt26193 Page 1 (scaffolding rental quotation)
 - Updater
-- .marketingSummary
+- .accountsData
 - main.swift
 - dashboard.js
 - signed-copy.js
@@ -96,26 +96,24 @@
 - tasks.js
 - doc-authors.js
 - announcements.js
-- .createInvoice
+- QuotationLineItem
 - widgets.js
-- .wordLayout
+- Encodable
 - multiply.js
-- String
+- AppDatabase
 - WebServer
 - delivery-rates.js
 - CloudBackupManager
-- LetterParagraph
+- .item
 - marketing-overview.js
 - JSONStore
-- RelinkTarget
+- .marketingSummary
 - .getCompanySettings
-- BQSheetRenderer
-- SharedStringsParser
-- LetterDocument
-- .line
-- CGFloat
-- .stockData
-- .columns
+- WorksheetParser
+- CompanySettings
+- Data
+- hangingItem
+- ProjectRef
 
 ## God Nodes (most connected - your core abstractions)
 1. `AppDatabase` - 402 edges
@@ -159,27 +157,27 @@
 - **Data safety: local backup, iCloud backup, team sharing** — scaffoldpro_native_readme_backup_restore, scaffoldpro_native_readme_icloud_backup, scaffoldpro_native_readme_team_sharing [INFERRED 0.85]
 - **Project to documents workflow (project detail launches BOQ, quotation, invoice, delivery note)** — scaffoldpro_native_project_detail, scaffoldpro_native_boq_editor, scaffoldpro_native_quotation_editor, scaffoldpro_native_invoice_editor, scaffoldpro_native_delivery_note_editor [INFERRED 0.85]
 
-## Communities (111 total, 21 thin omitted)
+## Communities (106 total, 19 thin omitted)
 
 ### Community 0 - "PDFGenerator"
-Cohesion: 0.13
-Nodes (12): LetterOpening, PDFGenerator, .contentBottom, .dx, .footerDY, .infoColonX, .infoValueX, .noteFont (+4 more)
+Cohesion: 0.06
+Nodes (31): BQSheet, BQSheetRenderer, .rule, Key, LetterColumn, LetterDocument, LetterInfoRow, LetterOpening (+23 more)
 
-### Community 1 - "AppDatabase"
+### Community 1 - ".handle"
 Cohesion: 0.05
-Nodes (9): AppDatabase, .chatFilesFolder, .priceListsAreSeeded, .signaturesFolder, Authorship, Lead, PriceList, safeFileBaseName() (+1 more)
+Nodes (3): Authorship, safeFileBaseName(), UserProfile
 
 ### Community 2 - "AppDelegate"
-Cohesion: 0.12
+Cohesion: 0.13
 Nodes (3): AppDelegate, .autoUpdate, UpdateInfo
 
 ### Community 3 - "TeamSync"
 Cohesion: 0.12
-Nodes (14): Entry, .file, Scan, TeamSync, .appVersion, .computerName, .configuredFolder, .databaseRoot (+6 more)
+Nodes (13): Entry, Scan, TeamSync, .appVersion, .computerName, .configuredFolder, .databaseRoot, .deviceId (+5 more)
 
 ### Community 4 - "URL"
-Cohesion: 0.12
-Nodes (9): BackupManager, BackupManifest, BackupSummary, FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot, .projectsRoot (+1 more)
+Cohesion: 0.10
+Nodes (13): BackupManager, BackupManifest, BackupResult, BackupSummary, FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot (+5 more)
 
 ### Community 5 - "marketing.js"
 Cohesion: 0.21
@@ -198,7 +196,7 @@ Cohesion: 0.08
 Nodes (7): body(), font(), Gen, times(), width(), layout(), text_x()
 
 ### Community 10 - "nowISO"
-Cohesion: 0.12
+Cohesion: 0.13
 Nodes (6): LeadSaveResult, makeId(), nonBlank(), nowISO(), SeedPriceItem, validDay()
 
 ### Community 11 - "docx-export.js"
@@ -221,9 +219,9 @@ Nodes (15): applySize(), applySpacing(), cellStyle(), changed(), currentCell(), 
 Cohesion: 0.19
 Nodes (19): collapsed, deviceRow(), esc(), extraTeams, groups(), initials(), load(), openPerson() (+11 more)
 
-### Community 16 - ".deliveryNoteLetter"
-Cohesion: 0.18
-Nodes (10): DeliveryNote, documentItemName(), formatMoney(), formatQuantity(), LetterSection, LetterSignature, LetterSignatureLine, lineDescription() (+2 more)
+### Community 16 - ".append"
+Cohesion: 0.12
+Nodes (19): BOQCharge, BOQDetail, BOQRatesSection, Client, documentItemName(), formatMoney(), formatQuantity(), formattedParagraphs() (+11 more)
 
 ### Community 17 - "accounts.js"
 Cohesion: 0.17
@@ -238,16 +236,16 @@ Cohesion: 0.17
 Nodes (17): BQ-CRBC-1635 PROFICIENCY QUOTATION sheet (A4 landscape), Qt26193 sample quotation screenshots, Reference documents README, Document lifecycle rules (Draft/Issued/Cancelled), Letterhead layout (from sample quotation Qt26193), Accounts (receivables, payments, expenses), Bill of Quantities (BOQ), BQ sheet landscape (with prices) / portrait (no prices) (+9 more)
 
 ### Community 20 - ".handleCreateProject"
-Cohesion: 0.36
-Nodes (3): currentYearSuffix(), nextProjectNumber(), validateProjectNumber()
+Cohesion: 0.27
+Nodes (4): currentYearSuffix(), linkedDocumentNumber(), nextProjectNumber(), validateProjectNumber()
 
 ### Community 21 - "admin.js"
 Cohesion: 0.19
 Nodes (21): admin.html (Admin page: workers, company docs), Worker and company document expiry reminders, ADMIN_DOC_CATEGORIES, adminDocs, applyAdminDocSearch(), closeWorkerModal(), daysUntil(), escapeAttr() (+13 more)
 
 ### Community 22 - "docs.py"
-Cohesion: 0.20
-Nodes (20): boq(), companySig(), dn(), dn_short(), formatted(), hangingItem(), invoice(), keyTermsText() (+12 more)
+Cohesion: 0.19
+Nodes (20): boq(), companySig(), dn(), dn_short(), invoice(), keyTermsText(), isPay(), money() (+12 more)
 
 ### Community 24 - "invoice-editor.js"
 Cohesion: 0.21
@@ -269,9 +267,9 @@ Nodes (15): boq-editor.html (Bill of Quantities editor), delivery-note-editor.ht
 Cohesion: 0.21
 Nodes (21): addFromPicker(), escAttr(), getBOQIdFromURL(), init(), loadDetail(), money(), multiply, populateCategories() (+13 more)
 
-### Community 29 - "QuotationBlock"
-Cohesion: 0.21
-Nodes (3): chineseMaterialName(), QuotationBlock, WorkerError
+### Community 29 - "String"
+Cohesion: 0.10
+Nodes (7): chineseMaterialName(), isoFromDay(), Letter, PriceListItem, QuotationBlock, spProductItemId(), WorkerError
 
 ### Community 30 - "price-lists.js"
 Cohesion: 0.16
@@ -282,8 +280,8 @@ Cohesion: 0.19
 Nodes (15): asNumber(), build(), cellValue(), close(), enhance(), highlight(), icon(), ICONS (+7 more)
 
 ### Community 33 - "sheet.py"
-Cohesion: 0.23
-Nodes (11): fit(), font(), kg(), law_check(), layout(), text_box(), money(), qty() (+3 more)
+Cohesion: 0.22
+Nodes (13): fit(), font(), kg(), law_check(), layout(), text_box(), money(), qty() (+5 more)
 
 ### Community 34 - "delivery-note-editor.js"
 Cohesion: 0.22
@@ -293,17 +291,17 @@ Nodes (19): addFromPicker(), allowStatusChange(), getIdFromURL(), importFromQuot
 Cohesion: 0.31
 Nodes (13): bullets(), changed(), esc(), hangingIndent(), hangingItem(), indent(), labelSplit(), numbering() (+5 more)
 
-### Community 36 - ".append"
-Cohesion: 0.24
-Nodes (4): ParsedPriceRow, PDFAttachments, SpreadsheetReader, SpreadsheetSheet
+### Community 36 - ".handlePartyImportPreview"
+Cohesion: 0.20
+Nodes (6): BackupError, ParsedPriceRow, PriceSheetInterpreter, SpreadsheetReader, SpreadsheetSheet, SpreadsheetWriter
 
 ### Community 37 - "Terms and Conditions"
 Cohesion: 0.19
 Nodes (13): Quotation Qt26193 Page 2 (Terms and Signature Page), Remainder of Page Intentionally Blank Notice, Lingma Construction & Engineering Co. Ltd. (client, unsigned: Position, Date blank), Delivery Term, Company Address and Contact Footer, Proficiency (HK) Limited Letterhead, Modification Term, Order Acceptance and Validity Clause (+5 more)
 
 ### Community 38 - "NativeBridge"
-Cohesion: 0.11
-Nodes (3): FileActionResult, NativeBridge, SimpleResult
+Cohesion: 0.10
+Nodes (8): FileActionResult, NativeBridge, RelinkTarget, adminDocument, document, drawing, workerDocument, SimpleResult
 
 ### Community 39 - "Quotation Qt26193 Page 1 (scaffolding rental quotation)"
 Cohesion: 0.20
@@ -313,13 +311,13 @@ Nodes (11): Client Address Block (Lingma Construction & Engineering Co. Ltd.), D
 Cohesion: 0.24
 Nodes (3): Updater, .failureNoteURL, .gitHubDesktopURL
 
-### Community 41 - ".marketingSummary"
-Cohesion: 0.23
-Nodes (10): AccountsData, AccountsInvoice, AccountsPayment, Expense, Invoice, MarketingFollowUp, MarketingMonth, MarketingQuote (+2 more)
+### Community 41 - ".accountsData"
+Cohesion: 0.29
+Nodes (7): AccountsData, AccountsInvoice, AccountsPayment, Expense, Invoice, InvoiceDetail, InvoiceLineItem
 
 ### Community 42 - "main.swift"
 Cohesion: 0.06
-Nodes (83): CoreGraphics, CoreText, CryptoKit, Network, PDFKit, AccountsLiability, ActivityRow, AdminDocument (+75 more)
+Nodes (77): CoreGraphics, CoreText, CryptoKit, Network, PDFKit, ActivityEntry, AdminDocument, AdminDocumentSummary (+69 more)
 
 ### Community 43 - "dashboard.js"
 Cohesion: 0.21
@@ -346,8 +344,8 @@ Cohesion: 0.50
 Nodes (8): build(), cents(), close(), money(), rateAfter(), save(), updateFields(), updatePreview()
 
 ### Community 50 - ".handleCombineDocuments"
-Cohesion: 0.14
-Nodes (6): Letter, PDFExportResult, PDFMode, export, print, word
+Cohesion: 0.15
+Nodes (7): PDFAttachments, PDFExportResult, PDFMode, export, print, word, QuotationDetail
 
 ### Community 51 - "user.js"
 Cohesion: 0.42
@@ -374,8 +372,8 @@ Cohesion: 0.33
 Nodes (5): ScaffoldPro App Icon (rounded-square navy tile with scaffold grid), ScaffoldPro App Icon Preview Sheet, Navy Gradient Background Tile, Scaffold Frame Motif (vertical standards, horizontal ledgers, round node connectors), Yellow Diagonal Brace Accent
 
 ### Community 59 - ".finishLaunching"
-Cohesion: 0.12
-Nodes (8): LetterColumnKind, center, left, money, right, weight, TitlebarDragView, .mouseDownCanMoveWindow
+Cohesion: 0.17
+Nodes (6): LetterColumnKind, center, left, money, right, weight
 
 ### Community 60 - "connections.js"
 Cohesion: 0.36
@@ -399,15 +397,15 @@ Nodes (29): ago(), bodyHTML(), closePops(), convAvatar(), dayLabel(), fileURL(),
 
 ### Community 70 - "Double"
 Cohesion: 0.19
-Nodes (16): BillOfQuantities, BOQCharge, BOQDetail, BOQLineItem, BOQRatesSection, BOQSummary, decimalOf(), doubleOf() (+8 more)
+Nodes (14): AccountsLiability, BillOfQuantities, BOQLineItem, BOQSummary, decimalOf(), doubleOf(), Liability, LiabilityPayment (+6 more)
 
 ### Community 71 - "calendar.js"
 Cohesion: 0.22
 Nodes (18): agenda, chip(), COLOR, esc(), events, go(), gridStart(), hidden (+10 more)
 
 ### Community 72 - "UpdateChecker"
-Cohesion: 0.39
-Nodes (4): GitHubToken, UpdateChecker, .authArgs, .canCheck
+Cohesion: 0.46
+Nodes (3): UpdateChecker, .authArgs, .canCheck
 
 ### Community 73 - "keep-focus.js"
 Cohesion: 0.80
@@ -430,8 +428,8 @@ Cohesion: 0.12
 Nodes (14): ScaffoldPro audit against the master prompt, Bugs found and fixed in audit pass, Master development prompt (67 sections), Not built yet (suggested order), YYNNN project numbering with override validation, pick_sdk(), SDKROOT, install.sh script (+6 more)
 
 ### Community 78 - ".documentRows"
-Cohesion: 0.23
-Nodes (6): DocAuthors, DocRow, PartyDetail, ProjectListEntry, ProjectRef, SearchResult
+Cohesion: 0.26
+Nodes (7): ActivityRow, DashboardSummary, DocAuthors, DocRow, InspectionDue, MyProject, UserPage
 
 ### Community 79 - "project-work.js"
 Cohesion: 0.37
@@ -449,25 +447,25 @@ Nodes (3): chainText(), esc(), show()
 Cohesion: 0.57
 Nodes (6): compose(), draw(), refresh(), render(), sheet(), when()
 
-### Community 83 - ".createInvoice"
-Cohesion: 0.18
-Nodes (9): ChargeSplit, Client, DeliveryNoteDetail, DeliveryNoteLineItem, Quotation, QuotationDetail, QuotationLineItem, QuotationMoney (+1 more)
+### Community 83 - "QuotationLineItem"
+Cohesion: 0.29
+Nodes (5): ChargeSplit, Quotation, QuotationLineItem, QuotationMoney, QuotationSummary
 
 ### Community 86 - "widgets.js"
 Cohesion: 0.30
 Nodes (13): apply(), bar(), columns(), drawTray(), guides(), handle(), pack(), refresh() (+5 more)
 
-### Community 87 - ".wordLayout"
-Cohesion: 0.42
+### Community 87 - "Encodable"
+Cohesion: 0.35
 Nodes (10): WordColumn, WordFont, WordInfoRow, WordLayout, WordParagraph, WordRefRow, WordRow, WordSection (+2 more)
 
 ### Community 88 - "multiply.js"
 Cohesion: 0.47
 Nodes (7): apply(), build(), close(), open(), preview(), scaled(), undoToast()
 
-### Community 89 - "String"
-Cohesion: 0.09
-Nodes (4): ActivityEntry, InvoicePayment, isoFromDay(), spProductItemId()
+### Community 89 - "AppDatabase"
+Cohesion: 0.07
+Nodes (8): AppDatabase, .chatFilesFolder, .priceListsAreSeeded, .signaturesFolder, DeliveryNote, DeliveryNoteLineItem, Lead, PriceList
 
 ### Community 90 - "WebServer"
 Cohesion: 0.13
@@ -478,12 +476,8 @@ Cohesion: 0.67
 Nodes (5): build(), label(), open(), plan(), weight()
 
 ### Community 92 - "CloudBackupManager"
-Cohesion: 0.13
-Nodes (9): BackupError, CloudBackupManager, .defaultFolder, .enabled, .folder, .iCloudDrive, .usingDefault, SpreadsheetWriter (+1 more)
-
-### Community 93 - "LetterParagraph"
-Cohesion: 0.40
-Nodes (6): formattedParagraphs(), LetterParagraph, hanging, term, text, paymentTermParagraphs()
+Cohesion: 0.16
+Nodes (7): CloudBackupManager, .defaultFolder, .enabled, .folder, .iCloudDrive, .usingDefault, .materialFolder
 
 ### Community 95 - "marketing-overview.js"
 Cohesion: 0.28
@@ -493,53 +487,45 @@ Nodes (15): countTo(), niceStep(), pickMonth(), refresh(), render(), renderChart
 Cohesion: 0.17
 Nodes (8): JSONStore, .isEmpty, Backup and Restore (atomic, local automatic), Automatic iCloud backup to William's Work, Quotation Key Terms with hanging-indent formatting, Settings (company info, numbering, standard quotation), Share with Other Macs (iCloud change logs), Workers and administrative documents
 
-### Community 97 - "RelinkTarget"
-Cohesion: 0.40
-Nodes (5): RelinkTarget, adminDocument, document, drawing, workerDocument
+### Community 97 - ".marketingSummary"
+Cohesion: 0.48
+Nodes (6): MarketingClient, MarketingFollowUp, MarketingMonth, MarketingQuote, MarketingSummary, ProjectReference
 
 ### Community 98 - ".getCompanySettings"
-Cohesion: 0.17
-Nodes (10): .markupRoundsUp, .minimumMonthlyRental, CompanySettings, DefaultBOQItem, DeliveryRate, linkedDocumentNumber(), ManpowerRate, nextDocumentNumber() (+2 more)
+Cohesion: 0.27
+Nodes (3): .markupRoundsUp, .minimumMonthlyRental, nextDocumentNumber()
 
-### Community 99 - "BQSheetRenderer"
-Cohesion: 0.19
-Nodes (5): BQSheetRenderer, .rule, SheetCell, SheetLayout, SheetRow
+### Community 100 - "CompanySettings"
+Cohesion: 0.70
+Nodes (4): CompanySettings, DefaultBOQItem, DeliveryRate, ManpowerRate
 
-### Community 101 - "SharedStringsParser"
-Cohesion: 0.15
-Nodes (3): SharedStringsParser, WorksheetParser, XMLAttributeCollector
+### Community 103 - "hangingItem"
+Cohesion: 0.29
+Nodes (8): hangingItem(), HangingStyle, bullet, label, marker, hangingTextOffset(), keyTermsText(), labelSplit()
 
-### Community 102 - "LetterDocument"
-Cohesion: 0.16
-Nodes (9): BQSheet, LetterDocument, LetterInfoRow, LetterTableRow, item, note, partial, section (+1 more)
-
-### Community 103 - ".line"
-Cohesion: 0.24
-Nodes (9): hangingItem(), HangingStyle, bullet, label, marker, hangingTextOffset(), Key, keyTermsText() (+1 more)
-
-### Community 107 - ".stockData"
-Cohesion: 0.53
-Nodes (5): StockData, StockItemRow, StockMovement, StockMovementView, StockProjectQuantity
+### Community 107 - "ProjectRef"
+Cohesion: 0.43
+Nodes (6): ProjectRef, StockData, StockItemRow, StockMovement, StockMovementView, StockProjectQuantity
 
 ## Knowledge Gaps
 - **140 isolated node(s):** `SDKROOT`, `askpass.sh script`, `PATH`, `PILL`, `STATUS_TEXT` (+135 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 250 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 251 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **19 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `PDFGenerator` connect `PDFGenerator` to `JSONStore`, `BQSheetRenderer`, `SharedStringsParser`, `LetterDocument`, `CGFloat`, `NSFont`, `main.swift`, `Gen`, `.deliveryNoteLetter`, `.handleCombineDocuments`, `Quotation (standard Qt26193 style)`, `.wordLayout`, `String`, `word.py`?**
-  _High betweenness centrality (0.298) - this node is a cross-community bridge._
+- **Why does `PDFGenerator` connect `PDFGenerator` to `JSONStore`, `Data`, `Gen`, `main.swift`, `.append`, `.handleCombineDocuments`, `Quotation (standard Qt26193 style)`, `word.py`, `String`?**
+  _High betweenness centrality (0.297) - this node is a cross-community bridge._
 - **Why does `Export Word (.docx) matching PDF layout` connect `word.py` to `PDFGenerator`, `docx-export.js`?**
   _High betweenness centrality (0.247) - this node is a cross-community bridge._
 - **Why does `quotation-editor.html (Quotation editor)` connect `quotation-editor.html (Quotation editor)` to `paragraph-format.js`, `docx-export.js`, `quotation-editor.js`, `signed-copy.js`, `line-discount.js`?**
-  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+  _High betweenness centrality (0.101) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `AppDatabase` (e.g. with `.restore()` and `.handle()`) actually correct?**
   _`AppDatabase` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `SDKROOT`, `askpass.sh script`, `PATH` to the rest of the system?**
   _140 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `PDFGenerator` be split into smaller, more focused modules?**
-  _Cohesion score 0.12857142857142856 - nodes in this community are weakly interconnected._
-- **Should `AppDatabase` be split into smaller, more focused modules?**
-  _Cohesion score 0.04705003734129948 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05853128396211768 - nodes in this community are weakly interconnected._
+- **Should `.handle` be split into smaller, more focused modules?**
+  _Cohesion score 0.053763440860215055 - nodes in this community are weakly interconnected._
