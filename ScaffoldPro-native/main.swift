@@ -2746,27 +2746,8 @@ final class JSONStore<T: Codable> {
     }
 
     func writeAll(_ items: [T]) {
-        guard var data = try? JSONEncoder().encode(items) else { return }
-        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        // Sharing a folder with other Macs: what changed goes into this
-        // Mac's log there too (TeamSync).
-        // The material list also goes to iCloud Drive when this Mac isn't
-        // sharing a folder (TeamSync.material).
-        let folder = fileURL.deletingLastPathComponent().standardizedFileURL
-        let team = [TeamSync.current, TeamSync.material].compactMap { $0 }.first {
-            $0.localData.standardizedFileURL == folder && $0.handles(fileURL.lastPathComponent)
-        }
-        let stamped = Authorship.stores.contains(fileURL.lastPathComponent)
-        let previous: Data? = team == nil && !stamped ? nil : (try? Data(contentsOf: fileURL))
-        // Projects and documents: who made each one, and who last worked on it.
-        if stamped { data = Authorship.stamp(data, previous: previous) }
-        // Atomic: written to a temporary file and swapped in, so a crash
-        // or power cut mid-save can never leave a half-written database
-        // file behind (section 48).
-        try? data.write(to: fileURL, options: .atomic)
-        team?.recordLocalWrite(store: fileURL.lastPathComponent, old: previous, new: data)
-        // Lets the automatic iCloud backup know there's something new.
-        NotificationCenter.default.post(name: CloudBackupManager.dataSaved, object: nil)
+        guard let data = try? JSONEncoder().encode(items) else { return }
+        StoreFile.write(data, to: fileURL)
     }
 
     func insert(_ item: T) {
@@ -2782,6 +2763,216 @@ final class JSONStore<T: Codable> {
     }
 
     var isEmpty: Bool { readAll().isEmpty }
+}
+
+/// Saving a store's file: what every JSONStore save goes through, and
+/// Undo / Redo too (UndoJournal), which put back records as they were.
+enum StoreFile {
+    static func write(_ newData: Data, to fileURL: URL) {
+        var data = newData
+        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // Sharing a folder with other Macs: what changed goes into this
+        // Mac's log there too (TeamSync).
+        // The material list also goes to iCloud Drive when this Mac isn't
+        // sharing a folder (TeamSync.material).
+        let folder = fileURL.deletingLastPathComponent().standardizedFileURL
+        let team = [TeamSync.current, TeamSync.material].compactMap { $0 }.first {
+            $0.localData.standardizedFileURL == folder && $0.handles(fileURL.lastPathComponent)
+        }
+        let stamped = Authorship.stores.contains(fileURL.lastPathComponent)
+        let journal = UndoJournal.shared.wants(fileURL)
+        let previous: Data? = team == nil && !stamped && !journal ? nil : (try? Data(contentsOf: fileURL))
+        // Projects and documents: who made each one, and who last worked on it.
+        if stamped { data = Authorship.stamp(data, previous: previous) }
+        // Atomic: written to a temporary file and swapped in, so a crash
+        // or power cut mid-save can never leave a half-written database
+        // file behind (section 48).
+        try? data.write(to: fileURL, options: .atomic)
+        team?.recordLocalWrite(store: fileURL.lastPathComponent, old: previous, new: data)
+        // What this action changed, so it can be undone.
+        if journal { UndoJournal.shared.record(fileURL, old: previous, new: data) }
+        // Lets the automatic iCloud backup know there's something new.
+        NotificationCenter.default.post(name: CloudBackupManager.dataSaved, object: nil)
+    }
+}
+
+// =====================================================================
+// MARK: - Undo / Redo (⌘Z or Ctrl+Z; ⇧⌘Z, ⌘Y or Ctrl+Y)
+//
+// Each action the pages ask for (adding a line, changing a quantity,
+// deleting a BOQ…) is one step. While it runs, every record it changes is
+// noted as it was before and after. Undo puts those records back as they
+// were before (re-adding any it deleted, taking off any it added); Redo
+// puts them back as they were after. Only those records change, so a
+// teammate's work on other records (TeamSync) is left alone. The steps
+// last while the app is open (the latest 60). Not undone: the project
+// history, chat, announcements, signing requests and team membership —
+// and files on disk (an uploaded drawing's copy stays in the folder).
+// =====================================================================
+
+struct UndoResult: Encodable {
+    var ok: Bool
+    var error: String?
+    var label: String?
+    var canUndo: Bool
+    var canRedo: Bool
+}
+
+final class UndoJournal {
+    static let shared = UndoJournal()
+    private init() {}
+
+    /// Stores that aren't part of the work people undo.
+    static let untracked: Set<String> = ["activity.json", "chat_messages.json", "announcements.json", "sign_requests.json",
+                                         "user_profiles.json", "user_teams.json"]
+
+    /// One store's records changed by a step: as they were before and after
+    /// (absent = the record wasn't there), and where each stood in the file.
+    struct Change {
+        var url: URL
+        var ids: [String] = []
+        var before: [String: Data] = [:]
+        var after: [String: Data] = [:]
+        var beforeAt: [String: Int] = [:]
+        var afterAt: [String: Int] = [:]
+    }
+
+    struct Step {
+        var action: String
+        var label: String
+        var stores: [String] = []
+        var changes: [String: Change] = [:]
+    }
+
+    private var undoSteps: [Step] = []
+    private var redoSteps: [Step] = []
+    private var current: Step?
+    private let limit = 60
+
+    /// Actions that change nothing of the person's work, or not undoably:
+    /// reading, exporting and printing, files, backups, chat, the team.
+    static func journaled(_ action: String) -> Bool {
+        let parts = action.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return false }
+        let area = parts[0], verb = parts[1]
+        let skipAreas: Set<String> = ["history", "chat", "team", "users", "web", "app", "backup", "cloudBackup", "announcements",
+                                      "signatures", "search", "calendar", "dashboard"]
+        if skipAreas.contains(area) { return false }
+        let readPrefixes = ["get", "list", "export", "print", "reveal", "open", "locate"]
+        let reads: Set<String> = ["page", "detail", "summary", "data", "search", "status", "due", "expiring", "profiles", "people", "events",
+                                  "leads", "image", "letterhead", "combinePDF", "unitRatesPDF", "saveCSV", "saveWord", "proposeNumber",
+                                  "signedCopy", "deliverySchedule", "standardRates", "syncStatus", "authors", "chain", "typing",
+                                  "importPreview", "logoPreview", "numberPreview", "chooseAndRestore"]
+        return !reads.contains(verb) && !readPrefixes.contains { verb.hasPrefix($0) }
+    }
+
+    /// "boq:addLineItem" → "Add line item (BOQ)".
+    static func label(_ action: String) -> String {
+        let parts = action.split(separator: ":", maxSplits: 1).map(String.init)
+        let areas = ["boq": "BOQ", "quotations": "quotation", "invoices": "invoice", "deliveryNotes": "delivery note", "letters": "letter",
+                     "projects": "project", "clients": "client", "sites": "site", "priceListItems": "material list", "priceLists": "material list",
+                     "drawings": "drawing", "documents": "document", "stock": "stock", "accounts": "accounts", "employees": "employee",
+                     "tasks": "task", "inspections": "inspection", "marketing": "lead", "settings": "settings", "workers": "worker",
+                     "workerDocuments": "worker document", "adminDocuments": "admin document", "lines": "quantities"]
+        guard parts.count == 2 else { return action }
+        var words = ""
+        for ch in parts[1] {
+            if ch.isUppercase { words += " " + ch.lowercased() } else { words.append(ch) }
+        }
+        words = words.replacingOccurrences(of: " boq", with: " BOQ")
+        let verb = words.prefix(1).uppercased() + words.dropFirst()
+        return areas[parts[0]].map { "\(verb) (\($0))" } ?? verb
+    }
+
+    /// Whether a save to this file is being noted (an action is running).
+    func wants(_ url: URL) -> Bool { current != nil && !UndoJournal.untracked.contains(url.lastPathComponent) }
+
+    func begin(_ action: String) {
+        current = UndoJournal.journaled(action) ? Step(action: action, label: UndoJournal.label(action)) : nil
+    }
+
+    func record(_ url: URL, old: Data?, new: Data) {
+        guard var step = current else { return }
+        let before = UndoJournal.records(old), after = UndoJournal.records(new)
+        let key = url.path
+        var change = step.changes[key] ?? Change(url: url)
+        for id in Set(before.data.keys).union(after.data.keys) where before.data[id] != after.data[id] {
+            if !change.ids.contains(id) {
+                // The first time this step touches the record: as it was before the step.
+                change.ids.append(id)
+                change.before[id] = before.data[id]
+                change.beforeAt[id] = before.at[id]
+            }
+            change.after[id] = after.data[id]
+            change.afterAt[id] = after.at[id]
+        }
+        if !change.ids.isEmpty && step.changes[key] == nil { step.stores.append(key) }
+        if !change.ids.isEmpty { step.changes[key] = change }
+        current = step
+    }
+
+    func end() {
+        guard let step = current else { return }
+        current = nil
+        // Kept only when something really changed (and stayed changed).
+        let changed = step.changes.values.contains { c in c.ids.contains { c.before[$0] != c.after[$0] } }
+        guard changed else { return }
+        undoSteps.append(step)
+        if undoSteps.count > limit { undoSteps.removeFirst(undoSteps.count - limit) }
+        redoSteps.removeAll()
+    }
+
+    var canUndo: Bool { !undoSteps.isEmpty }
+    var canRedo: Bool { !redoSteps.isEmpty }
+
+    /// Undoes the latest step; its label, or nil when there's nothing to undo.
+    func undo() -> String? {
+        guard let step = undoSteps.popLast() else { return nil }
+        apply(step, back: true)
+        redoSteps.append(step)
+        return step.label
+    }
+
+    func redo() -> String? {
+        guard let step = redoSteps.popLast() else { return nil }
+        apply(step, back: false)
+        undoSteps.append(step)
+        return step.label
+    }
+
+    /// Puts the step's records back as they were before it (`back`) or after it.
+    private func apply(_ step: Step, back: Bool) {
+        for key in (back ? step.stores.reversed() : step.stores) {
+            guard let change = step.changes[key] else { continue }
+            let current = (try? Data(contentsOf: change.url)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [Any] } ?? []
+            var rows = current
+            let target = back ? change.before : change.after
+            let places = back ? change.beforeAt : change.afterAt
+            // Off first, then back in their old places (lowest first, so the places hold).
+            let touched = Set(change.ids)
+            rows.removeAll { (($0 as? [String: Any])?["id"] as? String).map { touched.contains($0) } ?? false }
+            let restore = change.ids.filter { target[$0] != nil }.sorted { (places[$0] ?? .max) < (places[$1] ?? .max) }
+            for id in restore {
+                guard let data = target[id], let record = try? JSONSerialization.jsonObject(with: data) else { continue }
+                rows.insert(record, at: min(places[id] ?? rows.count, rows.count))
+            }
+            guard let data = try? JSONSerialization.data(withJSONObject: rows) else { continue }
+            StoreFile.write(data, to: change.url)
+        }
+    }
+
+    /// A store file's records by id: each as JSON (keys sorted, so the same
+    /// record always reads the same) and its place in the file.
+    private static func records(_ data: Data?) -> (data: [String: Data], at: [String: Int]) {
+        guard let data = data, let array = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return ([:], [:]) }
+        var out: [String: Data] = [:], at: [String: Int] = [:]
+        for (i, item) in array.enumerated() {
+            guard let record = item as? [String: Any], let id = record["id"] as? String, out[id] == nil else { continue }
+            out[id] = (try? JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])) ?? Data()
+            at[id] = i
+        }
+        return (out, at)
+    }
 }
 
 // =====================================================================
@@ -13339,7 +13530,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
               let id = body["id"] as? String,
               let action = body["action"] as? String else { return }
         let payload = (body["payload"] as? [String: Any]) ?? [:]
+        // What the action changes is noted, so ⌘Z can undo it (UndoJournal).
+        // (Requests from browsers, ScaffoldPro Web, aren't: the undo steps
+        // are this Mac's own.)
+        UndoJournal.shared.begin(action)
         handle(id: id, action: action, payload: payload)
+        UndoJournal.shared.end()
     }
 
     // MARK: ScaffoldPro Web (pages in a browser, through WebServer)
@@ -13392,6 +13588,19 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Answers a page's request — from this Mac's window, or a browser.
     func handle(id: String, action: String, payload: [String: Any]) {
         switch action {
+        case "history:undo", "history:redo":
+            // Undo / Redo: the latest step's records put back (UndoJournal).
+            guard !servingWeb else {
+                respond(id: id, encodable: UndoResult(ok: false, error: "Undo works in the ScaffoldPro app on the Mac.", label: nil, canUndo: false, canRedo: false))
+                return
+            }
+            let journal = UndoJournal.shared
+            let label = action == "history:undo" ? journal.undo() : journal.redo()
+            if let label = label {
+                db.logActivity(projectId: nil, action == "history:undo" ? "Undone: \(label)" : "Redone: \(label)")
+            }
+            respond(id: id, encodable: UndoResult(ok: label != nil, error: label == nil ? (action == "history:undo" ? "Nothing to undo." : "Nothing to redo.") : nil,
+                                                  label: label, canUndo: journal.canUndo, canRedo: journal.canRedo))
         case "clients:list":
             respond(id: id, encodable: db.listClients(includeArchived: (payload["includeArchived"] as? Bool) ?? false))
         case "clients:create":
@@ -18406,11 +18615,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         addSubmenu(main, "File", file)
 
-        // Edit — standard actions, handled by the web view.
+        // Edit — Undo / Redo go to the page (js/undo.js): typing in a field
+        // is undone there; otherwise the last action (UndoJournal). The
+        // page takes ⌘Z, ⇧⌘Z, ⌘Y and Ctrl+Z / Ctrl+Y itself first.
         let edit = NSMenu(title: "Edit")
-        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        let redo = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        let undo = NSMenuItem(title: "Undo", action: #selector(appUndo(_:)), keyEquivalent: "z")
+        undo.target = self
+        edit.addItem(undo)
+        let redo = NSMenuItem(title: "Redo", action: #selector(appRedo(_:)), keyEquivalent: "z")
         redo.keyEquivalentModifierMask = [.command, .shift]
+        redo.target = self
         edit.addItem(redo)
         edit.addItem(.separator())
         edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
@@ -18478,6 +18692,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
     @objc func goToPage(_ sender: NSMenuItem) {
         guard let page = sender.representedObject as? String else { return }
         runJS("location.href = '\(page)';")
+    }
+
+    @objc func appUndo(_ sender: Any?) {
+        runJS("window.appUndo && window.appUndo('undo');")
+    }
+
+    @objc func appRedo(_ sender: Any?) {
+        runJS("window.appUndo && window.appUndo('redo');")
     }
 
     @objc func openSearch(_ sender: Any?) {

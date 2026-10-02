@@ -400,6 +400,11 @@
       setName: (name) => callNative('users:setName', { name: name }),
       setTeam: (team) => callNative('users:setTeam', { team: team }),
     },
+    // Undo / Redo the last action (js/undo.js): { ok, label, canUndo, canRedo, error }.
+    history: {
+      undo: () => callNative('history:undo'),
+      redo: () => callNative('history:redo'),
+    },
     // ScaffoldPro Web: this Mac serving the pages to browsers.
     web: {
       status: () => callNative('web:status'),

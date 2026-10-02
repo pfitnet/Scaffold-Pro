@@ -2467,3 +2467,27 @@ under "Letterhead layout".
   **Pricing** list and the quotation's **From BOQ** list, and pulled the
   toolbar buttons into the wrapper. Each icon now holds only its own
   list.
+
+## Batch 97 — Undo and Redo
+
+- **⌘Z or Ctrl+Z undoes the last action; ⇧⌘Z, ⌘Y or Ctrl+Y redoes it.**
+  So do Edit › Undo and Redo. Examples of actions: adding or removing a
+  line, changing a quantity or price, Multiply, linking a quotation,
+  changing a status, deleting a BOQ, saving a client. The page reloads
+  where it was, with "Undone: Add line item (BOQ) [Redo]" at the bottom
+  right. Each further ⌘Z goes one step further back, up to 60 steps. The
+  steps last while the app is open.
+- **Typing first:** text typed in a field and not yet saved is undone in
+  the field, as usual. Once it's saved (you leave the field, or press
+  Return), ⌘Z undoes the change as an action.
+- **How it works (`UndoJournal` in main.swift):** while an action runs,
+  every record it changes is noted as it was before and after (every
+  save goes through `StoreFile.write`). Undo puts just those records back,
+  re-adding any it deleted and taking off any it added. A teammate's work
+  on other records isn't touched. The project history records
+  "Undone: …" / "Redone: …".
+- **Not undone:** reading, exporting and printing, backups, chat,
+  announcements, signing requests, team settings, the history log, and
+  files on disk (an uploaded drawing's copy stays in the folder). Changes
+  made from a browser through ScaffoldPro Web aren't recorded, and Undo
+  isn't offered there.
