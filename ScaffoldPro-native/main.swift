@@ -6404,7 +6404,7 @@ final class AppDatabase {
     /// number when it changed. (Not with Settings' linked numbers off, nor
     /// for an issued quotation, whose number has gone out.)
     @discardableResult
-    func takeLinkedNumber(_ qs: inout [Quotation], _ qi: Int, from boq: BOQ) -> String? {
+    func takeLinkedNumber(_ qs: inout [Quotation], _ qi: Int, from boq: BillOfQuantities) -> String? {
         guard qs[qi].status == "Draft",
               let projectNumber = projectsStore.readAll().first(where: { $0.id == qs[qi].projectId })?.projectNumber else { return nil }
         let used = qs.filter { $0.id != qs[qi].id }.map { $0.quotationNumber }
