@@ -1000,6 +1000,7 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
   background: color-mix(in srgb, var(--qa) 15%, transparent); color: color-mix(in srgb, var(--qa) 82%, var(--text)); }
 .qa-icon svg { width: 16px; height: 16px; }
 .qa-text { min-width: 0; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tasks-new-tile { margin: 0 0 6px; }
 .token-row { display: flex; gap: 6px; }
 .token-row input { flex: 1; }
 
