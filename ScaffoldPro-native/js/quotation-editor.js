@@ -77,6 +77,7 @@ async function loadDetail() {
   document.getElementById('quotation-body').classList.remove('hidden');
   render();
   window.docLanguage.show(currentDetail);
+  document.getElementById('orientation-select').value = currentDetail.orientation || 'Portrait';
   window.deliverySchedule.refresh(currentDetail);
 }
 
@@ -776,6 +777,12 @@ async function importFromBOQ() {
 async function init() {
   // Item names on the PDF in English or Chinese.
   window.docLanguage.init((language) => window.api.quotations.setLanguage(quotationId, language));
+  // Portrait on the letterhead, or landscape as the BQ sheet (with the terms and signature block).
+  document.getElementById('orientation-select').addEventListener('change', async (e) => {
+    const r = await window.api.quotations.setOrientation(quotationId, e.target.value);
+    if (r && !r.ok) alert(r.error);
+    await loadDetail();
+  });
   window.setupDocumentActions('Quotation', () => ({
     id: quotationId, number: currentDetail ? currentDetail.quotationNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
     projectNumber: currentDetail ? currentDetail.projectNumber : '',

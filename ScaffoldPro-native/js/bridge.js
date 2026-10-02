@@ -140,7 +140,7 @@
       setLanguage: (id, language) => callNative('boq:setLanguage', { id: id, language: language || null }),
       // Several BOQs added together into one new Draft BOQ → { ok, error, id }.
       combine: (ids) => callNative('boq:combine', { ids: ids }),
-      // The landscape sheet's Terms box and signature box: { terms?, signatureSection? }.
+      // The landscape sheet's Terms box: { terms? }.
       updateSheetExtras: (id, changes) => callNative('boq:updateSheetExtras', Object.assign({ id: id }, changes)),
       listForProject: (projectId) => callNative('boq:listForProject', { projectId: projectId }),
       setOrientation: (id, orientation) => callNative('boq:setOrientation', { id: id, orientation: orientation }),
@@ -184,6 +184,8 @@
       unlinkBOQ: (id) => callNative('quotations:unlinkBOQ', { id: id }),
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('quotations:setLanguage', { id: id, language: language || null }),
+      // 'Portrait' (the letterhead) or 'Landscape' (the BQ sheet with terms and signatures).
+      setOrientation: (id, orientation) => callNative('quotations:setOrientation', { id: id, orientation: orientation }),
       listForProject: (projectId) => callNative('quotations:listForProject', { projectId: projectId }),
       create: (projectId, projectNumber, boqId, pricingMode) =>
         callNative('quotations:create', { projectId: projectId, projectNumber: projectNumber, boqId: boqId || null, pricingMode: pricingMode || 'Rental' }),
