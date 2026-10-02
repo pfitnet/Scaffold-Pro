@@ -2246,3 +2246,40 @@ under "Letterhead layout".
     stretch to meet.
   - Example: Delivery Notes now widens beside a long Quotations column
     instead of leaving a blank square there.
+
+## Batch 87 — Marketing Overview, rebuilt to explore
+
+- **Filters across the top** change everything below them:
+  - 3, 6 or 12 months;
+  - Value or Count;
+  - chips for the month and client you've picked (× clears each).
+  - The period and measure are remembered.
+- **The headline:**
+  - A big number for what was quoted (it counts up).
+  - Against the period before, with ▲/▼ (3 and 6 months).
+  - A win-rate meter.
+  - Beside it: average quotation, best month, and busy months.
+- **The month chart:**
+  - Each month's column shows Won (strong blue) under Not won yet (light
+    blue), with a 2px gap between them.
+  - The best month's figure sits on its column.
+  - Hover, or Tab to a column, for a card with quoted, won, not won,
+    count and win rate.
+  - Click a month (or press Return) to look at it on its own; the others
+    fade. Arrow keys move between months.
+  - Columns grow in when the period or measure changes.
+  - "Show as table" shows every figure without hovering.
+  - The colours were checked for colour-blind readers and contrast in light
+    and dark mode.
+- **Top Clients:** a ranked leaderboard with won / not-won bars, the number
+  of quotations and amount invoiced. Click a client to see only their
+  quotations everywhere on the page. It's for looking only; client details
+  are still changed on Clients & Sites.
+- **Quotations:** the quotations behind whatever is picked, newest first,
+  each marked ✓ Won or Waiting. Click one to open it.
+- **Where Leads Come From:** each source with how many leads were won, the
+  win %, and the open estimated value. When there are no leads it offers
+  "+ New Lead".
+- The month figures now come from the quotations themselves
+  (`MarketingSummary.quotes`), so the won value is exact rather than an
+  average.

@@ -4,20 +4,8 @@
   <meta charset="UTF-8" />
   <title>Marketing — ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/marketing.css" />
   <style>
-    .mk-chart { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; align-items: end; height: 150px; padding: 8px 4px 0; }
-    .mk-bar-stack { position: relative; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
-    .mk-bar-stack .quoted { background: color-mix(in srgb, var(--accent) 22%, transparent); border-radius: 4px 4px 0 0; min-height: 2px; }
-    .mk-bar-stack .won { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--success) 55%, transparent); border-radius: 4px 4px 0 0; }
-    .mk-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; padding: 4px 4px 0; font-size: 11px; color: var(--text-tertiary); text-align: center; }
-    .mk-legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
-    .mk-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-    .mk-legend .l-quoted::before { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-    .mk-legend .l-won::before { background: color-mix(in srgb, var(--success) 55%, transparent); }
-    .mk-sources { display: flex; flex-direction: column; gap: 6px; }
-    .mk-source { display: grid; grid-template-columns: 110px 1fr 30px; gap: 8px; align-items: center; font-size: 13px; }
-    .mk-source .track { height: 8px; background: var(--hairline); border-radius: 4px; overflow: hidden; }
-    .mk-source .fill { height: 100%; background: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 4px; }
     .kind-pill { font-size: 11px; }
     .board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
     .board-col { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px; min-height: 120px; }
@@ -53,23 +41,55 @@
       <button data-tab="references">Project References</button>
     </div>
 
-    <section class="tab-panel active" data-panel="overview">
-      <div class="dash-grid">
-        <section class="panel" style="grid-column: 1 / -1;">
-          <h3 class="panel-title">Quotations Sent — Last 12 Months</h3>
-          <div class="mk-chart" id="mk-chart"></div>
-          <div class="mk-months" id="mk-months"></div>
-          <div class="mk-legend"><span class="l-quoted">Value quoted</span><span class="l-won">Of which won (invoiced or signed)</span></div>
+    <section class="tab-panel active mo-viz" data-panel="overview">
+      <!-- Filters for everything below: period, value or count, and what's picked. -->
+      <div class="mo-filters">
+        <div class="segmented" id="mo-range" role="group" aria-label="Period">
+          <button data-range="3" data-no-icon>3 months</button><button data-range="6" data-no-icon>6 months</button><button data-range="12" class="active" data-no-icon>12 months</button>
+        </div>
+        <div class="segmented" id="mo-measure" role="group" aria-label="Show">
+          <button data-measure="value" class="active" data-no-icon>Value</button><button data-measure="count" data-no-icon>Count</button>
+        </div>
+        <div class="mo-chips" id="mo-chips"></div>
+      </div>
+
+      <div class="mo-grid">
+        <section class="panel mo-hero">
+          <div class="mo-hero-head">
+            <div class="mo-figure">
+              <div class="mo-kicker" id="mo-kicker"></div>
+              <div class="mo-big" id="mo-big"></div>
+              <div class="mo-sub" id="mo-sub"></div>
+              <div class="mo-meter" id="mo-meter" role="meter" aria-valuemin="0" aria-valuemax="100"><div class="mo-meter-fill"></div></div>
+              <div class="mo-meter-label" id="mo-meter-label"></div>
+            </div>
+            <div class="mo-kpis" id="mo-kpis"></div>
+          </div>
+          <div class="mo-chart" id="mo-chart"></div>
+          <div class="mo-chart-foot">
+            <div class="mo-legend"><span class="mo-key won"></span>Won (invoiced or signed)<span class="mo-key open"></span>Not won yet</div>
+            <span class="mo-hint" id="mo-hint">Click a month to look at it on its own</span>
+            <button class="link-btn" id="mo-table-btn" data-no-icon aria-expanded="false">Show as table</button>
+          </div>
+          <div class="mo-table hidden" id="mo-table"></div>
         </section>
-        <section class="panel">
-          <h3 class="panel-title">Top Clients</h3>
-          <div id="mk-clients"></div>
+
+        <section class="panel mo-clients">
+          <h3 class="panel-title panel-title-row"><span>Top Clients</span><span class="mo-panel-note" id="mo-clients-note"></span></h3>
+          <div id="mo-clients"></div>
         </section>
-        <section class="panel">
-          <h3 class="panel-title">Where Leads Come From</h3>
-          <div id="mk-sources"></div>
+
+        <section class="panel mo-sources">
+          <h3 class="panel-title panel-title-row"><span>Where Leads Come From</span><span class="mo-panel-note">all leads</span></h3>
+          <div id="mo-sources"></div>
+        </section>
+
+        <section class="panel mo-list">
+          <h3 class="panel-title panel-title-row"><span id="mo-list-title">Quotations</span><span class="mo-panel-note" id="mo-list-note"></span></h3>
+          <div id="mo-list"></div>
         </section>
       </div>
+      <div class="mo-tip hidden" id="mo-tip" role="tooltip"></div>
     </section>
 
     <section class="tab-panel" data-panel="followups">
@@ -121,6 +141,7 @@
   <script src="js/dialogs.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/icons.js"></script>
+  <script src="js/marketing-overview.js"></script>
   <script src="js/marketing.js"></script>
 </body>
 </html>
