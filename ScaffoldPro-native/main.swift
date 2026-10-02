@@ -10887,7 +10887,7 @@ enum BQSheet {
 
         return fitToPage(SheetLayout(landscape: landscape, pageWidth: pageWidth, pageHeight: pageHeight,
                                      left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows),
-                         smallest: onePage ? 0 : 0.7)
+                         smallest: onePage ? 0 : 0.7, portraitBelow: onePage ? 0.6 : nil)
     }
 
     /// The Terms & Conditions box, laid out as on the portrait quotation
@@ -10962,15 +10962,36 @@ enum BQSheet {
     /// from the same top margin and about the same centre line, e.g. Mr.
     /// Law's sheet at 76.75%. Longer sheets run on over pages at full size.
     /// A landscape quotation always goes on one page, its terms and
-    /// signatures with it (`smallest` 0).
-    static func fitToPage(_ sheet: SheetLayout, smallest: Double = 0.7) -> SheetLayout {
+    /// signatures with it (`smallest` 0) — and when that would shrink it
+    /// below `portraitBelow` (60%), the same landscape design goes on a
+    /// portrait page instead, where its long table has more room and is
+    /// shrunk less (only when it does come out bigger there).
+    static func fitToPage(_ sheet: SheetLayout, smallest: Double = 0.7, portraitBelow: Double? = nil) -> SheetLayout {
         let height = sheet.rows.reduce(0) { $0 + $1.height }
         let room = sheet.bottomLimit - sheet.top
         guard height > room, room / height >= smallest else { return sheet }
         // 3pt to spare, so Word's rounding never tips the last rows over.
         let k = (room - 3) / height
         let centre = (sheet.left + sheet.right) / 2
-        let x: (Double) -> Double = { centre + ($0 - centre) * k }
+        if let below = portraitBelow, sheet.landscape, k < below {
+            // A4 portrait: the same top and bottom margins, 36pt at the sides.
+            var tall = sheet
+            tall.landscape = false
+            tall.pageWidth = sheet.pageHeight
+            tall.pageHeight = sheet.pageWidth
+            tall.bottomLimit = tall.pageHeight - (sheet.pageHeight - sheet.bottomLimit)
+            let byWidth = (tall.pageWidth - 72) / (sheet.right - sheet.left)
+            let byHeight = (tall.bottomLimit - tall.top - 3) / height
+            let kTall = min(1, byWidth, byHeight)
+            if kTall > k { return scaled(tall, by: kTall, from: centre, to: tall.pageWidth / 2) }
+        }
+        return scaled(sheet, by: k, from: centre, to: centre)
+    }
+
+    /// The sheet `k` times its size from its top margin, its centre line
+    /// moved from `from` to `to`; rules and padding shrink with it.
+    static func scaled(_ sheet: SheetLayout, by k: Double, from: Double, to: Double) -> SheetLayout {
+        let x: (Double) -> Double = { to + ($0 - from) * k }
         var out = sheet
         out.scale = k
         out.left = x(sheet.left)
