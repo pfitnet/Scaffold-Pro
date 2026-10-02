@@ -2160,3 +2160,16 @@ under "Letterhead layout".
   with Sign Out. A new password signs everyone out.
 - **Team › People** shows the browsers people use, e.g. "Edge on Windows
   (web)".
+
+## Batch 82 — Team as folders; New Task on My Tasks
+
+- **Team › People is a folder tree:**
+  - Each team is a folder (teams with a director come first); in it, each
+    person as "name — title"; under them, their devices.
+  - Folders open and close, and are remembered. Open All and Close All
+    are on the bar.
+  - Drag a person onto another team's folder to move them there.
+  - "+ New Team" makes an empty folder to drag people into.
+- **My Tasks** has a "+ New Task" button in its heading. Quick Actions
+  leaves out its own New Task while My Tasks is on the Dashboard. Hide My
+  Tasks and New Task comes back to Quick Actions.

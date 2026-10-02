@@ -1225,3 +1225,42 @@ html.web #sidebar { padding-top: 16px; }
 html.web #content { padding-top: 26px; }
 .sidebar-signout { margin: 4px 10px 0; font-size: 12px; padding: 3px 10px; align-self: flex-start; }
 .web-file-ready { position: fixed; right: 20px; bottom: 20px; z-index: 90; padding: 12px 16px; border-radius: 12px; background: var(--accent); color: #fff !important; font-weight: 600; box-shadow: var(--shadow-sheet); text-decoration: none !important; animation: sheet-in .2s ease; }
+
+/* Team › People as folders: team › person — title › devices. */
+.tree-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.tree-bar button { font-size: 12px; padding: 3px 10px; }
+.tree { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 6px; }
+.tree-team { border-radius: 9px; transition: background .12s, box-shadow .12s; }
+.tree-team + .tree-team { margin-top: 2px; }
+.tree-team.drop-here { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.tree-row { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 3px 8px; border-radius: 8px; }
+.tree-head { cursor: pointer; user-select: none; }
+.tree-head:hover { background: var(--sidebar-hover); }
+.tree-head.team { min-height: 38px; }
+.tree-head.team .tree-label b { font-size: 13.5px; }
+.tree-indent { flex: none; width: 22px; align-self: stretch; position: relative; }
+.tree-indent::before { content: ''; position: absolute; left: 10px; top: -4px; bottom: -4px; border-left: 1px solid var(--hairline); }
+.tree-toggle { flex: none; width: 20px; height: 20px; padding: 0; border: none; background: transparent; box-shadow: none; display: inline-flex; align-items: center; justify-content: center; color: var(--text-tertiary); }
+.tree-chev { transition: transform .15s ease; }
+.tree-toggle.open .tree-chev { transform: rotate(90deg); }
+.tree-icon { flex: none; display: inline-flex; color: var(--text-tertiary); }
+.tree-icon.folder { color: var(--accent); }
+.tree-avatar { flex: none; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 10.5px; font-weight: 700; }
+.tree-label { flex: 1; min-width: 0; font-size: 13px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tree-title { color: var(--text-secondary); }
+.tree-meta { flex: none; font-size: 11.5px; color: var(--text-tertiary); white-space: nowrap; }
+.tree-person.me > .tree-head .tree-label b { color: var(--accent); }
+.tree-person.dragging { opacity: 0.4; }
+.tree-person > .tree-head { cursor: grab; }
+.tree-device .tree-label { color: var(--text); font-size: 12.5px; }
+.tree-device.outdated .tree-meta { color: var(--warning); }
+.tree-device.none .tree-label, .tree-empty .tree-label { color: var(--text-tertiary); font-style: italic; font-size: 12px; }
+.tree-children.hidden { display: none; }
+.signer-pill.small { font-size: 11px; padding: 1px 7px; gap: 4px; }
+.signer-pill.small svg { width: 13px; height: 13px; }
+
+/* A panel heading with its own links and buttons on the right. */
+.panel-title.panel-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-title-row .panel-actions { display: inline-flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; }
+.panel-title-row .panel-link { float: none; }
+button.add-btn.small { padding: 2px 9px; font-size: 11.5px; gap: 5px; border-radius: 7px; }

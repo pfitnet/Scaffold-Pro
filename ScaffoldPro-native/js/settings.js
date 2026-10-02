@@ -591,7 +591,9 @@ window.beforeAppUpdate = async () => { if (settingsDirty) await saveSettings(); 
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const show = (st) => {
     if (!st) return;
-    document.getElementById('web-enabled').checked = st.enabled;
+    st.sessions = st.sessions || [];
+    st.urls = st.urls || [];
+    document.getElementById('web-enabled').checked = !!st.enabled;
     if (document.activeElement !== document.getElementById('web-port')) document.getElementById('web-port').value = st.port;
     document.getElementById('web-password').placeholder = st.hasPassword ? 'Set — type a new one to change it' : 'At least 6 characters';
     const when = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };

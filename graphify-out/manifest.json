@@ -60,9 +60,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
-    "mtime": 1790879966.1308267,
-    "seen": 1790880343.5328574,
-    "ast_hash": "a230dbc644ea6e296a26e878762f3e08",
+    "mtime": 1790903136.0243695,
+    "seen": 1790903338.248336,
+    "ast_hash": "806b3bf6ec9df592cd29a947e058a10b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/delivery-note-editor.js": {
@@ -162,9 +162,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
-    "mtime": 1790881524.8089786,
-    "seen": 1790881599.21779,
-    "ast_hash": "dc93ca5603bc7af295522f3d063a3d88",
+    "mtime": 1790903269.713789,
+    "seen": 1790903338.2483573,
+    "ast_hash": "3d5cbdcc15e9942d91b6f845fc9a31a5",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/sidebar.js": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790881595.2917693,
-    "seen": 1790881599.217805,
-    "ast_hash": "87d56ff57b642af72ab6f373d9759a0d",
+    "mtime": 1790903333.1241255,
+    "seen": 1790903338.248372,
+    "ast_hash": "8c43681075bb50838fcae7b97fb47200",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -288,9 +288,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/index.html": {
-    "mtime": 1790879469.583886,
-    "seen": 1790880343.5328972,
-    "ast_hash": "c243becbc72ecadc8bfa3b6d04eb7870",
+    "mtime": 1790903136.0236533,
+    "seen": 1790903338.2483776,
+    "ast_hash": "4b3fa1d1c6d7143a6179f47f5d239f59",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/invoice-editor.html": {
@@ -558,15 +558,15 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/team.js": {
-    "mtime": 1790881102.7870197,
-    "seen": 1790881239.0934649,
-    "ast_hash": "1949919cfa45fb53640ea24300058c9a",
+    "mtime": 1790903067.6629586,
+    "seen": 1790903338.2483623,
+    "ast_hash": "fc8ff86b26a2fcf7842bc2e7a3808ff1",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/team.html": {
-    "mtime": 1790880568.7558155,
-    "seen": 1790880810.3234901,
-    "ast_hash": "a88c01d53f80d81be59ddeb4a8662521",
+    "mtime": 1790903106.6241355,
+    "seen": 1790903338.248388,
+    "ast_hash": "7c79ad4b7c47cf39bf3406d621a85ef2",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/chat.js": {
