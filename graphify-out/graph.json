@@ -20402,7 +20402,7 @@
       "file_type": "code",
       "norm_label": "watchedges()",
       "source_file": "ScaffoldPro-native/js/item-picker.js",
-      "source_location": "L125"
+      "source_location": "L130"
     },
     {
       "id": "scaffoldpro_native_js_dialogs_actionlabel",
@@ -34153,7 +34153,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/item-picker.js",
-      "source_location": "L126",
+      "source_location": "L131",
       "weight": 1.0
     },
     {
@@ -102091,7 +102091,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/item-picker.js",
-      "source_location": "L125",
+      "source_location": "L130",
       "weight": 1.0
     },
     {
@@ -125513,5 +125513,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "0cfb1d03ce732321d92e53f1f6754f6721e33e56"
+  "built_at_commit": "c73622f26bf15dc05c9a6d224f5b7369ab38b02e"
 }

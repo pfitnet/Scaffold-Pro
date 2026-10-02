@@ -788,6 +788,10 @@ tr.row-selected td { background: var(--accent-soft) !important; }
 /* overflow: clip (not hidden) rounds the corners without stopping the heading from sticking. */
 .picker-group { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--panel); margin: 0 0 10px; overflow: clip; }
 .picker-results .picker-group-head { position: sticky; top: 0; z-index: 2; }
+/* While a heading is stuck, the rows going up under it fade away instead of being sliced. */
+.picker-results .picker-group-head::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 30px; pointer-events: none;
+  background: linear-gradient(var(--panel) 20%, transparent); opacity: 0; transition: opacity .15s; }
+.picker-results .picker-group-head.stuck::after { opacity: 1; }
 .picker-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 10px; background: var(--header-bg); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12.5px; }
 .picker-group-count { font-weight: 400; font-size: 11px; color: var(--text-tertiary); }
 .picker-group-table { width: 100%; margin: 0; table-layout: fixed; }
