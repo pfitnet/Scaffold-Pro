@@ -2228,3 +2228,21 @@ under "Letterhead layout".
 - It shows when there are no tasks too, above "Nothing to do."
 - Quick Actions still leaves out its own New Task while My Tasks is on the
   Dashboard.
+
+## Batch 86 — New Task lined up; no gap beside a long column
+
+- **New Task lines up with the tasks.** It's now the first row of the My
+  Tasks table, so its icon sits in the tick-box column and "New Task"
+  starts where the task titles start. This holds at every width, including
+  the stacked ¼-width layout. It keeps the Quick Actions look and hover,
+  and works from the keyboard (Return or Space).
+- **No empty patch beside a long panel** (e.g. a long "Quotations Awaiting
+  Reply"):
+  - The Dashboard now places each panel, in order, where it sits highest.
+  - It skips a spot that would leave a hole under the panel that nothing
+    can fill.
+  - A panel left short above a hole is stretched down into it.
+  - Panels with empty columns beside them widen into them, and the rest
+    stretch to meet.
+  - Example: Delivery Notes now widens beside a long Quotations column
+    instead of leaving a blank square there.

@@ -327,8 +327,9 @@
   }
 
   // Packing, so the Dashboard has no empty patches:
-  //  1. each panel takes as many thin grid rows as it's tall, in order
-  //     (the next one moves up beside a taller one);
+  //  1. each panel, in order, goes where it sits highest — but not where it
+  //     would leave a hole under it that nothing can fill (a panel above a
+  //     hole is stretched down into it when nothing is under it yet);
   //  2. a panel with empty columns beside it all the way down its side
   //     widens into them;
   //  3. each grows up to the panel above it (or the top) and down to the
@@ -345,20 +346,38 @@
     const top = scroller.scrollTop;
     grid.style.minHeight = `${grid.offsetHeight}px`;
     for (const w of shown) { w.style.gridColumn = ''; w.style.gridRow = ''; w.style.alignSelf = 'start'; }
-    for (const w of shown) {
-      const h = w.getBoundingClientRect().height;
-      w.style.gridRowEnd = `span ${Math.max(1, Math.ceil((h + gap) / ROW))}`;
-    }
     const g = grid.getBoundingClientRect();
     const cols = columns();
     const colGap = parseFloat(getComputedStyle(grid).columnGap) || 0;
     const step = (g.width + colGap) / cols;
+    // How many columns wide and how many thin rows tall each one is.
     const items = shown.map((w) => {
       const r = w.getBoundingClientRect();
-      const c0 = Math.max(0, Math.round((r.left - g.left) / step));
-      const r0 = Math.max(0, Math.round((r.top - g.top) / ROW));
-      return { w, c0, c1: Math.min(cols, c0 + Math.max(1, Math.round((r.width + colGap) / step))), r0, r1: r0 + Math.max(1, Math.ceil((r.height + gap) / ROW)) };
+      return { w, k: Math.min(cols, Math.max(1, Math.round((r.width + colGap) / step))), h: Math.max(1, Math.ceil((r.height + gap) / ROW)) };
     });
+    // 1. Place them. `sky` is how far down each column is filled, `last`
+    //    the panel at the bottom of it.
+    const sky = Array(cols).fill(0);
+    const last = Array(cols).fill(null);
+    const stretchable = (o) => { for (let j = o.c0; j < o.c1; j += 1) if (last[j] !== o) return false; return true; };
+    for (const it of items) {
+      let best = null;
+      for (let c = 0; c + it.k <= cols; c += 1) {
+        let t = 0;
+        for (let j = c; j < c + it.k; j += 1) t = Math.max(t, sky[j]);
+        let hole = 0;
+        for (let j = c; j < c + it.k; j += 1) if (sky[j] < t && !(last[j] && stretchable(last[j]))) hole += t - sky[j];
+        const cost = t + 2 * hole;
+        if (!best || cost < best.cost) best = { c, t, cost };
+      }
+      const { c, t } = best;
+      for (let j = c; j < c + it.k; j += 1) {
+        const o = last[j];
+        if (sky[j] < t && o && stretchable(o)) { o.r1 = t; for (let x = o.c0; x < o.c1; x += 1) sky[x] = t; }
+      }
+      Object.assign(it, { c0: c, c1: c + it.k, r0: t, r1: t + it.h });
+      for (let j = c; j < c + it.k; j += 1) { sky[j] = it.r1; last[j] = it; }
+    }
     const bottom = Math.max(...items.map((i) => i.r1));
     const clear = (c, ra, rb, self) => items.every((o) => o === self || o.c1 <= c || o.c0 > c || o.r1 <= ra || o.r0 >= rb);
     // 2. Widen into empty columns beside it — not while customising, so a

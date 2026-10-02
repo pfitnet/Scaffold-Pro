@@ -938,6 +938,16 @@ table.task-table td { vertical-align: top; }
 tr.task-row { cursor: pointer; }
 td.task-check { width: 28px; }
 td.task-check input { margin-top: 2px; }
+/* My Tasks: tick boxes centred in their column, under the New Task icon. */
+#my-tasks-list td.task-check { width: 32px; text-align: center; }
+#my-tasks-list tr.task-new-row { cursor: pointer; }
+#my-tasks-list tr.task-new-row td { vertical-align: middle; padding-top: 5px; padding-bottom: 5px; border-top: none; }
+#my-tasks-list tr.task-new-row .qa-icon { display: flex; margin: 0 auto; }
+#my-tasks-list tr.task-new-row:hover td { background: color-mix(in srgb, var(--qa) 9%, transparent); }
+#my-tasks-list tr.task-new-row:hover td:first-child { border-radius: 9px 0 0 9px; }
+#my-tasks-list tr.task-new-row:hover td:last-child { border-radius: 0 9px 9px 0; }
+#my-tasks-list tr.task-new-row:active { transform: scale(0.99); }
+#my-tasks-list tr.task-new-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 tr.task-done .task-title { text-decoration: line-through; color: var(--text-tertiary); }
 .task-overdue { color: var(--danger); font-weight: 500; }
 .status-pill.task-high { font-size: 10px; padding: 0 6px; }
@@ -1000,7 +1010,6 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
   background: color-mix(in srgb, var(--qa) 15%, transparent); color: color-mix(in srgb, var(--qa) 82%, var(--text)); }
 .qa-icon svg { width: 16px; height: 16px; }
 .qa-text { min-width: 0; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tasks-new-tile { margin: 0 0 6px; }
 .token-row { display: flex; gap: 6px; }
 .token-row input { flex: 1; }
 
@@ -1026,6 +1035,11 @@ th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2p
   table.compact.task-table tr { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
   table.compact.task-table td:first-child { grid-column: 1; grid-row: 1 / span 3; padding-top: 1px; }
   table.compact.task-table td:not(:first-child) { grid-column: 2; }
+  #my-tasks-list table.compact.task-table tr { grid-template-columns: 32px minmax(0, 1fr); }
+  #my-tasks-list table.compact.task-table td:first-child { justify-self: center; }
+  #my-tasks-list table.compact tr.task-new-row { align-items: center; padding: 5px 4px; }
+  #my-tasks-list table.compact tr.task-new-row td:first-child { grid-row: auto; padding-top: 0; }
+  #my-tasks-list table.compact tr.task-new-row:hover { background: color-mix(in srgb, var(--qa) 9%, transparent); }
 }
 
 /* "and 7 more" under a Dashboard list. */

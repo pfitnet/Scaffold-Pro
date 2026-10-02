@@ -14986,19 +14986,19 @@
       "file_type": "code",
       "norm_label": "newtaskquick()",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L338"
+      "source_location": "L341"
     },
     {
-      "id": "scaffoldpro_native_js_dashboard_newtasktilehtml",
-      "label": "newTaskTileHTML()",
+      "id": "scaffoldpro_native_js_dashboard_newtaskrowhtml",
+      "label": "newTaskRowHTML()",
       "_callable": true,
       "_origin": "ast",
       "community": 43,
       "community_name": "dashboard.js",
       "file_type": "code",
-      "norm_label": "newtasktilehtml()",
+      "norm_label": "newtaskrowhtml()",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L332"
+      "source_location": "L335"
     },
     {
       "id": "scaffoldpro_native_js_dashboard_pickprojectthen",
@@ -15022,7 +15022,7 @@
       "file_type": "code",
       "norm_label": "qa_svg()",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L316"
+      "source_location": "L319"
     },
     {
       "id": "scaffoldpro_native_js_dashboard_renderawaitingquotations",
@@ -15046,7 +15046,7 @@
       "file_type": "code",
       "norm_label": "renderquickactions()",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L351"
+      "source_location": "L354"
     },
     {
       "id": "scaffoldpro_native_js_dashboard_renderrecentdocs",
@@ -15094,7 +15094,7 @@
       "file_type": "code",
       "norm_label": "taskswidgetshown()",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L346"
+      "source_location": "L349"
     },
     {
       "id": "scaffoldpro_native_js_dashboard_updateawaitingcount",
@@ -20948,7 +20948,7 @@
       "file_type": "code",
       "norm_label": "pack()",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L337"
+      "source_location": "L338"
     },
     {
       "id": "scaffoldpro_native_js_widgets_refresh",
@@ -24722,7 +24722,7 @@
       "file_type": "code",
       "norm_label": "quick_actions",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L317"
+      "source_location": "L320"
     },
     {
       "id": "scaffoldpro_native_js_signed_copy",
@@ -31218,14 +31218,14 @@
     },
     {
       "source": "scaffoldpro_native_js_dashboard_loaddashboard",
-      "target": "scaffoldpro_native_js_dashboard_newtasktilehtml",
+      "target": "scaffoldpro_native_js_dashboard_newtaskrowhtml",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L277",
+      "source_location": "L279",
       "weight": 1.0
     },
     {
@@ -31237,11 +31237,11 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L283",
+      "source_location": "L286",
       "weight": 1.0
     },
     {
-      "source": "scaffoldpro_native_js_dashboard_newtasktilehtml",
+      "source": "scaffoldpro_native_js_dashboard_newtaskrowhtml",
       "target": "scaffoldpro_native_js_dashboard_qa_svg",
       "relation": "calls",
       "_origin": "ast",
@@ -31249,7 +31249,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L335",
+      "source_location": "L338",
       "weight": 1.0
     },
     {
@@ -31357,7 +31357,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L353",
+      "source_location": "L356",
       "weight": 1.0
     },
     {
@@ -31369,7 +31369,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L354",
+      "source_location": "L357",
       "weight": 1.0
     },
     {
@@ -31381,7 +31381,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L355",
+      "source_location": "L358",
       "weight": 1.0
     },
     {
@@ -39097,7 +39097,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L353",
+      "source_location": "L350",
       "weight": 1.0
     },
     {
@@ -74713,7 +74713,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L346",
+      "source_location": "L349",
       "weight": 1.0
     },
     {
@@ -74725,7 +74725,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L351",
+      "source_location": "L354",
       "weight": 1.0
     },
     {
@@ -75473,7 +75473,7 @@
       "weight": 1.0
     },
     {
-      "source": "scaffoldpro_native_js_dashboard_newtasktilehtml",
+      "source": "scaffoldpro_native_js_dashboard_newtaskrowhtml",
       "target": "scaffoldpro_native_js_dashboard_quick_actions",
       "relation": "references",
       "_origin": "ast",
@@ -75481,7 +75481,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L333",
+      "source_location": "L336",
       "weight": 1.0
     },
     {
@@ -75493,7 +75493,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L354",
+      "source_location": "L357",
       "weight": 1.0
     },
     {
@@ -99709,7 +99709,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L316",
+      "source_location": "L319",
       "weight": 1.0
     },
     {
@@ -99720,18 +99720,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L317",
+      "source_location": "L320",
       "weight": 1.0
     },
     {
       "source": "scaffoldpro_native_js_dashboard",
-      "target": "scaffoldpro_native_js_dashboard_newtasktilehtml",
+      "target": "scaffoldpro_native_js_dashboard_newtaskrowhtml",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L332",
+      "source_location": "L335",
       "weight": 1.0
     },
     {
@@ -120353,7 +120353,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L280",
+      "source_location": "L282",
       "weight": 1.0
     },
     {
@@ -121517,7 +121517,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/widgets.js",
-      "source_location": "L388",
+      "source_location": "L407",
       "weight": 1.0
     },
     {
@@ -121577,7 +121577,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "ScaffoldPro-native/js/dashboard.js",
-      "source_location": "L323",
+      "source_location": "L326",
       "weight": 1.0
     },
     {
@@ -124258,5 +124258,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "413ef5e11ec9e5d92ee0675cc81469f2587d25a9"
+  "built_at_commit": "1af145f9fd2bb009c96ce5501f7b5eefc889c075"
 }
