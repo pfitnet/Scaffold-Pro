@@ -30,6 +30,31 @@ function icon(name) {
   return `<svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 }
 
+// Leaving a page that has unsaved work (Settings): the page sets
+// window.leaveNeedsAsk() (true while there's something unsaved) and
+// window.askBeforeLeave() (asks Save / Don't Save / Cancel, resolves true to
+// go on). Every way of leaving goes through here: links, ⌘K search, Back,
+// and the Go menu (main.swift).
+window.appNavigate = async function appNavigate(target) {
+  if (typeof window.leaveNeedsAsk === 'function' && window.leaveNeedsAsk() && typeof window.askBeforeLeave === 'function') {
+    if (!(await window.askBeforeLeave())) return false;
+  }
+  if (typeof target === 'function') target(); else location.href = target;
+  return true;
+};
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  const a = e.target.closest && e.target.closest('a[href]');
+  if (!a || a.target === '_blank') return;
+  const href = a.getAttribute('href') || '';
+  if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+  // Another place in the same page (settings.html#team) isn't leaving.
+  if (a.pathname === location.pathname && a.hash) return;
+  if (!(typeof window.leaveNeedsAsk === 'function' && window.leaveNeedsAsk())) return;
+  e.preventDefault();
+  window.appNavigate(a.href);
+}, true);
+
 const NAV_ITEMS = [
   { section: 'Overview' },
   { page: 'dashboard', label: 'Dashboard', href: 'index.html', key: '1' },
@@ -217,7 +242,7 @@ async function renderTeamIndicator(sidebar) {
   el.lastChild.textContent = label;
   el.title = s.enabled ? `Working in the shared folder ${s.folderDisplay}. Changes from the other Macs appear by themselves.`
     : 'The shared folder couldn’t be found, so this Mac’s own data is open. See Settings.';
-  el.addEventListener('click', () => { location.href = 'settings.html#team'; });
+  el.addEventListener('click', () => { window.appNavigate('settings.html#team'); });
   sidebar.prepend(el);
 }
 
@@ -256,7 +281,7 @@ async function renderTeamIndicator(sidebar) {
       if (e.key === 'Escape') { e.preventDefault(); close(); }
       else if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-      else if (e.key === 'Enter') { e.preventDefault(); if (results[selected]) location.href = results[selected].url; }
+      else if (e.key === 'Enter') { e.preventDefault(); if (results[selected]) window.appNavigate(results[selected].url); }
     });
   }
 
@@ -466,9 +491,9 @@ function addBackButton() {
   button.addEventListener('click', () => {
     // The page it was opened from, if it was one of ours; else its parent.
     const cameFromApp = document.referrer && document.referrer.startsWith(location.origin === 'null' ? 'file:' : location.origin);
-    if (cameFromApp && history.length > 1) { history.back(); return; }
+    if (cameFromApp && history.length > 1) { window.appNavigate(() => history.back()); return; }
     const parent = document.getElementById('back-link');
-    location.href = parent && parent.getAttribute('href') && parent.getAttribute('href') !== '#' ? parent.getAttribute('href') : 'projects.html';
+    window.appNavigate(parent && parent.getAttribute('href') && parent.getAttribute('href') !== '#' ? parent.getAttribute('href') : 'projects.html');
   });
   content.prepend(button);
 }

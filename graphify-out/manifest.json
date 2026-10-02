@@ -162,15 +162,15 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
-    "mtime": 1790922141.1464822,
-    "seen": 1790922266.0847907,
-    "ast_hash": "52201dc05c9de6ef47edb80dfe8198f2",
+    "mtime": 1790953676.2163732,
+    "seen": 1790954221.574232,
+    "ast_hash": "3ba7815fb4405b185573deaad11ae45a",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/sidebar.js": {
-    "mtime": 1790933053.287588,
-    "seen": 1790933144.6085887,
-    "ast_hash": "a455e4e7cbd28144a871340033409d1e",
+    "mtime": 1790953662.384646,
+    "seen": 1790954221.574233,
+    "ast_hash": "61bab8e18304713a2629066121dd32fe",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/signed-copy.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1790953549.171912,
-    "seen": 1790953606.6316922,
-    "ast_hash": "60bac30619652d6ef5cd18545f3d4b28",
+    "mtime": 1790953671.9282043,
+    "seen": 1790954221.5742402,
+    "ast_hash": "bc47ac5a6b0f73c07a0ef87b02504815",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790953597.9933794,
-    "seen": 1790953606.6317012,
-    "ast_hash": "0afc9b41068dc3c509969fb63696193c",
+    "mtime": 1790954215.9733517,
+    "seen": 1790954221.574249,
+    "ast_hash": "8230b854b27df6c593af2ffb1f98cc2c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {

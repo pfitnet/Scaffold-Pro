@@ -2517,3 +2517,15 @@ under "Letterhead layout".
   with "@$3,300.00 / Truck / Trip" on the line below. The weight band
   ("2 – 6 tons") is no longer printed. Sheet cells can now hold two
   lines, in the PDF and the Word copy.
+
+## Batch 100 — Asked to save when leaving Settings
+
+- **Leaving Settings with unsaved changes** asks "Save your changes to
+  Settings?". **Save** saves and goes on, **Don't Save** goes on without
+  saving, and **Cancel** stays. This covers every way out: sidebar links,
+  ⌘K search, the Back button, ⌘[ / ⌘], and the Go menu.
+- If a number format is missing {SEQ}, Save stops there and the changes
+  stay unsaved, instead of being reported as saved.
+- Any page can use this: set `window.leaveNeedsAsk()` and
+  `window.askBeforeLeave()`; leaving goes through `window.appNavigate()`
+  (js/sidebar.js).
