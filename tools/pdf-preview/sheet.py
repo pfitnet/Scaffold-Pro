@@ -117,7 +117,7 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
             rows.append(dict(kind='signature', height=h, fill=None, repeats=False, joinNext=i < len(texts) - 1, borderless=True,
                              cells=[ca, cell(le, rs, '', 10, 'left', 0), cb, cell(re_, right, '', 10, 'left', 0)]))
     return fit(dict(ok=True, kind='sheet', landscape=landscape, pageWidth=pw, pageHeight=ph, left=left, right=right, top=top,
-                    bottomLimit=ph - 53.25, rows=rows, number='BQ', title='PROFICIENCY QUOTATION', scale=1), 0 if one_page else 0.7)
+                    bottomLimit=ph - 53.25, rows=rows, number='BQ', title='PROFICIENCY QUOTATION', scale=1), 0 if one_page else 0.7, 0.6 if one_page else None)
 
 def terms_box(text, left, right):
     """BQSheet.termsBox: the terms with their markers and indents, as on the portrait quotation."""
@@ -159,11 +159,23 @@ def terms_box(text, left, right):
                          cells=[c], joinNext=not last))
     return rows
 
-def fit(L, smallest=0.7):
-    """BQSheet.fitToPage: shrink a sheet a little too long for one page onto it (to no less than `smallest`)."""
+def fit(L, smallest=0.7, portrait_below=None):
+    """BQSheet.fitToPage: shrink a sheet a little too long for one page onto it (to no less than `smallest`);
+    a one-page landscape quotation shrunk below `portrait_below` goes on a portrait page, landscape design kept."""
     h = sum(r['height'] for r in L['rows']); room = L['bottomLimit'] - L['top']
     if h <= room or room / h < smallest: return L
-    k = (room - 3) / h; cx = (L['left'] + L['right']) / 2; x = lambda v: cx + (v - cx) * k
+    k = (room - 3) / h; cx = (L['left'] + L['right']) / 2
+    if portrait_below is not None and L['landscape'] and k < portrait_below:
+        pw, ph = L['pageHeight'], L['pageWidth']
+        bottom = ph - (L['pageHeight'] - L['bottomLimit'])
+        kt = min(1, (pw - 72) / (L['right'] - L['left']), (bottom - L['top'] - 3) / h)
+        if kt > k:
+            L.update(landscape=False, pageWidth=pw, pageHeight=ph, bottomLimit=bottom)
+            return scaled(L, kt, cx, pw / 2)
+    return scaled(L, k, cx, cx)
+
+def scaled(L, k, frm, to):
+    x = lambda v: to + (v - frm) * k
     L.update(scale=k, left=x(L['left']), right=x(L['right']))
     for r in L['rows']:
         r['height'] *= k

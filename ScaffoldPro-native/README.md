@@ -2620,3 +2620,16 @@ Every form control is now drawn by the app instead of macOS, on every page
   (`accounts:saveCSV`); main.swift reads it (`SpreadsheetReader.parseCSV`,
   which now also ends rows at Windows line breaks) and writes the .xlsx
   (`SpreadsheetWriter.writeXLSX(…, numbers: true)`).
+
+## Batch 105 — A long landscape quotation on a portrait page
+
+- A landscape quotation always fits on one page. When a long one would
+  have to shrink below **60%** on a landscape page, it now goes on a
+  **portrait** page instead. It keeps the same landscape design (orange
+  banner, the item table with prices, the totals, terms and signatures),
+  and it is shrunk much less: about 78% instead of 40–60%. The PDF,
+  printing and the Word copy all use the same page.
+- Shorter quotations stay on a landscape page as before. Portrait
+  quotations (the letterhead design) are unchanged.
+- `BQSheet.fitToPage(…, portraitBelow:)` and `BQSheet.scaled`; the
+  preview (`tools/pdf-preview/sheet.py quote long`) does the same.
