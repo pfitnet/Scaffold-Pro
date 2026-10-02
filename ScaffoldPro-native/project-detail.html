@@ -20,14 +20,26 @@
     </div>
 
     <div id="project-body" class="hidden">
-      <div class="page-header">
-        <div id="project-header"></div>
-        <div class="header-actions">
-          <select id="status-select" title="Project status"></select>
-          <button id="edit-project-btn">Edit Details</button>
-          <button id="reveal-folder-btn">Show in Finder</button>
+      <!-- The project at a glance: number and status, name, client and site,
+           who made it, its stage, and what it holds (js/project-detail.js) -->
+      <header class="pd-hero" id="pd-hero">
+        <span class="pd-hero-glow" aria-hidden="true"></span>
+        <div class="pd-hero-main">
+          <div id="project-header"></div>
+          <div id="doc-authors" class="doc-authors pd-authors"></div>
         </div>
-      </div>
+        <div class="pd-hero-side">
+          <div class="header-actions">
+            <select id="status-select" title="Project status"></select>
+            <button id="edit-project-btn">Edit Details</button>
+            <button id="reveal-folder-btn">Show in Finder</button>
+          </div>
+        </div>
+        <!-- Its stage: Planning › Quotation › Active › Completed (a click moves it) -->
+        <ol class="pd-stages" id="pd-stages" aria-label="Project stage"></ol>
+        <!-- What it holds: a tile for each kind of document, opening its tab -->
+        <div class="pd-stats" id="pd-stats"></div>
+      </header>
 
       <nav class="tabs" id="tabs">
         <button data-tab="overview">Overview</button>
@@ -44,30 +56,26 @@
 
       <!-- Overview (section 17) -->
       <section class="tab-panel" data-panel="overview">
-        <div class="overview-grid">
-          <div class="panel">
+        <div class="pd-overview">
+          <div class="panel pd-details-panel">
             <h3 class="panel-title">Project Details</h3>
-            <dl class="details" id="overview-details"></dl>
+            <dl class="pd-details" id="overview-details"></dl>
           </div>
-          <div class="panel">
+          <!-- As the Dashboard's Quick Actions panel -->
+          <div class="panel pd-actions-panel">
             <h3 class="panel-title">Quick Actions</h3>
-            <div class="quick-actions">
-              <button data-action="new-boq">New BOQ</button>
-              <button data-action="new-quotation">New Quotation</button>
-              <button data-action="new-invoice">New Invoice</button>
-              <button data-action="new-delivery-note">New Delivery Note</button>
-              <button data-action="upload-drawing">Upload Drawing</button>
-              <button data-action="upload-document">Upload Document</button>
-            </div>
-            <h3 class="panel-title" style="margin-top:18px;">Recent Activity</h3>
+            <div class="qa-grid pd-qa" id="pd-quick-actions"></div>
+          </div>
+          <div class="panel pd-activity-panel">
+            <div class="pd-panel-head"><h3 class="panel-title">Recent Activity</h3><button type="button" class="link-btn pd-all-history" data-no-icon>All history</button></div>
             <div id="overview-activity"></div>
           </div>
-        </div>
-        <div class="panel" style="margin-top:16px;">
-          <h3 class="panel-title">Description</h3>
-          <p class="prose" id="overview-description"></p>
-          <h3 class="panel-title" style="margin-top:14px;">Internal Notes</h3>
-          <p class="prose" id="overview-notes"></p>
+          <div class="panel pd-notes-panel">
+            <h3 class="panel-title">Description</h3>
+            <p class="prose" id="overview-description"></p>
+            <h3 class="panel-title" style="margin-top:16px;">Internal Notes</h3>
+            <p class="prose" id="overview-notes"></p>
+          </div>
         </div>
       </section>
 
@@ -122,6 +130,9 @@
       </section>
 
       <section class="tab-panel" data-panel="files">
+        <!-- Drawings and Documents side by side; dragging files from Finder
+             over the window shows where to drop them -->
+        <div class="files-columns">
         <div class="drop-section" id="drawings-drop">
         <div class="section-toolbar" id="drawings">
           <h2>Drawings</h2>
@@ -133,7 +144,7 @@
         <div id="drawing-list"></div>
         </div>
 
-        <div class="drop-section" id="documents-drop" style="margin-top: 28px;">
+        <div class="drop-section" id="documents-drop">
         <div class="section-toolbar" id="documents">
           <h2>Documents</h2>
           <div class="controls">
@@ -142,6 +153,7 @@
           </div>
         </div>
         <div id="document-list"></div>
+        </div>
         </div>
       </section>
 

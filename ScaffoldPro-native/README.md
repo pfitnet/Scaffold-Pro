@@ -2633,3 +2633,46 @@ Every form control is now drawn by the app instead of macOS, on every page
   quotations (the letterhead design) are unchanged.
 - `BQSheet.fitToPage(…, portraitBelow:)` and `BQSheet.scaled`; the
   preview (`tools/pdf-preview/sheet.py quote long`) does the same.
+
+## Batch 106 — Projects and the project page, redesigned
+
+**Projects**
+- **A card per project:** its number and status, its name, the client
+  and site, how many BOQs, quotations, delivery notes and invoices it
+  has, who made it and when it was last worked on. Each card is in its
+  status colour: Planning violet, Quotation amber, Active green (its dot
+  pulses gently), On Hold orange, Completed blue. On hover a line grows
+  along the card's top, a soft light follows the pointer and an arrow
+  shows. Clicking a document count opens the project on that tab.
+- **Status filters** with counts (All 6 · Planning 2 · Active 2 …).
+  **Order:** newest number, recently worked on, name or client.
+  **Cards or List** (the list is the table, with the same counts).
+  The page remembers these choices.
+- **Search** matches the number, name, client or site. Press **/** to
+  jump to it, and Escape clears it. Cards rise in one after another.
+- The app now sends each project's document counts and when one last
+  changed (`ProjectListEntry.boqCount` …, `lastActivityAt`).
+
+**A project's page**
+- **The header** is one panel, tinted in the status colour over a faint
+  scaffold grid, with a light that follows the pointer. It shows:
+  - the project number (click it to copy) and its status;
+  - the name, then the client and site (links), and who made it and who
+    last worked on it;
+  - its **stage**: Planning › Quotation › Active › Completed. Stages
+    already done are ticked, and clicking a stage moves the project
+    there. On Hold and Archived show beside the stages; the status list
+    is still at the right;
+  - **tiles** for BOQs, Quotations, Delivery Notes, Invoices, Drawings &
+    Docs and Open Tasks. Each opens its tab.
+- **Overview:**
+  - Project Details as labelled fields with icons, in two columns.
+  - **Quick Actions** look like the Dashboard's panel: coloured icons for
+    New BOQ, Quotation, Delivery Note, Invoice and Letter, Record
+    Inspection, New Task, Upload Drawing and Upload Document.
+  - Recent Activity is a timeline, with "All history" next to its title.
+  - Description and Internal Notes sit beside the timeline.
+- **Drawings & Documents:**
+  - The two are side by side, and each file shows as a small card.
+  - The "Drop … here" boxes are gone until files are dragged from
+    Finder over the window. Each column then shows where to drop.
