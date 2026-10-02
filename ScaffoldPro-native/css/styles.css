@@ -218,11 +218,18 @@ select {
 }
 select[multiple], select[size] { height: auto; padding: 4px; background-image: none; }
 input[type="date"], input[type="time"], input[type="month"] { padding-right: 6px; }
+/* Dates and months: the app's calendar (js/controls.js), with its own icon. */
+input[type="date"], input[type="month"] {
+  padding-right: 30px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2.5' y='3.5' width='11' height='10' rx='1.6' fill='none' stroke='%238e8e93' stroke-width='1.2'/%3E%3Cpath d='M2.5 6.5h11M5.5 2v3M10.5 2v3' fill='none' stroke='%238e8e93' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center; background-size: 14px 14px;
+}
 input::-webkit-datetime-edit { padding: 0; }
 input::-webkit-datetime-edit-fields-wrapper { padding: 0; }
-input::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
-input::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
-input[type="number"]::-webkit-inner-spin-button { opacity: 0.45; }
+input::-webkit-calendar-picker-indicator { display: none; }
+/* Numbers: the system's arrows are hidden; the app's stepper appears on hover. */
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="text"]:hover:not(:disabled):not(:focus), input[type="number"]:hover:not(:disabled):not(:focus), input[type="date"]:hover:not(:disabled):not(:focus),
 input[type="time"]:hover:not(:disabled):not(:focus), input[type="month"]:hover:not(:disabled):not(:focus), input[type="email"]:hover:not(:disabled):not(:focus),
 select:hover:not(:disabled):not(:focus), textarea:hover:not(:disabled):not(:focus) { border-color: var(--field-hover); }
@@ -234,7 +241,34 @@ input[type="search"]:focus, input[type="password"]:focus, select:focus, textarea
 }
 input:disabled, select:disabled, textarea:disabled { opacity: 0.55; }
 input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
-input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; vertical-align: -3px; flex: none; }
+/* Tick boxes and round choices drawn by the app; min-width/height keep their
+   size where a rule sets "width: auto". */
+input[type="checkbox"], input[type="radio"] {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; min-width: 16px; min-height: 16px; max-width: 16px; max-height: 16px; margin: 0; padding: 0; vertical-align: -3px; flex: none;
+  border: 1.5px solid var(--border-strong); background: var(--panel); cursor: pointer;
+  display: inline-grid; place-content: center; position: relative;
+  transition: background-color .14s ease, border-color .14s ease, box-shadow .14s ease, transform .1s ease;
+}
+input[type="checkbox"] { border-radius: 4.5px; }
+input[type="radio"] { border-radius: 50%; }
+input[type="checkbox"]::before {
+  content: ''; width: 10px; height: 10px; transform: scale(0); transition: transform .16s cubic-bezier(.2, 1.4, .4, 1);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.3 5 8.7l4.5-5.2' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+input[type="radio"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff; transform: scale(0); transition: transform .16s cubic-bezier(.2, 1.4, .4, 1); }
+input[type="checkbox"]:checked, input[type="radio"]:checked { background-color: var(--accent); border-color: var(--accent); }
+input[type="checkbox"]:checked::before, input[type="radio"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:indeterminate { background-color: var(--accent); border-color: var(--accent); }
+input[type="checkbox"]:indeterminate::before { background: #fff; width: 8px; height: 2px; border-radius: 1px; transform: scale(1); }
+input[type="checkbox"]:hover:not(:disabled), input[type="radio"]:hover:not(:disabled) { border-color: var(--accent); }
+input[type="checkbox"]:active:not(:disabled), input[type="radio"]:active:not(:disabled) { transform: scale(.9); }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+input[type="checkbox"]:disabled, input[type="radio"]:disabled { cursor: default; }
+/* Colour wells: a round swatch. */
+input[type="color"] { -webkit-appearance: none; appearance: none; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); cursor: pointer; }
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
 #search-box { min-width: 240px; }
 
 textarea { width: 100%; resize: vertical; line-height: 1.45; }
@@ -1391,3 +1425,51 @@ table.delivery-rates input { width: 110px; text-align: right; }
 /* A linked BOQ and quotation: the link mark before View / Remove Link. */
 .link-mark { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
   color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); cursor: help; flex: none; }
+
+
+/* Room for the number stepper (js/controls.js) at the right of every number field. */
+body input[type="number"] { padding-right: 22px; }
+.num-stepper { position: fixed; z-index: 10040; width: 16px; display: flex; flex-direction: column; border-radius: 5px; overflow: hidden;
+  background: var(--header-bg); box-shadow: inset 0 0 0 1px var(--field-border); opacity: 0; pointer-events: none; transform: translateX(3px);
+  transition: opacity .12s ease, transform .12s ease; }
+.num-stepper.show { opacity: 1; pointer-events: auto; transform: none; }
+.num-stepper button { flex: 1; min-width: 0; min-height: 0; height: auto; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.num-stepper button + button { border-top: 1px solid var(--field-border); }
+.num-stepper button:hover { background: var(--accent-soft); color: var(--accent); }
+.num-stepper button.pressed { background: var(--accent); color: #fff; }
+
+/* The app's calendar for date and month fields (js/controls.js). */
+.app-calendar { position: fixed; z-index: 10050; width: 252px; padding: 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border);
+  box-shadow: var(--shadow-menu); opacity: 0; transform: translateY(-4px) scale(.985); transform-origin: top left; transition: opacity .12s ease-out, transform .12s ease-out; }
+.app-calendar.above { transform-origin: bottom left; }
+.app-calendar.open { opacity: 1; transform: none; }
+.app-calendar.slide-l .cal-days, .app-calendar.slide-l .cal-months { animation: calSlideL .18s ease-out; }
+.app-calendar.slide-r .cal-days, .app-calendar.slide-r .cal-months { animation: calSlideR .18s ease-out; }
+@keyframes calSlideL { from { opacity: .3; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes calSlideR { from { opacity: .3; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+.cal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-title { font-size: 13px; font-weight: 600; }
+.cal-title b { color: var(--accent); font-weight: 600; }
+.app-calendar button { min-width: 0; height: auto; margin: 0; box-shadow: none; font: inherit; }
+.cal-nav { width: 26px; height: 26px !important; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.cal-nav:hover { background: var(--accent-soft); color: var(--accent); }
+.cal-week, .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-week span { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--text-tertiary); padding: 2px 0 4px; }
+.cal-months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.cal-cell { height: 30px !important; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 12.5px; cursor: pointer;
+  transition: background-color .1s ease, color .1s ease, transform .08s ease; }
+.cal-months .cal-cell { height: 38px !important; }
+.cal-cell:hover:not([disabled]) { background: var(--accent-soft); color: var(--accent); }
+.cal-cell:active:not([disabled]) { transform: scale(.92); }
+.cal-cell:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
+.cal-cell.other { color: var(--text-tertiary); }
+.cal-cell.today { font-weight: 700; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-soft); }
+.cal-cell.sel, .cal-cell.sel:hover { background: var(--accent); color: #fff; font-weight: 600; }
+.cal-cell[disabled] { opacity: .3; cursor: default; }
+.cal-foot { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.cal-link { padding: 3px 8px !important; border: 0; border-radius: 6px; background: transparent; color: var(--accent); font-size: 12px !important; font-weight: 600; cursor: pointer; }
+.cal-link:hover { background: var(--accent-soft); }
+/* A list opened from a select: a little tighter than a menu, as long as it needs (and scrolls). */
+.hm-list .hm-item { padding-top: 5px; padding-bottom: 5px; }
+.hm-group { padding-top: 8px; }
