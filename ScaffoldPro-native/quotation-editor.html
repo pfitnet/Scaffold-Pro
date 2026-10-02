@@ -63,13 +63,13 @@
             <option value="Issued">Issued</option>
             <option value="Cancelled">Cancelled</option>
           </select>
-          <label class="tb-ico" for="orientation-select" title="Page — how it’s printed"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2.5" width="8.5" height="12" rx="1.3"/><rect x="7.5" y="9" width="10" height="8.5" rx="1.3" fill="var(--panel)"/></svg><span class="sr-only">Page</span></label>
-          <select id="orientation-select" title="How the quotation is printed">
+          <div class="tb-pick"><label class="tb-ico" for="orientation-select" title="Page — how it’s printed"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2.5" width="8.5" height="12" rx="1.3"/><rect x="7.5" y="9" width="10" height="8.5" rx="1.3" fill="var(--panel)"/></svg><span class="sr-only">Page</span></label>
+            <select id="orientation-select" title="How the quotation is printed">
             <option value="Portrait">Portrait — letterhead</option>
             <option value="Landscape">Landscape — BQ sheet</option>
-          </select>
-          <label class="tb-ico" for="language-select" title="Item names in — English or Chinese"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h8M6.5 3v2M4.5 5c.7 2.6 2.4 4.5 4.8 5.6M8.6 5c-.6 2.8-2.5 5-5.3 6.2"/><path d="M10.5 17l3.25-8 3.25 8M11.7 14.3h4.1"/></svg><span class="sr-only">Items in</span></label>
-          <select id="language-select" title="The language the item names are printed in on the PDF and Word copy"></select>
+          </select></div>
+          <div class="tb-pick"><label class="tb-ico" for="language-select" title="Item names in — English or Chinese"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h8M6.5 3v2M4.5 5c.7 2.6 2.4 4.5 4.8 5.6M8.6 5c-.6 2.8-2.5 5-5.3 6.2"/><path d="M10.5 17l3.25-8 3.25 8M11.7 14.3h4.1"/></svg><span class="sr-only">Items in</span></label>
+            <select id="language-select" title="The language the item names are printed in on the PDF and Word copy"></select>
           <button id="export-pdf-btn">Export PDF</button>
           <button id="export-word-btn" title="A Word copy laid out like the PDF, saved next to it">Export Word</button>
           <button id="print-btn">Print…</button>
@@ -90,7 +90,7 @@
         </button>
         <span class="boq-import-controls hidden" id="boq-import-controls">
           <label for="boq-reference-select" id="boq-reference-label">From BOQ</label>
-          <select id="boq-reference-select"></select>
+          <select id="boq-reference-select"></select></div>
           <button id="import-boq-btn" title="Copy the BOQ's items onto this quotation (replacing its items also links the two)">Import Items</button>
           <button id="link-boq-btn" title="Keep this quotation and the BOQ the same: a change to either is made to the other">Link</button>
         </span>
@@ -162,6 +162,11 @@
             <select id="category-select"><option value="">All Categories</option></select>
           </div>
           <div class="picker-results" id="picker-results"></div>
+          <!-- Drawings this document is based on (PDF, DWG, DXF, images), under the materials list -->
+          <div class="linked-drawings-panel">
+            <div class="section-toolbar"><h2>Drawings</h2><button id="upload-linked-drawing-btn" title="PDF, DWG, DXF or images — you can choose several at once">Upload Drawings…</button></div>
+            <div id="linked-drawings"></div>
+          </div>
         </div>
 
         <div>
@@ -204,11 +209,6 @@
             <textarea id="notes-box" rows="3"></textarea>
           </div>
 
-          <!-- Drawings this document is based on (PDF, DWG, DXF, images) -->
-          <div class="linked-drawings-panel">
-            <div class="section-toolbar"><h2>Drawings</h2><button id="upload-linked-drawing-btn" title="PDF, DWG, DXF or images — you can choose several at once">Upload Drawings…</button></div>
-            <div id="linked-drawings"></div>
-          </div>
         </div>
       </div>
 
@@ -230,6 +230,7 @@
   </main>
 
   <script src="js/dialogs.js"></script>
+  <script src="js/hover-menu.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/doc-authors.js"></script>
   <script src="js/icons.js"></script>

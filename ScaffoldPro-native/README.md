@@ -2427,3 +2427,30 @@ under "Letterhead layout".
 - `tools/pdf-preview`: `sheet.py quote` uses the new terms layout, and
   `sheet.py quote long` renders a long quotation shrunk onto one page. The
   terms-parsing rules moved to `terms.py`, which `docs.py` uses too.
+
+## Batch 95 — Editor header, icon pickers, Make Quotation, Start from Others, linked numbers
+
+- **Page / Items-in pickers** (BOQ, quotation, delivery note): only the
+  icon shows. Resting the pointer on it opens a list drawn by the app
+  (`js/hover-menu.js`), with a tick by the current choice, in place of
+  the system's pop-up menu. Click, Return, Space or ↓ open it too; ↑ ↓
+  move, Return picks and Escape closes it.
+- **Who made it:** "Created by … · Last worked on by …" now sits at the
+  right of the document number's row in every document editor. The
+  linked documents (BOQ › Quotation › …) stay under the title.
+- **Make Quotation** on the BOQ's status row makes a quotation from the
+  BOQ, linked to it. If the BOQ already has a linked quotation, you can
+  open it or make another.
+- **Drawings** in the BOQ and quotation editors now sit under Add
+  Materials (the left column).
+- **New Quotation → Start from Others:** when the project has more than
+  one BOQ, this button lists the others, each with its structure, number
+  of items and status, on hover or click. The quotation is made from the
+  one picked and linked to it. Dialogs show these lists with
+  `{ label, menu: [...] }` buttons.
+- **Fixed:** linking a draft quotation to a BOQ (Link, or Replace & Link
+  when importing) now renumbers it to match, e.g. BQ26212-007 →
+  Qt26212-007, as a quotation made from the BOQ already was. If another
+  quotation already has that number, it gets "-2" and so on. Issued
+  quotations keep their number. The project history records the old
+  number.

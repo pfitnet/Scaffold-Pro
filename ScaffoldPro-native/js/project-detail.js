@@ -500,10 +500,18 @@ async function createNewQuotation() {
   let pricingMode = 'Rental';
   if (currentBOQs.length > 0) {
     const mostRecent = currentBOQs[0];
+    // The project's other BOQs, in a list that opens from "Start from Others".
+    const others = currentBOQs.slice(1).filter((b) => b.status !== 'Cancelled').map((b) => ({
+      label: b.boqNumber, value: { boq: b.id },
+      sub: [b.structure, `${b.itemCount} item${b.itemCount === 1 ? '' : 's'}`, b.status, b.combined ? 'combined count' : ''].filter(Boolean).join(' · '),
+    }));
     const pick = await window.appChoose(`New Quotation\n\nMake it from BOQ ${mostRecent.boqNumber}? The two stay linked: a change to either is made to the other (until you remove the link).`, [
-      { label: 'Start Blank', value: 'blank' }, { label: `From ${mostRecent.boqNumber}`, value: 'boq', primary: true }]);
+      { label: 'Start Blank', value: 'blank' },
+      ...(others.length ? [{ label: 'Start from Others', menu: others }] : []),
+      { label: `From ${mostRecent.boqNumber}`, value: 'boq', primary: true }]);
     if (!pick) return;
     if (pick === 'boq') sourceBOQId = mostRecent.id;
+    else if (pick.boq) sourceBOQId = pick.boq;
   }
   if (!sourceBOQId) {
     pricingMode = await choosePricing('Quotation');

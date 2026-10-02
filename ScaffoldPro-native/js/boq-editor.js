@@ -75,6 +75,26 @@ function renderLinkedBar() {
   }
 }
 
+// A quotation from this BOQ, linked to it (as New Quotation on the
+// project page does). When it already has one, that can be opened instead.
+async function makeQuotation() {
+  const d = currentDetail;
+  if (!d) return;
+  const linked = d.linkedQuotations || [];
+  if (linked.length) {
+    const names = linked.map((q) => q.number).join(', ');
+    const pick = await window.appChoose(`${d.boqNumber} already has ${names}\n\nOpen ${linked.length === 1 ? 'it' : linked[0].number}, or make another quotation from this BOQ?`, [
+      { label: 'Make Another', value: 'new' }, { label: `Open ${linked[0].number}`, value: 'open', primary: true }]);
+    if (!pick) return;
+    if (pick === 'open') { location.href = `quotation-editor.html?id=${encodeURIComponent(linked[0].id)}`; return; }
+  }
+  const project = await window.api.projects.get(d.projectNumber);
+  if (!project || !project.id) { await window.appAlert('The project for this BOQ couldn’t be found.'); return; }
+  const q = await window.api.quotations.create(project.id, d.projectNumber, d.id, d.pricingMode);
+  if (!q || !q.id) { await window.appAlert((q && q.error) || 'The quotation couldn’t be made.'); return; }
+  location.href = `quotation-editor.html?id=${encodeURIComponent(q.id)}`;
+}
+
 function render() {
   const d = currentDetail;
   document.title = `${d.boqNumber} — ScaffoldPro`;
@@ -515,6 +535,7 @@ async function init() {
     if (r && !r.ok) alert(r.error);
     currentDetail.terms = e.target.value;
   });
+  document.getElementById('make-quotation-btn').addEventListener('click', makeQuotation);
   document.getElementById('standard-terms-btn').addEventListener('click', async () => {
     const box = document.getElementById('terms-box');
     const standard = currentDetail.standardTerms || '';

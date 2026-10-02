@@ -52,6 +52,7 @@
       .app-dialog { width: 400px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; background: var(--panel, #fff); color: var(--text, #1d1d1f);
         border-radius: 12px; box-shadow: var(--shadow-sheet, 0 18px 50px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.12));
         padding: 20px 20px 16px; animation: appDialogPop 0.14s ease-out; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+      .app-dialog.wide { width: 600px; }
       .app-dialog-head { display: flex; gap: 12px; align-items: flex-start; }
       .app-dialog-icon { flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
         background: var(--accent-soft, rgba(36,99,199,0.1)); color: var(--accent, #2463c7); font-weight: 700; font-size: 15px; }
@@ -80,13 +81,13 @@
         const backdrop = document.createElement('div');
         backdrop.className = 'app-dialog-backdrop';
         backdrop.innerHTML = `
-          <div class="app-dialog${danger ? ' danger' : ''}" data-no-icon role="${opts.buttons.length > 1 ? 'alertdialog' : 'dialog'}" aria-modal="true">
+          <div class="app-dialog${danger ? ' danger' : ''}${opts.buttons.length > 3 ? ' wide' : ''}" data-no-icon role="${opts.buttons.length > 1 ? 'alertdialog' : 'dialog'}" aria-modal="true">
             <div class="app-dialog-head"><div class="app-dialog-icon" aria-hidden="true">${danger ? '!' : opts.buttons.length > 1 ? '?' : 'i'}</div>
               <div class="app-dialog-title">${esc(title)}</div></div>
             ${body ? `<div class="app-dialog-body">${esc(body)}</div>` : ''}
             ${opts.input ? `<input type="text" class="app-dialog-input" value="${esc(opts.input.value || '')}" placeholder="${esc(opts.input.placeholder || '')}" />` : ''}
             <div class="app-dialog-buttons">${opts.buttons.map((b, i) =>
-              `<button type="button" data-i="${i}" class="${b.danger ? 'danger' : b.primary ? 'primary' : ''}">${esc(b.label)}</button>`).join('')}</div>
+              `<button type="button" data-i="${i}" class="${b.danger ? 'danger' : b.primary ? 'primary' : ''}${b.menu ? ' has-menu' : ''}">${esc(b.label)}${b.menu ? '<span class="hm-chevron" aria-hidden="true"></span>' : ''}</button>`).join('')}</div>
           </div>`;
         const previousFocus = document.activeElement;
         const root = document.body || document.documentElement;
@@ -106,6 +107,8 @@
           resolve(opts.input ? (b && !b.cancel ? input.value : null) : (b ? b.value : undefined));
         };
         const onKey = (e) => {
+          // A button's drop-down list (js/hover-menu.js) handles its own keys.
+          if (window.hoverMenu && window.hoverMenu.isOpen()) return;
           if (e.key === 'Escape') {
             e.preventDefault(); e.stopPropagation();
             finish(cancelIndex >= 0 ? cancelIndex : opts.buttons.length === 1 ? 0 : -1);
@@ -121,7 +124,22 @@
           }
         };
         document.addEventListener('keydown', onKey, true);
-        buttons.forEach((b, i) => b.addEventListener('click', () => finish(i)));
+        buttons.forEach((b, i) => {
+          const menu = opts.buttons[i].menu;
+          // A button with a list of choices ({ menu: [{ label, sub, value }] }): the
+          // list opens on hover or click, and the dialog resolves to the one picked.
+          if (menu && window.hoverMenu) {
+            window.hoverMenu.attach(b, { items: () => menu, minWidth: 220, onPick: (value) => {
+              if (done) return;
+              done = true;
+              document.removeEventListener('keydown', onKey, true);
+              backdrop.remove();
+              resolve(value);
+            } });
+          } else {
+            b.addEventListener('click', () => finish(i));
+          }
+        });
         backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop && cancelIndex >= 0) finish(cancelIndex); });
         if (input) { input.focus(); input.select(); } else buttons[primaryIndex].focus();
       }
@@ -155,7 +173,8 @@
     ] }).then((v) => v === true);
   };
 
-  // One of several answers: choices [{ label, value, primary?, danger? }];
+  // One of several answers: choices [{ label, value, primary?, danger? }]
+  // (or { label, menu: [{ label, sub, value }] }: a drop-down list of them);
   // resolves to the chosen value, or null if cancelled (a Cancel button
   // is added unless opts.noCancel).
   window.appChoose = function appChoose(message, choices, opts = {}) {
