@@ -2502,3 +2502,18 @@ under "Letterhead layout".
   (Chat, Team), **Operations** (Material List, Clients & Sites, Projects,
   Stock) and **Company** (Accounting, Marketing, Admin, Settings). The
   order and the ⌘ shortcuts are unchanged.
+
+## Batch 99 — Quotation editor layout; lists fit their text; delivery wording
+
+- **Quotation editor, top section:** **Letter** is on the left. On the
+  right are **Dates & Pricing**, then the BOQ link row, then the signing
+  rows ("Not signed by a director yet", the client's signed copy). The
+  Letter box is as tall as those three together. Below 1000px wide they
+  stack.
+- **Key Terms** now sits under the line items, after Notes.
+- **Drop-down lists** (Page, Items in, Start from Others) are as wide as
+  their longest choice, so nothing scrolls sideways.
+- **Delivery on the landscape quotation** reads "Delivery of materials",
+  with "@$3,300.00 / Truck / Trip" on the line below. The weight band
+  ("2 – 6 tons") is no longer printed. Sheet cells can now hold two
+  lines, in the PDF and the Word copy.

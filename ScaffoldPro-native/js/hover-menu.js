@@ -42,6 +42,8 @@
 
     const place = () => {
       const r = trigger.getBoundingClientRect();
+      menu.style.minWidth = `${Math.max(r.width, options.minWidth || 180)}px`;
+      if (menu.scrollWidth > menu.clientWidth) menu.style.width = `${Math.min(menu.scrollWidth + (menu.offsetWidth - menu.clientWidth), window.innerWidth - 16)}px`;
       const w = menu.offsetWidth, h = menu.offsetHeight;
       const gap = 4;
       let left = options.align === 'right' ? r.right - w : r.left;
@@ -51,7 +53,6 @@
       if (top + h > window.innerHeight - 8 && r.top - gap - h > 8) top = r.top - gap - h;
       menu.style.left = `${left}px`;
       menu.style.top = `${top}px`;
-      menu.style.minWidth = `${Math.max(r.width, options.minWidth || 180)}px`;
       menu.classList.toggle('above', top < r.top);
     };
 

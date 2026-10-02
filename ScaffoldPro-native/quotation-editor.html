@@ -13,8 +13,15 @@
     .totals-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
     .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
     .totals-box .row.grand { font-size: 18px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
+    .q-top-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; margin-bottom: 18px; }
+    .q-top-grid > .form-card, .q-top-side > * { margin: 0; }
+    .q-top-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .q-top-side .form-row.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .q-letter .form-row.cols-2 { grid-template-columns: minmax(0, 1fr); }
+    @media (max-width: 1000px) { .q-top-grid { grid-template-columns: minmax(0, 1fr); } }
+    .q-terms { margin-top: 18px; }
     .boq-reference {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
       padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
     }
     .boq-reference label { font-size: 12px; color: var(--text-secondary); }
@@ -80,79 +87,71 @@
         <a id="back-link" href="#">&larr; Back to project</a>
       </div>
 
-      <!-- Signed and chopped by a director (Team › Signatures) -->
-      <div class="signed-bar director-bar hidden" id="director-bar"></div>
-      <div class="signed-bar hidden" id="signed-bar"></div>
-
-      <div class="boq-reference">
-        <!-- Importing from a BOQ: folded into the import button until it's wanted -->
-        <button id="boq-import-toggle" class="icon-btn" data-no-icon title="Import items from a BOQ…" aria-label="Import items from a BOQ" aria-expanded="false">
-          <svg class="btn-icon" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 3.5v9"/><path d="M6.5 9 10 12.5 13.5 9"/></svg>
-        </button>
-        <span class="boq-import-controls hidden" id="boq-import-controls">
-          <label for="boq-reference-select" id="boq-reference-label">From BOQ</label>
-          <select id="boq-reference-select"></select>
-          <button id="import-boq-btn" title="Copy the BOQ's items onto this quotation (replacing its items also links the two)">Import Items</button>
-          <button id="link-boq-btn" title="Keep this quotation and the BOQ the same: a change to either is made to the other">Link</button>
-        </span>
-        <span class="boq-reference-note" id="boq-reference-note"></span>
-        <!-- Linked: just what can be done about it -->
-        <span class="link-actions hidden" id="boq-link-actions">
-          <span class="link-mark" id="boq-link-mark"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1"/></svg><span class="sr-only">Linked</span></span>
-          <a class="button-like" id="view-boq-btn" href="#">View BOQ</a>
-          <button id="unlink-boq-btn" title="Stop keeping the two the same; both stay as they are now">Remove Link</button>
-        </span>
+      <!-- The letter on the left; beside it the dates and pricing, the BOQ link
+           and whether it's signed, with the letter as tall as those three. -->
+      <div class="q-top-grid">
+        <!-- The standard quotation's letter fields (as on Qt26193) -->
+        <section class="form-card q-letter">
+          <div class="form-card-title">Letter</div>
+          <div class="form-row">
+            <div class="field"><label for="q-subject">Re: (subject line)</label><input type="text" id="q-subject" placeholder="e.g. 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez" /></div>
+          </div>
+          <div class="form-row cols-3">
+            <div class="field"><label for="q-clientRef">Your Ref. No.</label><input type="text" id="q-clientRef" /></div>
+            <div class="field"><label for="q-siteRef">Site Ref.</label><input type="text" id="q-siteRef" placeholder="e.g. MTR 1601" /></div>
+            <div class="field"><label for="q-deliveryMethod">Sent</label><input type="text" id="q-deliveryMethod" placeholder="BY EMAIL ONLY" /></div>
+          </div>
+          <div class="form-row cols-2">
+            <div class="option-tile" id="q-hire-field">
+              <label class="option-check"><input type="checkbox" id="q-minimumHireEnabled" /><span><b>Minimum hire</b><small>The shortest period the rent is charged for</small></span></label>
+              <span class="input-group input-group-sm"><input type="number" id="q-minimumHireMonths" min="1" step="1" title="Months" aria-label="Minimum hire in months" /><span class="input-suffix">months</span></span>
+            </div>
+            <div class="option-tile" id="q-min-monthly-field">
+              <label class="option-check" title="The monthly rental charge is at least this amount (Settings › Quotations)"><input type="checkbox" id="q-minimumMonthlyChargeEnabled" /><span><b>Minimum monthly rental charge</b><small id="q-min-monthly-label">Apply (HK$ 1,000.00)</small></span></label>
+            </div>
+          </div>
+        </section>
+        <div class="q-top-side">
+          <section class="form-card">
+            <div class="form-card-title">Dates &amp; Pricing</div>
+            <div class="form-row cols-4">
+              <div class="field"><label for="doc-date-input">Date</label><input type="date" id="doc-date-input" /></div>
+              <div class="field"><label for="valid-until-input">Valid Until</label><input type="date" id="valid-until-input" /></div>
+              <div class="field"><label for="pricing-mode-select">Pricing</label>
+                <select id="pricing-mode-select">
+                  <option value="Sale">Sale</option>
+                  <option value="Rental">Rental</option>
+                </select>
+              </div>
+              <div class="field"><label for="adjustment-input">Markup / Discount</label><input type="text" id="adjustment-input" placeholder="e.g. +30%, -15% or -1000" title="+30% marks every item up 30% (unit prices rounded to 0.1, up or off as set in Settings); -15% takes 15% off; -1000 takes 1,000 off. Leave blank for none." /><span class="field-hint hidden" id="client-markup-hint"></span></div>
+              <!-- No sales tax in Hong Kong: shown only on an older document that still has a tax rate, so it can be set to 0. -->
+              <div class="field hidden" id="tax-rate-field"><label for="tax-rate-input">Tax Rate (%) — set to 0</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
+            </div>
+          </section>
+          <div class="boq-reference">
+            <!-- Importing from a BOQ: folded into the import button until it's wanted -->
+            <button id="boq-import-toggle" class="icon-btn" data-no-icon title="Import items from a BOQ…" aria-label="Import items from a BOQ" aria-expanded="false">
+              <svg class="btn-icon" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 3.5v9"/><path d="M6.5 9 10 12.5 13.5 9"/></svg>
+            </button>
+            <span class="boq-import-controls hidden" id="boq-import-controls">
+              <label for="boq-reference-select" id="boq-reference-label">From BOQ</label>
+              <select id="boq-reference-select"></select>
+              <button id="import-boq-btn" title="Copy the BOQ's items onto this quotation (replacing its items also links the two)">Import Items</button>
+              <button id="link-boq-btn" title="Keep this quotation and the BOQ the same: a change to either is made to the other">Link</button>
+            </span>
+            <span class="boq-reference-note" id="boq-reference-note"></span>
+            <!-- Linked: just what can be done about it -->
+            <span class="link-actions hidden" id="boq-link-actions">
+              <span class="link-mark" id="boq-link-mark"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1"/></svg><span class="sr-only">Linked</span></span>
+              <a class="button-like" id="view-boq-btn" href="#">View BOQ</a>
+              <button id="unlink-boq-btn" title="Stop keeping the two the same; both stay as they are now">Remove Link</button>
+            </span>
+          </div>
+          <!-- Signed and chopped by a director (Team › Signatures) -->
+          <div class="signed-bar director-bar hidden" id="director-bar"></div>
+          <div class="signed-bar hidden" id="signed-bar"></div>
+        </div>
       </div>
-
-      <!-- The standard quotation's letter fields (as on Qt26193) -->
-      <section class="form-card">
-        <div class="form-card-title">Letter</div>
-        <div class="form-row">
-          <div class="field"><label for="q-subject">Re: (subject line)</label><input type="text" id="q-subject" placeholder="e.g. 1601 Scaffolding Materials - Rental - GL-28 G/F South G-015 For BS Wone - Req. by Gomez" /></div>
-        </div>
-        <div class="form-row cols-3">
-          <div class="field"><label for="q-clientRef">Your Ref. No.</label><input type="text" id="q-clientRef" /></div>
-          <div class="field"><label for="q-siteRef">Site Ref.</label><input type="text" id="q-siteRef" placeholder="e.g. MTR 1601" /></div>
-          <div class="field"><label for="q-deliveryMethod">Sent</label><input type="text" id="q-deliveryMethod" placeholder="BY EMAIL ONLY" /></div>
-        </div>
-        <div class="form-row cols-2">
-          <div class="option-tile" id="q-hire-field">
-            <label class="option-check"><input type="checkbox" id="q-minimumHireEnabled" /><span><b>Minimum hire</b><small>The shortest period the rent is charged for</small></span></label>
-            <span class="input-group input-group-sm"><input type="number" id="q-minimumHireMonths" min="1" step="1" title="Months" aria-label="Minimum hire in months" /><span class="input-suffix">months</span></span>
-          </div>
-          <div class="option-tile" id="q-min-monthly-field">
-            <label class="option-check" title="The monthly rental charge is at least this amount (Settings › Quotations)"><input type="checkbox" id="q-minimumMonthlyChargeEnabled" /><span><b>Minimum monthly rental charge</b><small id="q-min-monthly-label">Apply (HK$ 1,000.00)</small></span></label>
-          </div>
-        </div>
-      </section>
-
-      <section class="form-card">
-        <div class="form-card-title">Dates &amp; Pricing</div>
-        <div class="form-row cols-4">
-          <div class="field"><label for="doc-date-input">Date</label><input type="date" id="doc-date-input" /></div>
-          <div class="field"><label for="valid-until-input">Valid Until</label><input type="date" id="valid-until-input" /></div>
-          <div class="field"><label for="pricing-mode-select">Pricing</label>
-            <select id="pricing-mode-select">
-              <option value="Sale">Sale</option>
-              <option value="Rental">Rental</option>
-            </select>
-          </div>
-          <div class="field"><label for="adjustment-input">Markup / Discount</label><input type="text" id="adjustment-input" placeholder="e.g. +30%, -15% or -1000" title="+30% marks every item up 30% (unit prices rounded to 0.1, up or off as set in Settings); -15% takes 15% off; -1000 takes 1,000 off. Leave blank for none." /><span class="field-hint hidden" id="client-markup-hint"></span></div>
-          <!-- No sales tax in Hong Kong: shown only on an older document that still has a tax rate, so it can be set to 0. -->
-          <div class="field hidden" id="tax-rate-field"><label for="tax-rate-input">Tax Rate (%) — set to 0</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
-        </div>
-      </section>
-
-      <section class="form-card">
-        <div class="form-card-head">
-          <div class="form-card-title">Key Terms</div>
-          <button type="button" id="key-terms-standard-btn">Start from Standard Terms</button>
-        </div>
-        <div class="field">
-          <span class="field-hint">Printed in the Terms and Conditions. Leave blank to use the standard key terms from Settings.</span>
-          <textarea id="key-terms-input" aria-label="Key terms" rows="7" placeholder="Blank: the standard key terms from Settings are printed (shown below).&#10;e.g. (i) Payment : First two month's rental is to be paid upon order confirmation."></textarea>
-        </div>
-      </section>
 
       <div class="boq-grid">
         <div>
@@ -214,6 +213,18 @@
             <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
             <textarea id="notes-box" rows="3"></textarea>
           </div>
+
+          <!-- The key terms, under the items -->
+          <section class="form-card q-terms">
+            <div class="form-card-head">
+              <div class="form-card-title">Key Terms</div>
+              <button type="button" id="key-terms-standard-btn">Start from Standard Terms</button>
+            </div>
+            <div class="field">
+              <span class="field-hint">Printed in the Terms and Conditions. Leave blank to use the standard key terms from Settings.</span>
+              <textarea id="key-terms-input" aria-label="Key terms" rows="7" placeholder="Blank: the standard key terms from Settings are printed (shown below).&#10;e.g. (i) Payment : First two month's rental is to be paid upon order confirmation."></textarea>
+            </div>
+          </section>
 
         </div>
       </div>

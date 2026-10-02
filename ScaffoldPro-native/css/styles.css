@@ -1360,20 +1360,20 @@ table.delivery-rates input { width: 110px; text-align: right; }
 .tb-pick .tb-ico:hover, .tb-pick .tb-ico.hm-active, .tb-pick .tb-ico:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
 
 /* A list drawn by the app (js/hover-menu.js), in place of the system's pop-up menu. */
-.hm-menu { position: fixed; z-index: 10050; box-sizing: border-box; max-width: min(360px, calc(100vw - 16px)); max-height: min(380px, calc(100vh - 16px)); overflow-y: auto;
+.hm-menu { position: fixed; z-index: 10050; box-sizing: border-box; width: max-content; max-width: min(480px, calc(100vw - 16px)); max-height: min(380px, calc(100vh - 16px)); overflow-x: hidden; overflow-y: auto;
   padding: 5px; border-radius: 11px; background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow-menu);
   opacity: 0; transform: translateY(-4px) scale(.985); transform-origin: top left; transition: opacity .12s ease-out, transform .12s ease-out; }
 .hm-menu.above { transform-origin: bottom left; transform: translateY(4px) scale(.985); }
 .hm-menu.open { opacity: 1; transform: none; }
 .hm-heading { padding: 5px 10px 4px 30px; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-tertiary); }
-.hm-item { display: flex; align-items: flex-start; gap: 6px; width: 100%; min-width: 0; margin: 0; padding: 6px 12px 6px 6px; border: 0; border-radius: 7px;
+.hm-item { display: flex; align-items: flex-start; gap: 6px; width: 100%; min-width: 0; height: auto; white-space: normal; margin: 0; padding: 6px 12px 6px 6px; border: 0; border-radius: 7px;
   background: transparent; box-shadow: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .hm-item:hover, .hm-item:focus-visible { background: var(--accent); color: #fff; outline: none; }
 .hm-item:hover .hm-sub, .hm-item:focus-visible .hm-sub, .hm-item:hover .hm-check, .hm-item:focus-visible .hm-check { color: rgba(255, 255, 255, .85); }
 .hm-item[disabled] { opacity: .45; cursor: default; background: transparent; color: var(--text); }
 .hm-check { flex: 0 0 18px; display: flex; justify-content: center; padding-top: 2px; color: var(--accent); }
 .hm-text { display: flex; flex-direction: column; min-width: 0; }
-.hm-label { font-weight: 500; line-height: 1.3; }
+.hm-label { font-weight: 500; line-height: 1.3; white-space: normal; }
 .hm-item.current .hm-label { font-weight: 600; }
 .hm-sub { font-size: 11.5px; line-height: 1.3; color: var(--text-secondary); margin-top: 1px; overflow-wrap: anywhere; }
 /* A button that opens a list: a small chevron after its label. */

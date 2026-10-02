@@ -10802,8 +10802,11 @@ enum BQSheet {
             var total = decimalOf(grandTotal)
             for (i, charge) in shownCharges.enumerated() {
                 total += decimalOf(charge.amount)
-                rows.append(SheetRow(kind: "charge", height: 18.75, fill: nil, cells: [
-                    cell(edges[0], edges[1], nonBlank(charge.code) ?? "D\(i + 1)", 12, "left", 5.625),
+                // A name on two lines (a delivery: what, then the rate) makes the row
+                // a line taller; the code sits by its first line, the amount by its last.
+                let extra = Double(charge.name.components(separatedBy: "\n").count - 1) * 14.25
+                rows.append(SheetRow(kind: "charge", height: 18.75 + extra, fill: nil, cells: [
+                    cell(edges[0], edges[1], nonBlank(charge.code) ?? "D\(i + 1)", 12, "left", 5.625 + extra),
                     cell(edges[1], edges[n - 2], charge.name, 12, "left", 5.625),
                     cell(edges[n - 2], edges[n - 1], formatMoney(charge.amount), 12, "money", 5.625),
                     cell(edges[n - 1], edges[n], "N/a", 12, "center", 5.625),
@@ -11204,6 +11207,18 @@ final class BQSheetRenderer {
     /// Text is 2.625pt in from the cell's rules; right-aligned figures
     /// keep a space's width before the rule, as the sheet's number formats do.
     private func drawText(_ cell: SheetCell, rowBottom: Double) {
+        // Text on more than one line: each 14.25pt above the next, the last where the cell's baseline is.
+        let pieces = cell.text.components(separatedBy: "\n")
+        if pieces.count > 1 {
+            for (i, piece) in pieces.enumerated() {
+                var one = cell
+                one.text = piece
+                one.baselineUp = cell.baselineUp + Double(pieces.count - 1 - i) * 14.25 * layout.scale
+                if i > 0 { one.marker = nil; one.colon = false }
+                drawText(one, rowBottom: rowBottom)
+            }
+            return
+        }
         let pad = 2.625 * layout.scale
         let baseline = rowBottom - cell.baselineUp
         // A term's marker ("(i) Payment") and the colon before its text.
@@ -15604,9 +15619,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         }
         for (i, l) in detail.lineItems.filter({ $0.blockId == nil && $0.section == "Delivery" }).enumerated() {
-            let first = l.itemDescription.components(separatedBy: "\n").first ?? l.itemDescription
-            let unit = l.unit.trimmingCharacters(in: .whitespaces)
-            charges.append(BOQCharge(code: "D\(i + 1)", name: "\(first) — \(formatQuantity(l.quantity.rounded())) \(unit) × \(formatMoney(l.appliedUnitPrice))",
+            // "Delivery of materials" over "@$3,300.00 / Truck / Trip" (the
+            // weight band, "(2 – 6 tons)", isn't printed).
+            var first = l.itemDescription.components(separatedBy: "\n").first ?? l.itemDescription
+            first = first.replacingOccurrences(of: #"\s*\([^)]*(kg|ton)[^)]*\)"#, with: "", options: [.regularExpression, .caseInsensitive])
+            let unit = l.unit.trimmingCharacters(in: .whitespaces).split(separator: "/").map { $0.trimmingCharacters(in: .whitespaces).capitalized }
+                .filter { !$0.isEmpty }.joined(separator: " / ")
+            charges.append(BOQCharge(code: "D\(i + 1)", name: "\(first)\n@$\(formatMoney(l.appliedUnitPrice))\(unit.isEmpty ? "" : " / \(unit)")",
                                      amount: detail.lineTotals[l.id] ?? l.appliedUnitPrice * l.quantity.rounded()))
         }
         for block in detail.blocks where block.kind == "Priced" {

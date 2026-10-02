@@ -78,8 +78,9 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
         grand = total_money
         for i, (code, nm, amount) in enumerate(charges):
             grand += amount
-            rows.append(dict(kind='charge', height=18.75, fill=None, repeats=False, cells=[
-                cell(edges[0], edges[1], code or f'D{i + 1}', 12, 'left', 5.625), cell(edges[1], edges[n - 2], nm, 12, 'left', 5.625),
+            extra = nm.count('\n') * 14.25
+            rows.append(dict(kind='charge', height=18.75 + extra, fill=None, repeats=False, cells=[
+                cell(edges[0], edges[1], code or f'D{i + 1}', 12, 'left', 5.625 + extra), cell(edges[1], edges[n - 2], nm, 12, 'left', 5.625),
                 cell(edges[n - 2], edges[n - 1], money(amount), 12, 'money', 5.625), cell(edges[n - 1], edges[n], 'N/a', 12, 'center', 5.625)]))
         rows.append(dict(kind='grandTotal', height=45.75, fill=None, repeats=False, cells=[
             cell(edges[0], edges[n - 2], 'Total Amount', 28.99, 'center', 12.375),
@@ -212,7 +213,13 @@ def render(L):
     y = L['top']
     for r in L['rows']:
         bottom = y + r['height']
+        cells = []
         for c in r['cells']:
+            # Text on more than one line: each 14.25pt above the next (BQSheetRenderer.drawText).
+            parts = c['text'].split('\n')
+            for i, t in enumerate(parts):
+                cells.append(dict(c, text=t, baselineUp=c['baselineUp'] + (len(parts) - 1 - i) * 14.25 * k))
+        for c in cells:
             pad = 2.625 * k; base = bottom - c['baselineUp']
             if c.get('marker'): d.text((c['markerX'] * S, base * S), c['marker'], font=font(c), fill='black', anchor='ls')
             if c.get('colon'): d.text(((c['textX'] - 3.75 * k) * S, base * S), ':', font=font(c), fill='black', anchor='ls')
@@ -292,7 +299,7 @@ if __name__ == '__main__':
         L = layout(True, 'Rental', 'HKD', ('26212 - Batch 3 of Materials - Rental - Lingma', 'Lingma', '1635 Kwu Tung Station', 'Truss-out at 5/F'),
                    SAMPLE + LAW if QUOTE_LONG else LAW[:8], one_page=True,
                    charges=[('M', 'Minimum Hire of 2 Months — rental for the 2nd month', 4638.20),
-                            ('D1', 'Delivery of materials (2 – 6 tons) — 2 truck/trip × 3,300.00', 6600.0), ('A1', 'Design Fees: Design and Drawing', 1000.0)],
+                            ('D1', 'Delivery of materials\n@$3,300.00 / Truck / Trip', 6600.0), ('A1', 'Design Fees: Design and Drawing', 1000.0)],
                    terms=QUOTE_TERMS, signature=('Proficiency (HK) Limited', 'Richard Kwan', 'Director', 'Lingma Const. & Eng. Co. Ltd.'),
                    extra=[('Quotation No. :', 'Qt26212-007', 'Date               :', '02/10/2026')])
         name = 'quote_landscape_long' if QUOTE_LONG else 'quote_landscape'

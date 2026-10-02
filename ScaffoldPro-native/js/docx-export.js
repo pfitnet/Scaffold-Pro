@@ -696,7 +696,9 @@
         const span = at(c.x1) - at(c.x0);
         // A short row (a line of the Notes box) gets a shorter line, so the
         // baseline can still go where the PDF has it.
-        const line = Math.min(c.size * SHEET_LINE, (row.height - c.baselineUp - 2 * HALF) / SHEET_BASELINE_AT);
+        // Text on two lines or more (a delivery: what, then its rate): 14.25pt apart, the last on the baseline.
+        const lines = String(c.text || '').split('\n').length;
+        const line = lines > 1 ? 14.25 * k : Math.min(c.size * SHEET_LINE, (row.height - c.baselineUp - 2 * HALF) / SHEET_BASELINE_AT);
         const font = c.font === 'title' ? 'Arial' : 'Calibri';
         const style = { font, size: c.size, bold: c.font === 'title' };
         const figure = c.align === 'right' || c.align === 'money';
@@ -705,7 +707,7 @@
         // Placed with space before the paragraph (cell top margins are
         // shared across a row in some Word-compatible apps), so the
         // baseline is where the PDF has it.
-        const before = Math.max(0, row.height - c.baselineUp - line * SHEET_BASELINE_AT - 2 * HALF);
+        const before = Math.max(0, row.height - c.baselineUp - (lines - 1) * line - line * SHEET_BASELINE_AT - 2 * HALF);
         let opts = { line, before, align: { center: 'center', right: 'right' }[c.align] || 'left', keepNext: !!row.joinNext };
         const linkAt = c.link ? c.text.indexOf(c.link) : -1;
         if (c.align === 'money' && c.text) {
