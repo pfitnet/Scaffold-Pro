@@ -804,10 +804,14 @@ tr.project-total td { font-weight: 600; border-top: 2px solid var(--border); bac
 th.check-col, td.check-col { width: 28px; text-align: center; padding-left: 8px; padding-right: 0; }
 
 /* ---------- Icon buttons (js/icons.js) ---------- */
-button.icon-btn { padding: 4px 7px; line-height: 0; min-width: 30px; justify-content: center; }
+/* No box around them, like the Page / Items-in icons: a soft tint shows on hover. */
+button.icon-btn { padding: 5px 7px; line-height: 0; min-width: 30px; justify-content: center; border-color: transparent; background: transparent; box-shadow: none; color: var(--text-secondary); border-radius: 7px; transition: background .12s, color .12s; }
+button.icon-btn:hover:not(:disabled), button.icon-btn:focus-visible { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+button.icon-btn:active:not(:disabled) { transform: scale(.94); }
 button.icon-btn .btn-icon { display: block; }
+.toolbar button.icon-btn .btn-icon { width: 18px; height: 18px; }
 button.icon-btn.icon-danger, button.icon-btn.danger-btn { color: var(--danger); }
-button.icon-btn.icon-danger:hover:not(:disabled) { background: var(--danger-soft); }
+button.icon-btn.icon-danger:hover:not(:disabled), button.icon-btn.danger-btn:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 button .btn-icon { vertical-align: -3px; }
 button:has(> .btn-icon + span) { display: inline-flex; align-items: center; gap: 6px; }
 
@@ -1099,7 +1103,16 @@ button.more-btn { display: flex; align-items: center; justify-content: center; g
 button.more-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--header-bg) 80%, var(--text)); color: var(--text); border-color: var(--border-strong); }
 button.more-btn svg { transition: transform .15s; opacity: 0.8; }
 button.more-btn.open svg { transform: rotate(180deg); }
-button.more-btn .more-count { font-weight: 400; color: var(--text-tertiary); }
+button.more-btn .more-count, .more-row > .more-count { font-weight: 400; color: var(--text-tertiary); }
+/* "Show 3 more · 22 left" beside "Show fewer". */
+.more-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.more-row > button.more-btn { margin: 0; flex: 1 1 auto; }
+.more-row > button.fewer-btn { flex: 0 0 auto; width: auto; padding: 5px 14px; }
+.more-row > .more-count { flex: 1; text-align: center; font-size: 12px; }
+/* The rows "Show 3 more" brings in slide down into place. */
+tr.row-in { animation: rowIn .32s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes rowIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { tr.row-in { animation: none; } }
 
 /* Brackets of documents by kind in "My Recently Changed Documents". */
 .doc-bracket { border: 1px solid var(--border); border-radius: 9px; margin: 0 0 8px; overflow: hidden; background: var(--panel); }
@@ -1521,13 +1534,39 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
 /* A panel's count beside its title. */
 .panel-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 17px; margin-left: 7px; padding: 0 5px; border-radius: 9px;
   background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 700; letter-spacing: 0; vertical-align: 1px; animation: dot-pop .3s cubic-bezier(.2, 1.6, .4, 1); }
-/* Rows: an accent edge slides in on the one under the pointer. */
+/* Rows: an accent edge slides in on the one under the pointer — down the
+   whole row, also when a narrow panel stacks the row's details. */
 .dash-grid table.compact tr.link-row td:first-child { transition: box-shadow .14s ease; }
 .dash-grid table.compact tr.link-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+/* …and the row's words step aside from it. */
+.dash-grid table.compact tr.link-row td:first-child > * { position: relative; left: 0; transition: left .16s ease; }
+.dash-grid table.compact tr.link-row:hover td:first-child > * { left: 7px; }
+@container (max-width: 460px) {
+  .dash-grid table.compact tr.link-row { transition: box-shadow .14s ease, background-color .14s ease; }
+  .dash-grid table.compact tr.link-row:hover { box-shadow: inset 3px 0 0 var(--accent); }
+  .dash-grid table.compact tr.link-row:hover td:first-child { box-shadow: none; }
+  .dash-grid table.compact tr.link-row td { transition: transform .16s ease; }
+  .dash-grid table.compact tr.link-row:hover td:first-child > * { left: 0; }
+  .dash-grid table.compact tr.link-row:hover td:not(.quote-actions):not(.num) { transform: translateX(7px); }
+}
 /* Quick Actions: the icon lifts. */
 .qa-icon { transition: transform .2s cubic-bezier(.2, 1.4, .4, 1); }
 .qa-tile:hover .qa-icon { transform: translateY(-1px) scale(1.08); }
 @media (prefers-reduced-motion: reduce) {
   .dash-enter, .widget-pulse, .stat-meter span, .panel-count { animation: none; }
-  .stat-card, .stat-icon, .qa-icon, .brief-chip { transition: none; }
+  .stat-card, .stat-icon, .qa-icon, .brief-chip, .dash-grid table.compact tr.link-row td, .dash-grid table.compact tr.link-row td > * { transition: none; }
 }
+
+/* Export: a click saves the PDF; resting on it lists PDF and Word (js/hover-menu.js). */
+button.export-menu { display: inline-flex; align-items: center; gap: 6px; }
+button.export-menu::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
+button.export-menu.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
+
+/* Add Materials: the heading, then search and the ☰ list (price list, category) at the right. */
+.am-head { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.am-head h2 { margin: 0; white-space: nowrap; }
+.am-head #search-box { margin-left: auto; flex: 0 1 240px; min-width: 120px; }
+.am-filter .tb-ico { position: relative; width: 34px; height: 32px; margin-left: 0; }
+.am-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--content); transform: scale(0); transition: transform .18s cubic-bezier(.3,1.6,.5,1); }
+.group-menu.filtered .am-dot { transform: scale(1); }
+button.tb-ico { padding: 0; border: none; background: transparent; box-shadow: none; color: var(--text-secondary); }

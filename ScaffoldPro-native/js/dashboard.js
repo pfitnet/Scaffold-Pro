@@ -91,38 +91,69 @@ function statCard(opts) {
   return el;
 }
 
-// Each list shows its first 5; "and 7 more" under it shows the rest (and
-// "Show fewer" folds it back). `total` when there are more than were sent.
+// Each list shows its first 5; "Show 3 more" under it shows the next 3 each
+// time it's pressed, and "Show fewer" folds it back to 5. `total` when there
+// are more than were sent.
 const SHOWN = 5;
+const STEP = 3;
 const CHEVRON = '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M3 4.5 6 7.5l3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-// The "and 7 more" / "Show fewer" button's words, count and chevron.
-function moreLabel(btn, open, hiddenCount, notSent) {
-  btn.classList.toggle('open', open);
-  btn.innerHTML = open
-    ? `<span>Show fewer</span>${notSent > 0 ? `<span class="more-count">${notSent} older not shown</span>` : ''}${CHEVRON}`
-    : `<span>and ${hiddenCount} more</span>${CHEVRON}`;
+// How many of a list are showing (kept on its box while the page is open).
+const shownIn = (box) => Math.max(SHOWN, Number(box.dataset.shown) || SHOWN);
+
+// The "Show 3 more · 22 left" and "Show fewer" buttons under a list.
+function moreButtons(box, showing, all, notSent, redraw) {
+  const row = document.createElement('div');
+  row.className = 'more-row';
+  const left = all - showing;
+  if (left > 0) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'more-btn';
+    more.dataset.noIcon = '';
+    more.innerHTML = `<span>Show ${Math.min(STEP, left)} more</span><span class="more-count">${left} left</span>${CHEVRON}`;
+    more.addEventListener('click', (e) => {
+      e.stopPropagation();
+      box.dataset.shown = String(showing + STEP);
+      box.dataset.grow = String(showing);
+      redraw();
+    });
+    row.appendChild(more);
+  } else if (notSent > 0) {
+    const note = document.createElement('span');
+    note.className = 'more-count';
+    note.textContent = `${notSent} older not shown`;
+    row.appendChild(note);
+  }
+  if (showing > SHOWN) {
+    const fewer = document.createElement('button');
+    fewer.type = 'button';
+    fewer.className = 'more-btn open fewer-btn';
+    fewer.dataset.noIcon = '';
+    fewer.innerHTML = `<span>Show fewer</span>${CHEVRON}`;
+    fewer.addEventListener('click', (e) => { e.stopPropagation(); box.dataset.shown = ''; box.dataset.grow = ''; redraw(); });
+    row.appendChild(fewer);
+  }
+  return row;
+}
+
+// The rows a press just brought in slide down into place.
+function growIn(box, rows) {
+  const from = Number(box.dataset.grow) || 0;
+  box.dataset.grow = '';
+  if (!from) return;
+  rows.slice(from).forEach((tr, i) => { if (!tr.classList.contains('hidden')) { tr.style.animationDelay = `${i * 45}ms`; tr.classList.add('row-in'); } });
 }
 
 function limitList(box, total) {
   const rows = [...box.querySelectorAll('tbody > tr:not(.task-new-row)')];
-  const old = box.querySelector(':scope > .more-btn');
+  const old = box.querySelector(':scope > .more-row');
   if (old) old.remove();
   const all = Math.max(rows.length, total || 0);
   if (all <= SHOWN) return;
-  const open = box.dataset.expanded === '1';
-  rows.forEach((tr, i) => tr.classList.toggle('hidden', !open && i >= SHOWN));
-  const more = document.createElement('button');
-  more.type = 'button';
-  more.className = 'more-btn';
-  more.dataset.noIcon = '';
-  const notSent = all - rows.length;
-  moreLabel(more, open, all - SHOWN, notSent);
-  more.addEventListener('click', (e) => {
-    e.stopPropagation();
-    box.dataset.expanded = open ? '' : '1';
-    limitList(box, total);
-  });
-  box.appendChild(more);
+  const showing = Math.min(shownIn(box), rows.length);
+  rows.forEach((tr, i) => tr.classList.toggle('hidden', i >= showing));
+  growIn(box, rows);
+  box.appendChild(moreButtons(box, showing, all, all - rows.length, () => limitList(box, total)));
 }
 
 function table(container, rows, columns, emptyText) {
@@ -141,34 +172,28 @@ function table(container, rows, columns, emptyText) {
 
 // My recently changed documents, in a bracket per kind (Quotations,
 // BOQs, Delivery Notes, Invoices — only the kinds in the list). The 5 most
-// recent are shown; "and N more" shows the rest, bracketed the same way.
+// recent are shown; "Show 3 more" adds the next 3, bracketed the same way.
 const DOC_KINDS = [['Quotation', 'Quotations'], ['BOQ', 'BOQs'], ['Delivery Note', 'Delivery Notes'], ['Invoice', 'Invoices']];
 function renderRecentDocs(all) {
   const box = document.getElementById('recent-docs');
   if (!all.length) { box.innerHTML = '<div class="empty-inline">None yet — documents you work on show here.</div>'; return; }
-  const open = box.dataset.expanded === '1';
-  const shown = open ? all : all.slice(0, SHOWN);
+  const showing = Math.min(shownIn(box), all.length);
+  const shown = all.slice(0, showing);
   const known = DOC_KINDS.map(([k]) => k);
   const kinds = DOC_KINDS.concat([...new Set(shown.map((r) => r.kind).filter((k) => !known.includes(k)))].map((k) => [k, k]));
+  const before = Number(box.dataset.grow) || 0;
   box.innerHTML = kinds.map(([kind, title]) => {
     const rows = shown.filter((r) => r.kind === kind);
     if (!rows.length) return '';
     return `<section class="doc-bracket"><div class="doc-bracket-head"><span>${esc(title)}</span><span class="doc-bracket-count">${rows.length}</span></div>
-      <table class="compact"><tbody>${rows.map((r) => `<tr class="link-row" data-url="${esc(r.url)}">
+      <table class="compact"><tbody>${rows.map((r) => `<tr class="link-row${before && shown.indexOf(r) >= before ? ' row-in' : ''}" data-url="${esc(r.url)}" style="animation-delay:${before ? Math.max(0, shown.indexOf(r) - before) * 45 : 0}ms">
         <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectNumber)}${r.projectName ? ` ${esc(r.projectName)}` : ''}</div>${madeBy(r)}</td>
         <td><span class="status-pill ${r.isOverdue ? 'pill-danger' : ''}">${esc(r.status)}</span></td>
         <td class="muted num">${when(r.lastEditedAt || r.updatedAt)}</td></tr>`).join('')}</tbody></table></section>`;
   }).join('');
+  box.dataset.grow = '';
   for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { location.href = tr.dataset.url; });
-  if (all.length > SHOWN) {
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'more-btn';
-    more.dataset.noIcon = '';
-    moreLabel(more, open, all.length - SHOWN, 0);
-    more.addEventListener('click', (e) => { e.stopPropagation(); box.dataset.expanded = open ? '' : '1'; renderRecentDocs(all); });
-    box.appendChild(more);
-  }
+  if (all.length > SHOWN) box.appendChild(moreButtons(box, showing, all.length, 0, () => renderRecentDocs(all)));
 }
 
 let projectsCache = [];

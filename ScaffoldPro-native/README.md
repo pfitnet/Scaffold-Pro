@@ -2577,3 +2577,27 @@ Every form control is now drawn by the app instead of macOS, on every page
   Action icons lift on hover. Nothing moves when the Mac is set to
   Reduce Motion.
 - Still information first: no decorative charts.
+
+## Batch 103 — Tidier editor toolbar and Add Materials header
+
+- **Export:** Export PDF and Export Word are one **Export** button in the
+  BOQ, quotation, delivery note and invoice editors (and letters). A
+  click saves the PDF; resting the pointer on it lists **PDF** and
+  **Word** to choose from (js/hover-menu.js, `button.export-menu`; the
+  old buttons stay on the page, hidden, with their own code).
+- **No "← Back to project":** the Back button at the top of the page
+  does that. In the BOQ editor **Make Quotation** sits at the right end
+  of the toolbar.
+- **Icon buttons without a box:** Print, Locate File, Delete, Duplicate
+  and the other icon buttons are drawn like the Page / Items-in icons —
+  just the icon, with a soft tint on hover.
+- **Add Materials:** the price list and category are in one ☰ list at the
+  right of the "Add Materials" heading, under the headings *Price list*
+  and *Category* (`button.group-menu`, `data-selects`). The search box
+  sits just left of it. A dot on ☰ shows a category is picked.
+- **Dashboard rows:** in a narrow panel (rows stacked) the accent edge
+  runs down the whole row instead of only beside its first line, and the
+  row's words step aside from it.
+- **"Show 3 more":** under a Dashboard list (e.g. My Recently Changed
+  Documents) each press shows the next 3, with how many are left; "Show
+  fewer" folds it back to 5. The new rows slide in.

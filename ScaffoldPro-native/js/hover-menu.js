@@ -18,6 +18,9 @@
 //     the list; picking sets the select's value and fires its "change", so
 //     the page's own code runs as before.
 //   window.hoverMenu.isOpen()             // a list is showing
+//   <button class="export-menu" data-pdf="export-pdf-btn" data-word="export-word-btn">Export</button>
+//     (set up by itself): a click saves the PDF; resting on it lists PDF and
+//     Word. The real buttons stay on the page, hidden, with their own code.
 
 (function () {
   if (window.hoverMenu) return;
@@ -184,11 +187,14 @@
       trigger.addEventListener('click', (e) => {
         e.preventDefault();
         if (isDisabled()) return;
+        // A button with its own action (Export → PDF): a click does that.
+        if (options.onClick) { close(false); options.onClick(); return; }
         if (menu && menu.contains(document.activeElement)) close(true);
         else show(true);
       });
       trigger.addEventListener('keydown', (e) => {
-        if (['ArrowDown', 'Enter', ' '].includes(e.key)) { e.preventDefault(); e.stopPropagation(); show(true); }
+        const opens = options.onClick ? ['ArrowDown'] : ['ArrowDown', 'Enter', ' '];
+        if (opens.includes(e.key)) { e.preventDefault(); e.stopPropagation(); show(true); }
         else if (e.key === 'Escape' && menu) { e.preventDefault(); e.stopPropagation(); close(true); }
       });
     }
@@ -239,8 +245,70 @@
 
   window.hoverMenu = { attach, forSelect, selectItems, pickInSelect, isOpen: () => !!open };
 
-  // Every icon picker on the page (.tb-pick) works this way.
-  const setUp = () => document.querySelectorAll('.tb-pick select').forEach((select) => forSelect(select));
+  // Export: PDF by default, or Word from its list.
+  function exportMenu(button) {
+    const pdf = document.getElementById(button.dataset.pdf || 'export-pdf-btn');
+    const word = document.getElementById(button.dataset.word || 'export-word-btn');
+    if (!pdf) return;
+    const busy = () => { button.disabled = !!(pdf.disabled || (word && word.disabled)); };
+    const watch = new MutationObserver(busy);
+    [pdf, word].filter(Boolean).forEach((b) => watch.observe(b, { attributes: true, attributeFilter: ['disabled'] }));
+    busy();
+    if (!button.title) button.title = word ? 'Save a PDF — or rest the pointer here to choose PDF or Word' : 'Save a PDF';
+    if (!word) { button.addEventListener('click', () => pdf.click()); return; }
+    attach(button, {
+      heading: 'Export as',
+      minWidth: 200,
+      onClick: () => pdf.click(),
+      items: () => [
+        { label: 'PDF', sub: 'The printed copy — the default', value: 'pdf' },
+        { label: 'Word', sub: 'A .docx laid out like the PDF', value: 'word' },
+      ],
+      onPick: (v) => (v === 'word' ? word : pdf).click(),
+    });
+  }
+
+  // One ☰ list for several selects, each under its heading (Add Materials:
+  // price list and category): data-selects="source-select:Price list,category-select:Category".
+  // A dot on the icon shows a filter (a later select not on its first choice) is on.
+  function groupMenu(button) {
+    const parts = (button.dataset.selects || '').split(',').map((p) => {
+      const [id, heading] = p.split(':');
+      return { select: document.getElementById(id.trim()), heading: (heading || '').trim() };
+    }).filter((p) => p.select);
+    if (!parts.length) return;
+    const refresh = () => {
+      const filtered = parts.slice(1).some(({ select }) => select.options.length && select.selectedIndex > 0);
+      button.classList.toggle('filtered', filtered);
+      button.title = parts.map(({ select, heading }) => `${heading}: ${select.selectedOptions[0] ? select.selectedOptions[0].textContent : '—'}`).join('\n');
+    };
+    const watch = new MutationObserver(refresh);
+    parts.forEach(({ select }) => {
+      select.addEventListener('change', refresh);
+      watch.observe(select, { childList: true, subtree: true });
+    });
+    refresh();
+    attach(button, {
+      minWidth: 240,
+      align: 'right',
+      items: () => parts.flatMap(({ select, heading }, n) => [
+        { group: heading },
+        ...selectItems(select).filter((it) => it.group == null).map((it) => ({ ...it, value: `${n}\u0000${it.value}` })),
+      ]),
+      onPick: (v) => {
+        const at = v.indexOf('\u0000');
+        pickInSelect(parts[Number(v.slice(0, at))].select, v.slice(at + 1));
+        refresh();
+      },
+    });
+  }
+
+  // Every icon picker on the page (.tb-pick) works this way, and every Export and ☰ button.
+  const setUp = () => {
+    document.querySelectorAll('.tb-pick select').forEach((select) => forSelect(select));
+    document.querySelectorAll('button.export-menu').forEach(exportMenu);
+    document.querySelectorAll('button.group-menu').forEach(groupMenu);
+  };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setUp);
   else setUp();
 })();
