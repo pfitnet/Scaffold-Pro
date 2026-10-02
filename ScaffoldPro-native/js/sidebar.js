@@ -31,15 +31,19 @@ function icon(name) {
 }
 
 const NAV_ITEMS = [
+  { section: 'Overview' },
   { page: 'dashboard', label: 'Dashboard', href: 'index.html', key: '1' },
   { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
   { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
+  { section: 'Team' },
   { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },
+  { section: 'Operations' },
   { page: 'price-lists', label: 'Material List', href: 'price-lists.html', key: '2' },
   { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },
+  { section: 'Company' },
   { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '6' },
   { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
   { page: 'admin', label: 'Admin', href: 'admin.html', key: '7' },
@@ -76,6 +80,14 @@ function renderSidebar(activePage) {
 
 
   for (const item of NAV_ITEMS) {
+    // A group's heading ("OVERVIEW", "OPERATIONS"…).
+    if (item.section) {
+      const head = document.createElement('div');
+      head.className = 'sidebar-section';
+      head.textContent = item.section;
+      sidebar.appendChild(head);
+      continue;
+    }
     const link = document.createElement('a');
     link.href = item.href;
     link.title = item.key ? `${item.label} (⌘${item.key})` : item.label;

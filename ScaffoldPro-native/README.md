@@ -2491,3 +2491,14 @@ under "Letterhead layout".
   files on disk (an uploaded drawing's copy stays in the folder). Changes
   made from a browser through ScaffoldPro Web aren't recorded, and Undo
   isn't offered there.
+
+## Batch 98 — Build fix; sidebar group headings
+
+- **Build fix:** `takeLinkedNumber` (from Batch 95) named the BOQ type
+  `BOQ`, but it's `BillOfQuantities`, so the app didn't compile
+  ("cannot find type 'BOQ' in scope").
+- **Sidebar headings:** the sidebar's tabs are now grouped under small
+  capital headings: **Overview** (Dashboard, Calendar, Tasks), **Team**
+  (Chat, Team), **Operations** (Material List, Clients & Sites, Projects,
+  Stock) and **Company** (Accounting, Marketing, Admin, Settings). The
+  order and the ⌘ shortcuts are unchanged.
