@@ -1,7 +1,8 @@
 'use strict';
 
 // The Dashboard's panels as widgets. "Customise" opens the widget editor:
-//   • drag a panel by its grip to move it — the others make room;
+//   • drag a panel by its bar to move it — a marker shows where it'll go
+//     (the Dashboard scrolls near the window's top or bottom edge);
 //   • drag its right edge to make it ¼, ½, ¾ or full width (it snaps to
 //     the column guides);
 //   • the Widgets tray on the right holds the ones not on the Dashboard:
@@ -187,65 +188,142 @@
   }
 
   // Drag a widget — from its bar, or from the tray: a card follows the
-  // pointer; over the Dashboard the widget takes its place there (the
-  // others move to make room), over the tray it comes off.
+  // pointer and a bar marks where it will go (before or after the panel
+  // under the pointer); nothing moves until it's dropped, so the panels
+  // stay still under the pointer. Over the tray it comes off. Near the top
+  // or bottom of the window the Dashboard scrolls.
   function startDrag(e, w, fromCard) {
     if (e.button !== 0) return;
     e.preventDefault();
+    const scroller = grid.closest('#content') || document.scrollingElement;
     const ghost = document.createElement('div');
     ghost.className = 'widget-ghost';
     const [icon] = ABOUT[w.dataset.widget] || [''];
     ghost.innerHTML = `${icon}<span>${w.dataset.title || w.dataset.widget}</span>`;
-    document.body.appendChild(ghost);
+    const marker = document.createElement('div');
+    marker.className = 'widget-drop-marker';
+    let started = false;
+    let last = e;
+    let drop = null; // { ref } (insert before ref; null = at the end) or { off: true }
+    let target = null;
     // Kept inside the window (it flips to the pointer's left near the edge).
     const place = (ev) => {
       const x = ev.clientX + 12 + ghost.offsetWidth > innerWidth - 6 ? ev.clientX - ghost.offsetWidth - 12 : ev.clientX + 12;
       ghost.style.transform = `translate(${x}px, ${ev.clientY + 10}px)`;
     };
-    place(e);
-    document.body.classList.add('widget-dragging-any');
-    if (fromCard) fromCard.classList.add('picked');
-    w.classList.add('widget-dragging');
-    let moved = false;
-    const move = (ev) => {
-      moved = true;
-      place(ev);
+    const begin = () => {
+      started = true;
+      document.body.append(ghost, marker);
+      document.body.classList.add('widget-dragging-any');
+      if (fromCard) fromCard.classList.add('picked');
+      w.classList.add('widget-dragging');
+    };
+    const mark = (t) => {
+      if (target !== t) { if (target) target.classList.remove('widget-drop-target'); target = t; if (t) t.classList.add('widget-drop-target'); }
+    };
+    // Where a drop here would put it.
+    const aim = () => {
+      const ev = last;
       const over = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (!over) return;
-      const overTray = over.closest('.widget-tray');
-      if (tray) tray.classList.toggle('drop-here', !!overTray && !w.classList.contains('widget-off'));
-      if (overTray) {
-        if (!w.classList.contains('widget-off')) { setHidden(w, true); repack(); }
+      const overTray = !!(over && over.closest('.widget-tray'));
+      if (tray) tray.classList.toggle('drop-here', overTray && !w.classList.contains('widget-off'));
+      marker.style.display = 'none';
+      mark(null);
+      drop = null;
+      if (overTray) { drop = { off: true }; return; }
+      const g = grid.getBoundingClientRect();
+      if (ev.clientX < g.left - 40 || ev.clientX > g.right + 40 || ev.clientY < g.top - 40 || ev.clientY > g.bottom + 120) return;
+      const shown = widgets().filter((x) => x !== w && !x.classList.contains('widget-off'));
+      if (!shown.length) { drop = { ref: null }; return; }
+      // The panel under the pointer — or the nearest one when it's in a gap.
+      let best = null;
+      let bestD = Infinity;
+      for (const x of shown) {
+        const r = x.getBoundingClientRect();
+        const dx = Math.max(r.left - ev.clientX, 0, ev.clientX - r.right);
+        const dy = Math.max(r.top - ev.clientY, 0, ev.clientY - r.bottom);
+        const d = Math.hypot(dx, dy);
+        if (d < bestD) { bestD = d; best = { x, r }; }
+      }
+      // Over the panel being moved: it stays where it is.
+      const own = w.classList.contains('widget-off') ? null : w.getBoundingClientRect();
+      if (own && ev.clientX >= own.left && ev.clientX <= own.right && ev.clientY >= own.top && ev.clientY <= own.bottom) return;
+      const { x, r } = best;
+      // Below everything: at the end.
+      if (ev.clientY > g.bottom - 8 && bestD > 0) {
+        drop = { ref: null };
+        const tail = shown[shown.length - 1].getBoundingClientRect();
+        Object.assign(marker.style, { display: 'block', left: `${g.left}px`, top: `${Math.max(tail.bottom, g.bottom) + 3}px`, width: `${g.width}px`, height: '4px' });
         return;
       }
-      const g = grid.getBoundingClientRect();
-      const inGrid = ev.clientX >= g.left && ev.clientX <= g.right && ev.clientY >= g.top - 20 && ev.clientY <= g.bottom + 60;
-      if (!inGrid) return;
-      if (w.classList.contains('widget-off')) setHidden(w, false);
-      const target = over.closest('[data-widget]');
-      if (target && target !== w && target.parentElement === grid) {
-        const r = target.getBoundingClientRect();
-        const after = ev.clientY > r.top + r.height / 2 || (Math.abs(ev.clientY - (r.top + r.height / 2)) < r.height / 4 && ev.clientX > r.left + r.width / 2);
-        const ref = after ? target.nextSibling : target;
-        if (ref !== w && w.nextSibling !== ref) { grid.insertBefore(w, ref); repack(); }
-      } else if (!target && ev.clientY > g.bottom - 10 && grid.lastElementChild !== w) {
-        grid.appendChild(w);
-        repack();
-      }
+      // A full-width panel splits top / bottom; others left / right.
+      const full = r.width > g.width - 20;
+      const after = full ? ev.clientY > r.top + r.height / 2 : ev.clientX > r.left + r.width / 2;
+      drop = { ref: after ? x.nextElementSibling : x };
+      mark(x);
+      if (full) Object.assign(marker.style, { display: 'block', left: `${r.left}px`, top: `${(after ? r.bottom : r.top) - 2}px`, width: `${r.width}px`, height: '4px' });
+      else Object.assign(marker.style, { display: 'block', left: `${(after ? r.right : r.left) - 2}px`, top: `${r.top}px`, width: '4px', height: `${r.height}px` });
     };
-    const up = () => {
+    // Scrolls while the pointer is near the top or bottom edge.
+    let raf = 0;
+    const edge = () => {
+      raf = 0;
+      if (!started) return;
+      const s = scroller === document.scrollingElement ? { top: 0, bottom: innerHeight } : scroller.getBoundingClientRect();
+      const zone = 70;
+      const y = last.clientY;
+      let v = 0;
+      if (y < s.top + zone) v = -Math.ceil((s.top + zone - y) / 4);
+      else if (y > s.bottom - zone) v = Math.ceil((y - (s.bottom - zone)) / 4);
+      if (!v) return;
+      const before = scroller.scrollTop;
+      scroller.scrollTop += Math.max(-24, Math.min(24, v));
+      if (scroller.scrollTop !== before) aim();
+      raf = requestAnimationFrame(edge);
+    };
+    const onScroll = () => { if (started) aim(); };
+    const move = (ev) => {
+      last = ev;
+      if (!started) {
+        if (Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) < 4) return;
+        begin();
+      }
+      place(ev);
+      aim();
+      if (!raf) raf = requestAnimationFrame(edge);
+    };
+    const end = (ev) => {
       document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('pointercancel', end);
+      scroller.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
       ghost.remove();
+      marker.remove();
+      mark(null);
+      if (tray) tray.classList.remove('drop-here');
       document.body.classList.remove('widget-dragging-any');
       w.classList.remove('widget-dragging');
-      // A click on a tray card (no drag) adds it at the end.
-      if (fromCard && !moved) { setHidden(w, false); grid.appendChild(w); }
+      if (fromCard) fromCard.classList.remove('picked');
+      const cancelled = ev.type === 'pointercancel';
+      if (!started) {
+        // A click on a tray card (no drag) adds it at the end.
+        if (fromCard && !cancelled) { setHidden(w, false); grid.appendChild(w); save(); refresh(); }
+        return;
+      }
+      if (cancelled || !drop) return;
+      if (drop.off) setHidden(w, true);
+      else {
+        setHidden(w, false);
+        if (drop.ref !== w) grid.insertBefore(w, drop.ref);
+      }
       save();
       refresh();
     };
     document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', up);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
+    scroller.addEventListener('scroll', onScroll, { passive: true });
   }
 
   // Packing, so the Dashboard has no empty patches:
@@ -260,6 +338,12 @@
     const gap = parseFloat(getComputedStyle(grid).getPropertyValue('--widget-gap')) || 14;
     const shown = widgets().filter((w) => getComputedStyle(w).display !== 'none');
     if (!shown.length) return;
+    // Measuring puts the panels back in their natural places for a moment;
+    // the grid keeps its height meanwhile, or the page would be cut short
+    // and jump back to the top (WebKit doesn't hold the scroll position).
+    const scroller = grid.closest('#content') || document.scrollingElement;
+    const top = scroller.scrollTop;
+    grid.style.minHeight = `${grid.offsetHeight}px`;
     for (const w of shown) { w.style.gridColumn = ''; w.style.gridRow = ''; w.style.alignSelf = 'start'; }
     for (const w of shown) {
       const h = w.getBoundingClientRect().height;
@@ -297,6 +381,8 @@
       it.w.style.gridRow = `${it.r0 + 1} / ${it.r1 + 1}`;
       it.w.style.alignSelf = 'stretch';
     }
+    grid.style.minHeight = '';
+    if (scroller.scrollTop !== top) scroller.scrollTop = top;
   }
   let packing = 0;
   const repack = () => { cancelAnimationFrame(packing); packing = requestAnimationFrame(pack); };

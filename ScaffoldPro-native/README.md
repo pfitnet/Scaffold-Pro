@@ -2173,3 +2173,21 @@ under "Letterhead layout".
 - **My Tasks** has a "+ New Task" button in its heading. Quick Actions
   leaves out its own New Task while My Tasks is on the Dashboard. Hide My
   Tasks and New Task comes back to Quick Actions.
+
+## Batch 83 — Dragging widgets fixed
+
+- **No more jump to the top.** Picking up a widget (from its bar or from the
+  Widgets tray) used to scroll the Dashboard back to the top. The layout
+  pass briefly collapsed the grid, and WebKit doesn't keep the scroll
+  position. The grid now keeps its height while it's measured, and the
+  scroll position is put back.
+- **Easier to place:**
+  - Panels no longer reshuffle under the pointer while you drag.
+  - A blue bar marks where the widget will go: before or after the panel
+    under the pointer (left or right half; top or bottom half for a
+    full-width panel), or at the end below everything.
+  - It moves there when you let go.
+- **Scrolls while dragging:** the Dashboard scrolls when the pointer is
+  near the top or bottom of the window, so a widget can go anywhere.
+- A plain click on a widget's bar does nothing. A click on a tray card
+  still adds that widget at the end.
