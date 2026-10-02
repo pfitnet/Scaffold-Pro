@@ -272,12 +272,13 @@ async function loadDashboard() {
     const fresh = (await window.api.tasks.list()).filter((r) => r.mine && !r.task.done);
     renderMyTasks(fresh);
   };
+  // "New Task" first, as a Quick Actions tile, then the tasks.
   const renderMyTasks = (rows) => {
-    if (!rows.length) {
-      taskBox.innerHTML = '<div class="empty-widget"><span>Nothing to do.</span></div>';
-      return;
-    }
-    taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`;
+    taskBox.innerHTML = newTaskTileHTML() + (rows.length
+      ? `<table class="compact no-sort task-table"><tbody>${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>`
+      : '<div class="empty-widget"><span>Nothing to do.</span></div>');
+    taskBox.querySelector('#tasks-new-btn').addEventListener('click', newTaskQuick);
+    if (!rows.length) return;
     window.wireTaskRows(taskBox, rows, reloadTasks, { projects });
     limitList(taskBox);
   };
@@ -327,6 +328,13 @@ const QUICK_ACTIONS = [
   { label: 'Lead', color: '#4F7FA0', icon: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>', go: () => { location.href = 'marketing.html?tab=leads&new=1'; } },
 ];
 
+// The New Task tile at the top of My Tasks — the Quick Actions look.
+function newTaskTileHTML() {
+  const a = QUICK_ACTIONS.find((x) => x.go === newTaskQuick);
+  return `<button type="button" class="qa-tile tasks-new-tile" id="tasks-new-btn" data-no-icon style="--qa:${a.color}" title="New Task">
+    <span class="qa-icon">${QA_SVG(a.icon)}</span><span class="qa-text">New Task</span></button>`;
+}
+
 async function newTaskQuick() {
   const people = await window.api.tasks.people();
   const projects = projectsCache.filter((p) => p.status !== 'Archived');
@@ -348,7 +356,6 @@ function renderQuickActions() {
   for (const b of box.querySelectorAll('.qa-tile')) b.addEventListener('click', () => QUICK_ACTIONS[Number(b.dataset.i)].go());
 }
 renderQuickActions();
-document.getElementById('tasks-new-btn').addEventListener('click', newTaskQuick);
 // Hiding or showing My Tasks (Customise) brings New Task back, or takes it away.
 new MutationObserver(() => {
   const shown = tasksWidgetShown();

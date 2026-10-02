@@ -2219,3 +2219,12 @@ under "Letterhead layout".
   Web. The sheet is `js/multiply.js`
   (`window.multiplyLines.attach({ button, kind, detail, include, reload })`),
   so another page with line items can add the same button in a few lines.
+
+## Batch 85 — New Task as the first item in My Tasks
+
+- The "+ New Task" button left the My Tasks heading. "New Task" is now the
+  first item in the list, a tile that looks like those in Quick Actions
+  (same icon, colour and hover). "All tasks" stays in the heading.
+- It shows when there are no tasks too, above "Nothing to do."
+- Quick Actions still leaves out its own New Task while My Tasks is on the
+  Dashboard.
