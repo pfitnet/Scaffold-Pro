@@ -263,6 +263,12 @@
       // The letterhead and footer as a page-sized PNG → { png (base64), paperSize }.
       letterhead: () => callNative('letters:letterhead'),
     },
+    // Several of a document's quantities at once ("Multiply…" and its Undo).
+    // kind: 'boq' | 'quotation' | 'invoice' | 'deliveryNote';
+    // quantities: { lineId: newQuantity } → { ok, error }.
+    lines: {
+      setQuantities: (kind, documentId, quantities) => callNative('lines:setQuantities', { kind: kind, documentId: documentId, quantities: quantities }),
+    },
     deliveryNotes: {
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('deliveryNotes:setLanguage', { id: id, language: language || null }),

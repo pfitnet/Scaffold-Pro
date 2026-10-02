@@ -22,6 +22,14 @@ function lockStatusOptions(select, status, finalFromIssued) {
 
 let invoiceId = null;
 let currentDetail = null;
+// "× Multiply…" (js/multiply.js): the materials' quantities ×2 for 2 sets, etc.
+const multiply = window.multiplyLines.attach({
+  button: document.getElementById('multiply-btn'),
+  kind: 'invoice',
+  detail: () => currentDetail,
+  include: (line) => !line.chargeGroup && line.section !== 'Delivery',
+  reload: () => loadDetail(),
+});
 let currencyLabel = '';
 
 function getInvoiceIdFromURL() {
@@ -140,6 +148,7 @@ function render() {
 }
 
 function renderLineItems() {
+  multiply.update();
   const container = document.getElementById('line-items');
   const items = currentDetail.lineItems;
   const isLocked = currentDetail.status !== 'Draft';

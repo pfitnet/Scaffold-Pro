@@ -7532,6 +7532,60 @@ final class AppDatabase {
         return nil
     }
 
+    /// Sets many of a document's quantities at once — "Multiply…" (and its
+    /// Undo), or anything else that changes quantities in bulk. `kind` is
+    /// "boq", "quotation", "invoice" or "deliveryNote"; `quantities` is line
+    /// id → new quantity (whole numbers, as everywhere). Only a Draft
+    /// changes; lines of other documents are left alone. A BOQ's linked
+    /// quotations follow it, and a linked quotation's BOQ follows it.
+    func setLineQuantities(kind: String, documentId: String, quantities: [String: Double]) -> String? {
+        let wanted = quantities.mapValues { max(0, $0.rounded()) }
+        if wanted.isEmpty { return nil }
+        switch kind {
+        case "boq":
+            guard let boq = getBOQ(id: documentId) else { return "BOQ not found." }
+            guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+            var items = boqLineItemsStore.readAll()
+            for i in items.indices where items[i].boqId == documentId {
+                if let n = wanted[items[i].id] { items[i].quantity = n }
+            }
+            boqLineItemsStore.writeAll(items)
+            touchBOQ(documentId)
+            syncLinkedQuotations(boqId: documentId)
+        case "quotation":
+            guard let q = getQuotation(id: documentId) else { return "Quotation not found." }
+            guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+            var items = quotationLineItemsStore.readAll()
+            for i in items.indices where items[i].quotationId == documentId {
+                if let n = wanted[items[i].id] { items[i].quantity = n }
+            }
+            quotationLineItemsStore.writeAll(items)
+            touchQuotation(documentId)
+            pushQuotationToBOQ(documentId)
+        case "invoice":
+            guard let inv = getInvoice(id: documentId) else { return "Invoice not found." }
+            guard inv.status == "Draft" else { return "This invoice is issued and can no longer be edited." }
+            var items = invoiceLineItemsStore.readAll()
+            for i in items.indices where items[i].invoiceId == documentId {
+                if let n = wanted[items[i].id] { items[i].quantity = n }
+            }
+            invoiceLineItemsStore.writeAll(items)
+            touchInvoice(documentId)
+        case "deliveryNote":
+            guard let dn = getDeliveryNote(id: documentId) else { return "Delivery note not found." }
+            guard dn.status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
+            var items = deliveryNoteLineItemsStore.readAll()
+            for i in items.indices where items[i].deliveryNoteId == documentId {
+                if let n = wanted[items[i].id] { items[i].quantity = n }
+            }
+            deliveryNoteLineItemsStore.writeAll(items)
+            touchDeliveryNote(documentId)
+        default:
+            return "This document can't be multiplied."
+        }
+        return nil
+    }
+
     func removeDeliveryNoteLineItem(id: String) -> String? {
         var items = deliveryNoteLineItemsStore.readAll()
         guard let target = items.first(where: { $0.id == id }) else { return "Line item not found." }
@@ -13498,6 +13552,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: DeliveryNoteActionResult(ok: true, error: nil))
             }
+        case "lines:setQuantities":
+            var quantities: [String: Double] = [:]
+            for (lineId, value) in (payload["quantities"] as? [String: Any]) ?? [:] {
+                if let n = value as? Double { quantities[lineId] = n } else if let n = value as? Int { quantities[lineId] = Double(n) }
+            }
+            let error = db.setLineQuantities(kind: (payload["kind"] as? String) ?? "", documentId: (payload["documentId"] as? String) ?? "", quantities: quantities)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "deliveryNotes:removeLineItem":
             let lineId = (payload["id"] as? String) ?? ""
             if let error = db.removeDeliveryNoteLineItem(id: lineId) {

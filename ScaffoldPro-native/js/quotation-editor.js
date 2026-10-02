@@ -22,6 +22,14 @@ function lockStatusOptions(select, status, finalFromIssued) {
 
 let quotationId = null;
 let currentDetail = null;
+// "× Multiply…" (js/multiply.js): the materials' quantities ×2 for 2 sets, etc.
+const multiply = window.multiplyLines.attach({
+  button: document.getElementById('multiply-btn'),
+  kind: 'quotation',
+  detail: () => currentDetail,
+  include: (line) => !line.blockId && line.section !== 'Delivery',
+  reload: () => loadDetail(),
+});
 // Currency label from Settings (section 50) — "HK$" for HKD, as on the PDF.
 let currencyLabel = '';
 
@@ -272,6 +280,7 @@ function setupSignedBar() {
 }
 
 function renderLineItems() {
+  multiply.update();
   const container = document.getElementById('line-items');
   // Rows of the extra sections are shown in their own sections below.
   const items = currentDetail.lineItems.filter((i) => !i.blockId);

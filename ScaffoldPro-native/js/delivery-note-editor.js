@@ -28,6 +28,13 @@ function lockStatusOptions(select, status, finalFromIssued) {
 
 let deliveryNoteId = null;
 let currentDetail = null;
+// "× Multiply…" (js/multiply.js): the items' quantities ×2 for 2 sets, etc.
+const multiply = window.multiplyLines.attach({
+  button: document.getElementById('multiply-btn'),
+  kind: 'deliveryNote',
+  detail: () => currentDetail,
+  reload: () => loadDetail(),
+});
 
 function getIdFromURL() {
   const params = new URLSearchParams(location.search);
@@ -137,6 +144,7 @@ async function importFromQuotation() {
 }
 
 function renderLineItems() {
+  multiply.update();
   const container = document.getElementById('line-items');
   const items = currentDetail.lineItems;
   const isLocked = currentDetail.status !== 'Draft';
