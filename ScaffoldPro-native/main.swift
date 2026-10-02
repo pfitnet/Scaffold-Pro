@@ -6198,11 +6198,30 @@ final class AppDatabase {
         qs[qi].sourceBOQId = boqId
         qs[qi].boqLinked = true
         qs[qi].updatedAt = nowISO()
+        let renumbered = takeLinkedNumber(&qs, qi, from: boq)
         quotationsStore.writeAll(qs)
+        if let old = renumbered { logActivity(projectId: qs[qi].projectId, "Quotation renumbered to match \(boq.boqNumber)", reference: "was \(old)") }
         mirrorBOQ(boq, into: quotationId)
         refreshQuotationSubjects(boqId: boqId, previousStructure: previousStructure)
         logActivity(projectId: qs[qi].projectId, "Quotation linked to \(boq.boqNumber)", reference: qs[qi].quotationNumber)
         return nil
+    }
+
+    /// A draft quotation linked to a BOQ takes the BOQ's number
+    /// (BQ26212-007 → Qt26212-007), as one made from the BOQ does; with
+    /// "-2" etc. when another quotation already has it. Returns the old
+    /// number when it changed. (Not with Settings' linked numbers off, nor
+    /// for an issued quotation, whose number has gone out.)
+    @discardableResult
+    func takeLinkedNumber(_ qs: inout [Quotation], _ qi: Int, from boq: BOQ) -> String? {
+        guard qs[qi].status == "Draft",
+              let projectNumber = projectsStore.readAll().first(where: { $0.id == qs[qi].projectId })?.projectNumber else { return nil }
+        let used = qs.filter { $0.id != qs[qi].id }.map { $0.quotationNumber }
+        guard let number = linkedNumber(type: "QT", sourceType: "BOQ", sourceNumber: boq.boqNumber, projectNumber: projectNumber, existing: used),
+              number != qs[qi].quotationNumber else { return nil }
+        let old = qs[qi].quotationNumber
+        qs[qi].quotationNumber = number
+        return old
     }
 
     /// The link removed: both stay as they are, and change on their own.
@@ -6323,7 +6342,9 @@ final class AppDatabase {
         // adding them below the quotation's own doesn't.
         qs[qIndex].boqLinked = replaceExisting ? true : nil
         qs[qIndex].updatedAt = nowISO()
+        let renumbered = replaceExisting ? takeLinkedNumber(&qs, qIndex, from: boq) : nil
         quotationsStore.writeAll(qs)
+        if let old = renumbered { logActivity(projectId: qs[qIndex].projectId, "Quotation renumbered to match \(boq.boqNumber)", reference: "was \(old)") }
         logActivity(projectId: qs[qIndex].projectId, "Items imported from \(boq.boqNumber)", reference: qs[qIndex].quotationNumber)
         if replaceExisting { mirrorBOQ(boq, into: quotationId) }
         // Now following this BOQ: its structure goes in the subject line.

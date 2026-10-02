@@ -1,7 +1,7 @@
 'use strict';
 
-// "Created by Harry · Last worked on by William, 2 hours ago" under the
-// title of a project or document page. Loaded by the editors and the
+// "Created by Harry · Last worked on by William, 2 hours ago" beside a
+// document's number (under a project's title). Loaded by the editors and the
 // project page; it works out which record the page shows from its address.
 
 (function () {
@@ -67,23 +67,53 @@
       try { chain = (await window.api.authors.chain(kind, id)) || []; } catch (e) { chain = []; }
     }
     const chainHTML = chainText(chain);
-    const text = window.authorsText(a) + chainHTML;
-    if (!text) return;
-    // Under the page's title block (it re-draws its own contents; this
-    // line sits just after it, so it stays).
+    const authors = window.authorsText(a);
+    if (!authors && !chainHTML) return;
+    // A document's editor: who made it and who last worked on it at the
+    // right of its number's row; the linked documents under the title.
+    // Elsewhere both go under the title. (The page re-draws its title
+    // block's contents; these sit outside it, so they stay.)
+    const beside = kind !== 'project';
     const wait = (tries) => {
       const h1 = document.querySelector('#content h1');
       if (!h1) { if (tries > 0) setTimeout(() => wait(tries - 1), 200); return; }
+      const block = h1.parentElement && h1.parentElement.id !== 'content' ? h1.parentElement : h1;
+      if (beside && block !== h1 && authors) {
+        let bar = block.parentElement.classList.contains('doc-titlebar') ? block.parentElement : null;
+        if (!bar) {
+          bar = document.createElement('div');
+          bar.className = 'doc-titlebar';
+          block.insertAdjacentElement('beforebegin', bar);
+          bar.appendChild(block);
+        }
+        let side = bar.querySelector('.doc-authors-side');
+        if (!side) {
+          side = document.createElement('div');
+          side.className = 'doc-authors-side';
+          side.id = 'doc-authors-side';
+          bar.appendChild(side);
+        }
+        side.innerHTML = authors;
+        if (!chainHTML) return;
+        let line = document.getElementById('doc-authors');
+        if (!line) {
+          line = document.createElement('div');
+          line.id = 'doc-authors';
+          line.className = 'doc-authors';
+          bar.insertAdjacentElement('afterend', line);
+        }
+        line.innerHTML = chainHTML;
+        return;
+      }
       let line = document.getElementById('doc-authors');
       if (!line) {
         line = document.createElement('div');
         line.id = 'doc-authors';
         line.className = 'doc-authors';
-        const block = h1.parentElement && h1.parentElement.id !== 'content' ? h1.parentElement : h1;
         const after = block === h1 && h1.nextElementSibling && h1.nextElementSibling.classList.contains('subtitle') ? h1.nextElementSibling : block;
         after.insertAdjacentElement('afterend', line);
       }
-      line.innerHTML = text;
+      line.innerHTML = authors + chainHTML;
     };
     wait(25);
   }

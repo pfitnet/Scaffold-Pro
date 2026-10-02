@@ -47,13 +47,14 @@
             <option value="Draft">Draft</option>
             <option value="Issued">Issued</option>
           </select>
-          <label class="tb-ico" for="orientation-select" title="Page — how it’s printed"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2.5" width="8.5" height="12" rx="1.3"/><rect x="7.5" y="9" width="10" height="8.5" rx="1.3" fill="var(--panel)"/></svg><span class="sr-only">Page</span></label>
-          <select id="orientation-select" title="How the BQ sheet is printed">
+          <div class="tb-pick"><label class="tb-ico" for="orientation-select" title="Page — how it’s printed"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2.5" width="8.5" height="12" rx="1.3"/><rect x="7.5" y="9" width="10" height="8.5" rx="1.3" fill="var(--panel)"/></svg><span class="sr-only">Page</span></label>
+            <select id="orientation-select" title="How the BQ sheet is printed">
             <option value="Landscape">Landscape — with prices</option>
             <option value="Portrait">Portrait — letterhead, no prices</option>
-          </select>
-          <label class="tb-ico" for="language-select" title="Item names in — English or Chinese"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h8M6.5 3v2M4.5 5c.7 2.6 2.4 4.5 4.8 5.6M8.6 5c-.6 2.8-2.5 5-5.3 6.2"/><path d="M10.5 17l3.25-8 3.25 8M11.7 14.3h4.1"/></svg><span class="sr-only">Items in</span></label>
-          <select id="language-select" title="The language the item names are printed in on the PDF and Word copy"></select>
+          </select></div>
+          <div class="tb-pick"><label class="tb-ico" for="language-select" title="Item names in — English or Chinese"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h8M6.5 3v2M4.5 5c.7 2.6 2.4 4.5 4.8 5.6M8.6 5c-.6 2.8-2.5 5-5.3 6.2"/><path d="M10.5 17l3.25-8 3.25 8M11.7 14.3h4.1"/></svg><span class="sr-only">Items in</span></label>
+            <select id="language-select" title="The language the item names are printed in on the PDF and Word copy"></select>
+          <button class="primary" id="make-quotation-btn" title="A quotation from this BOQ, linked to it: a change to either is made to the other">Make Quotation</button>
           <button id="export-pdf-btn">Export PDF</button>
           <button id="export-word-btn" title="A Word copy laid out like the PDF, saved next to it">Export Word</button>
           <button id="print-btn">Print…</button>
@@ -66,7 +67,7 @@
       <!-- BOQ settings, as in the company's BQ sheet -->
       <div class="details-bar">
         <div class="field"><label>Pricing</label>
-          <select id="boq-mode-select"><option value="Rental">Rental</option><option value="Sale">Sale</option></select>
+          <select id="boq-mode-select"><option value="Rental">Rental</option><option value="Sale">Sale</option></select></div>
         </div>
         <div class="field"><label>Mark up / down (%)</label>
           <input type="number" id="boq-markup-input" step="0.5" title="e.g. 10 for +10%, -5 for −5%" />
@@ -94,6 +95,11 @@
             <select id="category-select"><option value="">All Categories</option></select>
           </div>
           <div class="picker-results" id="picker-results"></div>
+          <!-- Drawings this document is based on (PDF, DWG, DXF, images), under the materials list -->
+          <div class="linked-drawings-panel">
+            <div class="section-toolbar"><h2>Drawings</h2><button id="upload-linked-drawing-btn" title="PDF, DWG, DXF or images — you can choose several at once">Upload Drawings…</button></div>
+            <div id="linked-drawings"></div>
+          </div>
         </div>
 
         <div>
@@ -138,11 +144,6 @@
             <textarea id="terms-box" rows="4" placeholder="e.g. 1. Rental is charged monthly from the date of delivery…"></textarea>
           </div>
 
-          <!-- Drawings this document is based on (PDF, DWG, DXF, images) -->
-          <div class="linked-drawings-panel">
-            <div class="section-toolbar"><h2>Drawings</h2><button id="upload-linked-drawing-btn" title="PDF, DWG, DXF or images — you can choose several at once">Upload Drawings…</button></div>
-            <div id="linked-drawings"></div>
-          </div>
         </div>
       </div>
 
@@ -163,6 +164,7 @@
   </main>
 
   <script src="js/dialogs.js"></script>
+  <script src="js/hover-menu.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/doc-authors.js"></script>
   <script src="js/icons.js"></script>
