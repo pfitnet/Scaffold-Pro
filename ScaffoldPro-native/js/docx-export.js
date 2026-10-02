@@ -718,6 +718,18 @@
         } else {
           runs = run(c.text, style);
         }
+        // A line of the terms set in: its text at textX, any marker ("(i) Payment")
+        // hanging at markerX, and the colon just before the text.
+        if (c.textX != null) {
+          const off = c.textX - (c.x0 + PAD);
+          const moff = (c.markerX != null ? c.markerX : c.x0 + PAD) - (c.x0 + PAD);
+          opts.indLeft = off;
+          if (c.marker || c.colon) {
+            opts.hanging = off - moff;
+            opts.tabs = (c.colon ? [{ val: 'left', pos: off - 3.75 * k }] : []).concat([{ val: 'left', pos: off }]);
+            runs = run(c.marker || '', style) + run('\t', style) + (c.colon ? run(':', style) + run('\t', style) : '') + runs;
+          }
+        }
         const shade = row.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${row.fill}"/>` : '';
         // Centred text needs no side padding (and so never wraps).
         const side = c.align === 'center' ? 0 : PAD - HALF;

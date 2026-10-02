@@ -2404,3 +2404,26 @@ under "Letterhead layout".
   signed PDF, when and by whom). That's now kept too.
 - No other record type uses a hand-written reader, so nothing else was
   affected.
+
+## Batch 94 — Landscape quotation on one page; terms indented; picker border
+
+- **Landscape quotation, one page:** like the BOQ sheet, it shrinks to fit
+  when there are too many items for the terms and signatures, but it
+  always fits everything on one page (the BOQ still stops shrinking at 70%
+  and runs on instead).
+- **No BOQ after it:** a landscape quotation is already the BQ sheet, so
+  the BOQ it follows is no longer added after it when it's exported,
+  combined or signed. A portrait quotation still has the BOQ after it.
+  Drawings are still added.
+- **Terms & Conditions indented** on the sheet as on the portrait
+  quotation: "Payment", "Delivery", "(i) …" and "•" items with the label
+  at the edge, a colon, and the text and every line under it in one
+  column; a little space between the web-address sentence, the key terms
+  and the acceptance paragraph. The BOQ's terms box does the same. The
+  Word copy matches (hanging indents and tab stops).
+- **Material picker:** the Pinned box's top border, drawn while its
+  heading is stuck at the top of the list, was grey while its sides were
+  gold. Both are now the same solid colour.
+- `tools/pdf-preview`: `sheet.py quote` uses the new terms layout, and
+  `sheet.py quote long` renders a long quotation shrunk onto one page. The
+  terms-parsing rules moved to `terms.py`, which `docs.py` uses too.

@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/docx-export.js": {
-    "mtime": 1790859331.3453782,
-    "seen": 1790859822.4401982,
-    "ast_hash": "e74eb1b7c37cb8c7e966cd523b81765a",
+    "mtime": 1790931255.9842439,
+    "seen": 1790931403.5955896,
+    "ast_hash": "2739126fbca4fb489a95b84fc3450e76",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/drag-reorder.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1790929785.370128,
-    "seen": 1790929801.1580908,
-    "ast_hash": "0d3c242dbd35ab4c5f9bd8bea795a550",
+    "mtime": 1790931243.2600834,
+    "seen": 1790931403.5956233,
+    "ast_hash": "964442e3aea6ba8c07311dd053e4c626",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -210,9 +210,9 @@
     "semantic_hash": "b33440c26c90dd7e6657e71d7301597a"
   },
   "tools/pdf-preview/docs.py": {
-    "mtime": 1790859344.046103,
-    "seen": 1790859822.4402256,
-    "ast_hash": "3ed98a6274666aa64c70cbd535100b0e",
+    "mtime": 1790931271.2711215,
+    "seen": 1790931403.5956264,
+    "ast_hash": "8f9d4f22854306b2413c7f73750d0b1d",
     "semantic_hash": ""
   },
   "tools/pdf-preview/render.py": {
@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "tools/pdf-preview/sheet.py": {
-    "mtime": 1790924793.3468068,
-    "seen": 1790924857.8753235,
-    "ast_hash": "f68c3b9e3e60d6d758a9be97d153abf2",
+    "mtime": 1790931344.062225,
+    "seen": 1790931403.5956275,
+    "ast_hash": "7ae1194b02145b1c7020fcee494c1bd3",
     "semantic_hash": ""
   },
   "tools/pdf-preview/word.py": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1790929795.6431746,
-    "seen": 1790929801.1580987,
-    "ast_hash": "457c579d1896e3844c679ac8f7373402",
+    "mtime": 1790931394.2482376,
+    "seen": 1790931403.595632,
+    "ast_hash": "53387628e490ced1d3a21f6c6afbbe4f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -597,6 +597,12 @@
     "mtime": 1790922109.9104168,
     "seen": 1790922266.0847585,
     "ast_hash": "b65c99a0a2886cc1f2e6f957dfa99229",
+    "semantic_hash": ""
+  },
+  "tools/pdf-preview/terms.py": {
+    "mtime": 1790931271.2707582,
+    "seen": 1790931403.5956285,
+    "ast_hash": "306ee8ff193aa3f9a1438256fc2f8d8d",
     "semantic_hash": ""
   }
 }

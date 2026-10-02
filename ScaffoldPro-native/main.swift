@@ -10443,6 +10443,14 @@ struct SheetCell: Encodable {
     var link: String? = nil
     /// A rule along the cell's bottom (the line to sign on).
     var lineBelow = false
+    /// A line of the terms set in from the box's edge: its text starts at
+    /// `textX` (not just inside the rule), with `marker` ("Payment", "(i)",
+    /// "•") at `markerX` on its first line, and `colon` a colon just before
+    /// the text, as on the portrait quotation.
+    var textX: Double? = nil
+    var marker: String? = nil
+    var markerX: Double? = nil
+    var colon = false
 }
 
 struct SheetRow: Encodable {
@@ -10497,7 +10505,7 @@ enum BQSheet {
                        ratesSection: BOQRatesSection? = nil, charges: [BOQCharge] = [], notes: String? = nil,
                        terms: String? = nil, chinese: Bool = false,
                        signature: (company: String, name: String, title: String, client: String)? = nil,
-                       extraInfo: [(String, String, String, String)] = []) -> SheetLayout {
+                       extraInfo: [(String, String, String, String)] = [], onePage: Bool = false) -> SheetLayout {
         let pageWidth: Double = landscape ? 842.88 : 595.92
         let pageHeight: Double = landscape ? 595.92 : 842.88
         let left = 85.875
@@ -10634,7 +10642,9 @@ enum BQSheet {
             }
         }
         if landscape, let text = nonBlank(notes) { textBox(text, heading: "Notes", kind: "notes") }
-        if landscape, let text = nonBlank(terms) { textBox(text, heading: "Terms & Conditions", kind: "terms") }
+        if landscape, let text = nonBlank(terms) {
+            for row in termsBox(text, left: left, right: right) { rows.append(row) }
+        }
 
         // The signature block under the table, as on the company's own sheet
         // (Mr. Law's): "For and On Behalf of" over a line, then the company,
@@ -10661,17 +10671,87 @@ enum BQSheet {
         }
 
         return fitToPage(SheetLayout(landscape: landscape, pageWidth: pageWidth, pageHeight: pageHeight,
-                                     left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows))
+                                     left: left, right: right, top: top, bottomLimit: pageHeight - 53.25, rows: rows),
+                         smallest: onePage ? 0 : 0.7)
+    }
+
+    /// The Terms & Conditions box, laid out as on the portrait quotation
+    /// (formattedParagraphs): plain paragraphs at the box's edge with a
+    /// little space around them; "Payment : …", "(i) …" and "• …" items
+    /// with the marker at the edge (or under the item above, when indented)
+    /// and the text, and every line under it, set in to one column.
+    static func termsBox(_ text: String, left: Double, right: Double) -> [SheetRow] {
+        let pad = 2.625
+        let width = right - left - 2 * pad
+        let font = bodyFont(12)
+        let measure: (String) -> Double = { Double(($0 as NSString).size(withAttributes: [.font: font]).width) }
+        // (marker, its x, text, the text's x, colon, space above) for each line, x from the text's left edge.
+        var lines: [(marker: String?, markerX: Double, text: String, textX: Double, colon: Bool, gap: Double)] = []
+        func appendHanging(marker: String, texts: [String], left l: Double, indent: Double?, colon: Bool, gap: Double) {
+            // Where the text starts, as hangingTextX on the letter: past a long label, and always 120pt wide.
+            let markerWidth = marker.isEmpty ? 0 : measure(marker)
+            var textX = indent ?? (l + max(18, markerWidth + 6))
+            if !marker.isEmpty { textX = max(textX, l + markerWidth + (colon ? 7.5 : 5)) }
+            textX = min(textX, width - 120)
+            let pieces = texts.flatMap { wrap($0, width: width - textX, size: 12) }
+            for (i, piece) in (pieces.isEmpty ? [""] : pieces).enumerated() {
+                lines.append((i == 0 && !marker.isEmpty ? marker : nil, l, piece, textX, i == 0 && colon, i == 0 ? gap : 0))
+            }
+        }
+        // The heading: the text's own first line ("Terms & Conditions:"), or that added.
+        var body = text.replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n")
+        var heading = "Terms & Conditions:"
+        if let first = body.first?.trimmingCharacters(in: .whitespaces), first.lowercased().hasPrefix("term"),
+           first.hasSuffix(":") || ["terms & conditions", "terms and conditions"].contains(first.lowercased()) {
+            heading = first
+            body.removeFirst()
+        }
+        lines.append((nil, 0, heading, 0, false, 0))
+        var previous: Bool? = nil // whether the paragraph before was plain text (nil: none yet)
+        for paragraph in formattedParagraphs(body.joined(separator: "\n")) {
+            var isText = false
+            if case .text = paragraph { isText = true }
+            // Space between paragraphs as on the portrait letter: none under the
+            // heading, nor between one item and the next.
+            let gap = previous == nil || (!isText && previous == false) ? 0.0 : 6.0
+            switch paragraph {
+            case .text(let string, _):
+                for (i, line) in wrap(string, width: width, size: 12).enumerated() {
+                    lines.append((nil, 0, line, 0, false, i == 0 ? gap : 0))
+                }
+            case .hanging(let marker, let texts, let l, let indent, let colon):
+                appendHanging(marker: marker, texts: texts, left: Double(l), indent: indent.map { Double($0) }, colon: colon, gap: gap)
+            case .term(let label, let texts):
+                appendHanging(marker: label ?? "", texts: texts, left: 0, indent: Double(labelTextIndent), colon: true, gap: gap)
+            }
+            previous = isText
+        }
+        // Each line 14.25pt, with 9pt above and below the box, as the Notes box.
+        return lines.enumerated().map { i, line in
+            let first = i == 0, last = i == lines.count - 1
+            var c = SheetCell(x0: left, x1: right, text: line.text, font: "body", size: 12, align: "left", baselineUp: last ? 12.375 : 3.375)
+            c.link = webAddress(in: line.text)
+            if line.textX > 0 || line.marker != nil {
+                c.textX = left + pad + line.textX
+                c.marker = line.marker
+                c.markerX = left + pad + line.markerX
+                c.colon = line.colon
+            }
+            return SheetRow(kind: "terms", height: 14.25 + line.gap + (first ? 9 : 0) + (last ? 9 : 0), fill: nil,
+                            cells: [c], repeats: false, joinNext: !last)
+        }
     }
 
     /// As Google Sheets' "Fit to page": a sheet a little too long for one
-    /// page is shrunk onto it (to no less than 70%), from the same top
-    /// margin and about the same centre line, e.g. Mr. Law's sheet at
-    /// 76.75%. Longer sheets run on over pages at full size.
-    static func fitToPage(_ sheet: SheetLayout) -> SheetLayout {
+    /// page is shrunk onto it (to no less than `smallest`, 70% for a BOQ),
+    /// from the same top margin and about the same centre line, e.g. Mr.
+    /// Law's sheet at 76.75%. Longer sheets run on over pages at full size.
+    /// A landscape quotation always goes on one page, its terms and
+    /// signatures with it (`smallest` 0).
+    static func fitToPage(_ sheet: SheetLayout, smallest: Double = 0.7) -> SheetLayout {
         let height = sheet.rows.reduce(0) { $0 + $1.height }
         let room = sheet.bottomLimit - sheet.top
-        guard height > room, room / height >= 0.7 else { return sheet }
+        guard height > room, room / height >= smallest else { return sheet }
         // 3pt to spare, so Word's rounding never tips the last rows over.
         let k = (room - 3) / height
         let centre = (sheet.left + sheet.right) / 2
@@ -10689,6 +10769,8 @@ enum BQSheet {
                 cell.x1 = x(c.x1)
                 cell.size = c.size * k
                 cell.baselineUp = c.baselineUp * k
+                cell.textX = c.textX.map(x)
+                cell.markerX = c.markerX.map(x)
                 return cell
             }
             return r
@@ -10910,23 +10992,27 @@ final class BQSheetRenderer {
     /// Text is 2.625pt in from the cell's rules; right-aligned figures
     /// keep a space's width before the rule, as the sheet's number formats do.
     private func drawText(_ cell: SheetCell, rowBottom: Double) {
+        let pad = 2.625 * layout.scale
+        let baseline = rowBottom - cell.baselineUp
+        // A term's marker ("(i) Payment") and the colon before its text.
+        if let marker = cell.marker, !marker.isEmpty { put(line(marker, font(cell)), x: cell.markerX ?? cell.x0 + pad, baseline: baseline) }
+        if cell.colon, let textX = cell.textX { put(line(":", font(cell)), x: textX - 3.75 * layout.scale, baseline: baseline) }
         guard !cell.text.isEmpty else { return }
         var f = font(cell)
-        let pad = 2.625 * layout.scale
+        let start = cell.textX ?? cell.x0 + pad
         let space = width(line(" ", f))
-        let room = cell.x1 - cell.x0 - 2 * pad - (cell.align == "right" || cell.align == "money" ? space : 0)
+        let room = cell.x1 - pad - start - (cell.align == "right" || cell.align == "money" ? space : 0)
         var l = line(cell.text, f, link: cell.link)
         // Too long for its cell: a slightly smaller size, never wrapped.
         if width(l) > room, room > 0 {
             f = NSFont(descriptor: f.fontDescriptor, size: max(f.pointSize * CGFloat(room / width(l)), f.pointSize * 0.6)) ?? f
             l = line(cell.text, f, link: cell.link)
         }
-        let baseline = rowBottom - cell.baselineUp
         var x: Double
         switch cell.align {
         case "center": x = (cell.x0 + cell.x1) / 2 - width(l) / 2
         case "right", "money": x = cell.x1 - pad - space - width(l)
-        default: x = cell.x0 + pad
+        default: x = start
         }
         if cell.align == "money" { put(line("$", f), x: cell.x0 + pad, baseline: baseline) }
         put(l, x: x, baseline: baseline)
@@ -15245,7 +15331,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// and price, the subtotal, then what's added to it (minimum charges,
     /// delivery D1, D2…, priced sections, discount, tax) and the Total
     /// Amount; rates after it; notes; the terms and conditions; and the
-    /// signature block ("For and On Behalf of" / "Accepted By").
+    /// signature block ("For and On Behalf of" / "Accepted By"). All on one
+    /// page, shrunk to fit if need be.
     private func quotationSheetLayout(_ detail: QuotationDetail) -> SheetLayout {
         let company = db.getCompanySettings()
         let project = db.getProjectByNumber(detail.projectNumber)
@@ -15327,16 +15414,19 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             info: (projectCode: projectCode, client: clientName, jobSite: jobSite, structure: structure),
             lines: lines, grandTotal: detail.materialsSubtotal, totalWeightKg: totalWeight,
             ratesSection: rates, charges: charges, notes: nonBlank(notes),
-            terms: terms.joined(separator: "\n"), chinese: inChinese,
+            terms: terms.joined(separator: "\n\n"), chinese: inChinese,
             signature: (company: company.companyName, name: company.signatoryName ?? "", title: company.signatoryTitle ?? "",
                         client: client?.companyName ?? detail.clientName ?? ""),
-            extraInfo: [("Quotation No. :", detail.quotationNumber, "Date               :", letterDate(detail.quotationDate))])
+            extraInfo: [("Quotation No. :", detail.quotationNumber, "Date               :", letterDate(detail.quotationDate))],
+            onePage: true)
     }
 
-    /// Everything added after a quotation's own pages: the BOQ it follows,
-    /// then its image and PDF drawings.
+    /// Everything added after a quotation's own pages: the BOQ it follows
+    /// (not after a landscape quotation, which is the BQ sheet itself), then
+    /// its image and PDF drawings.
     private func quotationAttachments(_ detail: QuotationDetail) -> [URL] {
-        [followedBOQFile(detail)].compactMap { $0 } + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
+        let boq = detail.orientation == "Landscape" ? nil : followedBOQFile(detail)
+        return [boq].compactMap { $0 } + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
     }
 
     /// A quotation laid out on the letterhead (as Qt26193).
