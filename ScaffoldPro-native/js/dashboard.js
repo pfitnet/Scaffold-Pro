@@ -26,10 +26,68 @@ function when(iso) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-function statCard(value, label, tone) {
-  const el = document.createElement('div');
-  el.className = `stat-card${tone ? ` tone-${tone}` : ''}`;
-  el.innerHTML = `<div class="value">${value}</div><div class="label">${label}</div>`;
+// ---------- Motion (none when the Mac is set to reduce motion) ----------
+
+const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// A number counting up to its value (e.g. 0 → 12,450.00), quick and easing out.
+function countUp(el, to, format) {
+  if (calm || !(to > 0)) { el.textContent = format(to); return; }
+  const start = performance.now(), ms = 700;
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / ms);
+    el.textContent = format(to * (1 - Math.pow(1 - t, 3)));
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// Scrolls to a Dashboard panel and makes it glow for a moment.
+function showWidget(name) {
+  const w = document.querySelector(`[data-widget="${name}"]`);
+  if (!w || w.classList.contains('hidden') || w.classList.contains('widget-off')) return false;
+  w.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+  w.classList.remove('widget-pulse');
+  void w.offsetWidth;
+  w.classList.add('widget-pulse');
+  setTimeout(() => w.classList.remove('widget-pulse'), 1400);
+  return true;
+}
+
+// A panel's count beside its title ("UNPAID INVOICES  4").
+function setPanelCount(widget, n) {
+  const title = document.querySelector(`[data-widget="${widget}"] .panel-title`);
+  if (!title) return;
+  let chip = title.querySelector('.panel-count');
+  if (!chip) {
+    chip = document.createElement('span');
+    chip.className = 'panel-count';
+    const first = title.querySelector('span') || title;
+    first.appendChild(chip);
+  }
+  chip.textContent = n;
+  chip.classList.toggle('hidden', !n);
+}
+
+const STAT_ICONS = {
+  projects: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>',
+  unpaid: '<path d="M5 2.5h10v15l-2-1.3-1.7 1.3-1.3-1.3-1.3 1.3L7 16.2l-2 1.3z"/><path d="M8 7h4M8 10h4M8 13h2.5"/>',
+  overdue: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4.3l2.8 1.7"/>',
+  quotes: '<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="m7.5 12 1.8 1.8 3.4-3.6"/>',
+};
+
+// A number tile: icon, the figure (counting up), its label, an optional meter;
+// the whole tile goes where its figure comes from.
+function statCard(opts) {
+  const el = document.createElement(opts.go ? 'button' : 'div');
+  el.className = `stat-card${opts.tone ? ` tone-${opts.tone}` : ''}${opts.go ? ' stat-link' : ''}`;
+  if (opts.go) { el.type = 'button'; el.dataset.noIcon = ''; el.title = opts.title || ''; el.addEventListener('click', opts.go); }
+  el.innerHTML = `<div class="stat-top"><span class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STAT_ICONS[opts.icon] || ''}</svg></span>
+      ${opts.go ? '<span class="stat-go" aria-hidden="true"><svg viewBox="0 0 12 12" width="11" height="11"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' : ''}</div>
+    <div class="value"></div><div class="label">${opts.label}</div>${opts.meter ? `<div class="stat-meter" title="${esc(opts.meter.title)}"><span style="--to:${Math.max(0, Math.min(1, opts.meter.value))}"></span></div><div class="stat-meter-label">${esc(opts.meter.label)}</div>` : ''}`;
+  const value = el.querySelector('.value');
+  if (typeof opts.number === 'number') countUp(value, opts.number, opts.format || ((n) => String(Math.round(n))));
+  else value.textContent = opts.value;
   return el;
 }
 
@@ -180,6 +238,7 @@ function renderAwaitingQuotations(summary) {
 let awaitingCard = null;
 function updateAwaitingCount(summary) {
   if (awaitingCard) awaitingCard.querySelector('.value').textContent = summary.awaitingSignedCopyCount || 0;
+  setPanelCount('quotations', summary.awaitingSignedCopyCount || 0);
 }
 
 // "New Quotation / Invoice / Delivery Note" from the Dashboard: pick the
@@ -201,24 +260,51 @@ function pickProjectThen(title, tab, startNew) {
 }
 
 async function loadDashboard() {
+  const now = new Date();
   document.getElementById('today-line').textContent =
-    new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const [summary, projects] = await Promise.all([window.api.dashboard.summary(), window.api.projects.list()]);
   projectsCache = projects;
   const cur = summary.currency;
   // Panels as widgets: each person's own order, sizes and hidden ones.
   window.setupWidgets(document.getElementById('dash-grid'), document.getElementById('customise-btn'), summary.userName);
-  if (summary.userName) {
-    document.getElementById('today-line').insertAdjacentHTML('beforeend', ` · <a href="user.html" class="plain-link">${window.personTag(summary.userName)}</a>`);
-  }
+  // "Good morning, William" over the date.
+  const hour = now.getHours();
+  const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const first = (summary.userName || '').trim().split(/\s+/)[0];
+  document.querySelector('.page-header h1').innerHTML = `${hello}${first ? `, <a href="user.html" class="plain-link dash-hello-name">${esc(first)}</a>` : ''}`;
 
   const grid = document.getElementById('stat-grid');
-  grid.appendChild(statCard(summary.activeProjects, 'Active Projects'));
-  grid.appendChild(statCard(`${cur} ${money(summary.unpaidTotal)}`, `Unpaid (${summary.unpaidInvoices.length} invoice${summary.unpaidInvoices.length === 1 ? '' : 's'})`));
-  grid.appendChild(statCard(summary.overdueCount > 0 ? `${cur} ${money(summary.overdueTotal)}` : '—',
-    summary.overdueCount > 0 ? `Overdue (${summary.overdueCount})` : 'Nothing overdue', summary.overdueCount > 0 ? 'danger' : null));
-  awaitingCard = grid.appendChild(statCard(summary.awaitingSignedCopyCount || 0, 'Quotations Awaiting Reply'));
+  const unpaidCount = summary.unpaidInvoices.length;
+  grid.appendChild(statCard({ icon: 'projects', number: summary.activeProjects, label: 'Active projects', go: () => { window.appNavigate('projects.html'); }, title: 'Open Projects' }));
+  grid.appendChild(statCard({ icon: 'unpaid', number: summary.unpaidTotal, format: (n) => `${cur} ${money(n)}`,
+    label: `Unpaid · ${unpaidCount} invoice${unpaidCount === 1 ? '' : 's'}`, go: () => { if (!showWidget('unpaid')) window.appNavigate('accounts.html'); }, title: 'Show the unpaid invoices',
+    // How much of what's unpaid is overdue.
+    meter: summary.unpaidTotal > 0 && summary.overdueTotal > 0 ? { value: summary.overdueTotal / summary.unpaidTotal, label: `${Math.round((summary.overdueTotal / summary.unpaidTotal) * 100)}% of it overdue`, title: 'The part of the unpaid total that is overdue' } : null }));
+  grid.appendChild(summary.overdueCount > 0
+    ? statCard({ icon: 'overdue', number: summary.overdueTotal, format: (n) => `${cur} ${money(n)}`, label: `Overdue · ${summary.overdueCount}`, tone: 'danger', go: () => { window.appNavigate('accounts.html'); }, title: 'Open Accounting › Receivables' })
+    : statCard({ icon: 'overdue', value: 'All on time', label: 'Nothing overdue', tone: 'good' }));
+  awaitingCard = grid.appendChild(statCard({ icon: 'quotes', number: summary.awaitingSignedCopyCount || 0, label: 'Quotations awaiting reply',
+    go: () => { showWidget('quotations'); }, title: 'Show the quotations awaiting reply' }));
+  [...grid.children].forEach((c, i) => {
+    c.style.setProperty('--i', i);
+    c.classList.add('dash-enter');
+    c.addEventListener('animationend', () => c.classList.remove('dash-enter'), { once: true });
+  });
+
+  // One line of what needs doing, each part a way to its panel.
+  const openTasks = (summary.myTasks || []).length;
+  const brief = [];
+  if (openTasks) brief.push(`<button type="button" class="brief-chip" data-w="tasks" data-no-icon><b>${openTasks}</b> open task${openTasks === 1 ? '' : 's'}</button>`);
+  if (summary.awaitingSignedCopyCount) brief.push(`<button type="button" class="brief-chip" data-w="quotations" data-no-icon><b>${summary.awaitingSignedCopyCount}</b> quotation${summary.awaitingSignedCopyCount === 1 ? '' : 's'} awaiting reply</button>`);
+  if (summary.overdueCount) brief.push(`<button type="button" class="brief-chip danger" data-w="unpaid" data-no-icon><b>${summary.overdueCount}</b> overdue invoice${summary.overdueCount === 1 ? '' : 's'}</button>`);
+  if ((summary.inspectionsDue || []).length) brief.push(`<button type="button" class="brief-chip warn" data-w="inspections" data-no-icon><b>${summary.inspectionsDue.length}</b> inspection${summary.inspectionsDue.length === 1 ? '' : 's'} due</button>`);
+  const briefBox = document.createElement('div');
+  briefBox.className = 'dash-brief';
+  briefBox.innerHTML = brief.length ? `<span class="brief-lead">Today:</span>${brief.join('')}` : '<span class="brief-lead">All clear — nothing waiting on you.</span>';
+  document.getElementById('today-line').after(briefBox);
+  briefBox.addEventListener('click', (e) => { const b = e.target.closest('.brief-chip'); if (b) showWidget(b.dataset.w); });
 
   table('unpaid-list', summary.unpaidInvoices, [
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>${madeBy(r)}` },
@@ -227,6 +313,9 @@ async function loadDashboard() {
   ], 'No unpaid invoices.');
 
   renderAwaitingQuotations(summary);
+  setPanelCount('unpaid', unpaidCount);
+  setPanelCount('quotations', summary.awaitingSignedCopyCount || 0);
+  setPanelCount('inspections', (summary.inspectionsDue || []).length);
 
   // The projects I've worked on (made, changed, or worked on their documents), most recent first.
   const recentProjects = (summary.myProjects || [])
@@ -276,6 +365,7 @@ async function loadDashboard() {
   // table's first row (one Quick Actions button across it), with its icon
   // over the tick boxes and its name over the tasks' titles.
   const renderMyTasks = (rows) => {
+    setPanelCount('tasks', rows.length);
     taskBox.innerHTML = `<table class="compact no-sort task-table"><tbody>${newTaskRowHTML()}${rows.map((r) => window.taskRowHTML(r)).join('')}</tbody></table>` +
       (rows.length ? '' : '<div class="empty-widget"><span>Nothing to do.</span></div>');
     const add = taskBox.querySelector('#tasks-new-btn');
@@ -285,6 +375,17 @@ async function loadDashboard() {
     limitList(taskBox);
   };
   renderMyTasks(myTasks);
+
+  // The panels rise in, one after another.
+  // (Only those on show, and only once: a panel shown later from the tray,
+  // or one being dragged, never carries it.)
+  const shown = [...document.querySelectorAll('#dash-grid > [data-widget]')].filter((w) => w.offsetParent && !w.classList.contains('widget-off'));
+  shown.forEach((w, i) => {
+    w.style.setProperty('--i', i + 4);
+    w.classList.add('dash-enter');
+    w.addEventListener('animationend', () => w.classList.remove('dash-enter'), { once: true });
+  });
+  setTimeout(() => document.querySelectorAll('.dash-enter').forEach((el) => el.classList.remove('dash-enter')), 1500);
 
   // Expired / expiring worker and company documents (sections 42-43).
   const expiring = await window.api.adminDocuments.expiring(30);
