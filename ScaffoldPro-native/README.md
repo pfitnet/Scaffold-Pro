@@ -2191,3 +2191,31 @@ under "Letterhead layout".
   near the top or bottom of the window, so a widget can go anywhere.
 - A plain click on a widget's bar does nothing. A click on a tray card
   still adds that widget at the end.
+
+## Batch 84 — Multiply quantities (sets)
+
+- **"× Multiply…"** next to Line Items on a Draft BOQ, quotation, invoice or
+  delivery note. It scales the quantities in one go:
+  - ×2 when the client wants 2 sets of the same scaffold;
+  - +10% for a spare allowance;
+  - ½ for half;
+  - or any number you type.
+- **Which items:** all items, or "Choose items" to tick lines or whole
+  sections. On quotations and invoices only the materials are scaled, not
+  delivery or one-off charges.
+- **Rounding:** quantities stay whole numbers. For a factor that isn't a
+  whole number you choose Round up (the default, so you're never short),
+  Nearest or Round down.
+- **Preview:** shows each item's quantity now and after, before anything
+  changes.
+- **Undo:** "Undo" in the note at the bottom right puts the old quantities
+  back.
+- Linked documents follow as usual: a multiplied BOQ updates its linked
+  quotations, and a linked quotation updates its BOQ.
+- **For other uses:** behind it is one bridge call,
+  `window.api.lines.setQuantities(kind, documentId, { lineId: qty })`
+  (native `lines:setQuantities`). It sets many quantities on any of the
+  four document types at once, Drafts only, and also works from ScaffoldPro
+  Web. The sheet is `js/multiply.js`
+  (`window.multiplyLines.attach({ button, kind, detail, include, reload })`),
+  so another page with line items can add the same button in a few lines.

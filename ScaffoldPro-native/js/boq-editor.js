@@ -8,6 +8,13 @@ function zhName(item) {
 
 let boqId = null;
 let currentDetail = null;
+// "× Multiply…" (js/multiply.js): the items' quantities ×2 for 2 sets, etc.
+const multiply = window.multiplyLines.attach({
+  button: document.getElementById('multiply-btn'),
+  kind: 'boq',
+  detail: () => currentDetail,
+  reload: () => loadDetail(),
+});
 // "HK$" for HKD (from Settings), as on the documents.
 let currencyLabel = 'HK$';
 
@@ -150,6 +157,7 @@ function weight(value) {
 // behind the scenes (from the BOQ's Sale/Rental mode) so a Quotation
 // created from or referencing this BOQ is pre-priced.
 function renderLineItems() {
+  multiply.update();
   const container = document.getElementById('line-items');
   const items = currentDetail.lineItems;
   const isIssued = currentDetail.status === 'Issued';

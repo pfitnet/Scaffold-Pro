@@ -94,7 +94,10 @@
         </div>
 
         <div>
-          <h2>Line Items</h2>
+          <div class="lines-head">
+            <h2>Line Items</h2>
+            <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities — e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
+          </div>
           <div id="line-items"></div>
           <details class="custom-item" id="custom-item-box">
             <summary>+ Add a custom item (not on a price list)</summary>
@@ -138,6 +141,7 @@
   <script src="js/item-picker.js"></script>
   <script src="js/document-actions.js"></script>
   <script src="js/line-discount.js"></script>
+  <script src="js/multiply.js"></script>
   <script src="js/paragraph-format.js"></script>
   <script src="js/docx-export.js"></script>
   <script src="js/invoice-editor.js"></script>
