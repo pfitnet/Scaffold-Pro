@@ -1464,6 +1464,9 @@ struct Quotation: Codable {
     /// How it's printed: nil = portrait on the letterhead (as Qt26193);
     /// "Landscape" = the BQ sheet, with its terms and signature block.
     var orientation: String? = nil
+    /// Split off another quotation (`splitQuotation`): listed under it as
+    /// its subsidiary. Not linked — each is changed on its own.
+    var parentQuotationId: String? = nil
 }
 
 struct QuotationLineItem: Codable {
@@ -1714,6 +1717,24 @@ struct QuotationSummary: Codable {
     /// Who made it, and who last worked on it (their names).
     var createdBy: String? = nil
     var lastEditedBy: String? = nil
+    /// Split off this quotation (listed under it as its subsidiary).
+    var parentId: String? = nil
+    var parentNumber: String? = nil
+}
+
+/// A quotation named on another: its parent, or one split off it.
+struct QuotationRef: Codable {
+    var id: String
+    var number: String
+    var status: String
+}
+
+struct QuotationSplitResult: Codable {
+    var ok: Bool
+    var error: String?
+    /// The new quotation.
+    var id: String? = nil
+    var number: String? = nil
 }
 
 struct QuotationDetail: Codable {
@@ -1814,6 +1835,9 @@ struct QuotationDetail: Codable {
     var boqLinked = false
     var sourceBOQStatus: String? = nil
     var lineSort = "code"
+    /// The quotation it was split off, and the ones split off it.
+    var parent: QuotationRef? = nil
+    var subsidiaries: [QuotationRef] = []
 }
 
 struct QuotationActionResult: Codable {
@@ -6158,7 +6182,8 @@ final class AppDatabase {
 
     func listQuotationSummaries(projectId: String) -> [QuotationSummary] {
         let names = authorsByRecord("quotations.json")
-        return quotationsStore.readAll()
+        let all = quotationsStore.readAll()
+        return all
             .filter { $0.projectId == projectId }
             .sorted { $0.quotationNumber > $1.quotationNumber }
             .map { q in
@@ -6177,6 +6202,10 @@ final class AppDatabase {
                 summary.charges = totals.charges
                 summary.createdBy = names[q.id]?.createdBy
                 summary.lastEditedBy = names[q.id]?.lastEditedBy
+                if let parent = q.parentQuotationId.flatMap({ pid in all.first { $0.id == pid } }) {
+                    summary.parentId = parent.id
+                    summary.parentNumber = parent.quotationNumber
+                }
                 return summary
             }
     }
@@ -6825,6 +6854,11 @@ final class AppDatabase {
         detail.boqLinked = q.boqLinked == true && sourceBOQ != nil
         detail.lineSort = q.lineSort ?? "list"
         detail.sourceBOQStatus = sourceBOQ?.status
+        let all = quotationsStore.readAll()
+        detail.parent = q.parentQuotationId.flatMap { pid in all.first { $0.id == pid } }
+            .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
+        detail.subsidiaries = all.filter { $0.parentQuotationId == q.id }.sorted { $0.quotationNumber < $1.quotationNumber }
+            .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
         return detail
     }
 
@@ -7257,6 +7291,84 @@ final class AppDatabase {
             quotationDeliveriesStore.writeAll(days)
         }
         return nil
+    }
+
+    /// Splits a draft quotation: the chosen lines (materials, delivery
+    /// charges) and sections (priced, rates, notes — with their rows) move
+    /// to a new draft quotation of the same project, e.g. the manpower
+    /// part to a quotation of its own. The new one takes the next number
+    /// and the letter's details (subject, refs, pricing, markup, terms…);
+    /// it isn't linked to this one — each is changed on its own — but is
+    /// listed under it as its subsidiary. The delivery schedule and the
+    /// drawings stay here.
+    func splitQuotation(id: String, lineIds: [String], blockIds: [String]) -> QuotationSplitResult {
+        guard let q = getQuotation(id: id) else { return QuotationSplitResult(ok: false, error: "Quotation not found.") }
+        guard q.status == "Draft" else {
+            return QuotationSplitResult(ok: false, error: "Only a draft quotation can be split. Set it back to Draft first.")
+        }
+        guard let project = projectsStore.readAll().first(where: { $0.id == q.projectId }) else {
+            return QuotationSplitResult(ok: false, error: "Project not found.")
+        }
+        let items = quotationLineItems(for: id)
+        let blocks = quotationBlocks(for: id)
+        let movingBlocks = blocks.filter { blockIds.contains($0.id) }
+        let movingBlockIds = Set(movingBlocks.map { $0.id })
+        // Rows of a section go with it; other lines only when chosen.
+        let moving = items.filter { l in l.blockId.map { movingBlockIds.contains($0) } ?? lineIds.contains(l.id) }
+        guard !moving.isEmpty || !movingBlocks.isEmpty else {
+            return QuotationSplitResult(ok: false, error: "Tick what to move to the new quotation.")
+        }
+        guard moving.count < items.count || movingBlocks.count < blocks.count else {
+            return QuotationSplitResult(ok: false, error: "That's everything on this quotation — leave at least one line or section on it.")
+        }
+        if q.boqLinked == true, let boq = q.sourceBOQId.flatMap({ getBOQ(id: $0) }),
+           moving.contains(where: { $0.blockId == nil && $0.boqLineId != nil }) {
+            return QuotationSplitResult(ok: false, error: "The items come from \(boq.boqNumber), which this quotation is linked to. Remove the link first, or move only sections and delivery charges.")
+        }
+
+        var split = Quotation(
+            id: makeId("quotation"), projectId: q.projectId, sourceBOQId: nil,
+            quotationNumber: nextQuotationNumber(projectNumber: project.projectNumber, projectId: q.projectId),
+            status: "Draft", quotationDate: nowISO(), pricingMode: q.pricingMode, validUntil: q.validUntil,
+            paymentTerms: q.paymentTerms, discountType: "None", discountValue: 0, taxRatePercent: q.taxRatePercent,
+            notes: q.notes, createdAt: nowISO(), updatedAt: nowISO())
+        // Moving one titled section: its title ends the subject line
+        // ("… - Rental - Provision of Manpower").
+        let title = movingBlocks.count == 1 && moving.allSatisfy({ $0.blockId != nil }) ? nonBlank(movingBlocks[0].title) : nil
+        split.subject = nonBlank([nonBlank(q.subject), title].compactMap { $0 }.joined(separator: " - "))
+        split.clientRef = q.clientRef
+        split.siteRef = q.siteRef
+        split.deliveryMethod = q.deliveryMethod
+        split.minimumHireMonths = q.minimumHireMonths
+        split.minimumHireEnabled = q.minimumHireEnabled
+        split.minimumMonthlyChargeEnabled = q.minimumMonthlyChargeEnabled
+        split.language = q.language
+        split.markupPercent = q.markupPercent
+        split.keyTerms = q.keyTerms
+        split.lineSort = q.lineSort == "manual" ? "manual" : nil
+        split.orientation = q.orientation
+        split.parentQuotationId = q.id
+        quotationsStore.insert(split)
+
+        let movingIds = Set(moving.map { $0.id })
+        var lines = quotationLineItemsStore.readAll()
+        for i in lines.indices where movingIds.contains(lines[i].id) {
+            lines[i].quotationId = split.id
+            lines[i].boqLineId = nil
+        }
+        quotationLineItemsStore.writeAll(lines)
+        var allBlocks = quotationBlocksStore.readAll()
+        for (n, block) in movingBlocks.enumerated() {
+            if let i = allBlocks.firstIndex(where: { $0.id == block.id }) {
+                allBlocks[i].quotationId = split.id
+                allBlocks[i].sortOrder = n
+            }
+        }
+        quotationBlocksStore.writeAll(allBlocks)
+        touchQuotation(q.id)
+        logActivity(projectId: q.projectId, "Quotation split — \(split.quotationNumber) made from part of it", reference: q.quotationNumber)
+        logActivity(projectId: q.projectId, "Quotation split off \(q.quotationNumber)", reference: split.quotationNumber)
+        return QuotationSplitResult(ok: true, error: nil, id: split.id, number: split.quotationNumber)
     }
 
     // ---- Quotation delivery schedule ----
@@ -14348,6 +14460,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:reorderBlocks":
             let error = db.reorderQuotationBlocks(quotationId: (payload["quotationId"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:split":
+            respond(id: id, encodable: db.splitQuotation(id: (payload["id"] as? String) ?? "",
+                                                         lineIds: (payload["lineIds"] as? [String]) ?? [],
+                                                         blockIds: (payload["blockIds"] as? [String]) ?? []))
         case "quotations:removeBlock":
             let error = db.removeQuotationBlock(id: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))

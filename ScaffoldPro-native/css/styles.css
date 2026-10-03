@@ -990,6 +990,11 @@ tbody.combined-rows tr.combined-head td {
 }
 tbody.combined-rows tr.combined-row td:not(.check-col):nth-child(2) { box-shadow: inset 3px 0 0 var(--border-strong); }
 tbody.combined-rows tr.combined-row td { background: color-mix(in srgb, var(--panel) 70%, var(--bg)); }
+/* A quotation split off another: under it, indented with a corner mark. */
+td.subsidiary { position: relative; padding-left: calc(10px + var(--depth, 1) * 22px) !important; }
+td.subsidiary::before { content: ''; position: absolute; left: calc(var(--depth, 1) * 22px - 6px); top: 4px; width: 9px; height: 12px;
+  border-left: 1.5px solid var(--border-strong); border-bottom: 1.5px solid var(--border-strong); border-bottom-left-radius: 4px; }
+td.subsidiary .split-from { color: var(--text-tertiary, var(--text-secondary)); }
 
 /* Drawings / documents in brackets that fold open and shut: a BOQ with its
    quotations, one on its own, or not linked. */

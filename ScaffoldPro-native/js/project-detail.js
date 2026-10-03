@@ -150,15 +150,26 @@ async function refreshQuotationList() {
     ${combined.length ? `<tbody class="combined-rows"><tr class="combined-head"><td colspan="9">For combined counts <span class="muted">— quotations of combined BOQs; not added to the project total</span></td></tr></tbody>` : ''}`;
   const tbody = table.querySelector('tbody');
   const combinedBody = table.querySelector('tbody.combined-rows');
-  for (const q of own.concat(combined)) {
+  // A quotation split off another is listed under it, as its subsidiary.
+  const ordered = [];
+  const withChildren = (q, depth) => {
+    ordered.push([q, depth]);
+    for (const c of currentQuotations.filter((x) => x.parentId === q.id && x.id !== q.id).sort((a, b) => a.quotationNumber.localeCompare(b.quotationNumber))) {
+      if (!ordered.some(([o]) => o.id === c.id)) withChildren(c, depth + 1);
+    }
+  };
+  const listed = (q) => q.parentId && currentQuotations.some((x) => x.id === q.parentId && x.fromCombined === q.fromCombined);
+  for (const q of own.concat(combined)) if (!listed(q)) withChildren(q, 0);
+  for (const [q, depth] of ordered) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
     tr.onclick = () => { location.href = `quotation-editor.html?id=${q.id}`; };
     tr.dataset.id = q.id;
     // Under the number: the structure of the BOQ it follows, else its subject line.
     const sub = q.structure || q.subject;
+    const splitFrom = depth ? `<div class="sub split-from">Split from ${esc(q.parentNumber)}</div>` : '';
     tr.innerHTML = `${selections.quotation.cell(q.id)}
-      <td>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</td>
+      <td${depth ? ` class="subsidiary" style="--depth:${depth}"` : ''}>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}${splitFrom}</td>
       <td>${q.boqNumber ? `${esc(q.boqNumber)}${q.boqLinked ? ' <span class="status-pill pill-success" title="Kept the same as the BOQ, both ways">Linked</span>' : ''}` : '<span class="muted">—</span>'}</td>
       <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
       ${window.createdByCell(q)}

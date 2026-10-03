@@ -2965,3 +2965,22 @@ Every form control is now drawn by the app instead of macOS, on every page
   no longer prints "Subtotal of Monthly Rental Charge: 0.00" (or the
   Minimum Hire row) on the portrait quotation, nor "Subtotal Amount : 0.00"
   on the landscape sheet; the editor's totals leave it out too.
+
+## Batch 123 — Split a quotation
+
+- **Split…** in a draft quotation's toolbar: tick the lines (items, delivery
+  charges) and sections (priced, rates, notes — each with its rows) to move,
+  e.g. the Provision of Manpower section, and they move to a new draft
+  quotation of the same project. It takes the next quotation number and the
+  letter's details (subject, refs, pricing, minimum hire, markup, key terms,
+  page), and moving one titled section adds its title to the subject line
+  ("… - Rental - Provision of Manpower"). The delivery schedule and drawings
+  stay on the original. Afterwards you can open the new one or stay.
+- It **isn't linked**: changing either changes only that one. It's shown as
+  the original's **subsidiary**: on the project page it's listed under it,
+  indented, with "Split from Qt…"; each editor names the other under its
+  title ("Split from Qt…" / "Split off it: Qt…").
+- Not possible on an issued quotation (set it back to Draft first), nor
+  moving everything off it. Items that come from a linked BOQ can't be
+  moved while linked (remove the link first); its sections and delivery
+  charges can.
