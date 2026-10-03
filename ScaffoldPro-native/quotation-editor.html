@@ -59,10 +59,6 @@
     .qs-qty { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
     .qs-amt { text-align: right; font-variant-numeric: tabular-nums; }
     .delivery-section .line-desc { white-space: pre-line; min-width: 200px; }
-    /* One wide blue button across the line items column; the four kinds of section on hovering. */
-    .line-quick-add #add-section-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; font-weight: 600; }
-    #add-section-btn::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
-    #add-section-btn.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
     .extra-section .rate-only { color: var(--text-secondary); font-style: italic; text-align: center; white-space: nowrap; }
     .extra-add-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
     .extra-add-row .add-desc { flex: 1; min-width: 160px; }
@@ -232,7 +228,7 @@
           <div id="extra-sections"></div>
           <!-- "+ Add Section" lists them on hovering (js/hover-menu.js); the real buttons stay here, hidden. -->
           <div class="line-quick-add">
-            <button type="button" class="primary" id="add-section-btn" data-no-icon>+ Add Section</button>
+            <button type="button" class="primary add-section" id="add-section-btn" data-no-icon>+ Add Section</button>
             <span class="hidden">
               <button id="add-delivery-btn">+ Delivery Charge</button>
               <button id="add-priced-btn">+ Priced Section</button>

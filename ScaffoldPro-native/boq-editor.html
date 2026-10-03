@@ -133,8 +133,12 @@
           <div class="grand-total" id="grand-total"></div>
 
           <!-- Amounts added after the subtotal, then rates, on the landscape BQ sheet -->
-          <div class="boq-rates" id="boq-charges"></div>
-          <div class="boq-rates" id="boq-rates"></div>
+          <div class="boq-rates hidden" id="boq-charges"></div>
+          <div class="boq-rates hidden" id="boq-rates"></div>
+          <!-- Delivery charges, priced sections, the standard manpower rates or notes, listed on hovering (js/hover-menu.js) -->
+          <div class="line-quick-add" id="add-section-row">
+            <button type="button" class="primary add-section" id="add-section-btn" data-no-icon>+ Add Section</button>
+          </div>
 
           <div style="margin-top: 20px;">
             <label style="font-size:12px; color:var(--text-secondary);">Notes</label>
@@ -189,6 +193,7 @@
   <script src="js/linked-drawings.js"></script>
   <script src="js/docx-export.js"></script>
   <script src="js/delivery-schedule.js"></script>
+  <script src="js/delivery-rates.js"></script>
   <script src="js/boq-editor.js"></script>
 </body>
 </html>

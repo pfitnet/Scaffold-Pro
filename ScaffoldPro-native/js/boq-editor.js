@@ -296,16 +296,10 @@ function renderCharges() {
   const d = currentDetail;
   const locked = d.status !== 'Draft';
   const charges = d.charges;
-  if (!charges) {
-    box.innerHTML = `<h3>Added to the total</h3>
-      <p class="small-note">For the landscape BQ: items not priced by unit, such as Delivery or Design Fees, listed after the “Subtotal Amount” and added to the “Total Amount”.</p>
-      ${locked ? '' : '<div class="actions-row"><button id="charges-add-section-btn">+ Section</button></div>'}`;
-    if (!locked) {
-      box.querySelector('#charges-add-section-btn').addEventListener('click', () =>
-        saveCharges([{ code: '', name: 'Delivery', amount: 0 }]));
-    }
-    return;
-  }
+  // None yet: added from "+ Add Section" (Delivery Charges / Priced Sections).
+  box.classList.toggle('hidden', !charges);
+  document.getElementById('add-section-row').classList.toggle('hidden', locked);
+  if (!charges) { box.innerHTML = ''; return; }
   const dis = locked ? 'disabled' : '';
   box.innerHTML = `<h3>Added to the total</h3>
     <table class="compact">
@@ -360,20 +354,9 @@ function renderRates() {
   const d = currentDetail;
   const locked = d.status !== 'Draft';
   const s = d.ratesSection;
-  if (!s) {
-    box.innerHTML = `<h3>Rates after the total</h3>
-      <p class="small-note">For the landscape BQ: rates listed after the total, which then reads “Subtotal”.</p>
-      ${locked ? '' : `<div class="actions-row">
-        <button id="rates-standard-btn">+ Standard Manpower Rates</button>
-      </div>`}`;
-    if (!locked) {
-      box.querySelector('#rates-standard-btn').addEventListener('click', async () => {
-        const standard = await window.api.boq.standardRates();
-        saveRates({ title: 'Erection & Dismantle Manpower Rates', rates: standard, note: STANDARD_RATES_NOTE });
-      });
-    }
-    return;
-  }
+  // None yet: added from "+ Add Section › Standard Manpower Rates".
+  box.classList.toggle('hidden', !s);
+  if (!s) { box.innerHTML = ''; return; }
   const dis = locked ? 'disabled' : '';
   box.innerHTML = `<h3>Rates after the total</h3>
     <input type="text" id="rates-title" value="${escAttr(s.title)}" placeholder="Title, e.g. Erection & Dismantle Manpower Rates" ${dis} style="width:100%; box-sizing:border-box; font-weight:600" />
@@ -431,6 +414,49 @@ function renderRates() {
 }
 
 const STANDARD_RATES_NOTE = '* Please note that labour rates are subject to a price increase for over-time works and works on sundays / public holidays';
+
+// "+ Add Section": a wide blue button under the items; resting on it lists
+// what can be added after the subtotal of the landscape BQ sheet.
+function setupAddSection() {
+  const charges = () => (currentDetail.charges || []).map((c) => ({ ...c }));
+  const add = {
+    // By the materials' weight (Settings › Quotations › Delivery charges by weight).
+    delivery: async () => {
+      const d = currentDetail;
+      const lines = await window.deliveryRates.open({ rates: d.deliveryRates || window.deliveryRates.DEFAULT, kg: d.totalWeightKg || 0, missing: 0, currency: currencyLabel || 'HK$' });
+      if (!lines) return;
+      const rows = lines.map((l) => {
+        const n = l.trucks * l.trips;
+        return { code: '', name: `Delivery of materials @$${money(l.price)} / Truck / Trip${n === 1 ? '' : ` × ${n}`}`, amount: Math.round(n * l.price * 100) / 100 };
+      });
+      saveCharges([...charges(), ...rows]);
+    },
+    priced: () => saveCharges([...charges(), { code: '', name: 'Design Fees', amount: 0 }]),
+    // The standard rates; with a rates section already, the ones it hasn't got.
+    rates: async () => {
+      const standard = await window.api.boq.standardRates();
+      const s = currentDetail.ratesSection;
+      if (!s) { saveRates({ title: 'Erection & Dismantle Manpower Rates', rates: standard, note: STANDARD_RATES_NOTE }); return; }
+      const have = new Set(s.rates.map((r) => r.name.trim().toLowerCase()));
+      saveRates({ ...s, rates: [...s.rates, ...standard.filter((r) => !have.has(r.name.trim().toLowerCase()))] });
+    },
+    notes: () => {
+      const box = document.getElementById('notes-box');
+      box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      box.focus({ preventScroll: true });
+    },
+  };
+  window.hoverMenu.attach(document.getElementById('add-section-btn'), {
+    minWidth: 280,
+    items: () => [
+      { label: 'Delivery Charges', sub: 'Priced by the materials’ weight (Settings › Quotations)', value: 'delivery' },
+      { label: 'Priced Sections', sub: 'Rows added to the total, e.g. Design Fees', value: 'priced' },
+      { label: 'Standard Manpower Rates', sub: 'Rates after the total, from Settings › Standard Quotation', value: 'rates' },
+      { label: 'Notes', sub: 'Notes under the table', value: 'notes' },
+    ],
+    onPick: (v) => add[v](),
+  });
+}
 
 async function updateLine(lineId, changes) {
   const result = await window.api.boq.updateLineItem(lineId, changes);
@@ -533,6 +559,7 @@ async function init() {
     await loadDetail();
   });
 
+  setupAddSection();
   document.getElementById('notes-box').addEventListener('change', async (e) => {
     await window.api.boq.updateNotes(boqId, e.target.value);
   });
