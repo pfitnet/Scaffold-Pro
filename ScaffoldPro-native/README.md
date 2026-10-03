@@ -3080,3 +3080,24 @@ Every form control is now drawn by the app instead of macOS, on every page
   it prints, portrait or landscape — right after the quotation's own pages,
   before its delivery schedule, BOQ and drawings. Cancelled subsidiaries are
   left out. Word export, Combine and the director-signed copy are unchanged.
+
+## Batch 132 — Backups that keep up
+
+- **Why Documents › ScaffoldPro looked behind:** since this Mac shares a
+  folder with the other Macs, the project files live in that shared iCloud
+  folder, so Documents › ScaffoldPro (where they used to be) stopped
+  changing at 26212. It is now kept up to date as a **local copy** of
+  everything (Database, Projects, Administration, plus Configuration so
+  "Restore from Folder…" can restore it): only what changed is copied, about
+  a minute after a save, every 15 minutes and when ScaffoldPro opens;
+  nothing is deleted from it. Files still only in iCloud are asked for and
+  copied on a later run. Settings › Backup & Restore › **Local Copy in
+  Documents** shows when it last ran, with Copy Now and Show in Finder.
+- **The automatic 12:00 backups could silently stop:** they copied whole
+  folders at once, so a single file that couldn't be copied (e.g. one still
+  only in iCloud) failed the whole backup, which then waited for the next
+  12:00 and said nothing. Now files are copied one by one — what can't be
+  copied is skipped and noted ("2 not copied" in the list) — a failed
+  backup is tried again 15 minutes later, and Settings shows the last
+  automatic backup and any problem.
+- The iCloud copy also asks iCloud for files that are only in the cloud.

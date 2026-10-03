@@ -35,7 +35,9 @@
     .cloud-backup h3 { margin: 0 0 6px; }
     .cloud-row { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; font-size: 13px; }
     .cloud-label { width: 56px; color: var(--text-secondary); font-size: 12px; }
-    #cloud-status.error { color: var(--danger, #c0392b); }
+    #cloud-status.error, #auto-status.error, #local-status.error { color: var(--danger, #c0392b); }
+    .auto-row { margin: 4px 0 10px; }
+    .skipped-note { display: block; font-size: 11px; color: var(--warning); }
     .team-box { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); max-width: 780px; }
     .team-box ol { margin: 6px 0 10px 18px; padding: 0; font-size: 13px; }
     .team-box ol li { margin: 3px 0; }
@@ -260,6 +262,7 @@
         <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive. Backups are kept with the database (Library ▸ Application Support ▸ ScaffoldPro ▸ Backups), away from the business files in Documents.</div>
 
         <p class="small-note"><b>Automatic backups:</b> ScaffoldPro also makes a backup by itself every day at 12:00 a.m. and 12:00 p.m. (or as soon as it's open again, if the Mac was asleep or ScaffoldPro was closed then). Automatic backups more than a week old are deleted; backups you make yourself are kept.</p>
+        <div class="cloud-row auto-row"><span class="cloud-label">Status</span><span id="auto-status">—</span></div>
         <div class="backup-actions">
           <button class="primary" id="create-backup-btn">Create Backup</button>
           <button id="restore-other-btn">Restore from Folder…</button>
@@ -268,6 +271,17 @@
         </div>
 
         <div id="backup-list"></div>
+
+        <div class="cloud-backup hidden" id="local-copy">
+          <h3>Local Copy in Documents</h3>
+          <p class="small-note">While ScaffoldPro works from the shared folder, the project files live there — so <b>Documents › ScaffoldPro</b> on this Mac is kept up to date as a local copy of everything (Database, Projects, Administration). Only what changed is copied, about a minute after anything is saved, every 15 minutes and when ScaffoldPro opens; nothing is deleted from it. Files that are still only in iCloud are downloaded and copied on a later run. It can be restored with <b>Restore from Folder…</b>.</p>
+          <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="local-folder">—</span></div>
+          <div class="cloud-row"><span class="cloud-label">Status</span><span id="local-status">—</span></div>
+          <div class="backup-actions">
+            <button id="local-now-btn">Copy Now</button>
+            <button id="local-reveal-btn">Show in Finder</button>
+          </div>
+        </div>
 
         <div class="cloud-backup" id="cloud-backup">
           <h3>Automatic iCloud Backup</h3>
