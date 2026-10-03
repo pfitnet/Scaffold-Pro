@@ -1233,6 +1233,14 @@ struct BOQRatesSection: Codable {
     var note: String?
 }
 
+/// A sum typed into a quantity or price box (js/calc-input.js), kept when
+/// it is one — "14+28", "2 x 7" — and nil for a plain number or nothing.
+func lineFormula(_ text: String?) -> String? {
+    guard let t = text?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty, t.count <= 200 else { return nil }
+    let digitsAndOps = t.replacingOccurrences(of: ",", with: "")
+    return digitsAndOps.range(of: "[0-9.)]\\s*[-+*/×xX÷−–]\\s*[-(0-9.]", options: .regularExpression) != nil ? t : nil
+}
+
 struct BOQLineItem: Codable {
     var id: String
     var boqId: String
@@ -1259,6 +1267,9 @@ struct BOQLineItem: Codable {
     /// or "Amount" (off each unit). Only the discounted rate is printed.
     var discountType: String? = nil
     var discountValue: Double? = nil
+    /// The sum typed for the quantity (e.g. "14+28"), shown again when the
+    /// box is clicked; nil when a plain number was typed.
+    var quantityFormula: String? = nil
 }
 
 /// Lightweight row for the project's BOQ list — avoids shipping every
@@ -1442,6 +1453,11 @@ struct QuotationLineItem: Codable {
     /// hand-typed price can be shown as an override and kept when the
     /// quotation is switched between Sale and Rental.
     var priceListUnitPrice: Double? = nil
+    /// The sum typed for the quantity (e.g. "14+28"), shown again when the
+    /// box is clicked; nil when a plain number was typed.
+    var quantityFormula: String? = nil
+    /// The sum typed for the unit price (e.g. "12.5*2"), as for the quantity.
+    var priceFormula: String? = nil
     /// Per-line discount: nil/"None", "Percent" (0-100) or "Amount"
     /// (taken off the line total).
     var discountType: String? = nil
@@ -1824,6 +1840,11 @@ struct InvoiceLineItem: Codable {
     /// (taken off the line total).
     var discountType: String? = nil
     var discountValue: Double? = nil
+    /// The sum typed for the quantity (e.g. "14+28"), shown again when the
+    /// box is clicked; nil when a plain number was typed.
+    var quantityFormula: String? = nil
+    /// The sum typed for the unit price (e.g. "12.5*2"), as for the quantity.
+    var priceFormula: String? = nil
     /// A one-off charge copied from one of the quotation's priced
     /// sections: its title (e.g. "Design Fees") and row prefix ("A").
     var chargeGroup: String? = nil
@@ -1932,6 +1953,9 @@ struct DeliveryNoteLineItem: Codable {
     var section: String?
     var sortOrder: Int
     var notes: String?
+    /// The sum typed for the quantity (e.g. "14+28"), shown again when the
+    /// box is clicked; nil when a plain number was typed.
+    var quantityFormula: String? = nil
 }
 
 struct DeliveryNoteSummary: Codable {
@@ -5583,7 +5607,7 @@ final class AppDatabase {
         return nil
     }
 
-    func updateBOQLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?) -> String? {
+    func updateBOQLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?, quantityFormula: String? = nil) -> String? {
         var items = boqLineItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
         guard let boq = getBOQ(id: items[index].boqId) else { return "BOQ not found." }
@@ -5591,7 +5615,10 @@ final class AppDatabase {
 
         // Quantities are always whole numbers in this app (section note:
         // integer-only quantities), regardless of what a client sends.
-        if let quantity = quantity { items[index].quantity = quantity.rounded() }
+        if let quantity = quantity {
+            items[index].quantity = quantity.rounded()
+            items[index].quantityFormula = lineFormula(quantityFormula)
+        }
         if let appliedUnitPrice = appliedUnitPrice { items[index].appliedUnitPrice = appliedUnitPrice }
         boqLineItemsStore.writeAll(items)
         touchBOQ(boq.id)
@@ -6298,6 +6325,7 @@ final class AppDatabase {
             line.itemDescription = item.itemDescription
             line.unit = item.unit
             line.quantity = item.quantity.rounded()
+            line.quantityFormula = item.quantityFormula
             line.appliedUnitPrice = priced.price
             line.priceListUnitPrice = priced.listPrice
             line.discountType = priced.discountType
@@ -6377,6 +6405,7 @@ final class AppDatabase {
                 b.itemDescription = ql.itemDescription
                 b.unit = ql.unit
                 b.quantity = ql.quantity.rounded()
+                b.quantityFormula = ql.quantityFormula
                 b.section = ql.section
                 if !samePricing(ql, linkedPricing(of: b, boq: boq)) { applyQuotationPrice(ql, to: &b, boq: boq) }
                 bAll[bi] = b
@@ -6389,6 +6418,7 @@ final class AppDatabase {
                                     priceListUnitPrice: ql.priceListUnitPrice, appliedUnitPrice: ql.appliedUnitPrice,
                                     weightKg: ql.priceListItemId.flatMap { weights?[$0] }, section: ql.section, sortOrder: nextOrder, notes: nil)
                 nextOrder += 1
+                b.quantityFormula = ql.quantityFormula
                 // An item picked from the material list comes in at its list
                 // price (the BOQ's mark-up / mark-down then applies to it).
                 let atListPrice = ql.priceListUnitPrice.map { abs($0 - ql.appliedUnitPrice) < 0.005 } ?? false
@@ -6920,14 +6950,21 @@ final class AppDatabase {
         return nil
     }
 
-    func updateQuotationLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?, description: String? = nil, unit: String? = nil) -> String? {
+    func updateQuotationLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?, description: String? = nil, unit: String? = nil,
+                                 quantityFormula: String? = nil, priceFormula: String? = nil) -> String? {
         var items = quotationLineItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
         guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
         guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
 
-        if let quantity = quantity { items[index].quantity = quantity.rounded() }
-        if let appliedUnitPrice = appliedUnitPrice { items[index].appliedUnitPrice = appliedUnitPrice }
+        if let quantity = quantity {
+            items[index].quantity = quantity.rounded()
+            items[index].quantityFormula = lineFormula(quantityFormula)
+        }
+        if let appliedUnitPrice = appliedUnitPrice {
+            items[index].appliedUnitPrice = appliedUnitPrice
+            items[index].priceFormula = lineFormula(priceFormula)
+        }
         if let description = description {
             let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return "Enter a description." }
@@ -7569,14 +7606,20 @@ final class AppDatabase {
         return nil
     }
 
-    func updateInvoiceLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?) -> String? {
+    func updateInvoiceLineItem(id: String, quantity: Double?, appliedUnitPrice: Double?, quantityFormula: String? = nil, priceFormula: String? = nil) -> String? {
         var items = invoiceLineItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
         guard let inv = getInvoice(id: items[index].invoiceId) else { return "Invoice not found." }
         guard inv.status == "Draft" else { return "This invoice is issued and can no longer be edited." }
 
-        if let quantity = quantity { items[index].quantity = quantity.rounded() }
-        if let appliedUnitPrice = appliedUnitPrice { items[index].appliedUnitPrice = appliedUnitPrice }
+        if let quantity = quantity {
+            items[index].quantity = quantity.rounded()
+            items[index].quantityFormula = lineFormula(quantityFormula)
+        }
+        if let appliedUnitPrice = appliedUnitPrice {
+            items[index].appliedUnitPrice = appliedUnitPrice
+            items[index].priceFormula = lineFormula(priceFormula)
+        }
         invoiceLineItemsStore.writeAll(items)
         touchInvoice(inv.id)
         return nil
@@ -7921,13 +7964,16 @@ final class AppDatabase {
         return nil
     }
 
-    func updateDeliveryNoteLineItem(id: String, quantity: Double?) -> String? {
+    func updateDeliveryNoteLineItem(id: String, quantity: Double?, quantityFormula: String? = nil) -> String? {
         var items = deliveryNoteLineItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
         guard let dn = getDeliveryNote(id: items[index].deliveryNoteId) else { return "Delivery note not found." }
         guard dn.status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
 
-        if let quantity = quantity { items[index].quantity = quantity.rounded() }
+        if let quantity = quantity {
+            items[index].quantity = quantity.rounded()
+            items[index].quantityFormula = lineFormula(quantityFormula)
+        }
         deliveryNoteLineItemsStore.writeAll(items)
         touchDeliveryNote(dn.id)
         return nil
@@ -7948,7 +7994,7 @@ final class AppDatabase {
             guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
             var items = boqLineItemsStore.readAll()
             for i in items.indices where items[i].boqId == documentId {
-                if let n = wanted[items[i].id] { items[i].quantity = n }
+                if let n = wanted[items[i].id] { items[i].quantity = n; items[i].quantityFormula = nil }
             }
             boqLineItemsStore.writeAll(items)
             touchBOQ(documentId)
@@ -7958,7 +8004,7 @@ final class AppDatabase {
             guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
             var items = quotationLineItemsStore.readAll()
             for i in items.indices where items[i].quotationId == documentId {
-                if let n = wanted[items[i].id] { items[i].quantity = n }
+                if let n = wanted[items[i].id] { items[i].quantity = n; items[i].quantityFormula = nil }
             }
             quotationLineItemsStore.writeAll(items)
             touchQuotation(documentId)
@@ -7968,7 +8014,7 @@ final class AppDatabase {
             guard inv.status == "Draft" else { return "This invoice is issued and can no longer be edited." }
             var items = invoiceLineItemsStore.readAll()
             for i in items.indices where items[i].invoiceId == documentId {
-                if let n = wanted[items[i].id] { items[i].quantity = n }
+                if let n = wanted[items[i].id] { items[i].quantity = n; items[i].quantityFormula = nil }
             }
             invoiceLineItemsStore.writeAll(items)
             touchInvoice(documentId)
@@ -7977,7 +8023,7 @@ final class AppDatabase {
             guard dn.status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
             var items = deliveryNoteLineItemsStore.readAll()
             for i in items.indices where items[i].deliveryNoteId == documentId {
-                if let n = wanted[items[i].id] { items[i].quantity = n }
+                if let n = wanted[items[i].id] { items[i].quantity = n; items[i].quantityFormula = nil }
             }
             deliveryNoteLineItemsStore.writeAll(items)
             touchDeliveryNote(documentId)
@@ -13898,7 +13944,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let lineId = (payload["id"] as? String) ?? ""
             let quantity = payload["quantity"] as? Double
             let appliedUnitPrice = payload["appliedUnitPrice"] as? Double
-            if let error = db.updateBOQLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice) {
+            if let error = db.updateBOQLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice,
+                                                quantityFormula: payload["quantityFormula"] as? String) {
                 respond(id: id, encodable: BOQActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: BOQActionResult(ok: true, error: nil))
@@ -14002,7 +14049,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let quantity = payload["quantity"] as? Double
             let appliedUnitPrice = payload["appliedUnitPrice"] as? Double
             if let error = db.updateQuotationLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice,
-                                                      description: payload["itemDescription"] as? String, unit: payload["unit"] as? String) {
+                                                      description: payload["itemDescription"] as? String, unit: payload["unit"] as? String,
+                                                      quantityFormula: payload["quantityFormula"] as? String, priceFormula: payload["priceFormula"] as? String) {
                 respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
@@ -14101,7 +14149,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let lineId = (payload["id"] as? String) ?? ""
             let quantity = payload["quantity"] as? Double
             let appliedUnitPrice = payload["appliedUnitPrice"] as? Double
-            if let error = db.updateInvoiceLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice) {
+            if let error = db.updateInvoiceLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice,
+                                                    quantityFormula: payload["quantityFormula"] as? String, priceFormula: payload["priceFormula"] as? String) {
                 respond(id: id, encodable: InvoiceActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: InvoiceActionResult(ok: true, error: nil))
@@ -14168,7 +14217,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "deliveryNotes:updateLineItem":
             let lineId = (payload["id"] as? String) ?? ""
             let quantity = payload["quantity"] as? Double
-            if let error = db.updateDeliveryNoteLineItem(id: lineId, quantity: quantity) {
+            if let error = db.updateDeliveryNoteLineItem(id: lineId, quantity: quantity, quantityFormula: payload["quantityFormula"] as? String) {
                 respond(id: id, encodable: DeliveryNoteActionResult(ok: false, error: error))
             } else {
                 respond(id: id, encodable: DeliveryNoteActionResult(ok: true, error: nil))

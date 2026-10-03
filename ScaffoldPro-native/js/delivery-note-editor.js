@@ -166,11 +166,11 @@ function renderLineItems() {
       <td class="num row-no">${index + 1}</td>
       <td>${item.itemDescription}${zhName(item)}</td>
       <td>${item.unit}</td>
-      <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
+      <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 
     const qtyInput = tr.querySelector('.qty-input');
-    qtyInput.addEventListener('change', () => updateLine(item.id, { quantity: Math.max(1, Math.round(Number(qtyInput.value) || 0)) }));
+    window.calcChange(qtyInput, (v, f) => updateLine(item.id, { quantity: Math.max(1, Math.round(v)), quantityFormula: f }));
     const removeBtn = tr.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
 
