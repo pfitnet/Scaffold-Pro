@@ -3021,3 +3021,14 @@ Every form control is now drawn by the app instead of macOS, on every page
   quotations split off the subsidiary move up to Qt26212-007.
 - The header's "Split from …" line moved into that bracket; the parent's
   header still lists "Split off it: …".
+
+## Batch 127 — Priced sections: Qty, Unit Price, then the optional unit
+
+- A quotation's priced section (e.g. Mandatory Inspection Fees) lists
+  **No. · Description · Qty · Unit Price · Per · Total**. "Per" is the
+  unit, optional (blank shows "optional"); it's printed after the unit
+  price, e.g. "500.00 /set", as before.
+- The add row is the table's last row, each box under its own column
+  (description, qty, unit price, per), with Add Row at the end — before, it
+  was a separate line in a different order. Rates sections do the same
+  (Description · Rate · Per), with Fill Standard Rates under them.

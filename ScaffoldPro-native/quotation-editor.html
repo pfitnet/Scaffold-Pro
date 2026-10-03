@@ -64,10 +64,14 @@
     .qs-amt { text-align: right; font-variant-numeric: tabular-nums; }
     .delivery-section .line-desc { white-space: pre-line; min-width: 200px; }
     .extra-section .rate-only { color: var(--text-secondary); font-style: italic; text-align: center; white-space: nowrap; }
-    .extra-add-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
-    .extra-add-row .add-desc { flex: 1; min-width: 160px; }
-    .extra-add-row .add-unit, .extra-add-row .add-qty { width: 64px; }
-    .extra-add-row .add-price { width: 110px; }
+    /* The add row is the section table's last row, each box under its column. */
+    .extra-section tfoot tr.extra-add-row td { border-top: 1px dashed var(--border); padding-top: 8px; background: none; }
+    .extra-section tfoot .row-no { color: var(--text-tertiary, var(--text-secondary)); }
+    .extra-section tfoot .add-cell { text-align: right; white-space: nowrap; }
+    .extra-section table .row-price, .extra-section table .add-price { width: 110px; }
+    .extra-section table .row-desc, .extra-section table .add-desc { min-width: 240px; }
+    .extra-section .extra-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
+    .extra-section .row-unit::placeholder, .extra-section .add-unit::placeholder { font-style: italic; }
     .extra-section .block-note { width: 100%; margin-top: 8px; font-style: italic; box-sizing: border-box; }
   </style>
 </head>
