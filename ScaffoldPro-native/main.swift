@@ -639,6 +639,35 @@ func chineseMaterialName(_ english: String) -> String? {
     return nil
 }
 
+/// The sizes in a material's name, in metres, in the order written:
+/// "1.40m x 2.0m Face Brace" → [1.4, 2.0], "600mm Base Jack" → [0.6].
+func materialLengths(_ name: String) -> [Double] {
+    guard let pattern = try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)\s?(mm|m)(?![a-z])"#, options: [.caseInsensitive]) else { return [] }
+    let ns = name as NSString
+    return pattern.matches(in: name, range: NSRange(location: 0, length: ns.length)).compactMap { m in
+        guard let value = Double(ns.substring(with: m.range(at: 1))) else { return nil }
+        return ns.substring(with: m.range(at: 2)).lowercased() == "mm" ? value / 1000 : value
+    }
+}
+
+/// A material list category as both lists name it: SP's "Toe Boards" and
+/// SCAFOM's "Steel Toe Boards" → "toe boards"; "Lattice Girders" and
+/// "Lattice Gridders & Required Accessories" → "lattice girders".
+func materialCategory(_ category: String) -> String {
+    var c = category.lowercased().replacingOccurrences(of: "gridder", with: "girder")
+    if let and = c.range(of: " & ") { c = String(c[..<and.lowerBound]) }
+    c = c.replacingOccurrences(of: "steel ", with: "")
+    return c.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+}
+
+/// What a material is, without its sizes: "1.40m x 2.0m Face Brace" →
+/// "face brace" (for items with no category).
+func materialKind(_ name: String) -> String {
+    name.replacingOccurrences(of: #"\d+(?:\.\d+)?\s?(mm|m)?(?![a-z])"#, with: " ", options: [.regularExpression, .caseInsensitive])
+        .replacingOccurrences(of: #"(^|\s)x(\s|$)"#, with: " ", options: [.regularExpression, .caseInsensitive])
+        .lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+}
+
 /// An item's name on a document in the language chosen for it: its Chinese
 /// name when Chinese is chosen and it has one, otherwise the English one.
 func documentItemName(_ description: String, _ chinese: String?, inChinese: Bool) -> String {
@@ -5245,14 +5274,14 @@ final class AppDatabase {
 
     // ---- Bills of Quantities (Phase 7) ----
 
-    /// A BOQ's lines in its order: by item code (the default), by
-    /// description, or as arranged.
+    /// A BOQ's lines in its order: as in the material list (the
+    /// default), by item code, by description, or as arranged.
     private func lineItems(for boqId: String) -> [BOQLineItem] {
-        sortedLines(boqLineItemsStore.readAll().filter { $0.boqId == boqId }, mode: getBOQ(id: boqId)?.lineSort,
+        sortedLines(boqLineItemsStore.readAll().filter { $0.boqId == boqId }, mode: getBOQ(id: boqId)?.lineSort, itemId: { $0.priceListItemId },
                     code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
     }
 
-    func sortedLines<T>(_ lines: [T], mode: String?, code: (T) -> String, description: (T) -> String, order: (T) -> Int) -> [T] {
+    func sortedLines<T>(_ lines: [T], mode: String?, itemId: (T) -> String?, code: (T) -> String, description: (T) -> String, order: (T) -> Int) -> [T] {
         switch mode {
         case "manual": return lines.sorted { order($0) < order($1) }
         case "description":
@@ -5260,19 +5289,71 @@ final class AppDatabase {
                 let c = description(a).localizedStandardCompare(description(b))
                 return c == .orderedSame ? order(a) < order(b) : c == .orderedAscending
             }
-        default: return byItemCode(lines, code: code, order: order)
+        case "code": return byItemCode(lines, code: code, order: order)
+        default: return byMaterialList(lines, itemId: itemId, code: code, description: description, order: order)
         }
+    }
+
+    /// The material list's order. By type first — the list's categories in
+    /// its own order (Base Items, Standards, Ledgers, Face Braces, Steel
+    /// Decks, Toe Boards…: the group number at the front of their item
+    /// codes, the same in both lists) — then, within a type, the list's own
+    /// order (as dragged in the Material List). A type with items from both
+    /// lists (SP and SCAFOM) goes by length instead, shortest first: a 0.73m
+    /// ledger (SP), a 1.40m (SCAFOM), a 2.57m (SP). Items not on a material
+    /// list (delivery, custom items) come last, in the order added.
+    func byMaterialList<T>(_ lines: [T], itemId: (T) -> String?, code: (T) -> String, description: (T) -> String, order: (T) -> Int) -> [T] {
+        let all = priceListItemsStore.readAll()
+        let items = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let group: (String) -> Int = { Int($0.split(separator: ".").first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? "") ?? Int.max }
+        // A type: the item's category, as both lists name it, else what its name says.
+        let typeOf: (PriceListItem) -> String = { item in
+            let category = materialCategory(item.category ?? "")
+            return category.isEmpty ? "name: " + materialKind(item.itemName) : category
+        }
+        // Each type's place: the group its items have in the lists (Ledgers 4, Face Braces 6…).
+        var rank: [String: Int] = [:]
+        for item in all { rank[typeOf(item)] = min(rank[typeOf(item)] ?? Int.max, group(item.itemCode)) }
+        let keys = lines.map { line -> (listed: Bool, rank: Int, type: String, source: String, place: Int, code: String, lengths: [Double]) in
+            guard let id = itemId(line), let item = items[id] else {
+                return (false, Int.max, "", "", Int.max, code(line), materialLengths(description(line)))
+            }
+            let type = typeOf(item)
+            return (true, rank[type] ?? Int.max, type, item.sourceKey, item.sortOrder ?? Int.max, item.itemCode, materialLengths(item.itemName))
+        }
+        var sources: [String: Set<String>] = [:]
+        for k in keys where k.listed { sources[k.type, default: []].insert(k.source) }
+        // The shorter one first (by the first size, then the next); nil = the same sizes.
+        let shorter: ([Double], [Double]) -> Bool? = { a, b in
+            for (x, y) in zip(a, b) where x != y { return x < y }
+            return a.count == b.count ? nil : a.count < b.count
+        }
+        let sorted = lines.indices.sorted { ia, ib in
+            let a = keys[ia], b = keys[ib]
+            if a.listed != b.listed { return a.listed }
+            if a.listed {
+                if a.rank != b.rank { return a.rank < b.rank }
+                if a.type != b.type { return a.type < b.type }
+                if (sources[a.type]?.count ?? 0) > 1, let first = shorter(a.lengths, b.lengths) { return first }
+                if a.source != b.source { return a.source > b.source } // "SP" before "SCAFOM"
+                if a.place != b.place { return a.place < b.place }
+                let c = a.code.localizedStandardCompare(b.code)
+                if c != .orderedSame { return c == .orderedAscending }
+            }
+            return order(lines[ia]) < order(lines[ib])
+        }
+        return sorted.map { lines[$0] }
     }
 
     /// How a BOQ's items are listed. Switching to "As arranged" keeps the
     /// order shown; linked quotations follow.
     func setBOQLineSort(id: String, mode: String) -> String? {
-        guard ["code", "description", "manual"].contains(mode) else { return "Choose how to sort." }
+        guard ["list", "code", "description", "manual"].contains(mode) else { return "Choose how to sort." }
         let shown = lineItems(for: id)
         var boqs = boqsStore.readAll()
         guard let i = boqs.firstIndex(where: { $0.id == id }) else { return "BOQ not found." }
         guard boqs[i].status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
-        boqs[i].lineSort = mode == "code" ? nil : mode
+        boqs[i].lineSort = mode == "list" ? nil : mode
         boqs[i].updatedAt = nowISO()
         boqsStore.writeAll(boqs)
         if mode == "manual" { freezeBOQOrder(id: id, ids: shown.map { $0.id }) }
@@ -5553,7 +5634,7 @@ final class AppDatabase {
         detail.standardTerms = standardBOQTerms()
         detail.language = boq.language
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
-        detail.lineSort = boq.lineSort ?? "code"
+        detail.lineSort = boq.lineSort ?? "list"
         detail.linkedQuotations = quotationsStore.readAll().filter { $0.sourceBOQId == boq.id && $0.boqLinked == true }
             .sorted { $0.quotationNumber < $1.quotationNumber }
             .map { LinkedDocument(id: $0.id, number: $0.quotationNumber, status: $0.status) }
@@ -5903,13 +5984,13 @@ final class AppDatabase {
 
     private func quotationLineItems(for quotationId: String) -> [QuotationLineItem] {
         sortedLines(quotationLineItemsStore.readAll().filter { $0.quotationId == quotationId }, mode: getQuotation(id: quotationId)?.lineSort,
-                    code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
+                    itemId: { $0.priceListItemId }, code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
     }
 
     /// How a quotation's items are listed. Linked to a BOQ (a Draft), the
     /// BOQ's is set too — the two keep one order.
     func setQuotationLineSort(id: String, mode: String) -> String? {
-        guard ["code", "description", "manual"].contains(mode) else { return "Choose how to sort." }
+        guard ["list", "code", "description", "manual"].contains(mode) else { return "Choose how to sort." }
         guard let q = getQuotation(id: id) else { return "Quotation not found." }
         guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
         if q.boqLinked == true, let boqId = q.sourceBOQId, getBOQ(id: boqId)?.status == "Draft" {
@@ -5919,7 +6000,7 @@ final class AppDatabase {
         let shown = quotationLineItems(for: id)
         var qs = quotationsStore.readAll()
         guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
-        qs[i].lineSort = mode == "code" ? nil : mode
+        qs[i].lineSort = mode == "list" ? nil : mode
         qs[i].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         if mode == "manual" { freezeQuotationOrder(id: id, ids: shown.map { $0.id }) }
@@ -6738,7 +6819,7 @@ final class AppDatabase {
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
         detail.boqLinked = q.boqLinked == true && sourceBOQ != nil
-        detail.lineSort = q.lineSort ?? "code"
+        detail.lineSort = q.lineSort ?? "list"
         detail.sourceBOQStatus = sourceBOQ?.status
         return detail
     }
@@ -7342,7 +7423,8 @@ final class AppDatabase {
     }
 
     private func invoiceLineItems(for invoiceId: String) -> [InvoiceLineItem] {
-        byItemCode(invoiceLineItemsStore.readAll().filter { $0.invoiceId == invoiceId }, code: { $0.itemCode }, order: { $0.sortOrder })
+        byMaterialList(invoiceLineItemsStore.readAll().filter { $0.invoiceId == invoiceId }, itemId: { $0.priceListItemId },
+                       code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
     }
 
     /// Months of rent a rental invoice charges; 1 for anything else.
@@ -7747,7 +7829,8 @@ final class AppDatabase {
     // ---- Delivery Notes (Phase 10) ----
 
     private func deliveryNoteLineItems(for deliveryNoteId: String) -> [DeliveryNoteLineItem] {
-        byItemCode(deliveryNoteLineItemsStore.readAll().filter { $0.deliveryNoteId == deliveryNoteId }, code: { $0.itemCode }, order: { $0.sortOrder })
+        byMaterialList(deliveryNoteLineItemsStore.readAll().filter { $0.deliveryNoteId == deliveryNoteId }, itemId: { $0.priceListItemId },
+                       code: { $0.itemCode }, description: { $0.itemDescription }, order: { $0.sortOrder })
     }
 
     func listDeliveryNoteSummaries(projectId: String) -> [DeliveryNoteSummary] {

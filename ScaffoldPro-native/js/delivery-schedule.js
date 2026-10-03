@@ -21,11 +21,11 @@
   const num = (v) => Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
   const kg = (v) => (v >= 1000 ? `${(v / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} t` : `${v.toLocaleString('en-US', { maximumFractionDigits: 1 })} kg`);
 
-  // The quoted materials: not delivery charges, not the extra sections' rows.
+  // The quoted materials, in the document's order: not delivery charges,
+  // not the extra sections' rows.
   function materials() {
     return ((detail && detail.lineItems) || [])
-      .filter((l) => !l.blockId && l.section !== 'Delivery')
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+      .filter((l) => !l.blockId && l.section !== 'Delivery');
   }
 
   function scheduled(lineId) {

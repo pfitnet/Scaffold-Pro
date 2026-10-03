@@ -2836,3 +2836,32 @@ Every form control is now drawn by the app instead of macOS, on every page
   - the Projects page: the BQ / Qt / DN / Inv chips;
   - a project's page: the count tiles and the tabs.
 - `--doc-*` tokens and `.dk-*` classes in css/styles.css.
+
+## Batch 116 — Material-list order by default; a third click undoes a column sort
+
+- **Clicking a column title** in a list table now cycles: 1st click
+  ascending, 2nd descending, **3rd back to the table's original order**
+  (the arrow goes away).
+- **Line items are listed as in the material list by default** (BOQs,
+  quotations, invoices and delivery notes; the new "As in the material
+  list" in the Sort menu). The item code was only a rough way of
+  ordering the old Excel BQ sheet.
+  - **Types follow the material list's order:** Base Items, Standards,
+    Ledgers, Face Braces, Steel Decks, Toe Boards, Staircases, Guard
+    Rails… (the group number at the front of the item codes, which is
+    the same in both lists).
+  - **Items of a type from one list** stay in that list's order,
+    including any order dragged in the Material List.
+  - **Items of one type from both lists** (SP and SCAFOM) are put in
+    order by length, shortest first. For example, a 0.73m ledger (SP),
+    a 1.4m ledger (SCAFOM) and a 2.57m ledger (SP) go 0.73m, 1.4m,
+    2.57m. Each list's names for the same type are matched: SP's "Toe
+    Boards" and SCAFOM's "Steel Toe Boards", and "Lattice Girders" and
+    "Lattice Gridders & …".
+  - **Items not on a material list** (delivery, custom items) come last,
+    in the order they were added.
+  - "By item code", "By description" and "As arranged (drag)" are still
+    in the Sort menu.
+  - The delivery schedule lists items in the document's order too.
+- `byMaterialList`, `materialLengths`, `materialCategory` in main.swift;
+  the column cycle in js/sidebar.js.
