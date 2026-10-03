@@ -40,6 +40,44 @@ function handleCell(item) {
   return `<td class="drag-col">${canReorder ? window.dragHandleHTML('Drag to move this item (or focus and press ↑ / ↓)') : ''}</td>`;
 }
 
+// ---------- The ☰ list: category, Import rates, Export rates ----------
+// Resting on ☰ lists Import rates, Export rates (resting on it opens PDF —
+// the Unit Rates sheet on the letterhead — and Excel, to its left) and the
+// categories to show. They press the page's own (hidden) controls. A dot on
+// ☰ shows a category is chosen.
+
+function setupListMenu() {
+  const button = document.getElementById('ml-menu-btn');
+  const category = document.getElementById('category-select');
+  const refresh = () => {
+    button.classList.toggle('filtered', !!category.value);
+    button.title = `Import or export rates\nCategory: ${category.selectedOptions[0] ? category.selectedOptions[0].textContent : 'All Categories'}`;
+  };
+  category.addEventListener('change', refresh);
+  new MutationObserver(refresh).observe(category, { childList: true });
+  refresh();
+  window.hoverMenu.attach(button, {
+    minWidth: 240,
+    align: 'right',
+    items: () => [
+      { group: 'Rates' },
+      { label: 'Import rates…', sub: 'Update prices from an Excel workbook (.xlsx)', value: 'import' },
+      { label: 'Export rates', sub: 'As a PDF or an Excel workbook', value: 'export', items: [
+        { label: 'PDF', sub: 'Unit Rates on the letterhead — tick the items, from either list', value: 'pdf' },
+        { label: 'Excel', sub: 'This material list (.xlsx) — edit it and import it back', value: 'excel' },
+      ] },
+      { group: 'Category' },
+      ...window.hoverMenu.selectItems(category).filter((it) => it.group == null).map((it) => ({ ...it, value: `cat:${it.value}` })),
+    ],
+    onPick: (v) => {
+      if (v === 'import') document.getElementById('import-btn').click();
+      else if (v === 'pdf') document.getElementById('rates-select-btn').click();
+      else if (v === 'excel') document.getElementById('export-btn').click();
+      else if (v.startsWith('cat:')) { window.hoverMenu.pickInSelect(category, v.slice(4)); refresh(); }
+    },
+  });
+}
+
 // ---------- Unit Rates: items picked from either list, for a client ----------
 
 let ratesSelecting = false;
@@ -378,6 +416,7 @@ async function init() {
     document.getElementById('import-modal').classList.add('hidden');
   });
   setupUnitRates();
+  setupListMenu();
   showSyncStatus();
   document.getElementById('export-btn').addEventListener('click', async () => {
     const r = await window.api.priceLists.exportCSV(currentSourceKey);

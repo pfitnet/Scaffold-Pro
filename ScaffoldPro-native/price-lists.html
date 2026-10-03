@@ -15,11 +15,16 @@
     <div class="toolbar">
       <select id="list-select"></select>
       <input type="text" id="search-box" placeholder="Search items" />
-      <select id="category-select"><option value="">All Categories</option></select>
       <span class="toolbar-spacer"></span>
-      <button id="rates-select-btn" data-no-icon title="Choose items (from either list) for a Unit Rates sheet to give a client">Unit Rates…</button>
-      <button id="import-btn" title="Update prices from an Excel workbook (.xlsx)">Import from Excel…</button>
-      <button id="export-btn" title="Save this material list as an Excel workbook (.xlsx) — edit it and import it back">Export to Excel</button>
+      <!-- Category, Import rates and Export rates (PDF or Excel) are in the ☰ list (js/price-lists.js);
+           the real controls stay here, hidden, with their own code. -->
+      <span class="hidden">
+        <select id="category-select" data-native><option value="">All Categories</option></select>
+        <button id="rates-select-btn" data-no-icon title="Choose items (from either list) for a Unit Rates sheet to give a client">Unit Rates…</button>
+        <button id="import-btn" title="Update prices from an Excel workbook (.xlsx)">Import from Excel…</button>
+        <button id="export-btn" title="Save this material list as an Excel workbook (.xlsx) — edit it and import it back">Export to Excel</button>
+      </span>
+      <span class="ml-menu"><button type="button" class="tb-ico" id="ml-menu-btn" data-no-icon aria-label="Category, import and export"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg><span class="am-dot" aria-hidden="true"></span></button></span>
       <button class="primary" id="add-item-btn">+ Add Item</button>
     </div>
 

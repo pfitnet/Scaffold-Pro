@@ -2865,3 +2865,24 @@ Every form control is now drawn by the app instead of macOS, on every page
   - The delivery schedule lists items in the document's order too.
 - `byMaterialList`, `materialLengths`, `materialCategory` in main.swift;
   the column cycle in js/sidebar.js.
+
+## Batch 117 — Material List ☰ menu; a new delivery day is dated the day after
+
+- **Material List:** Unit Rates…, Import from Excel…, Export to Excel
+  and the category list are now in one ☰ list, with **+ Add Item** to
+  its right. Resting on ☰ shows:
+  - **Rates:**
+    - **Import rates…**: update prices from an Excel workbook;
+    - **Export rates**: resting on it opens a list to its left with:
+      - **PDF**: the Unit Rates sheet on the letterhead (tick the items,
+        from either list, then Make Unit Rates PDF);
+      - **Excel**: this material list as a .xlsx.
+  - **Category:** All Categories and each category.
+  - A dot on ☰ shows when a category is chosen.
+- js/hover-menu.js can now show submenus: an item with its own `items`
+  opens them beside the menu, to the left (or the right where there's no
+  room). It opens when the pointer rests on the item, on a click, or with
+  ← / →; Escape goes back.
+- **Delivery schedule:** **+ Add Day** dates the new day the day after
+  the latest date already put in. Only Day 1 (or a schedule with no
+  dates yet) starts without one.
