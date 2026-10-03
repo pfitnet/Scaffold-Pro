@@ -196,6 +196,24 @@ function render() {
   renderDirectorBar();
 }
 
+// Subsidiaries that can go after it (not cancelled ones).
+function liveSubsidiaries() {
+  return ((currentDetail && currentDetail.subsidiaries) || []).filter((r) => r.status !== 'Cancelled');
+}
+
+// At Export (PDF or Word) and Print: put the subsidiaries after this
+// quotation? true / false, or null when cancelled. No question without any.
+async function askSubsidiaries(what) {
+  const subs = liveSubsidiaries();
+  if (!subs.length) return false;
+  const names = subs.map((r) => r.number).join(', ');
+  const one = subs.length === 1;
+  return window.appChoose(`Attach the subsidiar${one ? 'y' : 'ies'} too?\n\n${names} ${one ? 'was' : 'were'} split off ${currentDetail.quotationNumber}. ${one ? 'It' : 'They'} can go after its own pages in this ${what}.`, [
+    { label: `${currentDetail.quotationNumber} Only`, value: false },
+    { label: `Attach ${one ? names : `${subs.length} Subsidiaries`}`, value: true, primary: true },
+  ]);
+}
+
 // "Revert" on a subsidiary: everything back onto the quotation it was split off.
 async function revertSplit() {
   const d = currentDetail;
@@ -908,15 +926,29 @@ async function init() {
     await loadDetail();
   });
 
+  // Shown first (js/doc-preview.js), with its subsidiaries after it if
+  // that's asked for; saved into the project folder from there.
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
-    const result = await window.api.quotations.exportPDF(quotationId);
+    const withSubsidiaries = await askSubsidiaries('PDF');
+    if (withSubsidiaries === null) return;
+    const result = await window.docPreview.pdf(() => window.api.quotations.exportPDF(quotationId, { preview: true, withSubsidiaries }),
+      { title: currentDetail.quotationNumber + (withSubsidiaries ? ` + ${currentDetail.subsidiaries.length} subsidiar${currentDetail.subsidiaries.length === 1 ? 'y' : 'ies'}` : '') });
     if (!result.ok) { alert(result.error); }
   });
 
   document.getElementById('export-word-btn').addEventListener('click', async (e) => {
+    const withSubsidiaries = await askSubsidiaries('Word document');
+    if (withSubsidiaries === null) return;
     e.target.disabled = true;
     try {
-      const result = await window.exportWord(() => window.api.quotations.exportWord(quotationId));
+      const result = await window.exportWord(async () => {
+        const layout = await window.api.quotations.exportWord(quotationId);
+        // Each subsidiary as its own section after it, in the same file.
+        if (layout && layout.ok && withSubsidiaries) {
+          layout.attach = await Promise.all(liveSubsidiaries().map((r) => window.api.quotations.exportWord(r.id)));
+        }
+        return layout;
+      });
       if (!result.ok) { alert(result.error); }
     } catch (err) {
       alert(`The Word document couldn't be made.\n\n${err.message}`);
@@ -949,7 +981,9 @@ async function init() {
   });
 
   document.getElementById('print-btn').addEventListener('click', async () => {
-    const result = await window.api.quotations.print(quotationId);
+    const withSubsidiaries = await askSubsidiaries('print');
+    if (withSubsidiaries === null) return;
+    const result = await window.api.quotations.print(quotationId, { withSubsidiaries });
     if (!result.ok) { alert(result.error); }
   });
 
@@ -969,23 +1003,6 @@ async function init() {
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('split-btn').addEventListener('click', splitQuotation);
   document.getElementById('revert-split-btn').addEventListener('click', revertSplit);
-  // Export › Attach › Subsidiaries (only with some): a tick, kept with the quotation.
-  document.getElementById('export-btn').exportExtras = {
-    items: () => {
-      const subs = (currentDetail && currentDetail.subsidiaries) || [];
-      if (!subs.length) return [];
-      return [{ group: 'Attach' }, {
-        label: 'Subsidiaries', value: 'attach-subs', current: !!currentDetail.attachSubsidiaries,
-        sub: `${subs.map((r) => r.number).join(', ')} after this quotation (PDF and Print)`,
-      }];
-    },
-    pick: async (v) => {
-      if (v !== 'attach-subs') return;
-      const r = await window.api.quotations.setAttachSubsidiaries(quotationId, !currentDetail.attachSubsidiaries);
-      if (r && r.ok === false) { await appAlert(r.error); return; }
-      await loadDetail();
-    },
-  };
   document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
     blockCall(window.api.quotations.addStandardRates(quotationId, null)));
   for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {

@@ -290,7 +290,8 @@ async function init() {
   }
 
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
-    const result = await window.api.deliveryNotes.exportPDF(deliveryNoteId);
+    // Shown first (js/doc-preview.js); saved into the project folder from there.
+    const result = await window.docPreview.pdf(() => window.api.deliveryNotes.exportPDF(deliveryNoteId, { preview: true }), { title: currentDetail ? currentDetail.deliveryNoteNumber : 'Delivery Note' });
     if (!result.ok) { alert(result.error); }
   });
 

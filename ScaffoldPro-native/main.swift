@@ -1473,9 +1473,6 @@ struct Quotation: Codable {
     /// Split off another quotation (`splitQuotation`): listed under it as
     /// its subsidiary. Not linked — each is changed on its own.
     var parentQuotationId: String? = nil
-    /// Export PDF / Print add the quotations split off it right after its
-    /// own pages (Export › Attach › Subsidiaries).
-    var attachSubsidiaries: Bool? = nil
 }
 
 struct QuotationLineItem: Codable {
@@ -1847,8 +1844,6 @@ struct QuotationDetail: Codable {
     /// The quotation it was split off, and the ones split off it.
     var parent: QuotationRef? = nil
     var subsidiaries: [QuotationRef] = []
-    /// Its subsidiaries go after its own pages when exported or printed.
-    var attachSubsidiaries = false
 }
 
 struct QuotationActionResult: Codable {
@@ -2313,6 +2308,37 @@ enum PDFMode {
     case print
     /// A Word (.docx) copy laid out like the PDF (built by js/docx-export.js).
     case word
+    /// The finished PDF shown in the app (js/doc-preview.js) before it's
+    /// saved: kept aside until "files:savePreview".
+    case preview
+}
+
+/// A PDF made for the preview, waiting to be saved into the project folder.
+struct PendingPreview {
+    var url: URL
+    var projectNumber: String
+    var subfolder: String
+    var documentNumber: String
+    var docTypeTag: String
+    var fileName: String
+}
+
+struct PreviewPage: Codable {
+    /// JPEG, base64.
+    var image: String
+    /// In points (as it prints).
+    var width: Double
+    var height: Double
+}
+
+struct PreviewResult: Codable {
+    var ok: Bool
+    var error: String?
+    var token: String?
+    var fileName: String?
+    var pages: [PreviewPage] = []
+    /// All its pages (only the first ones are drawn when there are very many).
+    var pageCount: Int = 0
 }
 
 // ---- Word (.docx) export: the document as the PDF lays it out ----
@@ -6886,7 +6912,6 @@ final class AppDatabase {
             .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
         detail.subsidiaries = all.filter { parentQuotation(of: $0, in: all)?.id == q.id }.sorted { $0.quotationNumber < $1.quotationNumber }
             .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
-        detail.attachSubsidiaries = q.attachSubsidiaries == true
         return detail
     }
 
@@ -7338,15 +7363,6 @@ final class AppDatabase {
         guard let r = q.quotationNumber.range(of: #"-s\d+$"#, options: .regularExpression) else { return nil }
         let base = String(q.quotationNumber[..<r.lowerBound])
         return all.first { $0.id != q.id && $0.projectId == q.projectId && $0.quotationNumber == base }
-    }
-
-    /// Export › Attach › Subsidiaries (an export setting, so any status).
-    func setQuotationAttachSubsidiaries(id: String, on: Bool) -> String? {
-        var qs = quotationsStore.readAll()
-        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
-        qs[i].attachSubsidiaries = on ? true : nil
-        quotationsStore.writeAll(qs)
-        return nil
     }
 
     /// A subsidiary's number: its parent's with "-s1", "-s2"… (Qt26212-007-s1).
@@ -14741,9 +14757,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.splitQuotation(id: (payload["id"] as? String) ?? "",
                                                          lineIds: (payload["lineIds"] as? [String]) ?? [],
                                                          blockIds: (payload["blockIds"] as? [String]) ?? []))
-        case "quotations:setAttachSubsidiaries":
-            let error = db.setQuotationAttachSubsidiaries(id: (payload["id"] as? String) ?? "", on: (payload["on"] as? Bool) ?? false)
-            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:revertSplit":
             respond(id: id, encodable: db.revertQuotationSplit(id: (payload["id"] as? String) ?? ""))
         case "quotations:removeBlock":
@@ -14868,7 +14881,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "invoices:exportPDF":
             let invId = (payload["id"] as? String) ?? ""
-            handleExportInvoicePDF(id: id, invoiceId: invId)
+            handleExportInvoicePDF(id: id, invoiceId: invId, mode: previewMode(payload))
 
         case "deliveryNotes:listForProject":
             let projectId = (payload["projectId"] as? String) ?? ""
@@ -14925,7 +14938,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "deliveryNotes:exportPDF":
             let dnId = (payload["id"] as? String) ?? ""
-            handleExportDeliveryNotePDF(id: id, deliveryNoteId: dnId)
+            handleExportDeliveryNotePDF(id: id, deliveryNoteId: dnId, mode: previewMode(payload))
 
         case "stock:data":
             respond(id: id, encodable: db.stockData())
@@ -15031,10 +15044,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
         case "boq:exportPDF":
             let boqId = (payload["id"] as? String) ?? ""
-            handleExportBOQPDF(id: id, boqId: boqId)
+            handleExportBOQPDF(id: id, boqId: boqId, mode: previewMode(payload))
         case "quotations:exportPDF":
             let qid = (payload["id"] as? String) ?? ""
-            handleExportQuotationPDF(id: id, quotationId: qid)
+            handleExportQuotationPDF(id: id, quotationId: qid, mode: previewMode(payload),
+                                     withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false)
         case "boq:exportWord":
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .word)
         case "quotations:exportWord":
@@ -15043,6 +15057,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportInvoicePDF(id: id, invoiceId: (payload["id"] as? String) ?? "", mode: .word)
         case "deliveryNotes:exportWord":
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: (payload["id"] as? String) ?? "", mode: .word)
+        case "files:savePreview":
+            handleSavePreview(id: id, token: (payload["token"] as? String) ?? "")
+        case "files:discardPreview":
+            if let p = pendingPreviews.removeValue(forKey: (payload["token"] as? String) ?? "") { try? FileManager.default.removeItem(at: p.url) }
+            respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
+        case "files:openSaved":
+            handleOpenSaved(id: id, path: (payload["path"] as? String) ?? "", reveal: (payload["reveal"] as? Bool) ?? false)
         case "files:saveWord":
             handleSaveWord(id: id, payload: payload)
         case "files:locateDocument":
@@ -15050,7 +15071,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "boq:print":
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .print)
         case "quotations:print":
-            handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .print)
+            handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .print,
+                                     withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false)
         case "quotations:combinePDF":
             handleCombineDocuments(id: id, kind: "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
         case "documents:combinePDF":
@@ -15866,6 +15888,66 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// Saves a Word copy built by the page (js/docx-export.js) into the
     /// project's folder next to its PDF, and opens it.
+    /// PDFs made for the preview, by token (until saved or dismissed).
+    private var pendingPreviews: [String: PendingPreview] = [:]
+
+    /// "preview": true on an export → the PDF is shown before it's saved.
+    private func previewMode(_ payload: [String: Any]) -> PDFMode {
+        (payload["preview"] as? Bool) == true ? .preview : .export
+    }
+
+    /// A PDF's pages as JPEGs about 1,400 pixels wide (the first 80; a
+    /// drawing larger than the paper is scaled to the same width).
+    static func previewPages(_ data: Data, maxPages: Int = 80) -> (pages: [PreviewPage], count: Int) {
+        guard let document = PDFDocument(data: data) else { return ([], 0) }
+        var pages: [PreviewPage] = []
+        for index in 0..<min(document.pageCount, maxPages) {
+            guard let page = document.page(at: index) else { continue }
+            let box = page.bounds(for: .mediaBox)
+            let turned = page.rotation % 180 != 0
+            let width = turned ? box.height : box.width
+            let height = turned ? box.width : box.height
+            guard width > 0, height > 0 else { continue }
+            let scale = min(1400 / width, 2400 / height)
+            let image = page.thumbnail(of: NSSize(width: width * scale, height: height * scale), for: .mediaBox)
+            guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+                  let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.82]) else { continue }
+            pages.append(PreviewPage(image: jpeg.base64EncodedString(), width: Double(width), height: Double(height)))
+        }
+        return (pages, document.pageCount)
+    }
+
+    /// "Save" in the preview: the PDF shown goes into the project folder.
+    private func handleSavePreview(id: String, token: String) {
+        guard let p = pendingPreviews.removeValue(forKey: token), let data = try? Data(contentsOf: p.url) else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "That preview is no longer there — please export it again.", path: nil))
+            return
+        }
+        try? FileManager.default.removeItem(at: p.url)
+        do {
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: p.projectNumber, subfolder: p.subfolder, meaningfulFilename: p.fileName)
+            db.recordGeneratedPDF(docTypeTag: p.docTypeTag, documentNumber: p.documentNumber, path: destination.path)
+            if let project = db.getProjectByNumber(p.projectNumber) {
+                db.logActivity(projectId: project.id, "PDF exported", reference: destination.lastPathComponent)
+            }
+            respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
+        } catch {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved to the project folder. Please check there's free disk space and try again.", path: nil))
+        }
+    }
+
+    /// After saving from the preview: open the file, or show it in Finder
+    /// (only files in ScaffoldPro's own folders).
+    private func handleOpenSaved(id: String, path: String, reveal: Bool) {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard !path.isEmpty, url.path.hasPrefix(storage.appRoot.standardizedFileURL.path + "/"), fileIsPresent(url.path) else {
+            respond(id: id, encodable: QuotationActionResult(ok: false, error: "That file isn't there any more."))
+            return
+        }
+        if reveal { NSWorkspace.shared.activateFileViewerSelecting([url]) } else { openForUser(url) }
+        respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
+    }
+
     private func handleSaveWord(id: String, payload: [String: Any]) {
         let projectNumber = (payload["projectNumber"] as? String) ?? ""
         let subfolder = (payload["subfolder"] as? String) ?? ""
@@ -15879,7 +15961,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: fileName)
-            self.openForUser(destination)
+            if (payload["open"] as? Bool) != false { self.openForUser(destination) }
             if let project = db.getProjectByNumber(projectNumber) {
                 db.logActivity(projectId: project.id, "Word document exported", reference: destination.lastPathComponent)
             }
@@ -15934,6 +16016,30 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                             attachments: [URL] = []) {
         let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         let data = PDFAttachments.append(attachments, to: original, paperSize: paperSize)
+        // The preview: kept aside, its pages drawn for the page to show.
+        if mode == .preview {
+            let filename = "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"
+            let token = UUID().uuidString
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-preview-\(token).pdf")
+            do { try data.write(to: url, options: .atomic) } catch {
+                respond(id: id, encodable: PreviewResult(ok: false, error: "The preview couldn't be prepared: \(error.localizedDescription)"))
+                return
+            }
+            for (old, p) in pendingPreviews where p.docTypeTag == docTypeTag && p.documentNumber == documentNumber {
+                try? FileManager.default.removeItem(at: p.url)
+                pendingPreviews.removeValue(forKey: old)
+            }
+            pendingPreviews[token] = PendingPreview(url: url, projectNumber: projectNumber, subfolder: subfolder,
+                                                    documentNumber: documentNumber, docTypeTag: docTypeTag, fileName: filename)
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let drawn = NativeBridge.previewPages(data)
+                DispatchQueue.main.async {
+                    self?.respond(id: id, encodable: PreviewResult(ok: true, error: nil, token: token, fileName: filename,
+                                                                    pages: drawn.pages, pageCount: drawn.count))
+                }
+            }
+            return
+        }
         // From a browser, "Print" makes the PDF; the browser prints it.
         if mode == .print && !servingWeb {
             guard let document = PDFDocument(data: data), let window = window else {
@@ -16484,7 +16590,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         )
     }
 
-    private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export) {
+    private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export, withSubsidiaries: Bool = false) {
         guard let detail = db.getQuotationDetail(id: quotationId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Quotation not found.", path: nil))
             return
@@ -16507,14 +16613,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
                        projectNumber: detail.projectNumber, subfolder: "Quotations", documentNumber: detail.quotationNumber, docTypeTag: "Quotation",
-                       attachments: quotationAttachments(detail))
+                       attachments: quotationAttachments(detail, withSubsidiaries: withSubsidiaries))
             return
         }
         let company = db.getCompanySettings()
         let letter = quotationLetter(detail, company: company)
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
                            documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
-                           attachments: mode == .word ? [] : quotationAttachments(detail))
+                           attachments: mode == .word ? [] : quotationAttachments(detail, withSubsidiaries: withSubsidiaries))
     }
 
     /// A quotation's own pages as a PDF, as it's set to print (portrait
@@ -16634,18 +16740,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Everything added after a quotation's own pages: its delivery
     /// schedule, the BOQ it follows (not after a landscape quotation, which
     /// is the BQ sheet itself), then its image and PDF drawings.
-    private func quotationAttachments(_ detail: QuotationDetail, withSubsidiaries: Bool = true) -> [URL] {
+    private func quotationAttachments(_ detail: QuotationDetail, withSubsidiaries: Bool = false) -> [URL] {
         let boq = detail.orientation == "Landscape" ? nil : followedBOQFile(detail)
         return (withSubsidiaries ? subsidiaryFiles(detail) : [])
             + [deliveryScheduleFile(kind: "Quotation", id: detail.id), boq].compactMap { $0 }
             + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
     }
 
-    /// Export › Attach › Subsidiaries: each quotation split off this one
-    /// (not cancelled ones), as it prints, written to a temporary PDF so it
-    /// follows this quotation's own pages.
+    /// The quotations split off this one (not cancelled ones), as each
+    /// prints, written to temporary PDFs so they follow this quotation's own
+    /// pages — when asked for at Export / Print.
     private func subsidiaryFiles(_ detail: QuotationDetail) -> [URL] {
-        guard detail.attachSubsidiaries else { return [] }
         return detail.subsidiaries.filter { $0.status != "Cancelled" }.compactMap { ref -> URL? in
             guard let sub = db.getQuotationDetail(id: ref.id), let data = quotationPDFData(sub) else { return nil }
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-\(sub.id).pdf")
@@ -16762,7 +16867,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 parts.append((detail.deliveryNoteNumber, detail.projectNumber, generator.generate(deliveryNoteLetter(detail, note: note, company: company))))
             } else {
                 guard let detail = db.getQuotationDetail(id: docId), var data = quotationPDFData(detail) else { continue }
-                let extra = includeDrawings ? quotationAttachments(detail, withSubsidiaries: false) : [deliveryScheduleFile(kind: "Quotation", id: detail.id)].compactMap { $0 }
+                let extra = includeDrawings ? quotationAttachments(detail) : [deliveryScheduleFile(kind: "Quotation", id: detail.id)].compactMap { $0 }
                 data = PDFAttachments.append(extra, to: data, paperSize: paperSize)
                 parts.append((detail.quotationNumber, detail.projectNumber, data))
             }
@@ -17673,7 +17778,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let paper = company.paperSize ?? "A4"
         guard let pages = quotationPDFData(detail, signature: signature, chop: picture("chop")) else { fail("Could not prepare the document."); return }
         let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
-        let data = PDFAttachments.append(quotationAttachments(detail, withSubsidiaries: false), to: pages, paperSize: size)
+        let data = PDFAttachments.append(quotationAttachments(detail), to: pages, paperSize: size)
         let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: detail.projectNumber, subfolder: "Quotations",
