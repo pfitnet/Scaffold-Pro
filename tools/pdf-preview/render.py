@@ -24,6 +24,12 @@ def font(kind,size,bold=False,italic=False):
 def body(size=11,bold=False,italic=False): return font('b',size,bold,italic)
 def times(size,bold=False,italic=False): return font('t',size,bold,italic)
 def width(s,f): return f.getlength(s)/S
+# The references' colon column (as PDFGenerator.refColon): 478.5pt, or further
+# left — no further than just after the longest label — for a number too wide.
+def refColon(rows):
+    f=body(11); wide=max([width(v,f) for _,v in rows if ' ' not in v and '\n' not in v] or [0])
+    if wide<=66: return 478.5
+    return max(401.25+max(width(l,f) for l,_ in rows)+6, 550.5-6-wide)
 
 class Gen:
     def __init__(s): s.pages=[]; s.cursor=0; s.pageNumber=0; s.onNewPage=set(); s.split=set(); s.headH=24.1; s.below=5.2; s.receiptOnNewPage=False
@@ -94,13 +100,13 @@ class Gen:
     def opening(s,doc):
         left=s.clientBlock(doc)
         for i,(l,f) in enumerate(left): s.text(l,47.75,104.25+i*15.75,f)
-        n=0
+        n=0; colon=refColon(doc['refRows'])
         for lab,val in doc['refRows']:
-            b=104.25+n*15.75; s.text(lab,401.25,b,body(11)); s.text(':',478.5,b,body(11))
-            vl=s.wrap(val,body(11),66)
+            b=104.25+n*15.75; s.text(lab,401.25,b,body(11)); s.text(':',colon,b,body(11))
+            vl=s.wrap(val,body(11),550.5-colon-6)
             if len(vl)<=1: s.text(val,550.5,b,body(11),align='right'); n+=1
             else:
-                for j,l in enumerate(vl): s.text(l,484.5,104.25+(n+j)*15.75,body(11))
+                for j,l in enumerate(vl): s.text(l,colon+6,104.25+(n+j)*15.75,body(11))
                 n+=len(vl)
         clientLast=104.25+(max(len(left),1)-1)*15.75; refLast=104.25+(max(n,1)-1)*15.75
         if doc.get('deliveryMethod'):

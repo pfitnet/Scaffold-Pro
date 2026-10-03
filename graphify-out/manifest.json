@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/docx-export.js": {
-    "mtime": 1791049488.006341,
-    "seen": 1791049865.3038812,
-    "ast_hash": "ab68cd223224803d1a8ffe3a69a0519b",
+    "mtime": 1791051369.2195745,
+    "seen": 1791051430.236005,
+    "ast_hash": "a6a3a2845dc7afd785a0551ade8654ed",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/drag-reorder.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791049299.099875,
-    "seen": 1791049865.3039126,
-    "ast_hash": "409bf157ac33e4dbc866cd0191baedfa",
+    "mtime": 1791051369.2159564,
+    "seen": 1791051430.2360349,
+    "ast_hash": "2b2fa5589e0b6d4a3bfe018dcba465dd",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "tools/pdf-preview/render.py": {
-    "mtime": 1790859344.045675,
-    "seen": 1790859822.4402263,
-    "ast_hash": "797617ed0e31166cbb1532bf8ce7c6a4",
+    "mtime": 1791051385.397055,
+    "seen": 1791051430.236039,
+    "ast_hash": "eccac68cf091d5f7ce52c743df035ab8",
     "semantic_hash": ""
   },
   "tools/pdf-preview/sheet.py": {
@@ -228,10 +228,10 @@
     "semantic_hash": ""
   },
   "tools/pdf-preview/word.py": {
-    "mtime": 1790687059.8602579,
-    "seen": 1790736804.3727412,
-    "ast_hash": "447cdf1ac5fe36c36fba8c5c5c2aa99d",
-    "semantic_hash": "447cdf1ac5fe36c36fba8c5c5c2aa99d"
+    "mtime": 1791051385.397689,
+    "seen": 1791051430.2360413,
+    "ast_hash": "1374fb5a4266e9688fb1b35dd6ed065d",
+    "semantic_hash": ""
   },
   "CLAUDE.md": {
     "mtime": 1790733964.0334384,
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791049858.1577058,
-    "seen": 1791049865.303922,
-    "ast_hash": "860109374c2810c2e44dac84f7f7f7a6",
+    "mtime": 1791051422.106044,
+    "seen": 1791051430.236044,
+    "ast_hash": "d2f11b8a15a285a3921510a4b887ef30",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
