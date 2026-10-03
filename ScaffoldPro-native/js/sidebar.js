@@ -532,3 +532,12 @@ window.refreshChatBadge = async function refreshChatBadge() {
 };
 if (!window.__chatBadgeTimer) window.__chatBadgeTimer = setInterval(() => window.refreshChatBadge(), 20000);
 window.refreshChatBadge();
+
+// Motion on every page: page in/out, sliding markers, counting numbers,
+// the light on cards, ripples (js/motion.js).
+(function loadMotion() {
+  if (document.querySelector('script[src$="js/motion.js"]')) return;
+  const s = document.createElement('script');
+  s.src = 'js/motion.js';
+  (document.head || document.documentElement).appendChild(s);
+})();

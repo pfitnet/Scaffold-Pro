@@ -137,3 +137,9 @@
 .gif-key-row { display: flex; gap: 6px; margin: 8px 0; }
 .gif-key-row input { flex: 1; }
 @media (max-width: 900px) { .chat-shell { grid-template-columns: 220px minmax(0, 1fr); } }
+
+/* Motion: rows ease in their highlight, the avatar leans in on hover. */
+.conv { transition: background-color .18s var(--ease, ease); }
+.conv-avatar { transition: transform .3s var(--spring, ease), box-shadow .3s var(--ease, ease); }
+.conv:hover:not(:disabled) .conv-avatar { transform: scale(1.06); box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .45); }
+.conv.active .conv-avatar { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent); }

@@ -3158,3 +3158,37 @@ Every form control is now drawn by the app instead of macOS, on every page
   "s1"). Now the colons move left just enough (never past the longest
   label) and the number stays whole, right-aligned as before; numbers that
   fit leave the layout exactly as it was. The Word copy follows the PDF.
+
+## Batch 136 — A new look for every page
+
+- **Design system v2.** New colours, depth and type for light and dark:
+  a softer background with a faint accent wash, cards with layered
+  shadows, a blue-violet gradient for primary buttons, rounder corners,
+  and larger page titles whose ink fades into the accent colour.
+- **Sidebar.** Frosted glass. The selection marker slides from the page
+  you left to the page you opened. Icons lean in on hover.
+- **Motion everywhere** (js/motion.js, loaded on every page by the
+  sidebar):
+  - pages rise in section by section when they open, and fade as you
+    leave;
+  - a line slides under the chosen tab, and a pill slides under the
+    chosen option of a switch (e.g. Week / Month, Appearance);
+  - numbers on stat cards count up to their value;
+  - cards catch a soft light where the pointer is;
+  - buttons ripple where they're pressed.
+  
+  All of it switches off with System Settings › Accessibility › Reduce
+  motion.
+- **Components.**
+  - Tables: quiet uppercase headers, and an accent bar on the row under
+    the pointer.
+  - Stat cards lift, with a gradient edge.
+  - Status pills carry a dot.
+  - Dialogs spring in over a blurred background.
+  - Forms glow while you type in them.
+  - Empty lists show a floating inbox.
+- **Settings.** The sections are cards: an accent edge marks the open
+  one, its chevron turns, and its contents slide in. The Appearance
+  switch matches the rest of the app.
+- **Projects.** New Project lines up with the title.
+- **Chat.** Avatars lean in on hover and the open chat is ringed.
