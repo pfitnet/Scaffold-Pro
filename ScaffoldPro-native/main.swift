@@ -6206,7 +6206,7 @@ final class AppDatabase {
                 summary.charges = totals.charges
                 summary.createdBy = names[q.id]?.createdBy
                 summary.lastEditedBy = names[q.id]?.lastEditedBy
-                if let parent = q.parentQuotationId.flatMap({ pid in all.first { $0.id == pid } }) {
+                if let parent = parentQuotation(of: q, in: all) {
                     summary.parentId = parent.id
                     summary.parentNumber = parent.quotationNumber
                 }
@@ -6859,9 +6859,9 @@ final class AppDatabase {
         detail.lineSort = q.lineSort ?? "list"
         detail.sourceBOQStatus = sourceBOQ?.status
         let all = quotationsStore.readAll()
-        detail.parent = q.parentQuotationId.flatMap { pid in all.first { $0.id == pid } }
+        detail.parent = parentQuotation(of: q, in: all)
             .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
-        detail.subsidiaries = all.filter { $0.parentQuotationId == q.id }.sorted { $0.quotationNumber < $1.quotationNumber }
+        detail.subsidiaries = all.filter { parentQuotation(of: $0, in: all)?.id == q.id }.sorted { $0.quotationNumber < $1.quotationNumber }
             .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
         return detail
     }
@@ -7305,6 +7305,17 @@ final class AppDatabase {
     /// it isn't linked to this one — each is changed on its own — but is
     /// listed under it as its subsidiary. The delivery schedule and the
     /// drawings stay here.
+    /// The quotation `q` was split off: by its link — or, should the link be
+    /// missing (e.g. the record was saved by an older copy of the app, on
+    /// another Mac sharing the data, which drops fields it doesn't know),
+    /// by its number: Qt26210-004-s1 → Qt26210-004 in the same project.
+    func parentQuotation(of q: Quotation, in all: [Quotation]) -> Quotation? {
+        if let pid = q.parentQuotationId, let parent = all.first(where: { $0.id == pid }) { return parent }
+        guard let r = q.quotationNumber.range(of: #"-s\d+$"#, options: .regularExpression) else { return nil }
+        let base = String(q.quotationNumber[..<r.lowerBound])
+        return all.first { $0.id != q.id && $0.projectId == q.projectId && $0.quotationNumber == base }
+    }
+
     /// A subsidiary's number: its parent's with "-s1", "-s2"… (Qt26212-007-s1).
     func subsidiaryNumber(of parentNumber: String) -> String {
         let used = Set(quotationsStore.readAll().map { $0.quotationNumber.lowercased() })
@@ -7319,7 +7330,7 @@ final class AppDatabase {
     /// Quotations split off the subsidiary move up to its parent.
     func revertQuotationSplit(id: String) -> QuotationSplitResult {
         guard let q = getQuotation(id: id) else { return QuotationSplitResult(ok: false, error: "Quotation not found.") }
-        guard let parent = q.parentQuotationId.flatMap({ getQuotation(id: $0) }) else {
+        guard let parent = parentQuotation(of: q, in: quotationsStore.readAll()) else {
             return QuotationSplitResult(ok: false, error: "The quotation this was split off is no longer there.")
         }
         guard q.status == "Draft" else {
@@ -7358,7 +7369,8 @@ final class AppDatabase {
         }
         quotationLineItemsStore.writeAll(lines)
         var qs = quotationsStore.readAll()
-        for i in qs.indices where qs[i].parentQuotationId == q.id { qs[i].parentQuotationId = parent.id }
+        let children = Set(qs.filter { parentQuotation(of: $0, in: qs)?.id == q.id }.map { $0.id })
+        for i in qs.indices where children.contains(qs[i].id) { qs[i].parentQuotationId = parent.id }
         quotationsStore.writeAll(qs)
         touchQuotation(parent.id)
         _ = deleteQuotation(id: q.id)
