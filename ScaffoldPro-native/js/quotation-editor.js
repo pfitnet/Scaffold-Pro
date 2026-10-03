@@ -962,10 +962,10 @@ async function init() {
   window.hoverMenu.attach(document.getElementById('add-section-btn'), {
     minWidth: 280,
     items: () => [
-      { label: 'Delivery Charge', sub: 'Priced by the materials’ weight (Settings › Quotations)', value: 'add-delivery-btn' },
-      { label: 'Priced Section', sub: 'Rows added to the total, e.g. Design Fees', value: 'add-priced-btn' },
+      { label: 'Delivery Charges', sub: 'Priced by the materials’ weight (Settings › Quotations)', value: 'add-delivery-btn' },
+      { label: 'Priced Sections', sub: 'Rows added to the total, e.g. Design Fees', value: 'add-priced-btn' },
       { label: 'Standard Manpower Rates', sub: 'Rates after the total, from Settings › Standard Quotation', value: 'add-standard-rates-btn' },
-      { label: 'Note', sub: 'A note across the table, after the total', value: 'add-note-btn' },
+      { label: 'Notes', sub: 'A note across the table, after the total', value: 'add-note-btn' },
     ],
     onPick: (id) => document.getElementById(id).click(),
   });
