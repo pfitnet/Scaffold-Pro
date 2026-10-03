@@ -873,6 +873,51 @@ function runQuickAction(action) {
   }
 }
 
+// The Overview's panels, arranged as on the Dashboard (Customise). An
+// arrangement is kept for this project, or for every project (which
+// replaces any project's own); kept on this Mac.
+const LAYOUT_ALL = 'project.layout';
+const layoutKey = () => `${LAYOUT_ALL}:${currentProject.projectNumber}`;
+function setupOverviewLayout() {
+  const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const svg = (paths) => SVG(paths, 18);
+  window.setupWidgets(document.getElementById('pd-overview'), document.getElementById('pd-customise-btn'), null, {
+    place: 'Overview',
+    about: {
+      details: [svg(PD_ICONS.hash), 'Number, status, client, site and dates'],
+      actions: [svg('<path d="M11 2.5 4.5 11H10l-1 6.5L15.5 9H10z"/>'), 'Start a BOQ, quotation, task…'],
+      activity: [svg('<path d="M2.5 10h3l2-5 3 10 2-5h5"/>'), 'What was done lately'],
+      notes: [svg('<rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 7h6M7 10h6M7 13h4"/>'), 'Description and internal notes'],
+    },
+    load: () => read(layoutKey()) || read(LAYOUT_ALL),
+    choices: [
+      { label: 'For this project', sub: `Only ${currentProject.projectNumber} looks like this`, value: 'project' },
+      { label: 'For all projects', sub: 'Every project looks like this, including ones arranged on their own', value: 'all' },
+    ],
+    store: (layout, scope) => {
+      try {
+        if (scope === 'all') {
+          localStorage.setItem(LAYOUT_ALL, JSON.stringify(layout));
+          // Projects arranged on their own follow it too.
+          const own = [];
+          for (let i = 0; i < localStorage.length; i += 1) { const k = localStorage.key(i); if (k && k.startsWith(`${LAYOUT_ALL}:`)) own.push(k); }
+          own.forEach((k) => localStorage.removeItem(k));
+        } else {
+          localStorage.setItem(layoutKey(), JSON.stringify(layout));
+        }
+      } catch (e) { /* ignore */ }
+      // Said for a few seconds at the bottom right.
+      const note = document.createElement('div');
+      note.className = 'sync-toast';
+      note.setAttribute('role', 'status');
+      note.textContent = scope === 'all' ? 'Every project’s Overview now looks like this.' : `Kept for project ${currentProject.projectNumber}.`;
+      document.body.appendChild(note);
+      requestAnimationFrame(() => note.classList.add('show'));
+      setTimeout(() => { note.classList.remove('show'); setTimeout(() => note.remove(), 400); }, 3500);
+    },
+  });
+}
+
 // Recent activity as a timeline: a dot per entry down a line, newest first.
 function activityTimeline(list) {
   if (!list.length) return '<div class="empty-inline">No activity recorded yet.</div>';
@@ -961,6 +1006,7 @@ async function init() {
   setupDeliveryNoteSheet();
   renderQuickActions();
   document.querySelector('.pd-all-history').addEventListener('click', () => showTab('history'));
+  setupOverviewLayout();
 
   const statusSelect = document.getElementById('status-select');
   statusSelect.innerHTML = STATUSES.map((s) => `<option value="${s}" ${s === project.status ? 'selected' : ''}>${s}</option>`).join('');

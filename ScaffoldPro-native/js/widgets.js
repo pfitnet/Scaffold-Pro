@@ -13,6 +13,20 @@
 //   window.setupWidgets(grid, button, userName);
 //
 // A panel's starting width is its data-span (1–4 quarters; 2 if not given).
+//
+// Another page's panels (a project's Overview) can be arranged the same way,
+// with the changes kept only when they're confirmed:
+//
+//   window.setupWidgets(grid, button, null, {
+//     place: 'Overview',                 // the words "on the Overview"
+//     about: { id: [iconSVG, 'what it is'] },
+//     load: () => layout | null,
+//     choices: [{ label, sub, value }],  // "Change ▾" lists these
+//     store: (layout, value) => …,       // a choice was picked
+//   });
+//
+// While arranging, Cancel puts the panels back as they were, and Change
+// (resting on it, or a click) lists where to keep the new arrangement.
 
 (function () {
   const svg = (p) => `<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -33,6 +47,9 @@
     attention: [svg('<path d="M10 3 2.5 16.5h15z"/><path d="M10 8v4M10 14.5v.01"/>'), 'Certificates expiring'],
   };
   const COLS = 4;
+  // The page's own settings (the Dashboard's when none are given).
+  let opts = { place: 'Dashboard', about: ABOUT };
+  const aboutOf = (id) => (opts.about && opts.about[id]) || ABOUT[id] || ['', ''];
   const SIZE_NAME = { 1: '¼ width', 2: '½ width', 3: '¾ width', 4: 'Full width' };
   let grid = null;
   let tray = null;
@@ -45,6 +62,12 @@
   const customising = () => grid.classList.contains('customising');
 
   function load() {
+    if (opts.load) {
+      let saved = null;
+      try { saved = opts.load(); } catch (e) { saved = null; }
+      layout = Object.assign({ order: [], hidden: [], span: {} }, saved || {});
+      return;
+    }
     try { layout = Object.assign({ order: [], hidden: [], span: {} }, JSON.parse(localStorage.getItem(key) || '{}')); } catch (e) { /* default */ }
     // Layouts saved before widths came in quarters: "wide" was full width.
     if (Array.isArray(layout.wide)) {
@@ -52,8 +75,11 @@
       delete layout.wide;
     }
   }
+  // The Dashboard keeps each change at once; a page with `store` keeps
+  // them only when Change is picked.
   function save() {
     layout.order = widgets().map((w) => w.dataset.widget);
+    if (opts.store) return;
     try { localStorage.setItem(key, JSON.stringify(layout)); } catch (e) { /* ignore */ }
   }
 
@@ -90,7 +116,7 @@
     el.innerHTML = `<span class="widget-grip" title="Drag to move — or into the Widgets tray to take it off">${GRIP}</span>
       <span class="widget-name">${w.dataset.title || w.dataset.widget}</span>
       <span class="widget-size-label" title="Drag the right edge to change the width">${SIZE_NAME[spanOf(w)]}</span>
-      <button class="widget-remove" data-no-icon title="Take it off the Dashboard (it goes to the Widgets tray)" aria-label="Remove">${CROSS}</button>`;
+      <button class="widget-remove" data-no-icon title="Take it off the ${opts.place} (it goes to the Widgets tray)" aria-label="Remove">${CROSS}</button>`;
     el.querySelector('.widget-remove').addEventListener('click', () => { setHidden(w, true); save(); refresh(); });
     // The whole bar is the handle.
     el.addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) startDrag(e, w); });
@@ -128,13 +154,13 @@
     }
     const off = widgets().filter((w) => w.classList.contains('widget-off'));
     tray.innerHTML = `<div class="tray-head"><div class="tray-title">Widgets</div>
-      <div class="tray-sub">Drag one onto the Dashboard to add it. Drag a panel here to take it off.</div></div>
+      <div class="tray-sub">Drag one onto the ${opts.place} to add it. Drag a panel here to take it off.</div></div>
       <div class="tray-list">${off.length ? off.map((w) => {
-        const [icon, about] = ABOUT[w.dataset.widget] || ['', ''];
-        return `<div class="tray-card" data-for="${w.dataset.widget}" title="Drag onto the Dashboard — or click to add it at the end">
+        const [icon, about] = aboutOf(w.dataset.widget);
+        return `<div class="tray-card" data-for="${w.dataset.widget}" title="Drag onto the ${opts.place} — or click to add it at the end">
           <span class="tray-icon">${icon}</span><span class="tray-text"><b>${w.dataset.title || w.dataset.widget}</b><small>${about}</small></span>
           <span class="tray-grip">${GRIP}</span></div>`;
-      }).join('') : '<div class="tray-empty">Every widget is on the Dashboard.</div>'}</div>
+      }).join('') : `<div class="tray-empty">Every widget is on the ${opts.place}.</div>`}</div>
       <div class="tray-drop">Drop here to take it off</div>`;
     for (const card of tray.querySelectorAll('.tray-card')) {
       const w = widgets().find((x) => x.dataset.widget === card.dataset.for);
@@ -198,7 +224,7 @@
     const scroller = grid.closest('#content') || document.scrollingElement;
     const ghost = document.createElement('div');
     ghost.className = 'widget-ghost';
-    const [icon] = ABOUT[w.dataset.widget] || [''];
+    const [icon] = aboutOf(w.dataset.widget);
     ghost.innerHTML = `${icon}<span>${w.dataset.title || w.dataset.widget}</span>`;
     const marker = document.createElement('div');
     marker.className = 'widget-drop-marker';
@@ -406,8 +432,69 @@
   let packing = 0;
   const repack = () => { cancelAnimationFrame(packing); packing = requestAnimationFrame(pack); };
 
-  window.setupWidgets = function setupWidgets(gridEl, button, userName) {
+  // Arranging with Cancel and Change: nothing is kept until a Change choice
+  // is picked; Cancel (or Escape) puts back the arrangement from before.
+  function stagedEditing(button) {
+    let before = null;
+    let cancelBtn = null;
+    let changeBtn = null;
+    const stop = () => {
+      grid.classList.remove('customising');
+      if (cancelBtn) cancelBtn.remove();
+      if (changeBtn) changeBtn.remove();
+      cancelBtn = changeBtn = null;
+      button.classList.remove('hidden');
+      document.removeEventListener('keydown', onKey, true);
+      refresh();
+    };
+    const cancel = () => {
+      layout = JSON.parse(before);
+      apply();
+      stop();
+    };
+    function onKey(e) {
+      if (e.key === 'Escape' && !(window.hoverMenu && window.hoverMenu.isOpen()) && !document.querySelector('.app-dialog-backdrop')) { e.preventDefault(); cancel(); }
+    }
+    button.addEventListener('click', () => {
+      if (customising()) return;
+      layout.order = widgets().map((w) => w.dataset.widget);
+      before = JSON.stringify(layout);
+      grid.classList.add('customising');
+      button.classList.add('hidden');
+      cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.dataset.noIcon = '';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.title = `Put the ${opts.place}’s panels back as they were`;
+      cancelBtn.addEventListener('click', cancel);
+      changeBtn = document.createElement('button');
+      changeBtn.type = 'button';
+      changeBtn.dataset.noIcon = '';
+      changeBtn.className = 'primary widgets-change';
+      changeBtn.textContent = 'Change';
+      button.insertAdjacentElement('afterend', changeBtn);
+      button.insertAdjacentElement('afterend', cancelBtn);
+      if (window.hoverMenu) {
+        window.hoverMenu.attach(changeBtn, {
+          heading: 'Keep this arrangement',
+          minWidth: 240,
+          align: 'right',
+          items: () => opts.choices || [],
+          onPick: (value) => {
+            layout.order = widgets().map((w) => w.dataset.widget);
+            try { opts.store(JSON.parse(JSON.stringify(layout)), value); } catch (e) { /* ignore */ }
+            stop();
+          },
+        });
+      }
+      document.addEventListener('keydown', onKey, true);
+      refresh();
+    });
+  }
+
+  window.setupWidgets = function setupWidgets(gridEl, button, userName, options) {
     grid = gridEl;
+    opts = Object.assign({ place: 'Dashboard', about: ABOUT }, options || {});
     key = `dashboard.layout:${(userName || '').toLowerCase()}`;
     load();
     apply();
@@ -420,6 +507,7 @@
     for (const w of widgets()) new MutationObserver(repack).observe(w, { attributes: true, attributeFilter: ['class'] });
     window.addEventListener('resize', repack);
     repack();
+    if (opts.store) { stagedEditing(button); return; }
     button.addEventListener('click', () => {
       const on = !customising();
       grid.classList.toggle('customising', on);
