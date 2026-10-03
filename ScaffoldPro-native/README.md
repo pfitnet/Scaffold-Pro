@@ -3101,3 +3101,29 @@ Every form control is now drawn by the app instead of macOS, on every page
   backup is tried again 15 minutes later, and Settings shows the last
   automatic backup and any problem.
 - The iCloud copy also asks iCloud for files that are only in the cloud.
+
+## Batch 133 — Tasks, redesigned
+
+- **Hero:** "Good afternoon, William" with the date, today in a sentence
+  ("You have 1 task due today and 1 overdue"), counters that count up (open
+  for you, due today, overdue, across the team) and a ring showing how much
+  of today's work is done — on a soft, slowly drifting colour wash.
+- **Quick add:** type a task the way you'd say it — "Send revised BOQ to
+  Mr. Law tomorrow 3pm @Tom #26212 !high" — and it picks out the day
+  (today, tomorrow, Fri, next week, in 3 days, 5/10, 5 Oct), the time, the
+  person, the project and the priority, shown as chips as you type; Return
+  adds it (it glows in). **More…** opens the full form with what's typed.
+  Press **N** anywhere on the page to start one, **/** to search.
+- **List:** cards grouped Overdue · Today · Tomorrow · This week · Later ·
+  No date (Done: Today · Yesterday · Earlier this week · Earlier), each
+  group folding away. A card shows the title, notes, a due chip (red when
+  late, "2 days late"), the project (its name slides out on hover) and who
+  it's for as an initials avatar in their colour. Ticking draws the check,
+  strikes the title through, gives a little burst of confetti and folds the
+  card away; on hover, ⟳ moves it to tomorrow and ✎ edits it.
+- **Side:** **This week** — a bar per day of what's due (click a day to see
+  just those) — and **Team load** — open tasks per person, overdue in red
+  (click a person to filter).
+- My Tasks / Everyone's / Done is a sliding segmented control with counts;
+  the chosen tab and folded groups are remembered. Light and dark; all motion
+  off with Reduce Motion. Each project's Tasks tab is unchanged.
