@@ -76,7 +76,8 @@ def layout(landscape, pricing, currency, info, lines, rates=None, charges=None, 
     else:
         totals = [cell(edges[0], edges[n - 1], 'Total Weight :', 28.99, 'center', 8.625)]
     totals.append(cell(edges[n - 1], edges[n], kg(total_kg), 12, 'right', 15.375))
-    rows.append(dict(kind='total', height=38.25, fill=None, repeats=False, cells=totals))
+    if lines or not (landscape and charges):  # no items but charges: no "Subtotal Amount : 0.00"
+        rows.append(dict(kind='total', height=38.25, fill=None, repeats=False, cells=totals))
     if landscape and charges:
         grand = total_money
         for i, (code, nm, amount) in enumerate(charges):

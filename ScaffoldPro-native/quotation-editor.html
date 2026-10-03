@@ -45,6 +45,10 @@
     .extra-title-row .block-prefix { width: 44px; }
     .extra-section table input { width: 100%; padding: 3px 6px; box-sizing: border-box; }
     .extra-section table .narrow { width: 64px; }
+    .delivery-section .line-desc { white-space: pre-line; min-width: 200px; }
+    #add-section-btn { display: inline-flex; align-items: center; gap: 6px; }
+    #add-section-btn::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
+    #add-section-btn.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
     .extra-section .rate-only { color: var(--text-secondary); font-style: italic; text-align: center; white-space: nowrap; }
     .extra-add-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
     .extra-add-row .add-desc { flex: 1; min-width: 160px; }
@@ -205,14 +209,21 @@
             </div>
           </details>
 
+          <!-- Delivery charges (D1, D2…): their own bracket under the items -->
+          <div id="delivery-section"></div>
+
           <!-- Extra sections, as on the company's quotations: priced rows
                (design fees, erection prices), rates-only rows, notes. -->
           <div id="extra-sections"></div>
+          <!-- "+ Add Section" lists them on hovering (js/hover-menu.js); the real buttons stay here, hidden. -->
           <div class="line-quick-add">
-            <button id="add-delivery-btn">+ Delivery Charge</button>
-            <button id="add-priced-btn" title="A titled section of priced rows added to the total, e.g. Design Fees or Erection &amp; Dismantle">+ Priced Section</button>
-            <button id="add-standard-rates-btn" title="Erection &amp; Dismantle Manpower Rates with the standard rates for Scaffolder CP, Scaffolder, Rigger and General Helper (Settings › Standard Quotation)">+ Standard Manpower Rates</button>
-            <button id="add-note-btn" title="A note across the table, after the total">+ Note</button>
+            <button type="button" id="add-section-btn" data-no-icon>+ Add Section</button>
+            <span class="hidden">
+              <button id="add-delivery-btn">+ Delivery Charge</button>
+              <button id="add-priced-btn">+ Priced Section</button>
+              <button id="add-standard-rates-btn">+ Standard Manpower Rates</button>
+              <button id="add-note-btn">+ Note</button>
+            </span>
           </div>
           <div class="totals-box" id="totals-box"></div>
 

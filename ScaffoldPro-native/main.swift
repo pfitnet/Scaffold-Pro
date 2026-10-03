@@ -11019,7 +11019,10 @@ enum BQSheet {
             totals.append(cell(edges[0], edges[n - 1], chinese ? "總重量 :" : "Total Weight :", 28.99, "center", 8.625))
         }
         totals.append(cell(edges[n - 1], edges[n], kg(totalWeightKg), 12, "right", 15.375))
-        rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
+        // No items but charges after them: no "Subtotal Amount : 0.00".
+        if !(lines.isEmpty && !shownCharges.isEmpty) {
+            rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
+        }
 
         // Amounts added after the subtotal (as on the company's sheet for
         // Mr. Law's container access platform): D1 Delivery, D2 Design
@@ -16245,7 +16248,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
                                 currency: currencySymbol(company), rateSuffix: { _ in isRental ? " /Month" : "" })
         var rows = priced.materials
-        if isRental {
+        // No items (only priced sections, say): no subtotal of them.
+        if isRental && !priced.materials.isEmpty {
             rows.append(.summary(label: "Subtotal of Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
             if detail.minimumMonthlyApplied {
                 rows.append(.summary(label: "Minimum Monthly Rental Charge:", value: formatMoney(detail.monthlyRental), emphasized: false))
