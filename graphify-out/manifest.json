@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1791034020.4323256,
-    "seen": 1791034056.7964664,
-    "ast_hash": "79610567ab065ca156471efb5b9c866f",
+    "mtime": 1791034253.517392,
+    "seen": 1791034286.3526056,
+    "ast_hash": "a2caa090689f2f0269a95de8887f82e9",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -162,9 +162,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
-    "mtime": 1791019945.0555093,
-    "seen": 1791020067.0330575,
-    "ast_hash": "257b80e0fcacf958974cfb2ecc23ab91",
+    "mtime": 1791034253.518592,
+    "seen": 1791034286.3526356,
+    "ast_hash": "e1e8f36cf8ab2ccd144d606677cb4f25",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/sidebar.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791034020.425036,
-    "seen": 1791034056.7965138,
-    "ast_hash": "8415dc2fd490887a7ff1a42208025eb0",
+    "mtime": 1791034217.2093241,
+    "seen": 1791034286.3526433,
+    "ast_hash": "4cd28f865a15e9c53aa0b5a111b27fa0",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791034051.3047287,
-    "seen": 1791034056.7965221,
-    "ast_hash": "31da0a1d67b3ece908e4bd799ec9c693",
+    "mtime": 1791034281.2327185,
+    "seen": 1791034286.3526518,
+    "ast_hash": "2b49db7244a43fcfef4dc3690f04ed80",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
-    "mtime": 1790954473.5028932,
-    "seen": 1790955026.4475093,
-    "ast_hash": "f25dbd16e587227a454655295af31a3e",
+    "mtime": 1791034253.5179744,
+    "seen": 1791034286.3526645,
+    "ast_hash": "1b58e4472fc8d6183950c7fc763c262d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/sites.html": {

@@ -269,6 +269,47 @@ async function refreshCloud() {
   renderCloud(await window.api.cloudBackup.status());
 }
 
+// ---------- Automatic (12:00) backups and the local copy ----------
+
+function renderAuto(s) {
+  if (!s) return;
+  const auto = document.getElementById('auto-status');
+  let text = s.running ? 'Backing up…'
+    : s.lastAt ? `Last automatic backup ${timeAgo(s.lastAt)}` : 'No automatic backup yet — one is made at the next 12:00, or soon after ScaffoldPro opens.';
+  if (s.lastError && !s.running) text += `${s.lastAt ? ' — ' : ' '}${s.lastError}`;
+  auto.textContent = text;
+  auto.classList.toggle('error', !!(s.lastError && !s.running));
+  const l = s.local;
+  const box = document.getElementById('local-copy');
+  box.classList.toggle('hidden', !(l && l.active));
+  if (!l || !l.active) return;
+  document.getElementById('local-folder').textContent = l.folder.replace(/^\/Users\/[^/]+\//, '~/');
+  document.getElementById('local-now-btn').disabled = l.running;
+  const st = document.getElementById('local-status');
+  let t = l.running ? 'Copying…'
+    : l.lastAt ? `Up to date — last copied ${timeAgo(l.lastAt)}${l.lastCopied ? ` (${l.lastCopied.toLocaleString('en-US')} file${l.lastCopied === 1 ? '' : 's'} copied)` : ''}`
+    : 'Waiting for the first copy…';
+  if (!l.running && l.waiting) t += ` · ${l.waiting.toLocaleString('en-US')} file${l.waiting === 1 ? '' : 's'} still downloading from iCloud`;
+  if (!l.running && l.lastError) t += ` — ${l.lastError}`;
+  st.textContent = t;
+  st.classList.toggle('error', !!(l.lastError && !l.running));
+}
+
+async function refreshAuto() {
+  if (window.api.backup.autoStatus) renderAuto(await window.api.backup.autoStatus());
+}
+
+function setupAutoBackups() {
+  document.getElementById('local-now-btn').addEventListener('click', async () => {
+    document.getElementById('local-status').textContent = 'Copying…';
+    document.getElementById('local-now-btn').disabled = true;
+    renderAuto(await window.api.backup.localCopyNow());
+  });
+  document.getElementById('local-reveal-btn').addEventListener('click', () => window.api.backup.revealLocalCopy());
+  refreshAuto();
+  setInterval(refreshAuto, 10000);
+}
+
 function setupCloudBackup() {
   document.getElementById('cloud-enabled').addEventListener('change', async (e) => {
     renderCloud(await window.api.cloudBackup.setEnabled(e.target.checked));
@@ -333,7 +374,7 @@ async function refreshBackups() {
       <td>${formatWhen(b.createdAt)}</td>
       <td>${kind}</td>
       <td class="num">${Number(b.projectCount).toLocaleString('en-US')}</td>
-      <td class="num">${Number(b.fileCount).toLocaleString('en-US')}</td>
+      <td class="num">${Number(b.fileCount).toLocaleString('en-US')}${b.skippedCount ? `<span class="skipped-note" title="Files that couldn't be copied then, e.g. still only in iCloud">${b.skippedCount} not copied</span>` : ''}</td>
       <td class="num">${formatBytes(b.totalBytes)}</td>
       <td><button class="reveal-btn" title="Show this backup in Finder">Locate File</button> <button class="restore-btn">Restore</button></td>`;
     tr.querySelector('.reveal-btn').addEventListener('click', () => window.api.backup.reveal(b.path));
@@ -580,6 +621,7 @@ async function init() {
   document.getElementById('show-data-folder-btn').addEventListener('click', () => window.api.backup.revealDataFolder());
 
   setupCloudBackup();
+  setupAutoBackups();
   setupTeam();
   await refreshBackups();
   await loadLocations();

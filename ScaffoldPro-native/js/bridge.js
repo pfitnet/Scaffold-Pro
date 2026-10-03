@@ -479,6 +479,10 @@
       chooseAndRestore: () => callNative('backup:chooseAndRestore'),
       reveal: (path) => callNative('backup:reveal', { path: path || '' }),
       revealDataFolder: () => callNative('backup:revealDataFolder'),
+      // The automatic (12:00) backups and, while sharing, the local copy in Documents › ScaffoldPro.
+      autoStatus: () => callNative('backup:autoStatus'),
+      localCopyNow: () => callNative('backup:localCopyNow'),
+      revealLocalCopy: () => callNative('backup:revealLocalCopy'),
     },
     workers: {
       list: (includeArchived) => callNative('workers:list', { includeArchived: !!includeArchived }),

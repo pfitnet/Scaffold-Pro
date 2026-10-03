@@ -997,6 +997,8 @@ struct BackupManifest: Codable {
     var projectCount: Int
     var fileCount: Int
     var totalBytes: Int64
+    /// Files that couldn't be copied (e.g. still only in iCloud then).
+    var skipped: [String]? = nil
 }
 
 struct BackupSummary: Codable {
@@ -1007,6 +1009,8 @@ struct BackupSummary: Codable {
     var projectCount: Int
     var fileCount: Int
     var totalBytes: Int64
+    /// How many files it couldn't copy (nil = none).
+    var skippedCount: Int? = nil
 }
 
 struct BackupResult: Codable {
@@ -12601,6 +12605,8 @@ final class BackupManager {
     private let db: AppDatabase
     private let storage: FileStorage
     private let fm = FileManager.default
+    /// What the last backup couldn't copy (shown in Settings).
+    private(set) var lastSkipped: [String] = []
 
     init(db: AppDatabase, storage: FileStorage) {
         self.db = db
@@ -12638,7 +12644,8 @@ final class BackupManager {
     private func summary(_ folder: URL, _ m: BackupManifest) -> BackupSummary {
         BackupSummary(
             name: folder.lastPathComponent, path: folder.path, createdAt: m.createdAt, kind: m.kind,
-            projectCount: m.projectCount, fileCount: m.fileCount, totalBytes: m.totalBytes
+            projectCount: m.projectCount, fileCount: m.fileCount, totalBytes: m.totalBytes,
+            skippedCount: m.skipped.map { $0.count }
         )
     }
 
@@ -12658,22 +12665,26 @@ final class BackupManager {
         do {
             try fm.copyItem(at: db.dataDir, to: working.appendingPathComponent("Database", isDirectory: true))
 
+            // The files one by one (the project folders may be in a shared
+            // iCloud folder): one that can't be copied — e.g. still only in
+            // iCloud — is noted and skipped instead of stopping the backup.
             var projectCount = 0
-            if fm.fileExists(atPath: storage.projectsRoot.path) {
-                try fm.copyItem(at: storage.projectsRoot, to: working.appendingPathComponent("Projects", isDirectory: true))
-                projectCount = ((try? fm.contentsOfDirectory(atPath: storage.projectsRoot.path)) ?? [])
-                    .filter { !$0.hasPrefix(".") }.count
+            var skipped: [String] = []
+            for (folder, name) in [(storage.projectsRoot, "Projects"), (storage.administrationRoot, "Administration")] where fm.fileExists(atPath: folder.path) {
+                let r = CloudBackupManager.mirrorFolder(folder, to: working.appendingPathComponent(name, isDirectory: true), since: nil)
+                skipped += r.failed
+                if r.waiting > 0 { skipped.append("\(r.waiting) file\(r.waiting == 1 ? "" : "s") in \(name) still only in iCloud (being downloaded)") }
             }
-            if fm.fileExists(atPath: storage.administrationRoot.path) {
-                try fm.copyItem(at: storage.administrationRoot, to: working.appendingPathComponent("Administration", isDirectory: true))
-            }
+            projectCount = ((try? fm.contentsOfDirectory(atPath: storage.projectsRoot.path)) ?? []).filter { !$0.hasPrefix(".") }.count
+            lastSkipped = skipped
 
             let stats = folderStats(working)
-            let manifest = BackupManifest(
+            var manifest = BackupManifest(
                 app: "ScaffoldPro", formatVersion: 1, createdAt: nowISO(), kind: kind,
                 sourceAppRoot: storage.appRoot.path, projectCount: projectCount,
                 fileCount: stats.files, totalBytes: stats.bytes
             )
+            manifest.skipped = skipped.isEmpty ? nil : skipped
             let config = working.appendingPathComponent("Configuration", isDirectory: true)
             try fm.createDirectory(at: config, withIntermediateDirectories: true)
             let encoder = JSONEncoder()
@@ -12980,7 +12991,7 @@ final class CloudBackupManager {
         var totals = (copied: 0, files: 0, bytes: Int64(0), failed: [String]())
         func mirror(_ source: URL, _ name: String) {
             guard fm.fileExists(atPath: source.path) else { return }
-            let r = mirrorFolder(source, to: root.appendingPathComponent(name, isDirectory: true), since: since)
+            let r = CloudBackupManager.mirrorFolder(source, to: root.appendingPathComponent(name, isDirectory: true), since: since)
             totals.copied += r.copied
             totals.files += r.files
             totals.bytes += r.bytes
@@ -13038,13 +13049,31 @@ final class CloudBackupManager {
     /// (or differs in size) into `destination`, keeping the folder layout.
     /// Nothing in `destination` is deleted. Files iCloud has moved off this
     /// Mac to save space (".name.icloud") count as there.
-    private func mirrorFolder(_ source: URL, to destination: URL, since: Date?) -> (copied: Int, files: Int, bytes: Int64, failed: [String]) {
+    /// A file iCloud keeps only in the cloud (".name.icloud") isn't copied
+    /// yet: iCloud is asked to bring it down, and it's counted in `waiting`
+    /// so the next run copies it.
+    static func mirrorFolder(_ source: URL, to destination: URL, since: Date?) -> (copied: Int, files: Int, bytes: Int64, failed: [String], waiting: Int) {
         let fm = FileManager.default
-        var result = (copied: 0, files: 0, bytes: Int64(0), failed: [String]())
-        let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
-        guard let walker = fm.enumerator(at: source, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { return result }
+        var result = (copied: 0, files: 0, bytes: Int64(0), failed: [String](), waiting: 0)
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
+        guard let walker = fm.enumerator(at: source, includingPropertiesForKeys: keys, options: []) else { return result }
         let base = source.standardizedFileURL.pathComponents.count
         for case let url as URL in walker {
+            let name = url.lastPathComponent
+            if name.hasPrefix(".") {
+                if name.hasSuffix(".icloud"), name.count > ".x.icloud".count - 1 {
+                    let real = url.deletingLastPathComponent().appendingPathComponent(String(name.dropFirst().dropLast(".icloud".count)))
+                    let out = url.standardizedFileURL.pathComponents.dropFirst(base).dropLast()
+                        .reduce(destination) { $0.appendingPathComponent($1) }.appendingPathComponent(real.lastPathComponent)
+                    if !fm.fileExists(atPath: out.path) {
+                        try? fm.startDownloadingUbiquitousItem(at: real)
+                        result.waiting += 1
+                    }
+                } else if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                    walker.skipDescendants()
+                }
+                continue
+            }
             guard let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true else { continue }
             let relative = url.standardizedFileURL.pathComponents.dropFirst(base)
             guard !relative.isEmpty else { continue }
@@ -13078,6 +13107,145 @@ final class CloudBackupManager {
             }
         }
         return result
+    }
+}
+
+// =====================================================================
+// MARK: - Local copy (while the files are in a shared folder)
+//
+// Sharing with other Macs moves the project files into the shared iCloud
+// folder, so Documents › ScaffoldPro (where they used to be) would stop
+// changing. Instead it's kept up to date as a local copy of everything —
+// Database, Projects, Administration, Configuration (so "Restore from
+// Folder…" can restore it) — the same way as the iCloud copy: only what
+// changed is copied, nothing is deleted from it, about a minute after a
+// save, every 15 minutes and when ScaffoldPro opens. Files that are still
+// only in iCloud are asked for and copied on a later run.
+// =====================================================================
+
+struct LocalCopyStatus: Codable {
+    /// Only while working from a shared folder.
+    var active: Bool
+    var folder: String
+    var lastAt: String?
+    var lastCopied: Int?
+    /// Files still only in iCloud, to be copied once they're down.
+    var waiting: Int?
+    var lastError: String?
+    var running: Bool
+}
+
+struct AutoBackupStatus: Codable {
+    /// The last automatic (12:00) backup, and its problem if any.
+    var lastAt: String?
+    var lastError: String?
+    var running: Bool
+    var local: LocalCopyStatus? = nil
+}
+
+final class LocalCopyManager {
+    private let db: AppDatabase
+    private let storage: FileStorage
+    private let queue = DispatchQueue(label: "ScaffoldPro.localCopy", qos: .utility)
+    private let defaults = UserDefaults.standard
+    private var timer: Timer?
+    private var pending: DispatchWorkItem?
+    private(set) var running = false
+    private enum Key {
+        static let lastAt = "localCopy.lastAt"
+        static let lastCopied = "localCopy.lastCopied"
+        static let waiting = "localCopy.waiting"
+        static let lastError = "localCopy.lastError"
+    }
+
+    /// Documents › ScaffoldPro.
+    let target: URL
+
+    init(db: AppDatabase, storage: FileStorage) {
+        self.db = db
+        self.storage = storage
+        target = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ScaffoldPro", isDirectory: true)
+    }
+
+    /// Working from a shared folder (not from Documents › ScaffoldPro itself).
+    var active: Bool { storage.appRoot.standardizedFileURL.path != target.standardizedFileURL.path }
+
+    func status() -> LocalCopyStatus {
+        let iso = ISO8601DateFormatter()
+        return LocalCopyStatus(active: active, folder: target.path,
+                               lastAt: (defaults.object(forKey: Key.lastAt) as? Double).map { iso.string(from: Date(timeIntervalSince1970: $0)) },
+                               lastCopied: defaults.object(forKey: Key.lastCopied) as? Int,
+                               waiting: defaults.object(forKey: Key.waiting) as? Int,
+                               lastError: defaults.string(forKey: Key.lastError), running: running)
+    }
+
+    func start() {
+        guard active else { return }
+        NotificationCenter.default.addObserver(forName: CloudBackupManager.dataSaved, object: nil, queue: .main) { [weak self] _ in
+            self?.schedule(after: 60)
+        }
+        timer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.copyNow() }
+        schedule(after: 30)
+    }
+
+    private func schedule(after seconds: TimeInterval) {
+        pending?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.copyNow() }
+        pending = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
+    /// Copies what changed (main thread; the copying runs in the background).
+    func copyNow(completion: ((LocalCopyStatus) -> Void)? = nil) {
+        guard active, !running else { completion?(status()); return }
+        running = true
+        let startedAt = Date()
+        let since = (defaults.object(forKey: Key.lastAt) as? Double).map { Date(timeIntervalSince1970: $0) }
+        let target = self.target
+        let sources = [(db.dataDir, "Database"), (storage.projectsRoot, "Projects"), (storage.administrationRoot, "Administration")]
+        let appRoot = storage.appRoot.path
+        queue.async { [weak self] in
+            let fm = FileManager.default
+            var copied = 0, files = 0, waiting = 0
+            var bytes: Int64 = 0
+            var failed: [String] = []
+            var error: String? = nil
+            do {
+                try fm.createDirectory(at: target, withIntermediateDirectories: true)
+                for (source, name) in sources where fm.fileExists(atPath: source.path) {
+                    // The database is small: always compared in full.
+                    let r = CloudBackupManager.mirrorFolder(source, to: target.appendingPathComponent(name, isDirectory: true),
+                                                            since: name == "Database" ? nil : since)
+                    copied += r.copied; files += r.files; bytes += r.bytes; waiting += r.waiting; failed += r.failed
+                }
+                let projects = target.appendingPathComponent("Projects", isDirectory: true)
+                let projectCount = ((try? fm.contentsOfDirectory(atPath: projects.path)) ?? []).filter { !$0.hasPrefix(".") }.count
+                let manifest = BackupManifest(app: "ScaffoldPro", formatVersion: 1, createdAt: nowISO(), kind: "Local copy",
+                                              sourceAppRoot: appRoot, projectCount: projectCount, fileCount: files, totalBytes: bytes)
+                let config = target.appendingPathComponent("Configuration", isDirectory: true)
+                try fm.createDirectory(at: config, withIntermediateDirectories: true)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(manifest).write(to: config.appendingPathComponent("manifest.json"), options: .atomic)
+                if !failed.isEmpty {
+                    error = "\(failed.count) file\(failed.count == 1 ? "" : "s") couldn't be copied, e.g. \(failed[0]). It will try again."
+                }
+            } catch let e {
+                error = e.localizedDescription
+            }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.running = false
+                if error == nil || !failed.isEmpty {
+                    self.defaults.set(startedAt.timeIntervalSince1970, forKey: Key.lastAt)
+                    self.defaults.set(copied, forKey: Key.lastCopied)
+                    self.defaults.set(waiting, forKey: Key.waiting)
+                }
+                if let error = error { self.defaults.set(error, forKey: Key.lastError) } else { self.defaults.removeObject(forKey: Key.lastError) }
+                completion?(self.status())
+            }
+        }
     }
 }
 
@@ -14183,6 +14351,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     let storage: FileStorage
     let backups: BackupManager
     let cloudBackup: CloudBackupManager
+    /// While the files are in a shared folder: Documents › ScaffoldPro kept as a local copy.
+    let localCopy: LocalCopyManager
     /// Only one backup or restore may run at a time.
     private var backupInProgress = false
     /// A parsed-but-not-yet-applied price import, keyed by the preview's
@@ -14195,6 +14365,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         self.storage = storage
         self.backups = BackupManager(db: db, storage: storage)
         self.cloudBackup = CloudBackupManager(db: db, storage: storage)
+        self.localCopy = LocalCopyManager(db: db, storage: storage)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -15264,6 +15435,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let days = (payload["days"] as? Int) ?? 30
             respond(id: id, encodable: db.expiringDocuments(withinDays: days))
 
+        case "backup:autoStatus":
+            respond(id: id, encodable: autoBackupStatus())
+        case "backup:localCopyNow":
+            localCopy.copyNow { [weak self] _ in
+                guard let self = self else { return }
+                self.respond(id: id, encodable: self.autoBackupStatus())
+            }
+        case "backup:revealLocalCopy":
+            NSWorkspace.shared.activateFileViewerSelecting([localCopy.target])
+            respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
         case "backup:list":
             respond(id: id, encodable: backups.listBackups())
         case "backup:locations":
@@ -17691,8 +17872,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     // are clones, so unchanged files take no extra disk space.
 
     private var scheduleTimer: Timer?
-    private var attemptedSlot: Date?
+    /// When it last tried: after a failure it tries again 15 minutes on,
+    /// not only at the next 12:00.
+    private var lastAttempt: Date?
     private static let lastScheduledKey = "backup.scheduled.lastSlot"
+    private static let lastScheduledAtKey = "backup.scheduled.lastAt"
+    private static let lastScheduledErrorKey = "backup.scheduled.lastError"
 
     func startScheduledBackups() {
         scheduleTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.runScheduledBackupIfDue() }
@@ -17710,21 +17895,45 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     private func runScheduledBackupIfDue() {
         let slot = NativeBridge.latestBackupSlot()
         let done = UserDefaults.standard.double(forKey: NativeBridge.lastScheduledKey)
-        guard done < slot.timeIntervalSince1970, attemptedSlot != slot, !backupInProgress else { return }
-        attemptedSlot = slot
+        guard done < slot.timeIntervalSince1970, !backupInProgress else { return }
+        if let last = lastAttempt, Date().timeIntervalSince(last) < 15 * 60 { return }
+        lastAttempt = Date()
         backupInProgress = true
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            let made = (try? self.backups.createBackup(kind: "Scheduled")) != nil
-            if made { self.backups.deleteOldScheduledBackups(olderThanDays: 7) }
+            var failure: String? = nil
+            do { _ = try self.backups.createBackup(kind: "Scheduled") } catch {
+                failure = (error as? BackupError)?.message ?? error.localizedDescription
+            }
+            if failure == nil { self.backups.deleteOldScheduledBackups(olderThanDays: 7) }
             DispatchQueue.main.async {
                 self.backupInProgress = false
-                if made {
-                    UserDefaults.standard.set(slot.timeIntervalSince1970, forKey: NativeBridge.lastScheduledKey)
+                let defaults = UserDefaults.standard
+                if let failure = failure {
+                    defaults.set(failure, forKey: NativeBridge.lastScheduledErrorKey)
+                    NSLog("ScaffoldPro: automatic backup failed: %@", failure)
+                } else {
+                    defaults.set(slot.timeIntervalSince1970, forKey: NativeBridge.lastScheduledKey)
+                    defaults.set(Date().timeIntervalSince1970, forKey: NativeBridge.lastScheduledAtKey)
+                    let skipped = self.backups.lastSkipped
+                    if skipped.isEmpty { defaults.removeObject(forKey: NativeBridge.lastScheduledErrorKey) }
+                    else { defaults.set("\(skipped.count) item\(skipped.count == 1 ? "" : "s") weren't copied, e.g. \(skipped[0]).", forKey: NativeBridge.lastScheduledErrorKey) }
                     self.db.logActivity(projectId: nil, "Automatic backup made")
                 }
             }
         }
+    }
+
+    /// Settings › Backup & Restore: the automatic backups and the local copy.
+    func autoBackupStatus() -> AutoBackupStatus {
+        let defaults = UserDefaults.standard
+        let at = defaults.object(forKey: NativeBridge.lastScheduledAtKey) as? Double
+        let iso = ISO8601DateFormatter()
+        var status = AutoBackupStatus(lastAt: at.map { iso.string(from: Date(timeIntervalSince1970: $0)) },
+                                      lastError: defaults.string(forKey: NativeBridge.lastScheduledErrorKey),
+                                      running: backupInProgress)
+        status.local = localCopy.status()
+        return status
     }
 
     private func handleCreateBackup(id: String) {
@@ -19004,6 +19213,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         }
         // Keep the shared iCloud copy up to date from now on.
         bridge.cloudBackup.start()
+        // Sharing a folder: Documents › ScaffoldPro kept up to date as a local copy.
+        bridge.localCopy.start()
         // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept a week).
         bridge.startScheduledBackups()
         // If the last update couldn't be put in place, say why.
