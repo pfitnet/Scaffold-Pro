@@ -2814,3 +2814,25 @@ Every form control is now drawn by the app instead of macOS, on every page
   and the Calendar shows each delivery day as a whole day.
 - `BQSheet.deliverySchedule` and `deliveryScheduleFile(kind:id:)` in
   main.swift; previewed with `tools/pdf-preview/sheet.py schedule [many]`.
+
+## Batch 115 — Newest bracket first; each kind of document has its colour
+
+- In the Dashboard's **My Recently Changed Documents**, the bracket with
+  the most recently changed document is at the top, so the brackets swap
+  places as you work. For example, a BOQ changed 5 minutes ago puts
+  BOQs above Quotations changed hours ago.
+- **Each kind of document has a muted colour**, so it can be found at a
+  glance. The colour shows only as a thin stripe or a small dot, never
+  as a fill, and is slightly lighter in dark mode. The colours:
+  - BOQs: sage teal;
+  - quotations: dusty blue;
+  - delivery notes: ochre;
+  - invoices: sage green;
+  - letters: lavender;
+  - drawings and documents: grey.
+- **Where the colours show:**
+  - Dashboard: the recent-documents brackets, and the rows of Unpaid
+    Invoices, Quotations Awaiting Reply and Delivery Notes;
+  - the Projects page: the BQ / Qt / DN / Inv chips;
+  - a project's page: the count tiles and the tabs.
+- `--doc-*` tokens and `.dk-*` classes in css/styles.css.

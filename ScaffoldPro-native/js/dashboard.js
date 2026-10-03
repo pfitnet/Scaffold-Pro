@@ -156,14 +156,15 @@ function limitList(box, total) {
   box.appendChild(moreButtons(box, showing, all, all - rows.length, () => limitList(box, total)));
 }
 
-function table(container, rows, columns, emptyText) {
+// rowClass: the rows' class, e.g. "dk-row dk-invoice" (the kind's colour stripe).
+function table(container, rows, columns, emptyText, rowClass = '') {
   const el = document.getElementById(container);
   if (rows.length === 0) {
     el.innerHTML = `<div class="empty-inline">${emptyText}</div>`;
     return;
   }
   el.innerHTML = `<table class="compact"><tbody>${rows.map((r) =>
-    `<tr class="link-row" data-url="${r.url}">${columns.map((c) => `<td class="${c.cls || ''}">${c.value(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    `<tr class="link-row${rowClass ? ` ${rowClass}` : ''}" data-url="${r.url}">${columns.map((c) => `<td class="${c.cls || ''}">${c.value(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   for (const tr of el.querySelectorAll('tr[data-url]')) {
     tr.addEventListener('click', () => { location.href = tr.dataset.url; });
   }
@@ -173,19 +174,24 @@ function table(container, rows, columns, emptyText) {
 // My recently changed documents, in a bracket per kind (Quotations,
 // BOQs, Delivery Notes, Invoices — only the kinds in the list). The 5 most
 // recent are shown; "Show 3 more" adds the next 3, bracketed the same way.
-const DOC_KINDS = [['Quotation', 'Quotations'], ['BOQ', 'BOQs'], ['Delivery Note', 'Delivery Notes'], ['Invoice', 'Invoices']];
-function renderRecentDocs(all) {
+// Each kind's heading and colour (css/styles.css, .dk-…).
+const DOC_KINDS = { 'Quotation': ['Quotations', 'dk-quotation'], 'BOQ': ['BOQs', 'dk-boq'], 'Delivery Note': ['Delivery Notes', 'dk-delivery'],
+  'Invoice': ['Invoices', 'dk-invoice'], 'Letter': ['Letters', 'dk-letter'] };
+// Brackets by kind, the one with the most recently changed document at
+// the top (they swap places as documents are changed).
+function renderRecentDocs(list) {
   const box = document.getElementById('recent-docs');
-  if (!all.length) { box.innerHTML = '<div class="empty-inline">None yet — documents you work on show here.</div>'; return; }
+  if (!list.length) { box.innerHTML = '<div class="empty-inline">None yet — documents you work on show here.</div>'; return; }
+  const at = (r) => String(r.lastEditedAt || r.updatedAt || '');
+  const all = list.slice().sort((a, b) => at(b).localeCompare(at(a)));
   const showing = Math.min(shownIn(box), all.length);
   const shown = all.slice(0, showing);
-  const known = DOC_KINDS.map(([k]) => k);
-  const kinds = DOC_KINDS.concat([...new Set(shown.map((r) => r.kind).filter((k) => !known.includes(k)))].map((k) => [k, k]));
+  const kinds = [...new Set(shown.map((r) => r.kind))];
   const before = Number(box.dataset.grow) || 0;
-  box.innerHTML = kinds.map(([kind, title]) => {
+  box.innerHTML = kinds.map((kind) => {
     const rows = shown.filter((r) => r.kind === kind);
-    if (!rows.length) return '';
-    return `<section class="doc-bracket"><div class="doc-bracket-head"><span>${esc(title)}</span><span class="doc-bracket-count">${rows.length}</span></div>
+    const [title, colour] = DOC_KINDS[kind] || [kind, ''];
+    return `<section class="doc-bracket ${colour}" data-kind="${esc(kind)}"><div class="doc-bracket-head"><span class="dk-label"><span class="dk-dot" aria-hidden="true"></span>${esc(title)}</span><span class="doc-bracket-count">${rows.length}</span></div>
       <table class="compact"><tbody>${rows.map((r) => `<tr class="link-row${before && shown.indexOf(r) >= before ? ' row-in' : ''}" data-url="${esc(r.url)}" style="animation-delay:${before ? Math.max(0, shown.indexOf(r) - before) * 45 : 0}ms">
         <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectNumber)}${r.projectName ? ` ${esc(r.projectName)}` : ''}</div>${madeBy(r)}</td>
         <td><span class="status-pill ${r.isOverdue ? 'pill-danger' : ''}">${esc(r.status)}</span></td>
@@ -228,7 +234,7 @@ function renderAwaitingQuotations(summary) {
     return;
   }
   list.innerHTML = `<table class="compact"><tbody>${rows.map((r) => `
-    <tr class="link-row quote-row" data-id="${esc(r.id)}" data-url="${esc(r.url)}" title="Drop the client’s signed copy (PDF or photo) here to file it">
+    <tr class="link-row quote-row dk-row dk-quotation" data-id="${esc(r.id)}" data-url="${esc(r.url)}" title="Drop the client’s signed copy (PDF or photo) here to file it">
       <td><strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>${madeBy(r)}</td>
       <td>${r.status === 'Invoiced'
         ? '<span class="status-pill pill-warning" title="Already invoiced — going ahead without a signed copy on file">Invoiced, not signed</span>'
@@ -335,7 +341,7 @@ async function loadDashboard() {
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.clientName || r.projectName)}</div>${madeBy(r)}` },
     { value: (r) => r.isOverdue ? `<span class="status-pill pill-danger">Overdue</span>` : `<span class="muted">Due ${day(r.dueDate)}</span>` },
     { cls: 'num', value: (r) => `${cur} ${money(r.balance)}` },
-  ], 'No unpaid invoices.');
+  ], 'No unpaid invoices.', 'dk-row dk-invoice');
 
   renderAwaitingQuotations(summary);
   setPanelCount('unpaid', unpaidCount);
@@ -357,7 +363,7 @@ async function loadDashboard() {
     { value: (r) => `<strong>${esc(r.number)}</strong><div class="sub">${esc(r.projectName)}</div>${madeBy(r)}` },
     { value: (r) => `<span class="status-pill">${esc(r.status)}</span>` },
     { cls: 'muted num', value: (r) => day(r.date) },
-  ], 'None yet — delivery notes you work on show here.');
+  ], 'None yet — delivery notes you work on show here.', 'dk-row dk-delivery');
 
   const activityRows = (list) => list.map((a) => Object.assign({ url: a.projectNumber ? `project-detail.html?number=${a.projectNumber}&tab=history` : 'index.html' }, a));
   table('activity-list', activityRows(summary.recentActivity), [
