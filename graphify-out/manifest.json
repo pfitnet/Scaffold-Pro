@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/boq-editor.js": {
-    "mtime": 1791022196.4093797,
-    "seen": 1791022772.8624604,
-    "ast_hash": "d9fb57297b5ae7a6a120eb4950b7c57f",
+    "mtime": 1791029862.9136524,
+    "seen": 1791029916.089892,
+    "ast_hash": "058042ebb90975d52da2eef5abfb5279",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791028926.3443244,
-    "seen": 1791029057.1961486,
-    "ast_hash": "c82e8684970e81236d12ef8fda1b45d7",
+    "mtime": 1791029862.9300091,
+    "seen": 1791029916.0899305,
+    "ast_hash": "b6f89c806f1e874c97580e4386d5ac63",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791029480.6385918,
-    "seen": 1791029483.2466974,
-    "ast_hash": "2dbd6fa55b03192f8210dccf6d845b69",
+    "mtime": 1791029910.2108352,
+    "seen": 1791029916.0899389,
+    "ast_hash": "36847bd81b6d98868099ad72cd789438",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/boq-editor.html": {
-    "mtime": 1791023427.0395641,
-    "seen": 1791023488.405099,
-    "ast_hash": "dddd439109c029ec172a7a1920104069",
+    "mtime": 1791029856.7102683,
+    "seen": 1791029916.089941,
+    "ast_hash": "3fa9bccc53a43957156625437a1f09d4",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/clients.html": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1791029462.3499014,
-    "seen": 1791029483.2467167,
-    "ast_hash": "c288d2f4c6129c54584e9a1f8b0e66e2",
+    "mtime": 1791029856.708019,
+    "seen": 1791029916.089951,
+    "ast_hash": "d070d7e890a39641da99fec4e5c84d2c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {

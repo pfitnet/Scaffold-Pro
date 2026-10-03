@@ -1324,6 +1324,8 @@ struct BOQSummary: Codable {
 }
 
 struct BOQDetail: Codable {
+    /// Delivery charges by weight (Settings), for "+ Add Section › Delivery Charges".
+    var deliveryRates: [DeliveryRate]? = nil
     /// The client's default markup (a hint in the editor), and its name.
     var clientMarkupPercent: Double? = nil
     var clientName: String? = nil
@@ -5656,6 +5658,7 @@ final class AppDatabase {
         let client = getClient(id: project.clientId)
         detail.clientMarkupPercent = client?.defaultMarkupPercent
         detail.clientName = client?.companyName
+        detail.deliveryRates = getCompanySettings().deliveryRates ?? defaultDeliveryRates
         detail.chineseNames = chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription })
         detail.terms = boq.terms.map { isLegacyBOQTerms($0) ? standardBOQTerms() : $0 }
         detail.signatureSection = boq.signatureSection == true

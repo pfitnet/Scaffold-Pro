@@ -2991,3 +2991,18 @@ Every form control is now drawn by the app instead of macOS, on every page
   whole line items column; resting on it lists **Delivery Charges**,
   **Priced Sections**, **Standard Manpower Rates** and **Notes**, in a list
   as wide as the button.
+
+## Batch 125 — BOQ editor: the same + Add Section button
+
+- Batch 124 changed only the quotation editor. The BOQ editor's "Added to
+  the total" (+ Section) and "Rates after the total" (+ Standard Manpower
+  Rates) boxes are gone until something is in them; under the total is the
+  same wide blue **+ Add Section** button, listing on hovering:
+  - **Delivery Charges** — the weight dialog (Settings › Quotations ›
+    delivery charges by weight), added as rows after the "Subtotal Amount",
+    e.g. "Delivery of materials @$3,300.00 / Truck / Trip × 2";
+  - **Priced Sections** — a "Design Fees" row added to the total;
+  - **Standard Manpower Rates** — the rates after the total from Settings
+    (with a rates section already, the standard rates it hasn't got);
+  - **Notes** — goes to the Notes box.
+- The button's style is shared (`button.add-section` in css/styles.css).
