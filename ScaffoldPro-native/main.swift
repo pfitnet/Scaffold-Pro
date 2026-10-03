@@ -2252,13 +2252,14 @@ func nextDocumentNumber(template rawTemplate: String, projectNumber: String, exi
 }
 
 /// The {SEQ} part of a number made from `template` — "004" from
-/// Qt26001-004 with "Qt{PROJECT}-{SEQ}", "004-2" from Qt26001-004-2 —
+/// Qt26001-004 with "Qt{PROJECT}-{SEQ}", "004-2" from Qt26001-004-2,
+/// "004-s1" from the subsidiary Qt26001-004-s1 —
 /// or nil when the number doesn't follow the template.
 func sequencePart(of number: String, template rawTemplate: String, projectNumber: String) -> String? {
     var template = rawTemplate.trimmingCharacters(in: .whitespacesAndNewlines)
     if !template.contains("{SEQ}") { template += "-{SEQ}" }
     let tokens: [(token: String, pattern: String)] = [
-        ("{PROJECT}", NSRegularExpression.escapedPattern(for: projectNumber)), ("{YYYY}", "\\d{4}"), ("{YY}", "\\d{2}"), ("{SEQ}", "(\\d+(?:-\\d+)*)"),
+        ("{PROJECT}", NSRegularExpression.escapedPattern(for: projectNumber)), ("{YYYY}", "\\d{4}"), ("{YY}", "\\d{2}"), ("{SEQ}", "(\\d+(?:-s?\\d+)*)"),
     ]
     var pattern = "^"
     var rest = Substring(template)
@@ -7304,12 +7305,73 @@ final class AppDatabase {
     /// it isn't linked to this one — each is changed on its own — but is
     /// listed under it as its subsidiary. The delivery schedule and the
     /// drawings stay here.
+    /// A subsidiary's number: its parent's with "-s1", "-s2"… (Qt26212-007-s1).
+    func subsidiaryNumber(of parentNumber: String) -> String {
+        let used = Set(quotationsStore.readAll().map { $0.quotationNumber.lowercased() })
+        var n = 1
+        while used.contains("\(parentNumber)-s\(n)".lowercased()) { n += 1 }
+        return "\(parentNumber)-s\(n)"
+    }
+
+    /// "Revert" on a subsidiary: every line and section goes back onto the
+    /// quotation it was split off (sections renamed A → B… where the letter
+    /// is taken there), and the subsidiary is deleted. Both must be drafts.
+    /// Quotations split off the subsidiary move up to its parent.
+    func revertQuotationSplit(id: String) -> QuotationSplitResult {
+        guard let q = getQuotation(id: id) else { return QuotationSplitResult(ok: false, error: "Quotation not found.") }
+        guard let parent = q.parentQuotationId.flatMap({ getQuotation(id: $0) }) else {
+            return QuotationSplitResult(ok: false, error: "The quotation this was split off is no longer there.")
+        }
+        guard q.status == "Draft" else {
+            return QuotationSplitResult(ok: false, error: "\(q.quotationNumber) is \(q.status.lowercased()). Only a draft subsidiary can be reverted; set it back to Draft first.")
+        }
+        guard parent.status == "Draft" else {
+            return QuotationSplitResult(ok: false, error: "\(parent.quotationNumber) is \(parent.status.lowercased()), so nothing can be added to it. Set it back to Draft first.")
+        }
+        // Its sections after the parent's, each with a letter not taken there.
+        let parentBlocks = quotationBlocks(for: parent.id)
+        var usedPrefixes = Set(parentBlocks.map { $0.prefix.uppercased() })
+        var blocks = quotationBlocksStore.readAll()
+        var order = (parentBlocks.map { $0.sortOrder }.max() ?? -1) + 1
+        for block in quotationBlocks(for: q.id) {
+            guard let i = blocks.firstIndex(where: { $0.id == block.id }) else { continue }
+            blocks[i].quotationId = parent.id
+            blocks[i].sortOrder = order
+            order += 1
+            if !block.prefix.isEmpty && usedPrefixes.contains(block.prefix.uppercased()) {
+                let letters = (block.kind == "Rates" ? "RSTUVWXYZ" : "ABCEFGHJKLMNPQ").map { String($0) }
+                if let free = letters.first(where: { !usedPrefixes.contains($0) }) { blocks[i].prefix = free }
+            }
+            usedPrefixes.insert(blocks[i].prefix.uppercased())
+        }
+        quotationBlocksStore.writeAll(blocks)
+        // Its lines after the parent's.
+        var lines = quotationLineItemsStore.readAll()
+        var next = (lines.filter { $0.quotationId == parent.id && $0.blockId == nil }.map { $0.sortOrder }.max() ?? -1) + 1
+        let moved = lines.filter { $0.quotationId == q.id }.count
+        for i in lines.indices where lines[i].quotationId == q.id {
+            lines[i].quotationId = parent.id
+            if lines[i].blockId == nil {
+                lines[i].sortOrder = next
+                next += 1
+            }
+        }
+        quotationLineItemsStore.writeAll(lines)
+        var qs = quotationsStore.readAll()
+        for i in qs.indices where qs[i].parentQuotationId == q.id { qs[i].parentQuotationId = parent.id }
+        quotationsStore.writeAll(qs)
+        touchQuotation(parent.id)
+        _ = deleteQuotation(id: q.id)
+        logActivity(projectId: parent.projectId, "Subsidiary \(q.quotationNumber) reverted — its \(moved) line(s) are back on it", reference: parent.quotationNumber)
+        return QuotationSplitResult(ok: true, error: nil, id: parent.id, number: parent.quotationNumber)
+    }
+
     func splitQuotation(id: String, lineIds: [String], blockIds: [String]) -> QuotationSplitResult {
         guard let q = getQuotation(id: id) else { return QuotationSplitResult(ok: false, error: "Quotation not found.") }
         guard q.status == "Draft" else {
             return QuotationSplitResult(ok: false, error: "Only a draft quotation can be split. Set it back to Draft first.")
         }
-        guard let project = projectsStore.readAll().first(where: { $0.id == q.projectId }) else {
+        guard projectsStore.readAll().contains(where: { $0.id == q.projectId }) else {
             return QuotationSplitResult(ok: false, error: "Project not found.")
         }
         let items = quotationLineItems(for: id)
@@ -7331,7 +7393,7 @@ final class AppDatabase {
 
         var split = Quotation(
             id: makeId("quotation"), projectId: q.projectId, sourceBOQId: nil,
-            quotationNumber: nextQuotationNumber(projectNumber: project.projectNumber, projectId: q.projectId),
+            quotationNumber: subsidiaryNumber(of: q.quotationNumber),
             status: "Draft", quotationDate: nowISO(), pricingMode: q.pricingMode, validUntil: q.validUntil,
             paymentTerms: q.paymentTerms, discountType: "None", discountValue: 0, taxRatePercent: q.taxRatePercent,
             notes: q.notes, createdAt: nowISO(), updatedAt: nowISO())
@@ -14467,6 +14529,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.splitQuotation(id: (payload["id"] as? String) ?? "",
                                                          lineIds: (payload["lineIds"] as? [String]) ?? [],
                                                          blockIds: (payload["blockIds"] as? [String]) ?? []))
+        case "quotations:revertSplit":
+            respond(id: id, encodable: db.revertQuotationSplit(id: (payload["id"] as? String) ?? ""))
         case "quotations:removeBlock":
             let error = db.removeQuotationBlock(id: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))

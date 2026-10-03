@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1791028981.0882025,
-    "seen": 1791029057.1961017,
-    "ast_hash": "6633fc5f1893a45c3c52d9fc0baf48ca",
+    "mtime": 1791030032.2868738,
+    "seen": 1791030079.719429,
+    "ast_hash": "2557e2b095bdb23f15364ced0f7a9349",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791029462.3522534,
-    "seen": 1791029483.246676,
-    "ast_hash": "dd2f707d7584681f041e6d66ec18526c",
+    "mtime": 1791030032.288519,
+    "seen": 1791030079.719462,
+    "ast_hash": "1f3ff319eeb20be01f613aabd70c3df6",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791029862.9300091,
-    "seen": 1791029916.0899305,
-    "ast_hash": "b6f89c806f1e874c97580e4386d5ac63",
+    "mtime": 1791030016.084888,
+    "seen": 1791030079.7194726,
+    "ast_hash": "00dcec5d5703da8ce6b2454528275c46",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791029910.2108352,
-    "seen": 1791029916.0899389,
-    "ast_hash": "36847bd81b6d98868099ad72cd789438",
+    "mtime": 1791030074.538828,
+    "seen": 1791030079.7194817,
+    "ast_hash": "1ebe1d083f69b2922a64ea22fc4c880c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1791029856.708019,
-    "seen": 1791029916.089951,
-    "ast_hash": "d070d7e890a39641da99fec4e5c84d2c",
+    "mtime": 1791030032.2878914,
+    "seen": 1791030079.719494,
+    "ast_hash": "718601d0ff0adfa5aa00903ee16c3064",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {

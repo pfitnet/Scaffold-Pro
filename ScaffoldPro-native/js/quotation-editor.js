@@ -130,6 +130,17 @@ function render() {
   toggle.disabled = isLocked;
   if (d.boqLinked || isLocked) setImportOpen(false);
   document.getElementById('link-boq-btn').disabled = isLocked;
+  // A subsidiary: "Subsidiary of Qt…" and Revert, in the same bracket.
+  const sub = document.getElementById('subsidiary-actions');
+  sub.classList.toggle('hidden', !d.parent);
+  if (d.parent) {
+    document.getElementById('subsidiary-of').innerHTML = `Subsidiary of <a href="quotation-editor.html?id=${encodeURIComponent(d.parent.id)}">${esc(d.parent.number)}</a>${d.parent.status === 'Draft' ? '' : ` <span class="muted">(${esc(d.parent.status.toLowerCase())})</span>`}`;
+    const revert = document.getElementById('revert-split-btn');
+    revert.disabled = isLocked || d.parent.status !== 'Draft';
+    revert.title = isLocked ? 'Set this quotation back to Draft to revert it'
+      : d.parent.status !== 'Draft' ? `${d.parent.number} is ${d.parent.status.toLowerCase()} — set it back to Draft to revert`
+      : `Put its lines and sections back on ${d.parent.number}, and delete this one`;
+  }
 
   const docDateInput = document.getElementById('doc-date-input');
   if (document.activeElement !== docDateInput) docDateInput.value = localDay(d.quotationDate);
@@ -190,9 +201,20 @@ function render() {
 function splitNote(d) {
   const link = (r) => `<a href="quotation-editor.html?id=${encodeURIComponent(r.id)}">${esc(r.number)}</a>${r.status === 'Draft' ? '' : ` <span class="muted">(${esc(r.status.toLowerCase())})</span>`}`;
   const parts = [];
-  if (d.parent) parts.push(`Split from ${link(d.parent)}`);
+  // (A subsidiary names its parent in the BOQ bracket, with Revert.)
   if (d.subsidiaries && d.subsidiaries.length) parts.push(`Split off it: ${d.subsidiaries.map(link).join(', ')}`);
   return parts.length ? `<div class="split-note">${parts.join(' · ')}</div>` : '';
+}
+
+// "Revert" on a subsidiary: everything back onto the quotation it was split off.
+async function revertSplit() {
+  const d = currentDetail;
+  const lines = d.lineItems.filter((i) => !i.blockId).length;
+  const what = [lines ? `its ${lines} line${lines === 1 ? '' : 's'}` : '', d.blocks.length ? `${d.blocks.length} section${d.blocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ') || 'everything on it';
+  if (!await appConfirm(`Revert ${d.quotationNumber}?\n\n${what[0].toUpperCase() + what.slice(1)} go back onto ${d.parent.number}, and ${d.quotationNumber} is deleted.`, { ok: 'Revert' })) return;
+  const r = await window.api.quotations.revertSplit(quotationId);
+  if (!r || !r.ok) { await appAlert((r && r.error) || 'The quotation couldn’t be reverted.'); return; }
+  location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
 }
 
 async function splitQuotation() {
@@ -954,6 +976,7 @@ async function init() {
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('split-btn').addEventListener('click', splitQuotation);
+  document.getElementById('revert-split-btn').addEventListener('click', revertSplit);
   document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
     blockCall(window.api.quotations.addStandardRates(quotationId, null)));
   for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {
