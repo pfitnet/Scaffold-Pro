@@ -48,6 +48,9 @@ function render() {
   window.wireTaskRows(box, rows, load, { projects });
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   const [r, pr, pe] = await Promise.all([window.api.tasks.list(), window.api.projects.list(), window.api.tasks.people()]);
   rows = r || [];

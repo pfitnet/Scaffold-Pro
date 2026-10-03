@@ -465,6 +465,9 @@ async function exportCSV() {
 
 // ---------- Page ----------
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   data = await window.api.accounts.data();
   data.liabilities = data.liabilities || [];

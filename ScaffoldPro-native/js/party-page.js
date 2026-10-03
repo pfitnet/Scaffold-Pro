@@ -56,6 +56,8 @@ function initPartyPage(config) {
     all = await config.api.list(page('show-archived').checked);
     render();
   }
+  // ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+  window.appRefresh = refresh;
 
   async function openSheet(record) {
     editing = record;

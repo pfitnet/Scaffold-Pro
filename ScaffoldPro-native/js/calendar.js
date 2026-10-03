@@ -56,6 +56,9 @@ function weekStartFor(d) {
   return x;
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   const start = view === 'week' ? new Date(weekStart) : gridStart();
   const end = new Date(start);

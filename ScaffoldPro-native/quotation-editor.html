@@ -180,14 +180,18 @@
         <div>
           <div class="lines-head">
             <h2>Line Items</h2>
-            <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities — e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
-            <label class="sort-label" for="line-sort">Sort</label>
-            <select id="line-sort" title="How the items are listed and printed. Dragging a line switches to “As arranged”.">
-              <option value="list">As in the material list</option>
-              <option value="code">By item code</option>
-              <option value="description">By description</option>
-              <option value="manual">As arranged (drag)</option>
-            </select>
+            <!-- Multiply and Sort are in the ☰ list (js/hover-menu.js, .lines-menu); the real controls stay here, hidden. -->
+            <span class="hidden">
+              <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities — e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
+              <label class="sort-label" for="line-sort">Sort</label>
+              <select id="line-sort" title="How the items are listed and printed. Dragging a line switches to “As arranged”.">
+                <option value="list">As in the material list</option>
+                <option value="code">By item code</option>
+                <option value="description">By description</option>
+                <option value="manual">As arranged (drag)</option>
+              </select>
+            </span>
+            <span class="ml-menu"><button type="button" class="tb-ico lines-menu" id="lines-menu-btn" data-no-icon data-multiply="multiply-btn" data-sort="line-sort" aria-label="Sort and multiply"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg></button></span>
           </div>
           <div id="line-items"></div>
           <details class="custom-item" id="custom-item-box">
@@ -240,7 +244,9 @@
           <h2>Delivery Schedule</h2>
           <div class="controls">
             <button id="ds-copy-boq-btn" class="hidden" title="Copy the BOQ's delivery schedule onto this quotation">Copy from BOQ</button>
-            <button id="ds-csv-btn" title="Save the schedule as an Excel workbook (.xlsx)">Export to Excel</button>
+            <button type="button" class="export-menu" id="ds-export-btn" data-no-icon data-pdf="ds-pdf-btn" data-excel="ds-csv-btn" title="Save the schedule as a PDF (the landscape sheet) — or rest the pointer here to choose PDF or Excel">Export</button>
+            <button id="ds-pdf-btn" class="hidden" tabindex="-1">Export PDF</button>
+            <button id="ds-csv-btn" class="hidden" tabindex="-1">Export to Excel</button>
             <button class="primary" id="ds-add-day-btn">+ Add Day</button>
           </div>
         </div>

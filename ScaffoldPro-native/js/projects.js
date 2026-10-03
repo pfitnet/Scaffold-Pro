@@ -166,6 +166,9 @@ document.getElementById('list-container').addEventListener('pointermove', (e) =>
   c.style.setProperty('--my', `${e.clientY - r.top}px`);
 });
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => refresh();
+
 async function refresh() {
   allProjects = await window.api.projects.list();
   renderFilters();

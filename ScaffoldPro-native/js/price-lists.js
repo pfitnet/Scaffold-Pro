@@ -281,6 +281,9 @@ function renderTable(items) {
   }
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => applyFilters();
+
 async function applyFilters() {
   const query = document.getElementById('search-box').value;
   const category = document.getElementById('category-select').value;

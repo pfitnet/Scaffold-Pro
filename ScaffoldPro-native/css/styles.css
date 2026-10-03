@@ -942,7 +942,7 @@ body.dragging-files .drop-box svg { color: var(--accent); transform: translateY(
 .delivery-schedule .section-toolbar h2 { margin: 0; }
 .delivery-schedule .controls { display: flex; gap: 8px; }
 .ds-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-table.ds { border: none; margin: 0; min-width: 100%; }
+table.ds { border: none; margin: 0; min-width: 100%; overflow: visible; }
 table.ds th, table.ds td { white-space: nowrap; vertical-align: top; }
 table.ds td.ds-item { white-space: normal; min-width: 220px; }
 table.ds th.ds-day { min-width: 128px; text-align: center; }
@@ -959,6 +959,12 @@ input.ds-note { width: 120px; font-size: 12px; }
 .ds-done { color: var(--success); }
 table.ds tfoot td { font-weight: 600; }
 table.ds tr.ds-notes td { font-weight: normal; }
+/* The items stay in view while the days are scrolled across (the first
+   column pinned at the left, a soft edge once the days slide under it). */
+table.ds tr > :first-child { position: sticky; left: 0; z-index: 2; background: var(--panel); }
+table.ds thead tr > :first-child { background: var(--header-bg); z-index: 3; }
+table.ds tbody tr:hover > td:first-child { background: linear-gradient(var(--row-hover), var(--row-hover)), var(--panel); }
+.ds-scroll.scrolled table.ds tr > :first-child { box-shadow: 6px 0 8px -6px rgba(0, 0, 0, .28); clip-path: inset(0 -14px 0 0); }
 
 /* "Created by … · Last worked on by …" under a document's title */
 .doc-authors { font-size: 12px; color: var(--text-secondary); margin: -6px 0 12px; }
@@ -1872,3 +1878,9 @@ input.calc-input.calc-bad, input[data-date].calc-bad { border-color: var(--dange
   background: var(--accent); color: #fff; box-shadow: var(--shadow-menu); opacity: 0; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease; }
 .calc-bubble.show { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { input.calc-input.calc-bad, input[data-date].calc-bad { animation: none; } .calc-bubble { transition: none; } }
+
+/* What ⌘Z / ⌘Y changed (js/undo.js): softly lit, fading over two seconds. */
+@keyframes undoGlow { from { background-color: color-mix(in srgb, var(--accent) 18%, transparent); } to { background-color: transparent; } }
+@keyframes undoGlowField { from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); } to { box-shadow: 0 0 0 3px transparent; } }
+tr.undo-changed > td, .undo-changed:not(tr):not(input):not(textarea):not(select) { animation: undoGlow 2.4s ease-out; }
+input.undo-changed, textarea.undo-changed, select.undo-changed { animation: undoGlowField 2.4s ease-out; }

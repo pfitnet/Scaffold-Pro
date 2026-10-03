@@ -986,6 +986,25 @@ function setupEditSheet() {
   $('edit-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') $('edit-modal').classList.add('hidden'); });
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js): the
+// project's details and every tab's list again.
+window.appRefresh = async () => {
+  if (!currentProject) return;
+  const fresh = await window.api.projects.get(currentProject.projectNumber);
+  if (fresh) currentProject = fresh;
+  document.getElementById('status-select').value = currentProject.status;
+  renderProjectHeader();
+  await refreshBOQList();
+  await refreshQuotationList();
+  await refreshInvoiceList();
+  await refreshDeliveryNoteList();
+  await refreshLetterList();
+  await refreshDrawingList();
+  await refreshDocumentList();
+  await window.projectWork.reload();
+  await refreshHistory();
+};
+
 async function init() {
   const projectNumber = getProjectNumberFromURL();
   if (!projectNumber) {

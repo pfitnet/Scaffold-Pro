@@ -2886,3 +2886,31 @@ Every form control is now drawn by the app instead of macOS, on every page
 - **Delivery schedule:** **+ Add Day** dates the new day the day after
   the latest date already put in. Only Day 1 (or a schedule with no
   dates yet) starts without one.
+
+## Batch 118 — Undo without the flash; schedule Export menu and pinned items; Line Items ☰
+
+- **⌘Z / ⌘Y no longer reload the page.** The page is redrawn in place
+  (no white flash, same scroll position). What the undo or redo changed
+  is softly lit for about two seconds, and scrolled into view if it was
+  out of sight: a row that's new or now says something else, or a box
+  or total whose value changed. A redraw that changes too much (a new
+  order) lights nothing. The "Undone: … [Redo]" note shows as before.
+  Each page redraws with its own `window.appRefresh()`: the editors, a
+  project's page, Projects, Material List, Clients / Sites, Stock,
+  Accounts, Tasks, Letters, Calendar, Marketing, Team and your page. A
+  page without one (the Dashboard) still reloads.
+- **Delivery schedule:**
+  - **Export** is a hover menu like the documents' Export: **PDF** (the
+    default on a click) saves the landscape schedule sheet on its own
+    (e.g. `26212_Delivery Schedule_Qt26212-007.pdf` in the document's
+    folder); **Excel** saves the .xlsx as before. The Export helper in
+    js/hover-menu.js can offer Excel in place of Word (`data-excel`).
+  - **The item column stays pinned at the left** while the days are
+    scrolled across, with a soft edge over the days. The table also keeps
+    its sideways scroll when it's redrawn after typing a quantity.
+- **Line Items:** **Multiply** and **Sort** are now in one ☰ list at the
+  right of the heading (BOQ, quotation, invoice, delivery note):
+  - **Multiply quantities…**, greyed out on an issued document or one
+    with no items;
+  - then the Sort choices, with the current one ticked (BOQ and
+    quotation only).

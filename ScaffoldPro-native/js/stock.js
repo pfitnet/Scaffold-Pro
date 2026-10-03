@@ -37,6 +37,9 @@ function listOf(item) {
   return item.sourceKey;
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   data = await window.api.stock.data();
   renderStats();

@@ -177,6 +177,9 @@ function wireLinks(box) {
   for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { location.href = tr.dataset.url; });
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   const [s, l, page] = await Promise.all([window.api.marketing.summary(), window.api.marketing.leads(), window.api.users.page().catch(() => null)]);
   summary = s;

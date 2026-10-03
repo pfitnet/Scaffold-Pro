@@ -67,6 +67,9 @@ function priceForMode(item, pricingMode) {
   return value === null || value === undefined ? 0 : value;
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => loadDetail();
+
 async function loadDetail() {
   currentDetail = await window.api.quotations.get(quotationId);
   if (!currentDetail) {

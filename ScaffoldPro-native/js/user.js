@@ -95,6 +95,9 @@ async function setColour(colour) {
   await load();
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   page = await window.api.users.page();
   if (!page) return;
