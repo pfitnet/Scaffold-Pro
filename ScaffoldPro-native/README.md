@@ -3071,3 +3071,12 @@ Every form control is now drawn by the app instead of macOS, on every page
 - The old "Split off it: …" line is gone — subsidiaries are in the flow, as
   is the quotation a subsidiary was split off.
 - Motion is switched off with macOS Reduce Motion.
+
+## Batch 131 — Attach subsidiaries to the main quotation's export
+
+- A quotation with subsidiaries has, in its **Export** list, **Attach ›
+  Subsidiaries** ("Qt26210-004-s1 after this quotation"). Ticked (it's kept
+  with the quotation), **Export PDF** and **Print** add each subsidiary — as
+  it prints, portrait or landscape — right after the quotation's own pages,
+  before its delivery schedule, BOQ and drawings. Cancelled subsidiaries are
+  left out. Word export, Combine and the director-signed copy are unchanged.
