@@ -41,9 +41,9 @@
   };
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || `${one}s`)}`;
   const monthDate = (key) => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1); };
-  const monthShort = (key) => monthDate(key).toLocaleDateString('en-GB', { month: 'short' });
+  const monthShort = (key) => monthDate(key).toLocaleDateString('en-GB', { month: 'short' }).replace('Sept', 'Sep');
   const monthLong = (key) => monthDate(key).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const dayLabel = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const dayLabel = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep');
   const amount = (v) => (state.measure === 'value' ? `${cur()} ${money(v)}` : String(v));
 
   // ---- the slices ----

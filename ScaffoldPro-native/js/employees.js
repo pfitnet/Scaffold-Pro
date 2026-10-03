@@ -106,7 +106,7 @@
         <td class="num">${money(m.pay)}</td>
         <td class="num">${e.mpfEnabled ? money(m.mpf) : '—'}</td>
         <td class="num">${money(m.cost)}</td>
-        <td>${esc(e.startDate || '—')}</td>
+        <td>${esc(window.appDay(e.startDate))}</td>
       </tr>`;
     }).join('');
     container.innerHTML = `<table class="money">
@@ -215,7 +215,7 @@
     const values = formValues();
     // Leaving date filled in for a current employee: offer to move them off the payroll.
     if (editing && !editing.isArchived && !values.isArchived && values.endDate && values.endDate <= ymd(new Date()) &&
-        await appConfirm(`${values.name} left on ${values.endDate}. Take them off the payroll (keep them as a former employee)?`)) {
+        await appConfirm(`${values.name} left on ${window.appDay(values.endDate)}. Take them off the payroll (keep them as a former employee)?`)) {
       values.isArchived = true;
     }
     const r = await window.api.employees.save(values);

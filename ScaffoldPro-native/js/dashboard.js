@@ -13,7 +13,7 @@ function money(value) {
 function day(value) {
   if (!value) return '—';
   const d = new Date(value.length <= 10 ? `${value}T00:00:00` : value);
-  return isNaN(d) ? value : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return isNaN(d) ? value : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep');
 }
 
 function when(iso) {
@@ -23,7 +23,7 @@ function when(iso) {
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins} min ago`;
   if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep');
 }
 
 // ---------- Motion (none when the Mac is set to reduce motion) ----------

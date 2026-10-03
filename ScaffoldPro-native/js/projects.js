@@ -23,7 +23,7 @@ function ago(iso) {
   if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
   const days = Math.round(mins / 1440);
   if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }).replace('Sept', 'Sep');
 }
 const lastTouched = (p) => p.lastActivityAt && p.lastActivityAt > (p.createdAt || '') ? p.lastActivityAt : p.createdAt;
 

@@ -2749,3 +2749,25 @@ Every form control is now drawn by the app instead of macOS, on every page
   A quotation that was only made from a BOQ (not linked) still has just
   the BOQ's drawings and its own.
 - `documentDrawings(kind:id:)` in main.swift.
+
+## Batch 112 — Dates typed as dd/mm/yyyy, shown as 24 Sep 2026
+
+- Every date box is now **typed day first, dd/mm/yyyy**, whatever the
+  Mac's region is set to (the system's date box followed it, so a US
+  region gave 09/24/2026). Away from the box, the date is **shown as
+  24 Sep 2026**; clicking it switches back to 24/09/2026, all selected,
+  ready to type over, with the calendar open as before.
+- Typing also takes 24/9/26, 24-9-2026, 24.09.2026, 24092026, 24 Sep
+  2026, 24sep, 2026-09-24 or "today"; with no year it's this year. The
+  calendar turns to the date as it's typed. Return or leaving the box
+  takes it; a date that doesn't exist (31/02) flashes red and the box
+  goes back. Escape puts back what was there; ↓ opens the calendar.
+- Month boxes (Payroll) work the same: typed 09/2026, shown Sep 2026.
+- Dates in lists and tables that showed as 2026-09-24 (payments,
+  liabilities, document expiry, employees, marketing, a project's
+  invoices / delivery notes / files, stock movements) are now
+  24 Sep 2026. September is "Sep" everywhere (British English
+  formatting wrote "Sept").
+- The pages still read and save dates as 2026-09-24, so nothing saved
+  changes. `upgradeDate` / `parseDate` and `window.appDay(iso)` in
+  js/controls.js.

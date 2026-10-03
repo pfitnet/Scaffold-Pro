@@ -304,7 +304,7 @@ function formatBytes(bytes) {
 function formatWhen(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return iso;
-  return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace('Sept', 'Sep');
 }
 
 function setBusy(busy, message) {
@@ -646,7 +646,7 @@ window.askBeforeLeave = async () => {
     document.getElementById('web-enabled').checked = !!st.enabled;
     if (document.activeElement !== document.getElementById('web-port')) document.getElementById('web-port').value = st.port;
     document.getElementById('web-password').placeholder = st.hasPassword ? 'Set — type a new one to change it' : 'At least 6 characters';
-    const when = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+    const when = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).replace('Sept', 'Sep'); };
     document.getElementById('web-state').innerHTML = `
       <div class="web-status ${st.running ? 'on' : ''}"><span class="web-dot"></span>${st.running ? 'On — open one of these in a browser on the office network:' : st.error ? esc(st.error) : 'Off'}</div>
       ${st.running ? `<div class="web-urls">${st.urls.map((u) => `<code>${esc(u)}</code>`).join('')}</div>` : ''}

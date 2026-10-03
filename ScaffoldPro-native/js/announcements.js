@@ -22,7 +22,7 @@
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins} min ago`;
     if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep');
   }
 
   const audienceText = (a) => (a.audience === 'Everyone' ? 'to everyone' : a.audience.startsWith('@') ? 'to you' : `to the ${esc(a.audience)} team`);
@@ -54,7 +54,7 @@
         <span class="announce-icon">${MEGAPHONE}</span>
         <div class="announce-body">
           <div class="announce-text">${esc(a.message)}</div>
-          <div class="announce-meta">${window.personTag ? window.personTag(a.author) : esc(a.author)} <span>${audienceText(a)} · ${when(a.createdAt)}${a.showUntil ? ` · until ${esc(new Date(`${a.showUntil}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}` : ''}</span></div>
+          <div class="announce-meta">${window.personTag ? window.personTag(a.author) : esc(a.author)} <span>${audienceText(a)} · ${when(a.createdAt)}${a.showUntil ? ` · until ${esc(new Date(`${a.showUntil}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep'))}` : ''}</span></div>
         </div>
         <div class="announce-actions">
           ${mine ? '<button type="button" class="announce-down" data-no-icon title="Take it down for everyone">Take Down</button>' : ''}

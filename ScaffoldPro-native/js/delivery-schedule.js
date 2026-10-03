@@ -140,7 +140,7 @@
     const lines = materials();
     if (!lines.length || !data.days.length) { alert('Add a delivery day first.'); return; }
     const cell = (c) => { const t = String(c ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
-    const dayName = (d) => `Day ${d.day}${d.date ? ` (${d.date})` : ''}${d.sent ? ' - delivered' : ''}`;
+    const dayName = (d) => `Day ${d.day}${d.date ? ` (${window.appDay ? window.appDay(d.date) : d.date})` : ''}${d.sent ? ' - delivered' : ''}`;
     const out = [['Item', 'Unit', isBOQ() ? 'Quantity' : 'Quoted', ...data.days.map(dayName), 'Scheduled', 'Left']];
     for (const l of lines) {
       const quoted = Math.round(Number(l.quantity) || 0);

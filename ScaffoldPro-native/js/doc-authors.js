@@ -24,7 +24,7 @@
     if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
     const days = Math.round(hours / 24);
     if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-    return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep');
   }
 
   window.authorsText = function authorsText(a) {

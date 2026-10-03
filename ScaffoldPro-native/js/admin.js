@@ -53,7 +53,7 @@ async function refreshExpiring() {
       <td>${item.ownerName}</td>
       <td>${item.originalName}</td>
       <td>${item.category}</td>
-      <td>${item.expiryDate.slice(0, 10)}</td>
+      <td>${window.appDay(item.expiryDate)}</td>
       <td>${expiryLabel(item.expiryDate)}</td>`;
     tbody.appendChild(tr);
   }

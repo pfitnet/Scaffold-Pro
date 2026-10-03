@@ -149,7 +149,7 @@ function renderReferences() {
       <td><a href="project-detail.html?number=${encodeURIComponent(r.projectNumber)}"><strong>${esc(r.projectNumber)}</strong></a><div class="sub">${esc(r.name)}</div></td>
       <td>${esc(r.clientName || '—')}</td><td>${esc(r.siteName || '—')}</td>
       <td>${(r.structures || []).length ? r.structures.map(esc).join('<br>') : '<span class="muted">—</span>'}</td>
-      <td class="nowrap">${esc(r.startDate || '—')}</td>
+      <td class="nowrap">${esc(window.appDay(r.startDate))}</td>
       <td><span class="status-pill">${esc(r.status)}</span></td>
       <td class="num">${money(r.quotedValue)}</td><td class="num">${money(r.invoicedValue)}</td></tr>`).join('')}</tbody></table>`;
   for (const box2 of box.querySelectorAll('.ref-pick')) {

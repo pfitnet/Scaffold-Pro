@@ -219,7 +219,7 @@ select {
 select[multiple], select[size] { height: auto; padding: 4px; background-image: none; }
 input[type="date"], input[type="time"], input[type="month"] { padding-right: 6px; }
 /* Dates and months: the app's calendar (js/controls.js), with its own icon. */
-input[type="date"], input[type="month"] {
+input[type="date"], input[type="month"], input[data-date] {
   padding-right: 30px; cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2.5' y='3.5' width='11' height='10' rx='1.6' fill='none' stroke='%238e8e93' stroke-width='1.2'/%3E%3Cpath d='M2.5 6.5h11M5.5 2v3M10.5 2v3' fill='none' stroke='%238e8e93' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 9px center; background-size: 14px 14px;
@@ -1818,9 +1818,9 @@ body.dragging-files .files-columns .drop-box { min-height: 0; opacity: 1; transf
    a small accent corner; while typing a sum, "= 42" floats above it. */
 input.calc-input { font-variant-numeric: tabular-nums; }
 input.calc-input.has-formula:not(:focus) { background-image: linear-gradient(225deg, var(--accent) 0 6px, transparent 6px); background-repeat: no-repeat; }
-input.calc-input.calc-bad { border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft) !important; animation: calcShake .3s ease; }
+input.calc-input.calc-bad, input[data-date].calc-bad { border-color: var(--danger) !important; box-shadow: 0 0 0 3px var(--danger-soft) !important; animation: calcShake .3s ease; }
 @keyframes calcShake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .calc-bubble { position: fixed; z-index: 10060; pointer-events: none; padding: 3px 8px; border-radius: 7px; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums;
   background: var(--accent); color: #fff; box-shadow: var(--shadow-menu); opacity: 0; transform: translateY(3px); transition: opacity .12s ease, transform .12s ease; }
 .calc-bubble.show { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { input.calc-input.calc-bad { animation: none; } .calc-bubble { transition: none; } }
+@media (prefers-reduced-motion: reduce) { input.calc-input.calc-bad, input[data-date].calc-bad { animation: none; } .calc-bubble { transition: none; } }
