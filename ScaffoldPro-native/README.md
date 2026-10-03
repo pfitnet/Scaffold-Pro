@@ -2935,3 +2935,11 @@ Every form control is now drawn by the app instead of macOS, on every page
   internal notes.
 - `QuotationDeliveryDay.internalNote`; `BQSheet.deliverySchedule(…,
   internal:)` in main.swift (and its copy in tools/pdf-preview/sheet.py).
+
+## Batch 120 — Build fix: `internal` is a Swift keyword
+
+- Batch 119 named a parameter `internal`, which Swift reserves (it's an
+  access level), so the app didn't compile. It's now `withInternalNotes`
+  (`BQSheet.deliverySchedule`, `deliveryScheduleFile`,
+  `handleExportSchedulePDF`). Nothing else changes; the page still sends
+  `internal: true` for an Internal export.

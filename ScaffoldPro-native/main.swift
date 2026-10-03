@@ -11138,7 +11138,7 @@ enum BQSheet {
     /// on the next one ("Left" on the last). The days' notes in a box under
     /// the table. Long lists run on over pages under the repeated heading.
     static func deliverySchedule(info: (projectCode: String, client: String, jobSite: String, document: String),
-                                 lines: [ScheduleLine], days: [QuotationDeliveryDay], chinese: Bool, internal: Bool = false) -> [SheetLayout] {
+                                 lines: [ScheduleLine], days: [QuotationDeliveryDay], chinese: Bool, withInternalNotes: Bool = false) -> [SheetLayout] {
         guard !lines.isEmpty, !days.isEmpty else { return [] }
         let pageWidth = 842.88, pageHeight = 595.92, top = 53.625
         let room = pageWidth - 2 * 36
@@ -11175,7 +11175,7 @@ enum BQSheet {
             var rows: [SheetRow] = []
             // On more than one sheet: which days this one has.
             // An Internal copy says so.
-            let marks = (internal ? ["INTERNAL"] : []) + (days.count > perSheet ? ["DAY \(chunk.first!.day) – \(chunk.last!.day)"] : [])
+            let marks = (withInternalNotes ? ["INTERNAL"] : []) + (days.count > perSheet ? ["DAY \(chunk.first!.day) – \(chunk.last!.day)"] : [])
             let banner = "DELIVERY SCHEDULE" + (marks.isEmpty ? "" : " (\(marks.joined(separator: ", ")))")
             rows.append(SheetRow(kind: "banner", height: 27.75, fill: orange,
                                  cells: [cell(left, right, banner, 19.99, "center", 6.375, font: "title")], repeats: true))
@@ -11248,7 +11248,7 @@ enum BQSheet {
                     return "\(chinese ? "第 \(d.day) 天" : "Day \(d.day)")\(date.isEmpty ? "" : " (\(date))"): \(note)"
                 }
             }
-            let notes = noted(\.note), internalNotes = internal ? noted(\.internalNote) : []
+            let notes = noted(\.note), internalNotes = withInternalNotes ? noted(\.internalNote) : []
             if !notes.isEmpty || !internalNotes.isEmpty {
                 var texts: [String] = []
                 let width = right - left - 2 * 2.625
@@ -14268,7 +14268,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.deliverySchedule(quotationId: (payload["id"] as? String) ?? ""))
         case "quotations:deliverySchedulePDF":
             handleExportSchedulePDF(id: id, kind: (payload["kind"] as? String) ?? "Quotation", documentId: (payload["id"] as? String) ?? "",
-                                    internal: (payload["internal"] as? Bool) ?? false)
+                                    withInternalNotes: (payload["internal"] as? Bool) ?? false)
         case "quotations:addDeliveryDay":
             let error = db.addDeliveryDay(quotationId: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -15940,11 +15940,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// (BQSheet.deliverySchedule), written to a temporary PDF so it's added
     /// right after the document's own pages; nil when no day has anything
     /// on it. A quotation without one of its own has its BOQ's.
-    private func deliveryScheduleFile(kind: String, id: String, internal: Bool = false) -> URL? {
+    private func deliveryScheduleFile(kind: String, id: String, withInternalNotes: Bool = false) -> URL? {
         let used: (DeliveryScheduleData) -> [QuotationDeliveryDay] = { schedule in
             schedule.days.contains { $0.quantities.values.contains { $0 > 0 } }
                 ? schedule.days.filter { $0.date != nil || $0.quantities.values.contains { $0 > 0 } || nonBlank($0.note) != nil
-                    || (internal && nonBlank($0.internalNote) != nil) } : []
+                    || (withInternalNotes && nonBlank($0.internalNote) != nil) } : []
         }
         // The BOQ's items, with its schedule.
         func ofBOQ(_ boq: BOQDetail, document: String) -> [SheetLayout] {
@@ -15959,7 +15959,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             return BQSheet.deliverySchedule(info: scheduleInfo(projectNumber: boq.projectNumber, projectName: boq.projectName,
                                                                pricingMode: boq.pricingMode, document: document),
-                                            lines: lines, days: days, chinese: inChinese, internal: internal)
+                                            lines: lines, days: days, chinese: inChinese, withInternalNotes: withInternalNotes)
         }
         var sheets: [SheetLayout] = []
         if kind == "BOQ" {
@@ -15980,7 +15980,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 }
                 sheets = BQSheet.deliverySchedule(info: scheduleInfo(projectNumber: q.projectNumber, projectName: q.projectName,
                                                                      pricingMode: q.pricingMode, document: "Quotation \(q.quotationNumber)"),
-                                                  lines: lines, days: days, chinese: inChinese, internal: internal)
+                                                  lines: lines, days: days, chinese: inChinese, withInternalNotes: withInternalNotes)
             } else if let boqId = db.getQuotation(id: q.id)?.sourceBOQId, let boq = db.getBOQDetail(id: boqId) {
                 sheets = ofBOQ(boq, document: "Quotation \(q.quotationNumber)")
             }
@@ -15993,7 +15993,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         }
         guard document.pageCount > 0, let data = document.dataRepresentation() else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-schedule-\(id)\(internal ? "-internal" : "").pdf")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-schedule-\(id)\(withInternalNotes ? "-internal" : "").pdf")
         return (try? data.write(to: url)) != nil ? url : nil
     }
 
@@ -16001,7 +16001,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// PDF): the landscape sheet, saved in the document's folder as
     /// "…_Delivery Schedule_Qt26212-007.pdf" (Internal: with the internal
     /// notes, "…_Delivery Schedule (Internal)_…") and opened.
-    private func handleExportSchedulePDF(id: String, kind: String, documentId: String, internal: Bool) {
+    private func handleExportSchedulePDF(id: String, kind: String, documentId: String, withInternalNotes: Bool) {
         let isBOQ = kind == "BOQ"
         let doc: (number: String, projectNumber: String)? = isBOQ
             ? db.getBOQDetail(id: documentId).map { ($0.boqNumber, $0.projectNumber) }
@@ -16010,12 +16010,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: PDFExportResult(ok: false, error: isBOQ ? "BOQ not found." : "Quotation not found.", path: nil))
             return
         }
-        guard let file = deliveryScheduleFile(kind: isBOQ ? "BOQ" : "Quotation", id: documentId, internal: internal), let data = try? Data(contentsOf: file) else {
+        guard let file = deliveryScheduleFile(kind: isBOQ ? "BOQ" : "Quotation", id: documentId, withInternalNotes: withInternalNotes), let data = try? Data(contentsOf: file) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Put some items on a day of the schedule first.", path: nil))
             return
         }
         deliverPDF(id: id, mode: .export, data: data, paperSize: NSSize(width: 842.88, height: 595.92), projectNumber: doc.projectNumber,
-                   subfolder: isBOQ ? "BOQ" : "Quotations", documentNumber: doc.number, docTypeTag: internal ? "Delivery Schedule (Internal)" : "Delivery Schedule")
+                   subfolder: isBOQ ? "BOQ" : "Quotations", documentNumber: doc.number, docTypeTag: withInternalNotes ? "Delivery Schedule (Internal)" : "Delivery Schedule")
     }
 
     /// The project code, client and job site at the top of a sheet, as on the BQ sheet.
