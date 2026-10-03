@@ -2704,3 +2704,17 @@ Every form control is now drawn by the app instead of macOS, on every page
 - A project Overview's **Customise** button now sits under its panels, at
   the right. While you arrange them, **Cancel** and **Change** take its
   place there. Change's list opens above it when there's no room below.
+
+## Batch 109 — Pinned items in your own order
+
+- In Add Materials (BOQ, quotation, delivery note and invoice editors), the
+  **★ Pinned** box's items each have a ⋮⋮ handle. Drag one up or down to
+  put the pinned items in the order you want. With the handle focused, ↑ / ↓
+  move it one place.
+- The order is kept with the material list, so it's the same in every
+  editor and on every Mac. A newly pinned item goes at the end; unpinning
+  forgets its place.
+- When a search shows only some pinned items, dragging them reorders just
+  those; the others keep their places.
+- main.swift: `PriceListItem.pinOrder`, `reorderPinnedItems(ids:)`, action
+  `priceListItems:reorderPinned`.

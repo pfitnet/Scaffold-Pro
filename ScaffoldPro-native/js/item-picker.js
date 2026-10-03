@@ -4,7 +4,8 @@
 // note editors: items in a box per category (Base Items, Standards (with
 // Spigots), Ledgers…), in the Material List's order, with the pinned ones
 // in a "Pinned" box first. Each row has a pin to pin / unpin it (kept with
-// the material list, so it's the same on every Mac).
+// the material list, so it's the same on every Mac). The Pinned box's items
+// can be dragged into any order by their ⋮⋮ handle (kept the same way).
 //
 //   const items = await window.pickerSearch(params);   // null: a newer search has started
 //   window.renderPickerGroups(container, items, headHTML, makeRow)
@@ -75,7 +76,8 @@
           const now = !item.isPinned;
           const r = await window.api.priceLists.setPinned(item.id, now);
           if (r && r.ok === false) { alert(r.error); return; }
-          for (const i of args[1]) if (i.id === item.id) i.isPinned = now;
+          const lastPin = Math.max(-1, ...args[1].filter((i) => i.isPinned && i.pinOrder != null).map((i) => i.pinOrder));
+          for (const i of args[1]) if (i.id === item.id) { i.isPinned = now; i.pinOrder = now ? lastPin + 1 : null; }
           render(...args);
         });
         first.classList.add('picker-name-cell');
@@ -85,16 +87,44 @@
       if (first && item.chineseName && !first.querySelector('.zh-name')) {
         first.insertAdjacentHTML('beforeend', ` <span class="zh-name">${esc(item.chineseName)}</span>`);
       }
+      // Pinned: a handle to drag it to another place in the box.
+      if (extraClass === 'picker-pinned' && first && item.id) {
+        tr.dataset.id = item.id;
+        first.insertAdjacentHTML('afterbegin', window.dragHandleHTML ? window.dragHandleHTML('Drag to put the pinned items in your order (or focus and press ↑ / ↓)') : '');
+      }
       tbody.appendChild(tr);
+    }
+    if (extraClass === 'picker-pinned' && window.makeReorderable && list.length > 1) {
+      window.makeReorderable(tbody, {
+        item: 'tr',
+        onReorder: async (ids) => {
+          const r = await window.api.priceLists.reorderPinned(ids);
+          if (r && r.ok === false) { alert(r.error); return; }
+          // The new order, for the next redraw (without asking the app again).
+          // (As the app does: the dragged ones take their old places, in the new order.)
+          const moved = new Set(ids);
+          const queue = ids.map((id) => args[1].find((i) => i.id === id)).filter(Boolean);
+          args[1].filter((i) => i.isPinned).sort(byPin)
+            .map((i) => (moved.has(i.id) && queue.length ? queue.shift() : i))
+            .forEach((i, n) => { i.pinOrder = n; });
+          render(...args);
+        },
+      });
     }
     return box;
   }
+
+  // The Pinned box's order: as dragged, then the rest by item code.
+  const byPin = (a, b) => {
+    const oa = a.pinOrder ?? Infinity, ob = b.pinOrder ?? Infinity;
+    return oa !== ob ? oa - ob : byCode(a.itemCode || '', b.itemCode || '');
+  };
 
   function render(container, items, headHTML, makeRow) {
     const args = [container, items, headHTML, makeRow];
     if (pressed.has(container)) { waiting.set(container, args); return; }
     const fragment = document.createDocumentFragment();
-    const pinned = items.filter((i) => i.isPinned).sort((a, b) => byCode(a.itemCode || '', b.itemCode || ''));
+    const pinned = items.filter((i) => i.isPinned).sort(byPin);
     if (pinned.length) fragment.appendChild(groupBox('★ Pinned', pinned, headHTML, makeRow, 'picker-pinned', container, args));
     const groups = new Map();
     for (const item of items) {

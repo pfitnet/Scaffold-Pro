@@ -552,6 +552,9 @@ struct PriceListItem: Codable {
     /// Pinned: shown first, in a "Pinned" box, when picking items for a
     /// document. Kept with the material list, so every Mac sees it.
     var isPinned: Bool? = nil
+    /// Its place in the "Pinned" box, as dragged there (nil = not moved:
+    /// after the moved ones, by item code).
+    var pinOrder: Int? = nil
     /// The name in Chinese, for workers who read Chinese (shown with the
     /// English name on delivery notes and BOQs). "" = deliberately none.
     var chineseName: String? = nil
@@ -5176,7 +5179,41 @@ final class AppDatabase {
     func setPriceListItemPinned(id: String, pinned: Bool) -> String? {
         var items = priceListItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Item not found." }
-        items[index].isPinned = pinned ? true : nil
+        if pinned {
+            // A newly pinned item goes at the end of the Pinned box.
+            if items[index].isPinned != true {
+                let last = items.filter { $0.isPinned == true && $0.sourceKey == items[index].sourceKey }.compactMap { $0.pinOrder }.max() ?? -1
+                items[index].pinOrder = last + 1
+            }
+            items[index].isPinned = true
+        } else {
+            items[index].isPinned = nil
+            items[index].pinOrder = nil
+        }
+        priceListItemsStore.writeAll(items)
+        return nil
+    }
+
+    /// The pinned items dragged into a new order in the Pinned box. `ids`
+    /// may be only some of them (the ones a search shows): they take the
+    /// places those ones had, in the new order, and the others stay put.
+    func reorderPinnedItems(ids: [String]) -> String? {
+        var items = priceListItemsStore.readAll()
+        guard let firstId = ids.first, let first = items.first(where: { $0.id == firstId }) else { return nil }
+        let pinned = items.indices
+            .filter { items[$0].isPinned == true && items[$0].sourceKey == first.sourceKey }
+            .sorted { a, b in
+                let oa = items[a].pinOrder ?? Int.max, ob = items[b].pinOrder ?? Int.max
+                if oa != ob { return oa < ob }
+                return items[a].itemCode.localizedStandardCompare(items[b].itemCode) == .orderedAscending
+            }
+        let wanted = Set(ids)
+        var queue = ids.compactMap { id in pinned.first { items[$0].id == id } }
+        var order: [Int] = []
+        for i in pinned {
+            if wanted.contains(items[i].id), !queue.isEmpty { order.append(queue.removeFirst()) } else { order.append(i) }
+        }
+        for (place, i) in order.enumerated() { items[i].pinOrder = place }
         priceListItemsStore.writeAll(items)
         return nil
     }
@@ -13768,6 +13805,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportUnitRates(id: id, payload: payload)
         case "priceListItems:setPinned":
             let error = db.setPriceListItemPinned(id: (payload["id"] as? String) ?? "", pinned: (payload["pinned"] as? Bool) ?? false)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "priceListItems:reorderPinned":
+            let error = db.reorderPinnedItems(ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "priceListItems:reorder":
             let error = db.reorderPriceListItems(ids: (payload["ids"] as? [String]) ?? [])
