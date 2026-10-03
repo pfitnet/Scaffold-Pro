@@ -3149,3 +3149,12 @@ Every form control is now drawn by the app instead of macOS, on every page
   earlier ticked setting is gone (it was kept with the quotation, where an
   older copy of the app on another Mac could drop it — likely why it didn't
   work).
+
+## Batch 135 — Long reference numbers stay on one line
+
+- On the letterhead documents (quotation, invoice, delivery note, BOQ,
+  letters), a number too wide for the space after the colon — such as a
+  subsidiary's Qt26210-004-s1 — broke onto two lines ("Qt26210-004-" /
+  "s1"). Now the colons move left just enough (never past the longest
+  label) and the number stays whole, right-aligned as before; numbers that
+  fit leave the layout exactly as it was. The Word copy follows the PDF.

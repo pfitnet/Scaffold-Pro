@@ -200,10 +200,12 @@
     const rightCol = L.textRight - (L.textLeft + leftCol);
     const left = [para(run(d.clientName, { bold: true, size: 12 }), { line: pitch })]
       .concat(d.clientLines.map((l) => para(run(l, { size: 12 }), { line: pitch })));
+    // The colons move left when a long number (Qt26210-004-s1) needs the room.
+    const colonAt = d.refColon || 478.5;
     const right = d.refRows.map((r) => {
-      const colon = 478.5 - 401.25;
+      const colon = colonAt - 401.25;
       if (r.wraps) {
-        return para(run(`${r.label}\t:\t${r.value}`), { line: pitch, tabs: [{ pos: colon }], indLeft: 484.5 - 401.25, hanging: 484.5 - 401.25 });
+        return para(run(`${r.label}\t:\t${r.value}`), { line: pitch, tabs: [{ pos: colon }], indLeft: colonAt + 6 - 401.25, hanging: colonAt + 6 - 401.25 });
       }
       return para(run(`${r.label}\t:\t${r.value}`), { line: pitch, tabs: [{ pos: colon }, { val: 'right', pos: 550.5 - 401.25 }] });
     });

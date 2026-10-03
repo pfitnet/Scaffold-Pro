@@ -2400,6 +2400,8 @@ struct WordLayout: Encodable {
     var clientName: String
     var clientLines: [String]
     var refRows: [WordRefRow]
+    /// Where the references' colons go (478.5pt unless a long number moved them).
+    var refColon: Double
     var deliveryMethod: String?
     var salutation: String?
     var subject: String?
@@ -9553,6 +9555,19 @@ final class PDFGenerator {
         context.restoreGState()
     }
 
+    /// Where the references' colons go (before `dx`): at 478.5pt as on the
+    /// template, the value right-aligned to 550.5pt after it. A value that
+    /// can't be broken (a number such as Qt26210-004-s1) and is wider than
+    /// that space moves the colons left — no further than just after the
+    /// longest label — so it stays on one line.
+    func refColon(_ rows: [(label: String, value: String)], _ font: NSFont) -> CGFloat {
+        let measure = { (s: String) -> CGFloat in NSAttributedString(string: s, attributes: [.font: font]).size().width }
+        let widest = rows.filter { !$0.value.contains(" ") && !$0.value.contains("\n") }.map { measure($0.value) }.max() ?? 0
+        guard widest > 66 else { return 478.5 }
+        let labels = rows.map { measure($0.label) }.max() ?? 0
+        return max(401.25 + labels + 6, 550.5 - 6 - widest)
+    }
+
     /// Breaks text into lines no wider than `width`; "\n" always breaks.
     private func wrap(_ string: String, _ font: NSFont, _ width: CGFloat) -> [String] {
         var result: [String] = []
@@ -9683,18 +9698,19 @@ final class PDFGenerator {
         // Reference block: label, colon, value right-aligned; a value too
         // long for the space runs on under itself, left-aligned.
         let refFont = body(11)
+        let colon = refColon(doc.refRows, refFont)
         var refLine = 0
         for row in doc.refRows {
             let baseline = firstBaseline + CGFloat(refLine) * pitch
             text(row.label, x: 401.25 + dx, baseline: baseline, font: refFont)
-            text(":", x: 478.5 + dx, baseline: baseline, font: refFont)
-            let valueLines = wrap(row.value, refFont, 66)
+            text(":", x: colon + dx, baseline: baseline, font: refFont)
+            let valueLines = wrap(row.value, refFont, 550.5 - colon - 6)
             if valueLines.count <= 1 {
                 text(row.value, x: 550.5 + dx, baseline: baseline, font: refFont, align: .right)
                 refLine += 1
             } else {
                 for (j, line) in valueLines.enumerated() {
-                    text(line, x: 484.5 + dx, baseline: firstBaseline + CGFloat(refLine + j) * pitch, font: refFont)
+                    text(line, x: colon + 6 + dx, baseline: firstBaseline + CGFloat(refLine + j) * pitch, font: refFont)
                 }
                 refLine += valueLines.count
             }
@@ -10266,7 +10282,8 @@ final class PDFGenerator {
             number: doc.number, status: doc.status, title: doc.title,
             clientName: clientBlockLines(doc).filter { $0.bold }.map { $0.text }.joined(separator: "\n"),
             clientLines: clientBlockLines(doc).filter { !$0.bold }.map { $0.text },
-            refRows: doc.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: wrap($0.value, font, 66).count > 1) },
+            refRows: doc.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: wrap($0.value, font, 550.5 - refColon(doc.refRows, font) - 6).count > 1) },
+            refColon: Double(refColon(doc.refRows, font)),
             deliveryMethod: nonBlank(doc.deliveryMethod), salutation: nonBlank(doc.salutation), subject: nonBlank(doc.subject),
             intro: nonBlank(doc.intro), currencySymbol: doc.currencySymbol,
             columns: doc.columns.map { WordColumn(title: $0.title, width: Double($0.width), kind: "\($0.kind)") },
@@ -10349,18 +10366,19 @@ final class PDFGenerator {
             }
         }
         let refFont = body(11)
+        let colon = refColon(o.refRows, refFont)
         var refLine = 0
         for row in o.refRows {
             let baseline = firstBaseline + CGFloat(refLine) * pitch
-            let valueLines = wrap(row.value, refFont, 66)
+            let valueLines = wrap(row.value, refFont, 550.5 - colon - 6)
             if draw {
                 text(row.label, x: 401.25 + dx, baseline: baseline, font: refFont)
-                text(":", x: 478.5 + dx, baseline: baseline, font: refFont)
+                text(":", x: colon + dx, baseline: baseline, font: refFont)
                 if valueLines.count <= 1 {
                     text(row.value, x: 550.5 + dx, baseline: baseline, font: refFont, align: .right)
                 } else {
                     for (j, line) in valueLines.enumerated() {
-                        text(line, x: 484.5 + dx, baseline: firstBaseline + CGFloat(refLine + j) * pitch, font: refFont)
+                        text(line, x: colon + 6 + dx, baseline: firstBaseline + CGFloat(refLine + j) * pitch, font: refFont)
                     }
                 }
             }
