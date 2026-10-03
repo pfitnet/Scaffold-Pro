@@ -45,6 +45,19 @@
     .extra-title-row .block-prefix { width: 44px; }
     .extra-section table input { width: 100%; padding: 3px 6px; box-sizing: border-box; }
     .extra-section table .narrow { width: 64px; }
+    .split-note { margin-top: 4px; font-size: 12.5px; color: var(--text-secondary); }
+    .split-note a { color: var(--accent); text-decoration: none; }
+    .split-note a:hover { text-decoration: underline; }
+    .qs-sheet { width: 640px; }
+    .qs-list { max-height: 52vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); margin: 10px 0; }
+    .qs-group + .qs-group { border-top: 1px solid var(--border); }
+    .qs-row { display: grid; grid-template-columns: 18px 92px 1fr auto 90px; gap: 8px; align-items: center; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+    .qs-row:hover { background: var(--hover, rgba(127,127,127,.08)); }
+    .qs-row.qs-head { grid-template-columns: 18px 1fr; font-weight: 600; background: var(--panel-alt, rgba(127,127,127,.06)); }
+    .qs-no { color: var(--text-secondary); font-size: 12px; }
+    .qs-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qs-qty { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+    .qs-amt { text-align: right; font-variant-numeric: tabular-nums; }
     .delivery-section .line-desc { white-space: pre-line; min-width: 200px; }
     #add-section-btn { display: inline-flex; align-items: center; gap: 6px; }
     #add-section-btn::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
@@ -87,6 +100,7 @@
           <button id="export-word-btn" class="hidden" tabindex="-1">Export Word</button>
           <button id="print-btn">Print…</button>
           <button id="locate-file-btn" title="Show this document’s PDF or Word file in Finder">Locate File</button>
+          <button id="split-btn" title="Move some of its lines or sections (e.g. the manpower) to a new quotation, listed under this one">Split…</button>
           <button id="delete-doc-btn" class="danger-btn">Delete…</button>
         </div>
         <a id="back-link" class="hidden" href="#" aria-hidden="true"></a>
@@ -288,6 +302,7 @@
   <script src="js/docx-export.js"></script>
   <script src="js/delivery-schedule.js"></script>
   <script src="js/sign-request.js"></script>
+  <script src="js/quotation-split.js"></script>
   <script src="js/quotation-editor.js"></script>
 </body>
 </html>

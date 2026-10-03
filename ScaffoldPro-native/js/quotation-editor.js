@@ -92,7 +92,9 @@ function render() {
   document.title = `${d.quotationNumber} — ScaffoldPro`;
   document.getElementById('quotation-header').innerHTML = `
     <h1>${d.quotationNumber}</h1>
-    <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.clientName || 'No client'} · ${d.siteName || 'No site'} · ${d.pricingMode} pricing</div>`;
+    <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.clientName || 'No client'} · ${d.siteName || 'No site'} · ${d.pricingMode} pricing</div>
+    ${splitNote(d)}`;
+  document.getElementById('split-btn').disabled = d.status !== 'Draft';
   document.getElementById('back-link').href = `project-detail.html?number=${d.projectNumber}`;
 
   document.getElementById('status-select').value = d.status;
@@ -181,6 +183,29 @@ function render() {
   renderTotals();
   renderSignedBar();
   renderDirectorBar();
+}
+
+// Split quotations: the one it was split off, and the ones split off it
+// (not linked — each is changed on its own).
+function splitNote(d) {
+  const link = (r) => `<a href="quotation-editor.html?id=${encodeURIComponent(r.id)}">${esc(r.number)}</a>${r.status === 'Draft' ? '' : ` <span class="muted">(${esc(r.status.toLowerCase())})</span>`}`;
+  const parts = [];
+  if (d.parent) parts.push(`Split from ${link(d.parent)}`);
+  if (d.subsidiaries && d.subsidiaries.length) parts.push(`Split off it: ${d.subsidiaries.map(link).join(', ')}`);
+  return parts.length ? `<div class="split-note">${parts.join(' · ')}</div>` : '';
+}
+
+async function splitQuotation() {
+  const d = currentDetail;
+  if (d.status !== 'Draft') { await appAlert('Only a draft quotation can be split.\n\nSet it back to Draft first.'); return; }
+  const pick = await window.quotationSplit.open(d, currencyLabel);
+  if (!pick) return;
+  const r = await window.api.quotations.split(quotationId, pick.lineIds, pick.blockIds);
+  if (!r || !r.ok) { await appAlert((r && r.error) || 'The quotation couldn’t be split.'); return; }
+  await loadDetail();
+  const go = await appChoose(`Split off as ${r.number}\n\nIt’s listed under ${d.quotationNumber} on the project page.`,
+    [{ label: 'Stay Here', value: false, cancel: true }, { label: `Open ${r.number}`, value: true, primary: true }], { noCancel: true });
+  if (go) location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
 }
 
 // Signed and chopped by a director: ask for it, see it's waiting, open it.
@@ -928,6 +953,7 @@ async function init() {
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
+  document.getElementById('split-btn').addEventListener('click', splitQuotation);
   document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
     blockCall(window.api.quotations.addStandardRates(quotationId, null)));
   for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {
