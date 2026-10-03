@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791024765.383246,
-    "seen": 1791024786.0601523,
-    "ast_hash": "aeb0c70b4e58cc3e327c1544042fda00",
+    "mtime": 1791028756.6008105,
+    "seen": 1791028818.1381907,
+    "ast_hash": "a161aaec5ef7e6b1f14ca63eadb05e31",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791023808.7715468,
-    "seen": 1791023822.0202487,
-    "ast_hash": "2628f4d391b10112f0714601c4cb33b6",
+    "mtime": 1791028684.7339487,
+    "seen": 1791028818.1381998,
+    "ast_hash": "ee44b15aca8c5a0617f9406011c0708b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "tools/pdf-preview/sheet.py": {
-    "mtime": 1791023463.586937,
-    "seen": 1791023488.4050927,
-    "ast_hash": "4a75d858d1f7b6667924a5d4e13218d4",
+    "mtime": 1791028690.1133149,
+    "seen": 1791028818.1382043,
+    "ast_hash": "b8e0b236307bf3cae0937b69940725f0",
     "semantic_hash": ""
   },
   "tools/pdf-preview/word.py": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791024783.6115031,
-    "seen": 1791024786.0601716,
-    "ast_hash": "c626b07fe1687fcc5c6ff8b2d79e2fcd",
+    "mtime": 1791028812.7859428,
+    "seen": 1791028818.1382089,
+    "ast_hash": "088420d1c43d9a69631478346ac36e62",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1791024765.3826983,
-    "seen": 1791024786.060184,
-    "ast_hash": "28a9257b3a4330fb897149825f56cedc",
+    "mtime": 1791028799.1035535,
+    "seen": 1791028818.138221,
+    "ast_hash": "abcc0e5c9398a9df9050c12ef5fc2f1e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {

@@ -2951,3 +2951,17 @@ Every form control is now drawn by the app instead of macOS, on every page
   after the total as "(Rate Only)") already filled with the standard rates
   from Settings › Standard Quotation. Its rows can still be edited, added
   or removed, and existing rates sections are unchanged.
+
+## Batch 122 — Quotation: + Add Section menu, delivery bracket, no empty subtotal
+
+- The four buttons under a quotation's items (Delivery Charge, Priced
+  Section, Standard Manpower Rates, Note) are one **+ Add Section** button;
+  resting on it (or a click, ↓, Return) lists the four.
+- Delivery charges (D1, D2…) have their own bracket under the line items,
+  "Delivery charges · added to the total", with **+ Add Delivery**, instead
+  of sitting among the materials. They're edited as before (qty, price,
+  discount, remove).
+- A quotation without items (only a priced section such as Design Fees)
+  no longer prints "Subtotal of Monthly Rental Charge: 0.00" (or the
+  Minimum Hire row) on the portrait quotation, nor "Subtotal Amount : 0.00"
+  on the landscape sheet; the editor's totals leave it out too.

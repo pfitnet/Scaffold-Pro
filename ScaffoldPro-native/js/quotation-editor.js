@@ -176,6 +176,7 @@ function render() {
   notesBox.disabled = isLocked;
 
   renderLineItems();
+  renderDelivery();
   renderBlocks();
   renderTotals();
   renderSignedBar();
@@ -296,7 +297,8 @@ function renderLineItems() {
   multiply.update();
   const container = document.getElementById('line-items');
   // Rows of the extra sections are shown in their own sections below.
-  const items = currentDetail.lineItems.filter((i) => !i.blockId);
+  // Delivery charges have their own bracket under the items (renderDelivery).
+  const items = currentDetail.lineItems.filter((i) => !i.blockId && i.section !== 'Delivery');
   const isLocked = currentDetail.status !== 'Draft';
   const sort = document.getElementById('line-sort');
   sort.value = currentDetail.lineSort || 'list';
@@ -315,49 +317,7 @@ function renderLineItems() {
   const tbody = table.querySelector('tbody');
 
   // Materials are numbered 1, 2, 3…; delivery charges D1, D2… (as on Qt26193).
-  let materialNo = 0;
-  let deliveryNo = 0;
-  for (const [index, item] of items.entries()) {
-    const lineTotal = currentDetail.lineTotals[item.id] ?? window.lineNetTotal(item);
-    const effectivePrice = currentDetail.effectiveUnitPrices[item.id] ?? item.appliedUnitPrice;
-    const markedUp = Math.abs(effectivePrice - item.appliedUnitPrice) > 0.004;
-    const isDelivery = item.section === 'Delivery';
-    // Section 20: a hand-typed price shows the material-list price under it.
-    const listPrice = item.priceListUnitPrice;
-    const overridden = listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
-    const discountLabel = window.lineDiscountLabel(item, currencyLabel);
-    const rowNo = isDelivery ? `D${++deliveryNo}` : String(++materialNo);
-    void index;
-    const tr = document.createElement('tr');
-    tr.dataset.id = item.id;
-    tr.innerHTML = `
-      <td class="drag-col">${isLocked || items.length < 2 ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
-      <td class="num row-no">${rowNo}</td>
-      <td>${isDelivery ? '<span class="line-tag">Delivery</span>' : ''}${item.itemDescription}</td>
-      <td>${item.unit}</td>
-      <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-      <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
-      <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
-      <td class="num">${money(lineTotal)}</td>
-      <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
-
-    const qtyInput = tr.querySelector('.qty-input');
-    const priceInput = tr.querySelector('.price-input');
-    window.calcChange(qtyInput, (v, f) => updateLine(item.id, { quantity: Math.max(1, Math.round(v)), quantityFormula: f }));
-    window.calcChange(priceInput, (v, f) => updateLine(item.id, { appliedUnitPrice: Math.max(0, v), priceFormula: f }));
-    const removeBtn = tr.querySelector('.remove-btn');
-    if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
-    const discountBtn = tr.querySelector('.discount-btn');
-    if (discountBtn) discountBtn.addEventListener('click', () => {
-      window.openLineDiscount(Object.assign({}, item, { appliedUnitPrice: effectivePrice }), currencyLabel, async (type, value) => {
-        const r = await window.api.quotations.updateLineDiscount(item.id, type, value);
-        if (r.ok) await loadDetail();
-        return r;
-      });
-    });
-
-    tbody.appendChild(tr);
-  }
+  items.forEach((item, n) => tbody.appendChild(lineRow(item, String(n + 1), isLocked, items.length > 1)));
 
   // Drag a line by its handle: listed as arranged from now on (and, when
   // linked, the BOQ takes the same order).
@@ -376,11 +336,78 @@ function renderLineItems() {
   container.appendChild(table);
 }
 
+// Delivery charges (D1, D2…, from "+ Add Section › Delivery Charge"): a
+// bracket of their own under the items, as they print after the subtotal.
+function renderDelivery() {
+  const box = document.getElementById('delivery-section');
+  const lines = currentDetail.lineItems.filter((i) => !i.blockId && i.section === 'Delivery');
+  const isLocked = currentDetail.status !== 'Draft';
+  box.innerHTML = '';
+  if (lines.length === 0) return;
+  const card = document.createElement('div');
+  card.className = 'extra-section delivery-section';
+  card.innerHTML = `
+    <div class="extra-head">
+      <span class="extra-kind"><span class="line-tag">Delivery charges · added to the total</span></span>
+      ${isLocked ? '' : '<span class="controls"><button type="button" class="delivery-add">+ Add Delivery</button></span>'}
+    </div>
+    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead><tbody></tbody></table>`;
+  const tbody = card.querySelector('tbody');
+  lines.forEach((item, n) => tbody.appendChild(lineRow(item, `D${n + 1}`, isLocked, false)));
+  const add = card.querySelector('.delivery-add');
+  if (add) add.addEventListener('click', addDeliveryCharge);
+  box.appendChild(card);
+}
+
+// One line of the items or of the delivery charges.
+function lineRow(item, rowNo, isLocked, draggable) {
+  const lineTotal = currentDetail.lineTotals[item.id] ?? window.lineNetTotal(item);
+  const effectivePrice = currentDetail.effectiveUnitPrices[item.id] ?? item.appliedUnitPrice;
+  const markedUp = Math.abs(effectivePrice - item.appliedUnitPrice) > 0.004;
+  // Section 20: a hand-typed price shows the material-list price under it.
+  const listPrice = item.priceListUnitPrice;
+  const overridden = listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
+  const discountLabel = window.lineDiscountLabel(item, currencyLabel);
+  const tr = document.createElement('tr');
+  tr.dataset.id = item.id;
+  tr.innerHTML = `
+    <td class="drag-col">${isLocked || !draggable ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
+    <td class="num row-no">${rowNo}</td>
+    <td class="line-desc">${item.itemDescription}</td>
+    <td>${item.unit}</td>
+    <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
+    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+    <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
+    <td class="num">${money(lineTotal)}</td>
+    <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
+
+  const qtyInput = tr.querySelector('.qty-input');
+  const priceInput = tr.querySelector('.price-input');
+  window.calcChange(qtyInput, (v, f) => updateLine(item.id, { quantity: Math.max(1, Math.round(v)), quantityFormula: f }));
+  window.calcChange(priceInput, (v, f) => updateLine(item.id, { appliedUnitPrice: Math.max(0, v), priceFormula: f }));
+  const removeBtn = tr.querySelector('.remove-btn');
+  if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
+  const discountBtn = tr.querySelector('.discount-btn');
+  if (discountBtn) discountBtn.addEventListener('click', () => {
+    window.openLineDiscount(Object.assign({}, item, { appliedUnitPrice: effectivePrice }), currencyLabel, async (type, value) => {
+      const r = await window.api.quotations.updateLineDiscount(item.id, type, value);
+      if (r.ok) await loadDetail();
+      return r;
+    });
+  });
+
+  return tr;
+}
+
 function renderTotals() {
   const d = currentDetail;
   const box = document.getElementById('totals-box');
   const rows = [];
-  if (d.pricingMode === 'Rental') {
+  // No items (only priced sections, say): no subtotal of them.
+  const hasItems = d.lineItems.some((i) => !i.blockId && i.section !== 'Delivery');
+  if (!hasItems) {
+    // nothing
+  } else if (d.pricingMode === 'Rental') {
     rows.push(['Subtotal of Monthly Rental Charge', money(d.materialsSubtotal)]);
     if (d.minimumMonthlyApplied) rows.push(['Minimum Monthly Rental Charge', money(d.monthlyRental)]);
     // Only when it changes the amount: ticked, and more than one month.
@@ -434,7 +461,7 @@ function renderBlocks() {
   const container = document.getElementById('extra-sections');
   const locked = d.status !== 'Draft';
   container.innerHTML = '';
-  for (const btn of ['add-priced-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
+  for (const btn of ['add-section-btn', 'add-priced-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
 
   d.blocks.forEach((block) => {
     const lines = d.lineItems.filter((i) => i.blockId === block.id).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -906,6 +933,16 @@ async function init() {
   for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {
     document.getElementById(btn).addEventListener('click', () => blockCall(window.api.quotations.addBlock(quotationId, kind)));
   }
+  window.hoverMenu.attach(document.getElementById('add-section-btn'), {
+    minWidth: 280,
+    items: () => [
+      { label: 'Delivery Charge', sub: 'Priced by the materials’ weight (Settings › Quotations)', value: 'add-delivery-btn' },
+      { label: 'Priced Section', sub: 'Rows added to the total, e.g. Design Fees', value: 'add-priced-btn' },
+      { label: 'Standard Manpower Rates', sub: 'Rates after the total, from Settings › Standard Quotation', value: 'add-standard-rates-btn' },
+      { label: 'Note', sub: 'A note across the table, after the total', value: 'add-note-btn' },
+    ],
+    onPick: (id) => document.getElementById(id).click(),
+  });
 
   await populateBOQReference();
   document.getElementById('import-boq-btn').addEventListener('click', importFromBOQ);
