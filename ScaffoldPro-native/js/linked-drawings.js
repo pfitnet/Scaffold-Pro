@@ -3,7 +3,7 @@
 // The drawings a BOQ or quotation is based on, shown inside its editor:
 // open them, or upload a new drawing (PDF, DWG, DXF or image) already
 // linked to this document. A quotation that follows a BOQ has the BOQ's
-// drawings too. Image and PDF drawings are added, in this order, after the
+// drawings too, and a BOQ has those of the quotations linked to it. Image and PDF drawings are added, in this order, after the
 // document's own pages when it's exported as a PDF or printed.
 //
 //   window.setupLinkedDrawings({ kind: 'BOQ' | 'Quotation', id, projectNumber })
@@ -37,7 +37,7 @@
         <tr>
           <td class="muted">${i + 1}</td>
           <td>${esc(d.storedFilename || d.originalName)}${d.fileExists ? '' : ' <span class="status-pill pill-danger">File unavailable</span>'}
-            ${d.fromBOQNumber ? ` <span class="status-pill" title="A drawing of the BOQ this quotation follows">From ${esc(d.fromBOQNumber)}</span>` : ''}
+            ${d.fromBOQNumber ? ` <span class="status-pill" title="Added to ${esc(d.fromBOQNumber)}, which this ${options.kind === 'BOQ' ? 'BOQ' : 'quotation'} is linked to">From ${esc(d.fromBOQNumber)}</span>` : ''}
             ${d.appended && appended !== drawings.length ? ' <span class="status-pill">PDF page</span>' : ''}
             ${d.description ? `<div class="sub">${esc(d.description)}</div>` : ''}</td>
           <td class="muted">${esc(d.fileType)}</td>

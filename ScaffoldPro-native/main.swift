@@ -8324,19 +8324,36 @@ final class AppDatabase {
         }
         return boqRow + documentDrawings(kind: linkedKind, id: linkedId).map { d in
             var summary = drawingSummaries([d])[0]
-            if let boq = boq, d.linkedKind == "BOQ", d.linkedId == boq.id { summary.fromBOQNumber = boq.boqNumber }
+            // One added to the linked BOQ or quotation: "From BQ26212-001".
+            if !(d.linkedKind == linkedKind && d.linkedId == linkedId) { summary.fromBOQNumber = summary.linkedNumber }
             summary.appended = PDFAttachments.canAppend(URL(fileURLWithPath: d.filePath)) && summary.fileExists
             return summary
         }
     }
 
     /// See `listDrawings(linkedKind:linkedId:)`.
+    /// A BOQ and the quotations linked to it share their drawings: a
+    /// drawing added to any of them is listed (and printed) with each. A
+    /// quotation only made from a BOQ (not linked) has the BOQ's drawings.
     func documentDrawings(kind: String, id: String) -> [ProjectDrawing] {
         let all = drawingsStore.readAll().filter { !$0.isArchived }
-        let own = all.filter { $0.linkedKind == kind && $0.linkedId == id }.sorted { $0.uploadedAt < $1.uploadedAt }
-        guard kind == "Quotation", let boqId = getQuotation(id: id)?.sourceBOQId else { return own }
-        let inherited = all.filter { $0.linkedKind == "BOQ" && $0.linkedId == boqId }.sorted { $0.uploadedAt < $1.uploadedAt }
-        return inherited + own
+        let byDate: (ProjectDrawing, ProjectDrawing) -> Bool = { $0.uploadedAt < $1.uploadedAt }
+        let own = all.filter { $0.linkedKind == kind && $0.linkedId == id }.sorted(by: byDate)
+        let linkedQuotations: (String) -> [String] = { boqId in
+            self.quotationsStore.readAll().filter { $0.sourceBOQId == boqId && $0.boqLinked == true }.map { $0.id }
+        }
+        let ofQuotations: ([String]) -> [ProjectDrawing] = { ids in
+            all.filter { $0.linkedKind == "Quotation" && ids.contains($0.linkedId ?? "") }.sorted(by: byDate)
+        }
+        if kind == "BOQ" {
+            // Its own, then those added to its linked quotations.
+            return own + ofQuotations(linkedQuotations(id))
+        }
+        guard kind == "Quotation", let q = getQuotation(id: id), let boqId = q.sourceBOQId else { return own }
+        let inherited = all.filter { $0.linkedKind == "BOQ" && $0.linkedId == boqId }.sorted(by: byDate)
+        // Linked: the other linked quotations' drawings too.
+        let siblings = q.boqLinked == true ? ofQuotations(linkedQuotations(boqId).filter { $0 != id }) : []
+        return inherited + own + siblings
     }
 
     /// The drawing files added after a BOQ's or quotation's own pages.

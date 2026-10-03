@@ -1,7 +1,7 @@
 # Graph Report - Scaffold-Pro  (2026-10-03)
 
 ## Corpus Check
-- 76 files · ~280,131 words
+- 76 files · ~280,389 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 33 file(s) not represented in the graph (top: .whl 16, .ttf 6, (none) 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `aee2ee46`
+- Built from commit: `de7dfcb6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -534,11 +534,11 @@ Nodes (6): accounts.html (Accounts page), clients.html (Clients page), index.htm
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `PDFGenerator` connect `PDFGenerator` to `JSONStore`, `String`, `Data`, `Gen`, `main.swift`, `.deliveryNoteLetter`, `.deliverPDF`, `Quotation (standard Qt26193 style)`, `word.py`?**
-  _High betweenness centrality (0.275) - this node is a cross-community bridge._
+  _High betweenness centrality (0.272) - this node is a cross-community bridge._
 - **Why does `Export Word (.docx) matching PDF layout` connect `word.py` to `PDFGenerator`, `docx-export.js`?**
-  _High betweenness centrality (0.223) - this node is a cross-community bridge._
+  _High betweenness centrality (0.221) - this node is a cross-community bridge._
 - **Why does `invoice-editor.html (Invoice editor)` connect `quotation-editor.html (Quotation editor)` to `paragraph-format.js`, `index.html (Dashboard)`, `docx-export.js`, `line-discount.js`, `invoice-editor.js`?**
-  _High betweenness centrality (0.094) - this node is a cross-community bridge._
+  _High betweenness centrality (0.093) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `AppDatabase` (e.g. with `.restore()` and `.handle()`) actually correct?**
   _`AppDatabase` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `SDKROOT`, `askpass.sh script`, `PATH` to the rest of the system?**
