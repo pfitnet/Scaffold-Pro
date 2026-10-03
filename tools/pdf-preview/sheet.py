@@ -32,7 +32,10 @@ if SIGN: sys.argv.remove('--sign')
 # "python3 sheet.py quote long": every sample item, so the sheet has to shrink onto one page.
 QUOTE_LONG = 'long' in sys.argv
 if QUOTE_LONG: sys.argv.remove('long')
-ARGS = sys.argv[2:] if LAW_MODE else sys.argv[1:]
+# "python3 sheet.py schedule many": ten delivery days, over two sheets.
+SCHEDULE_MANY = 'many' in sys.argv
+if SCHEDULE_MANY: sys.argv.remove('many')
+ARGS = sys.argv[2:] if LAW_MODE or (len(sys.argv) > 1 and sys.argv[1] == 'schedule') else sys.argv[1:]
 ORIGINAL = ARGS[0] if len(ARGS) > 0 else os.path.join(HERE, '..', '..', 'docs', 'reference', 'BQ-CRBC-1635.pdf')
 BODY_TTF = ARGS[1] if len(ARGS) > 1 else os.path.join(APP, 'resources', 'fonts', 'Carlito-Regular.ttf')
 TITLE_TTF = ARGS[2] if len(ARGS) > 2 else '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
@@ -254,6 +257,81 @@ def render(L):
         y = bottom
     return img
 
+def schedule(info, lines, days, chinese=False):
+    """BQSheet.deliverySchedule: a delivery schedule as landscape sheets in the BQ sheet's style.
+    lines: (id, name, unit, quantity, unit kg); days: dicts with day, date, quantities, note."""
+    if not lines or not days: return []
+    pw, ph, top = 842.88, 595.92, 53.625
+    room = pw - 72
+    noW, unitW, qtyW, dayW, leftW = 34.5, 42.0, 51.75, 56.0, 51.75
+    per = max(1, int((room - noW - unitW - qtyW - 170 - leftW) // dayW))
+    MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    def day(iso):
+        if not iso: return ''
+        y, m, d = iso[:10].split('-'); return f'{int(d)} {MON[int(m) - 1]} {y}'
+    weight = lambda v: f'{v / 1000:.2f} t' if v >= 1000 else f'{v:.1f} kg'
+    has_w = any((l[4] or 0) > 0 for l in lines)
+    cell = lambda x0, x1, t, size, align, up, font='body': dict(x0=x0, x1=x1, text=t, font=font, size=size, align=align, baselineUp=up)
+    quantity = lambda v: '' if v == 0 else qty(v)
+    f11 = font(dict(font='body', size=11))
+    sheets = []
+    for start in range(0, len(days), per):
+        chunk = days[start:start + per]; last = start + per >= len(days)
+        nameW = min(330, room - noW - unitW - qtyW - len(chunk) * dayW - (leftW if last else 0))
+        width = noW + nameW + unitW + qtyW + len(chunk) * dayW + (leftW if last else 0)
+        left = (pw - width) / 2; right = left + width
+        edges = [left, left + noW, left + noW + nameW, left + noW + nameW + unitW, left + noW + nameW + unitW + qtyW]
+        for _ in chunk: edges.append(edges[-1] + dayW)
+        if last: edges.append(right)
+        n = len(edges) - 1
+        rows = []
+        banner = f"DELIVERY SCHEDULE (DAY {chunk[0]['day']} – {chunk[-1]['day']})" if len(days) > per else 'DELIVERY SCHEDULE'
+        rows.append(dict(kind='banner', height=27.75, fill='ED7D31', cells=[cell(left, right, banner, 19.99, 'center', 6.375, 'title')], repeats=True))
+        mid = left + width * 0.56; ie = [left, left + 68.25, mid, mid + 68.25, right]
+        for r in [('Project Code  :', info[0], 'Job Site          :', info[2]), ('Client             :', info[1], 'Document      :', info[3])]:
+            rows.append(dict(kind='info', height=15.75, fill='FDF9DF', repeats=True,
+                             cells=[cell(ie[i], ie[i + 1], r[i], 10, 'left', 4.125) for i in range(4)]))
+        titles = ['編號', '物料名稱', '單位', '數量'] if chinese else ['No.', 'Item Name', 'Unit', 'Qty']
+        heads = [cell(edges[i], edges[i + 1], t, 12, 'center', 12) for i, t in enumerate(titles)]
+        for i, d in enumerate(chunk):
+            title = f"第 {d['day']} 天" if chinese else f"Day {d['day']}"; date = day(d.get('date'))
+            heads.append(cell(edges[4 + i], edges[5 + i], title, 12, 'center', 12) if not date else cell(edges[4 + i], edges[5 + i], f'{title}\n{date}', 10.5, 'center', 6))
+        if last: heads.append(cell(edges[n - 1], edges[n], '尚餘' if chinese else 'Left', 12, 'center', 12))
+        rows.append(dict(kind='header', height=33, fill='B4C6E7', cells=heads, repeats=True))
+        pieces = [0.0] * len(chunk); kgs = [0.0] * len(chunk); tq = tk = lq = lk = 0.0
+        for i, (lid, name, unit, q, w) in enumerate(lines):
+            q = round(q); w = w or 0; tq += q; tk += q * w
+            cells = [cell(edges[0], edges[1], str(i + 1), 11, 'center', 4.875), cell(edges[1], edges[2], name, 11, 'left', 4.875),
+                     cell(edges[2], edges[3], unit, 11, 'center', 4.875), cell(edges[3], edges[4], qty(q), 11, 'center', 4.875)]
+            for j, d in enumerate(chunk):
+                v = round(d['quantities'].get(lid, 0)); pieces[j] += v; kgs[j] += v * w
+                cells.append(cell(edges[4 + j], edges[5 + j], quantity(v), 11, 'center', 4.875))
+            if last:
+                sch = sum(round(d['quantities'].get(lid, 0)) for d in days); lq += q - sch; lk += (q - sch) * w
+                cells.append(cell(edges[n - 1], edges[n], quantity(q - sch), 11, 'center', 4.875))
+            rows.append(dict(kind='item', height=18, fill=None, cells=cells, repeats=False))
+        totals = [('總件數 :' if chinese else 'Total Pieces :', qty(tq), [quantity(v) for v in pieces], quantity(lq))]
+        if has_w: totals.append(('總重量 :' if chinese else 'Total Weight :', weight(tk), ['' if v == 0 else weight(v) for v in kgs], '' if lk == 0 else weight(lk)))
+        for t in totals:
+            cells = [cell(edges[0], edges[3], t[0], 12, 'right', 6.375), cell(edges[3], edges[4], t[1], 11, 'center', 6.375)]
+            cells += [cell(edges[4 + j], edges[5 + j], x, 11, 'center', 6.375) for j, x in enumerate(t[2])]
+            if last: cells.append(cell(edges[n - 1], edges[n], t[3], 11, 'center', 6.375))
+            rows.append(dict(kind='total', height=21, fill=None, cells=cells, repeats=False))
+        notes = []
+        for d in chunk:
+            if d.get('note'):
+                date = day(d.get('date')); notes.append(f"Day {d['day']}{f' ({date})' if date else ''}: {d['note']}")
+        if notes:
+            texts = ['Notes:']
+            for nt in notes: texts += wrap(nt, right - left - 2 * 2.625, f11)
+            for i, t in enumerate(texts):
+                first, end = i == 0, i == len(texts) - 1
+                rows.append(dict(kind='notes', height=14.25 + (9 if first else 0) + (9 if end else 0), fill=None, repeats=False, joinNext=not end,
+                                 cells=[cell(left, right, t, 11, 'left', 12.375 if end else 3.375)]))
+        sheets.append(fit(dict(ok=True, kind='sheet', landscape=True, pageWidth=pw, pageHeight=ph, left=left, right=right, top=top,
+                               bottomLimit=ph - 53.25, rows=rows, scale=1.0, number='', title='DELIVERY SCHEDULE', projectNumber='', subfolder='', fileName=''), 0.8))
+    return sheets
+
 # The sample sheet's items: name, weight (kg), quantity, unit rate (HKD).
 SAMPLE = [('600mm Base Jack', 3.8, 220, 4.20), ('235 Base Collar', 1.7, 220, 2.50), ('2.0m standard without spigot', 9.8, 616, 11.30),
           ('0.73m Ledger', 2.9, 501, 4.50), ('1.40m Ledger', 5.5, 80, 11.853625), ('2.07m Ledger', 6.9, 1358, 8.50), ('2.57m Ledger', 8.4, 120, 9.90),
@@ -307,6 +385,27 @@ QUOTE_TERMS = ('The terms and conditions set out in www.pfitnet.com/TC are hereb
 
 if __name__ == '__main__':
     import pymupdf
+    if len(sys.argv) > 1 and sys.argv[1] == 'schedule':
+        # "python3 sheet.py schedule [many]": a quotation's delivery schedule (BQSheet.deliverySchedule).
+        many = SCHEDULE_MANY
+        items = [(f'l{i}', n, 'pc' if i % 5 else 'set', q, w) for i, (n, w, q, _) in enumerate(SAMPLE[:14])]
+        ndays = 10 if many else 4
+        days = []
+        for d in range(ndays):
+            qs = {lid: round(q / ndays) for lid, _, _, q, _ in items if (hash(lid) + d) % 3}
+            days.append(dict(day=d + 1, date=f'2026-10-{5 + d * 2:02d}' if d != 2 else None, quantities=qs,
+                             note='Crane on site from 8am; enter via Gate 3 on Kwu Tung Road.' if d == 0 else ('Second truck after lunch.' if d == 3 else None)))
+        sheets = schedule(('26212 - Batch 3 of Materials - Rental - Lingma', 'Lingma', '1635 Kwu Tung Station', 'Quotation Qt26212-007'), items, days)
+        for i, L in enumerate(sheets):
+            name = f'schedule{"_many" if many else ""}_{i + 1}'
+            render(L).save(os.path.join(OUT, f'{name}.png'))
+            jp = os.path.join(OUT, f'{name}.json'); json.dump(L, open(jp, 'w'))
+            dp = os.path.join(OUT, f'word_{name}.docx')
+            subprocess.run(['node', '-e', f"require('{APP}/js/docx-export.js'); const fs=require('fs'); fs.writeFileSync('{dp}', buildSheetDocx(JSON.parse(fs.readFileSync('{jp}','utf8'))))"], check=True)
+            subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', OUT, dp], check=True, capture_output=True)
+            pymupdf.open(dp[:-5] + '.pdf')[0].get_pixmap(dpi=DPI).save(os.path.join(OUT, f'word_{name}.png'))
+            print(name, 'scale', L.get('scale'))
+        sys.exit()
     if QUOTE_MODE:
         L = layout(True, 'Rental', 'HKD', ('26212 - Batch 3 of Materials - Rental - Lingma', 'Lingma', '1635 Kwu Tung Station', 'Truss-out at 5/F'),
                    SAMPLE + LAW if QUOTE_LONG else LAW[:8], one_page=True,

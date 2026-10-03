@@ -2788,3 +2788,29 @@ Every form control is now drawn by the app instead of macOS, on every page
 - Dates keep ↓ for the calendar; time boxes and lists are as before.
 - In js/controls.js (`boxBelow`, `boxBeside`); js/calc-input.js no
   longer steps.
+
+## Batch 114 — The delivery schedule is printed with its quotation and BOQ
+
+- Once any day of a delivery schedule has items on it, the schedule is
+  **added automatically after the document's own pages** whenever a
+  quotation or BOQ is exported to PDF, printed or combined with others,
+  and in a quotation's director-signed copy. It goes before the BOQ that a quotation follows and
+  before the drawings.
+- It's a **landscape sheet in the BQ sheet's style**:
+  - an orange "DELIVERY SCHEDULE" banner;
+  - the project code, client, job site and document;
+  - a blue heading row: No. | Item Name | Unit | Qty | Day 1 (with its
+    date under it) | Day 2 … | Left;
+  - a row for each item with how many go to site each day;
+  - Total Pieces and Total Weight for each day;
+  - the days' notes in a box under the table.
+- Seven days fit on a sheet. With more days, the schedule carries on onto
+  the next sheet, headed "(DAY 8 – 14)", and "Left" is on the last sheet.
+  A long item list runs on over pages, with the heading repeated on each.
+  Item names and headings are in Chinese when the document is.
+- A quotation with no schedule of its own prints its BOQ's schedule.
+  Days with nothing on them are left out.
+- **No time for delivery days:** the time box is gone from the schedule,
+  and the Calendar shows each delivery day as a whole day.
+- `BQSheet.deliverySchedule` and `deliveryScheduleFile(kind:id:)` in
+  main.swift; previewed with `tools/pdf-preview/sheet.py schedule [many]`.

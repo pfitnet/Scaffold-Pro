@@ -1030,7 +1030,6 @@ a.chain-doc:hover { background: var(--accent-soft); color: var(--accent); text-d
 .lines-head select { font-size: 12px; }
 .due-row { display: flex; gap: 6px; }
 .due-row input[type="time"] { width: 110px !important; flex: none; }
-th.ds-day .ds-time { width: 120px; margin-top: 4px; font-size: 12px; padding: 2px 4px; }
 
 /* Dashboard widgets: Customise to move, resize (by the right edge, in
    quarters that snap to the column guides), hide or show them. */

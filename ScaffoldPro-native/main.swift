@@ -3765,7 +3765,7 @@ final class AppDatabase {
         let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let boqs = Dictionary(boqsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var events: [CalendarEvent] = []
-        // Delivery schedule days (quotations' and BOQs').
+        // Delivery schedule days (quotations' and BOQs'), each for the whole day.
         for d in quotationDeliveriesStore.readAll() {
             guard let day = inRange(d.date) else { continue }
             let q = quotations[d.quotationId], b = boqs[d.quotationId]
@@ -3774,7 +3774,7 @@ final class AppDatabase {
             let pcs = Int(d.quantities.values.reduce(0, +))
             events.append(CalendarEvent(date: day, kind: "Delivery", title: "Day \(d.day) — \(number)",
                                         detail: [pid.flatMap { projects[$0] }.map { "\($0.projectNumber) \($0.name)" }, "\(pcs) pcs", nonBlank(d.note)].compactMap { $0 }.joined(separator: " · "),
-                                        url: q != nil ? "quotation-editor.html?id=\(d.quotationId)" : "boq-editor.html?id=\(d.quotationId)", done: d.sent == true, time: d.time))
+                                        url: q != nil ? "quotation-editor.html?id=\(d.quotationId)" : "boq-editor.html?id=\(d.quotationId)", done: d.sent == true, time: nil))
         }
         for dn in deliveryNotesStore.readAll() where dn.status != "Cancelled" {
             guard let day = inRange(dn.deliveryDate) else { continue }
@@ -11018,6 +11018,148 @@ enum BQSheet {
                          smallest: onePage ? 0 : 0.7, portraitBelow: onePage ? 0.6 : nil)
     }
 
+    /// An item on a delivery schedule sheet: its name (in the document's
+    /// language), unit, quantity on the document and unit weight.
+    struct ScheduleLine {
+        var id: String
+        var name: String
+        var unit: String
+        var quantity: Double
+        var weightKg: Double?
+    }
+
+    /// A delivery schedule as landscape sheets in the BQ sheet's style, for
+    /// after a quotation's or BOQ's own pages: the orange "DELIVERY
+    /// SCHEDULE" banner, the project code, client, job site and document,
+    /// then a blue heading row —
+    ///
+    ///   No. | Item Name | Unit | Qty | Day 1 (its date) | Day 2 … | Left
+    ///
+    /// — a row for each item with how many go to site each day, then the
+    /// pieces (and weight) each day. Seven days to a sheet; more carry on,
+    /// on the next one ("Left" on the last). The days' notes in a box under
+    /// the table. Long lists run on over pages under the repeated heading.
+    static func deliverySchedule(info: (projectCode: String, client: String, jobSite: String, document: String),
+                                 lines: [ScheduleLine], days: [QuotationDeliveryDay], chinese: Bool) -> [SheetLayout] {
+        guard !lines.isEmpty, !days.isEmpty else { return [] }
+        let pageWidth = 842.88, pageHeight = 595.92, top = 53.625
+        let room = pageWidth - 2 * 36
+        let noW = 34.5, unitW = 42.0, qtyW = 51.75, dayW = 56.0, leftW = 51.75
+        let perSheet = max(1, Int((room - noW - unitW - qtyW - 170 - leftW) / dayW))
+        let day: (String?) -> String = { iso in
+            let p = DateFormatter()
+            p.locale = Locale(identifier: "en_US_POSIX")
+            p.dateFormat = "yyyy-MM-dd"
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX") // "Sep", not en_GB's "Sept"
+            f.dateFormat = "d MMM yyyy"
+            return iso.flatMap { p.date(from: String($0.prefix(10))) }.map { f.string(from: $0) } ?? ""
+        }
+        let weight: (Double) -> String = { $0 >= 1000 ? String(format: "%.2f t", $0 / 1000) : String(format: "%.1f kg", $0) }
+        let hasWeights = lines.contains { ($0.weightKg ?? 0) > 0 }
+        func cell(_ x0: Double, _ x1: Double, _ text: String, _ size: Double, _ align: String, _ up: Double, font: String = "body") -> SheetCell {
+            SheetCell(x0: x0, x1: x1, text: text, font: font, size: size, align: align, baselineUp: up)
+        }
+        let quantity: (Double) -> String = { $0 == 0 ? "" : formatQuantity($0) }
+
+        var sheets: [SheetLayout] = []
+        for start in stride(from: 0, to: days.count, by: perSheet) {
+            let chunk = Array(days[start..<min(days.count, start + perSheet)])
+            let last = start + perSheet >= days.count
+            let nameW = min(330, room - noW - unitW - qtyW - Double(chunk.count) * dayW - (last ? leftW : 0))
+            let width = noW + nameW + unitW + qtyW + Double(chunk.count) * dayW + (last ? leftW : 0)
+            let left = (pageWidth - width) / 2, right = left + width
+            var edges = [left, left + noW, left + noW + nameW, left + noW + nameW + unitW, left + noW + nameW + unitW + qtyW]
+            for _ in chunk { edges.append(edges.last! + dayW) }
+            if last { edges.append(right) }
+            let n = edges.count - 1
+
+            var rows: [SheetRow] = []
+            // On more than one sheet: which days this one has.
+            let banner = days.count > perSheet ? "DELIVERY SCHEDULE (DAY \(chunk.first!.day) – \(chunk.last!.day))" : "DELIVERY SCHEDULE"
+            rows.append(SheetRow(kind: "banner", height: 27.75, fill: orange,
+                                 cells: [cell(left, right, banner, 19.99, "center", 6.375, font: "title")], repeats: true))
+            let mid = left + width * 0.56
+            let infoEdges = [left, left + 68.25, mid, mid + 68.25, right]
+            for r in [("Project Code  :", info.projectCode, "Job Site          :", info.jobSite),
+                      ("Client             :", info.client, "Document      :", info.document)] {
+                rows.append(SheetRow(kind: "info", height: 15.75, fill: cream, cells: [
+                    cell(infoEdges[0], infoEdges[1], r.0, 10, "left", 4.125), cell(infoEdges[1], infoEdges[2], r.1, 10, "left", 4.125),
+                    cell(infoEdges[2], infoEdges[3], r.2, 10, "left", 4.125), cell(infoEdges[3], infoEdges[4], r.3, 10, "left", 4.125),
+                ], repeats: true))
+            }
+            // Headings: each day with its date under it.
+            var heads = (chinese ? ["編號", "物料名稱", "單位", "數量"] : ["No.", "Item Name", "Unit", "Qty"])
+                .enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element, 12, "center", 12) }
+            for (i, d) in chunk.enumerated() {
+                let title = chinese ? "第 \(d.day) 天" : "Day \(d.day)"
+                let date = day(d.date)
+                heads.append(date.isEmpty ? cell(edges[4 + i], edges[5 + i], title, 12, "center", 12)
+                                          : cell(edges[4 + i], edges[5 + i], "\(title)\n\(date)", 10.5, "center", 6))
+            }
+            if last { heads.append(cell(edges[n - 1], edges[n], chinese ? "尚餘" : "Left", 12, "center", 12)) }
+            rows.append(SheetRow(kind: "header", height: 33, fill: blue, cells: heads, repeats: true))
+
+            // The items.
+            var pieces = Array(repeating: 0.0, count: chunk.count), kgs = Array(repeating: 0.0, count: chunk.count)
+            var totalQty = 0.0, totalKg = 0.0, leftQty = 0.0, leftKg = 0.0
+            for (i, line) in lines.enumerated() {
+                let qty = line.quantity.rounded()
+                let unitKg = line.weightKg ?? 0
+                totalQty += qty
+                totalKg += qty * unitKg
+                var cells = [cell(edges[0], edges[1], String(i + 1), 11, "center", 4.875),
+                             cell(edges[1], edges[2], line.name.replacingOccurrences(of: "\n", with: " "), 11, "left", 4.875),
+                             cell(edges[2], edges[3], line.unit, 11, "center", 4.875),
+                             cell(edges[3], edges[4], formatQuantity(qty), 11, "center", 4.875)]
+                for (j, d) in chunk.enumerated() {
+                    let q = (d.quantities[line.id] ?? 0).rounded()
+                    pieces[j] += q
+                    kgs[j] += q * unitKg
+                    cells.append(cell(edges[4 + j], edges[5 + j], quantity(q), 11, "center", 4.875))
+                }
+                if last {
+                    let scheduled = days.reduce(0.0) { $0 + ($1.quantities[line.id] ?? 0).rounded() }
+                    leftQty += qty - scheduled
+                    leftKg += (qty - scheduled) * unitKg
+                    cells.append(cell(edges[n - 1], edges[n], quantity(qty - scheduled), 11, "center", 4.875))
+                }
+                rows.append(SheetRow(kind: "item", height: 18, fill: nil, cells: cells, repeats: false))
+            }
+            // Pieces (and weight) each day.
+            var totals: [(String, String, [String], String)] = [(chinese ? "總件數 :" : "Total Pieces :", formatQuantity(totalQty),
+                                                                  pieces.map(quantity), quantity(leftQty))]
+            if hasWeights {
+                totals.append((chinese ? "總重量 :" : "Total Weight :", weight(totalKg), kgs.map { $0 == 0 ? "" : weight($0) },
+                               leftKg == 0 ? "" : weight(leftKg)))
+            }
+            for t in totals {
+                var cells = [cell(edges[0], edges[3], t.0, 12, "right", 6.375), cell(edges[3], edges[4], t.1, 11, "center", 6.375)]
+                for (j, text) in t.2.enumerated() { cells.append(cell(edges[4 + j], edges[5 + j], text, 11, "center", 6.375)) }
+                if last { cells.append(cell(edges[n - 1], edges[n], t.3, 11, "center", 6.375)) }
+                rows.append(SheetRow(kind: "total", height: 21, fill: nil, cells: cells, repeats: false))
+            }
+            // The days' notes, in a box under the table.
+            let notes = chunk.compactMap { d -> String? in
+                guard let note = nonBlank(d.note) else { return nil }
+                let date = day(d.date)
+                return "\(chinese ? "第 \(d.day) 天" : "Day \(d.day)")\(date.isEmpty ? "" : " (\(date))"): \(note)"
+            }
+            if !notes.isEmpty {
+                var texts = ["Notes:"]
+                for note in notes { texts += wrap(note, width: right - left - 2 * 2.625, size: 11) }
+                for (i, text) in texts.enumerated() {
+                    let first = i == 0, end = i == texts.count - 1
+                    rows.append(SheetRow(kind: "notes", height: 14.25 + (first ? 9 : 0) + (end ? 9 : 0), fill: nil,
+                                         cells: [cell(left, right, text, 11, "left", end ? 12.375 : 3.375)], repeats: false, joinNext: !end))
+                }
+            }
+            sheets.append(fitToPage(SheetLayout(landscape: true, pageWidth: pageWidth, pageHeight: pageHeight, left: left, right: right,
+                                                top: top, bottomLimit: pageHeight - 53.25, rows: rows), smallest: 0.8))
+        }
+        return sheets
+    }
+
     /// The Terms & Conditions box, laid out as on the portrait quotation
     /// (formattedParagraphs): plain paragraphs at the box's edge with a
     /// little space around them; "Payment : …", "(i) …" and "• …" items
@@ -15626,7 +15768,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
                    projectNumber: detail.projectNumber, subfolder: "BOQ", documentNumber: detail.boqNumber, docTypeTag: "BOQ",
-                   attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
+                   attachments: boqAttachments(detail.id))
+    }
+
+    /// Everything added after a BOQ's own pages: its delivery schedule, then its drawings.
+    private func boqAttachments(_ id: String) -> [URL] {
+        [deliveryScheduleFile(kind: "BOQ", id: id)].compactMap { $0 } + db.appendedDrawingFiles(kind: "BOQ", id: id)
     }
 
     /// The landscape BQ sheet ("PROFICIENCY QUOTATION") for a BOQ.
@@ -15680,12 +15827,85 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         return (try? data.write(to: url)) != nil ? url : nil
     }
 
+    /// A BOQ's or quotation's delivery schedule as landscape pages
+    /// (BQSheet.deliverySchedule), written to a temporary PDF so it's added
+    /// right after the document's own pages; nil when no day has anything
+    /// on it. A quotation without one of its own has its BOQ's.
+    private func deliveryScheduleFile(kind: String, id: String) -> URL? {
+        let used: (DeliveryScheduleData) -> [QuotationDeliveryDay] = { schedule in
+            schedule.days.contains { $0.quantities.values.contains { $0 > 0 } }
+                ? schedule.days.filter { $0.date != nil || $0.quantities.values.contains { $0 > 0 } || nonBlank($0.note) != nil } : []
+        }
+        // The BOQ's items, with its schedule.
+        func ofBOQ(_ boq: BOQDetail, document: String) -> [SheetLayout] {
+            let schedule = db.deliverySchedule(quotationId: boq.id)
+            let days = used(schedule)
+            guard !days.isEmpty else { return [] }
+            let inChinese = db.printsInChinese(boq.language)
+            let zh = inChinese ? db.chineseNames(for: boq.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
+            let lines = boq.lineItems.map { l in
+                BQSheet.ScheduleLine(id: l.id, name: documentItemName(l.itemDescription, zh[l.id], inChinese: inChinese), unit: l.unit,
+                                     quantity: l.quantity, weightKg: l.weightKg ?? schedule.weights[l.id])
+            }
+            return BQSheet.deliverySchedule(info: scheduleInfo(projectNumber: boq.projectNumber, projectName: boq.projectName,
+                                                               pricingMode: boq.pricingMode, document: document),
+                                            lines: lines, days: days, chinese: inChinese)
+        }
+        var sheets: [SheetLayout] = []
+        if kind == "BOQ" {
+            guard let boq = db.getBOQDetail(id: id) else { return nil }
+            sheets = ofBOQ(boq, document: "BOQ \(boq.boqNumber)")
+        } else {
+            guard let q = db.getQuotationDetail(id: id) else { return nil }
+            let schedule = db.deliverySchedule(quotationId: q.id)
+            let days = used(schedule)
+            if !days.isEmpty {
+                let inChinese = db.printsInChinese(q.language)
+                let materials = q.lineItems.filter { $0.blockId == nil && $0.section != "Delivery" }
+                let zh = inChinese ? db.chineseNames(for: materials, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
+                let weights = db.quotationLineWeights(materials)
+                let lines = materials.map { l in
+                    BQSheet.ScheduleLine(id: l.id, name: documentItemName(l.itemDescription, zh[l.id], inChinese: inChinese), unit: l.unit,
+                                         quantity: l.quantity, weightKg: weights[l.id] ?? schedule.weights[l.id])
+                }
+                sheets = BQSheet.deliverySchedule(info: scheduleInfo(projectNumber: q.projectNumber, projectName: q.projectName,
+                                                                     pricingMode: q.pricingMode, document: "Quotation \(q.quotationNumber)"),
+                                                  lines: lines, days: days, chinese: inChinese)
+            } else if let boqId = db.getQuotation(id: q.id)?.sourceBOQId, let boq = db.getBOQDetail(id: boqId) {
+                sheets = ofBOQ(boq, document: "Quotation \(q.quotationNumber)")
+            }
+        }
+        let document = PDFDocument()
+        for sheet in sheets {
+            guard let data = BQSheetRenderer.pdf(sheet), let pages = PDFDocument(data: data) else { continue }
+            for i in 0..<pages.pageCount {
+                if let page = pages.page(at: i)?.copy() as? PDFPage { document.insert(page, at: document.pageCount) }
+            }
+        }
+        guard document.pageCount > 0, let data = document.dataRepresentation() else { return nil }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-schedule-\(id).pdf")
+        return (try? data.write(to: url)) != nil ? url : nil
+    }
+
+    /// The project code, client and job site at the top of a sheet, as on the BQ sheet.
+    private func scheduleInfo(projectNumber: String, projectName: String, pricingMode: String, document: String)
+        -> (projectCode: String, client: String, jobSite: String, document: String) {
+        let project = db.getProjectByNumber(projectNumber)
+        let client = project.flatMap { db.getClient(id: $0.clientId) }
+        let site = project.flatMap { db.getSite(id: $0.siteId) }
+        var jobSite = site.map { $0.name } ?? ""
+        if let ref = nonBlank(site?.siteReference), !jobSite.contains(ref) { jobSite = jobSite.isEmpty ? ref : "\(ref) \(jobSite)" }
+        let clientName = nonBlank(client?.clientReference) ?? client?.companyName ?? ""
+        let projectCode = [projectNumber, projectName, pricingMode, clientName].compactMap { nonBlank($0) }.joined(separator: " - ")
+        return (projectCode, clientName, jobSite, document)
+    }
+
     /// The portrait BOQ: the letterhead layout (from Qt26193) with each
     /// item's unit, quantity and weights, and the total weight.
     private func exportBOQOnLetterhead(id: String, detail: BOQDetail, mode: PDFMode) {
         deliverRenderedPDF(id: id, mode: mode, company: db.getCompanySettings(), projectNumber: detail.projectNumber, subfolder: "BOQ",
                            documentNumber: detail.boqNumber, docTypeTag: "BOQ", letter: boqLetter(detail),
-                           attachments: db.appendedDrawingFiles(kind: "BOQ", id: detail.id))
+                           attachments: boqAttachments(detail.id))
     }
 
     private func boqLetter(_ detail: BOQDetail) -> LetterDocument {
@@ -15869,12 +16089,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             onePage: true)
     }
 
-    /// Everything added after a quotation's own pages: the BOQ it follows
-    /// (not after a landscape quotation, which is the BQ sheet itself), then
-    /// its image and PDF drawings.
+    /// Everything added after a quotation's own pages: its delivery
+    /// schedule, the BOQ it follows (not after a landscape quotation, which
+    /// is the BQ sheet itself), then its image and PDF drawings.
     private func quotationAttachments(_ detail: QuotationDetail) -> [URL] {
         let boq = detail.orientation == "Landscape" ? nil : followedBOQFile(detail)
-        return [boq].compactMap { $0 } + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
+        return [deliveryScheduleFile(kind: "Quotation", id: detail.id), boq].compactMap { $0 }
+            + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
     }
 
     /// A quotation laid out on the letterhead (as Qt26193).
@@ -15972,7 +16193,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         for docId in ids {
             if kind == "BOQ" {
                 guard let detail = db.getBOQDetail(id: docId), var data = boqPDFData(detail) else { continue }
-                if includeDrawings { data = PDFAttachments.append(db.appendedDrawingFiles(kind: "BOQ", id: detail.id), to: data, paperSize: paperSize) }
+                // (Its delivery schedule either way: it's part of the BOQ.)
+                let extra = includeDrawings ? boqAttachments(detail.id) : [deliveryScheduleFile(kind: "BOQ", id: detail.id)].compactMap { $0 }
+                data = PDFAttachments.append(extra, to: data, paperSize: paperSize)
                 parts.append((detail.boqNumber, detail.projectNumber, data))
             } else if kind == "Invoice" {
                 guard let detail = db.getInvoiceDetail(id: docId), let generator = PDFGenerator(paperSize: paper) else { continue }
@@ -15983,7 +16206,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 parts.append((detail.deliveryNoteNumber, detail.projectNumber, generator.generate(deliveryNoteLetter(detail, note: note, company: company))))
             } else {
                 guard let detail = db.getQuotationDetail(id: docId), var data = quotationPDFData(detail) else { continue }
-                if includeDrawings { data = PDFAttachments.append(quotationAttachments(detail), to: data, paperSize: paperSize) }
+                let extra = includeDrawings ? quotationAttachments(detail) : [deliveryScheduleFile(kind: "Quotation", id: detail.id)].compactMap { $0 }
+                data = PDFAttachments.append(extra, to: data, paperSize: paperSize)
                 parts.append((detail.quotationNumber, detail.projectNumber, data))
             }
         }
