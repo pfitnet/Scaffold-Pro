@@ -185,7 +185,7 @@ function renderLineItems() {
   const items = currentDetail.lineItems;
   const isIssued = currentDetail.status === 'Issued';
   const sort = document.getElementById('line-sort');
-  sort.value = currentDetail.lineSort || 'code';
+  sort.value = currentDetail.lineSort || 'list';
   sort.disabled = isIssued;
 
   if (items.length === 0) {

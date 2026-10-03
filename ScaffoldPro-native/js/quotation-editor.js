@@ -296,7 +296,7 @@ function renderLineItems() {
   const items = currentDetail.lineItems.filter((i) => !i.blockId);
   const isLocked = currentDetail.status !== 'Draft';
   const sort = document.getElementById('line-sort');
-  sort.value = currentDetail.lineSort || 'code';
+  sort.value = currentDetail.lineSort || 'list';
   sort.disabled = isLocked;
   sort.title = currentDetail.boqLinked ? `Linked: ${currentDetail.sourceBOQNumber} is sorted the same way` : 'How the items are listed and printed. Dragging a line switches to “As arranged”.';
 

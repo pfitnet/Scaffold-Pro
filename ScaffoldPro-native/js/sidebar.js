@@ -367,16 +367,31 @@ async function renderTeamIndicator(sidebar) {
     return /^-?\d+(\.\d+)?$/.test(cleaned) ? Number(cleaned) : null;
   }
 
+  // Clicking a heading: ascending, then descending, then back to the
+  // table's own order (as it was before any heading was clicked).
   function sortBy(table, index, th) {
     const tbody = table.tBodies[0];
     if (!tbody) return;
-    const ascending = th.dataset.sortDir !== 'asc';
+    const was = th.dataset.sortDir;
+    const sortedNow = [...table.tHead.rows[0].cells].some((c) => c.dataset.sortDir);
+    // Unsorted: this is the table's own order, to go back to.
+    if (!sortedNow || !tbody.__ownOrder) tbody.__ownOrder = Array.from(tbody.rows);
     for (const other of table.tHead.rows[0].cells) {
       delete other.dataset.sortDir;
       other.classList.remove('sorted-asc', 'sorted-desc');
     }
+    if (was === 'desc') {
+      // Third click: the own order again (rows added since stay at the end).
+      const own = tbody.__ownOrder.filter((r) => r.parentNode === tbody);
+      const rest = Array.from(tbody.rows).filter((r) => !own.includes(r));
+      for (const r of own.concat(rest)) tbody.appendChild(r);
+      th.title = 'Click to sort';
+      return;
+    }
+    const ascending = was !== 'asc';
     th.dataset.sortDir = ascending ? 'asc' : 'desc';
     th.classList.add(ascending ? 'sorted-asc' : 'sorted-desc');
+    th.title = ascending ? 'Sorted A–Z / low to high — click for Z–A' : 'Sorted Z–A / high to low — click to go back to the original order';
     const rows = Array.from(tbody.rows);
     const numeric = rows.every((r) => { const v = cellValue(r, index); return v === '' || v === '—' || asNumber(v) !== null; });
     rows.sort((a, b) => {
