@@ -3042,3 +3042,12 @@ Every form control is now drawn by the app instead of macOS, on every page
   is also found by the number: "-sN" at the end, the rest being a quotation
   of the same project. The bracket, Revert, the project page's nesting and
   the parent's "Split off it: …" all use it.
+
+## Batch 129 — A nicer subsidiary bracket
+
+- In a subsidiary, the bracket under Dates & Pricing no longer says "Not
+  linked to a BOQ" (that's normal for one). It's tinted in the quotation
+  colour (as on the Dashboard) with an accent bar, a branch icon, a small
+  "SUBSIDIARY" label, "of Qt26210-004" (a link) with that quotation's status,
+  and a **Revert** button with an undo icon. The BOQ import icon moves to
+  the right end.
