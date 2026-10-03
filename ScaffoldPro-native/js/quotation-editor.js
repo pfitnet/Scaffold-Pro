@@ -519,9 +519,10 @@ function renderBlocks() {
 
     let body = '';
     if (block.kind !== 'Note') {
+      // Priced rows: Qty, Unit Price and its unit ("Per", optional) — printed "500.00 /set".
       const head = rates
-        ? '<th class="num row-no">No.</th><th>Description</th><th class="num">Rate</th><th>Unit</th><th></th><th></th>'
-        : '<th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th><th></th>';
+        ? '<th class="num row-no">No.</th><th>Description</th><th class="num">Rate</th><th>Per</th><th></th><th></th>'
+        : '<th class="num row-no">No.</th><th>Description</th><th class="num">Qty</th><th class="num">Unit Price</th><th title="Optional — printed after the unit price, e.g. 500.00 /set">Per</th><th class="num">Total</th><th></th>';
       const rows = lines.map((line, n) => {
         const dis = locked ? 'disabled' : '';
         const common = `<td class="num row-no">${esc(block.prefix)}${n + 1}</td>
@@ -530,12 +531,12 @@ function renderBlocks() {
         return rates
           ? `<tr data-id="${line.id}">${common}
               <td class="num"><input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} /></td>
-              <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" ${dis} /></td>
+              <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" placeholder="md" ${dis} /></td>
               <td class="rate-only">(Rate Only)</td>${remove}</tr>`
           : `<tr data-id="${line.id}">${common}
-              <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" ${dis} /></td>
               <td class="num"><input type="number" class="row-qty narrow" min="1" step="1" value="${Math.round(line.quantity)}" ${dis} /></td>
               <td class="num"><input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} /></td>
+              <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" placeholder="optional" ${dis} /></td>
               <td class="num">${money(d.lineTotals[line.id])}</td>${remove}</tr>`;
       }).join('');
       body = `
@@ -547,15 +548,16 @@ function renderBlocks() {
               ${[['', 'Once'], ['Day', 'Per day'], ['Week', 'Per week'], ['Month', 'Per month']].map(([v, t]) => `<option value="${v}" ${(block.chargePeriod || '') === v ? 'selected' : ''}>${t}</option>`).join('')}
             </select></label>`}
         </div>
-        ${lines.length ? `<table class="compact"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>` : '<p class="small-note">No rows yet.</p>'}
-        ${locked ? '' : `<div class="extra-add-row">
-          <input type="text" class="add-desc" placeholder="${rates ? 'e.g. Scaffolder CP' : 'e.g. Design and Drawing'}" />
-          ${rates ? '' : '<input type="number" class="add-qty" min="1" step="1" value="1" title="Quantity" />'}
-          <input type="number" class="add-price" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" />
-          <input type="text" class="add-unit" value="${rates ? 'md' : ''}" placeholder="Unit" title="Unit${rates ? ', e.g. md (man-day)' : ' (optional), e.g. lot'}" />
-          <button class="add-row">Add Row</button>
-          ${rates ? '<button class="fill-standard" title="Add the standard rates for Scaffolder CP, Scaffolder, Rigger and General Helper (Settings › Standard Quotation); workers already listed are skipped">Fill Standard Rates</button>' : ''}
-        </div>`}`;
+        ${lines.length || !locked ? `<table class="compact"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody>
+          ${locked ? '' : `<tfoot><tr class="extra-add-row">
+            <td class="num row-no">+</td>
+            <td><input type="text" class="add-desc" placeholder="${rates ? 'e.g. Scaffolder CP' : 'e.g. Design and Drawing'}" /></td>
+            ${rates ? '' : '<td class="num"><input type="number" class="add-qty narrow" min="1" step="1" value="1" title="Quantity" /></td>'}
+            <td class="num"><input type="number" class="add-price${rates ? ' narrow' : ''}" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" /></td>
+            <td><input type="text" class="add-unit narrow" value="${rates ? 'md' : ''}" placeholder="${rates ? 'md' : 'optional'}" title="${rates ? 'Per, e.g. md (man-day)' : 'Optional — printed after the unit price, e.g. 500.00 /set'}" /></td>
+            <td colspan="2" class="add-cell"><button class="add-row">Add Row</button></td>
+          </tr></tfoot>`}</table>` : '<p class="small-note">No rows.</p>'}
+        ${!locked && rates ? '<div class="extra-actions"><button class="fill-standard" title="Add the standard rates for Scaffolder CP, Scaffolder, Rigger and General Helper (Settings › Standard Quotation); workers already listed are skipped">Fill Standard Rates</button></div>' : ''}`;
     }
 
     card.innerHTML = `
