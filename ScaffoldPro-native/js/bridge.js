@@ -135,7 +135,8 @@
       // The BOQ's own delivery schedule (Day 1, Day 2…); a quotation can copy it.
       deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
       // The schedule on its own, as the landscape sheet printed after the BOQ → { ok, error, path }.
-      deliverySchedulePDF: (id) => callNative('quotations:deliverySchedulePDF', { id: id, kind: 'BOQ' }),
+      // (internal: with the days' internal notes.)
+      deliverySchedulePDF: (id, internal) => callNative('quotations:deliverySchedulePDF', { id: id, kind: 'BOQ', internal: !!internal }),
       addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
       updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
       deleteDeliveryDay: (dayId) => callNative('quotations:deleteDeliveryDay', { id: dayId }),
@@ -177,9 +178,9 @@
       // Delivery schedule: how many of each material go to site on Day 1, Day 2… (not tied to stock).
       deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
       // The schedule on its own, as the landscape sheet printed after the quotation → { ok, error, path }.
-      deliverySchedulePDF: (id) => callNative('quotations:deliverySchedulePDF', { id: id, kind: 'Quotation' }),
+      deliverySchedulePDF: (id, internal) => callNative('quotations:deliverySchedulePDF', { id: id, kind: 'Quotation', internal: !!internal }),
       addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
-      // changes: { date?, sent?, note?, quantities?: { lineId: qty } }
+      // changes: { date?, sent?, note?, internalNote?, quantities?: { lineId: qty } }
       updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
       deleteDeliveryDay: (dayId) => callNative('quotations:deleteDeliveryDay', { id: dayId }),
       // The BOQ's delivery schedule onto this quotation (replacing its own) → { ok, error, skipped }.
