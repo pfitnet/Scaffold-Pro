@@ -92,8 +92,7 @@ function render() {
   document.title = `${d.quotationNumber} — ScaffoldPro`;
   document.getElementById('quotation-header').innerHTML = `
     <h1>${d.quotationNumber}</h1>
-    <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.clientName || 'No client'} · ${d.siteName || 'No site'} · ${d.pricingMode} pricing</div>
-    ${splitNote(d)}`;
+    <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.clientName || 'No client'} · ${d.siteName || 'No site'} · ${d.pricingMode} pricing</div>`;
   document.getElementById('split-btn').disabled = d.status !== 'Draft';
   document.getElementById('back-link').href = `project-detail.html?number=${d.projectNumber}`;
 
@@ -195,16 +194,6 @@ function render() {
   renderTotals();
   renderSignedBar();
   renderDirectorBar();
-}
-
-// Split quotations: the one it was split off, and the ones split off it
-// (not linked — each is changed on its own).
-function splitNote(d) {
-  const link = (r) => `<a href="quotation-editor.html?id=${encodeURIComponent(r.id)}">${esc(r.number)}</a>${r.status === 'Draft' ? '' : ` <span class="muted">(${esc(r.status.toLowerCase())})</span>`}`;
-  const parts = [];
-  // (A subsidiary names its parent in the BOQ bracket, with Revert.)
-  if (d.subsidiaries && d.subsidiaries.length) parts.push(`Split off it: ${d.subsidiaries.map(link).join(', ')}`);
-  return parts.length ? `<div class="split-note">${parts.join(' · ')}</div>` : '';
 }
 
 // "Revert" on a subsidiary: everything back onto the quotation it was split off.

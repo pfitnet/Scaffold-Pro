@@ -3494,14 +3494,28 @@ final class AppDatabase {
         case "boq": boq = getBOQ(id: id)
         default: break
         }
-        if boq == nil { boq = root?.sourceBOQId.flatMap { getBOQ(id: $0) } }
+        // A subsidiary follows the quotation it was split off (and its BOQ).
+        let rootParent = root.flatMap { parentQuotation(of: $0, in: quotations) }
+        if boq == nil { boq = (root?.sourceBOQId ?? rootParent?.sourceBOQId).flatMap { getBOQ(id: $0) } }
         var links: [ChainLink] = []
         if let b = boq {
             links.append(ChainLink(kind: "BOQ", id: b.id, number: b.boqNumber, status: b.status, url: "boq-editor.html?id=\(b.id)", current: kind == "boq" && b.id == id))
         }
         let chainQuotations = root.map { [$0] } ?? (kind == "boq" ? quotations.filter { $0.sourceBOQId == id }.sorted { $0.quotationNumber < $1.quotationNumber } : [])
+        let link = { (q: Quotation, role: String) in
+            ChainLink(kind: role, id: q.id, number: q.quotationNumber, status: q.status, url: "quotation-editor.html?id=\(q.id)", current: kind == "quotation" && q.id == id)
+        }
         for q in chainQuotations {
-            links.append(ChainLink(kind: "Quotation", id: q.id, number: q.quotationNumber, status: q.status, url: "quotation-editor.html?id=\(q.id)", current: kind == "quotation" && q.id == id))
+            // Quotation › Subsidiaries: the quotation, then those split off it.
+            if let parent = parentQuotation(of: q, in: quotations), q.id == root?.id {
+                links.append(link(parent, "Quotation"))
+                links.append(link(q, "Subsidiary"))
+            } else {
+                links.append(link(q, "Quotation"))
+                for sub in quotations.filter({ parentQuotation(of: $0, in: quotations)?.id == q.id }).sorted(by: { $0.quotationNumber < $1.quotationNumber }) {
+                    links.append(link(sub, "Subsidiary"))
+                }
+            }
         }
         let qids = Set(chainQuotations.map { $0.id })
         var dnList = notes.filter { $0.sourceQuotationId.map { qids.contains($0) } ?? false }

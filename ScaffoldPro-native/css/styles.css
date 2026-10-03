@@ -1897,3 +1897,100 @@ input.calc-input.calc-bad, input[data-date].calc-bad { border-color: var(--dange
 @keyframes undoGlowField { from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); } to { box-shadow: 0 0 0 3px transparent; } }
 tr.undo-changed > td, .undo-changed:not(tr):not(input):not(textarea):not(select) { animation: undoGlow 2.4s ease-out; }
 input.undo-changed, textarea.undo-changed, select.undo-changed { animation: undoGlowField 2.4s ease-out; }
+
+/* ---- A document editor's header card (js/doc-authors.js) ----
+   The type in its colour and the status over the number and the project
+   line; who made it and who last worked on it at the right; the linked
+   documents as a flow along the bottom. Small motions on load, hover,
+   copy and status changes (none with Reduce Motion). */
+.doc-hero {
+  --k: var(--doc-file);
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; row-gap: 2px;
+  margin: 0 0 18px; padding: 16px 20px 14px 22px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--k) 22%, var(--border));
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--k) 13%, transparent) 0%, transparent 55%),
+    var(--panel);
+  box-shadow: var(--shadow-control);
+  overflow: hidden;
+  animation: dhIn .38s cubic-bezier(.2, .7, .2, 1) both;
+}
+.doc-hero::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(var(--k), color-mix(in srgb, var(--k) 40%, transparent)); }
+.doc-hero[data-kind="boq"] { --k: var(--doc-boq); }
+.doc-hero[data-kind="quotation"] { --k: var(--doc-quotation); }
+.doc-hero[data-kind="deliveryNote"] { --k: var(--doc-delivery); }
+.doc-hero[data-kind="invoice"] { --k: var(--doc-invoice); }
+.doc-hero[data-kind="letter"] { --k: var(--doc-letter); }
+@keyframes dhIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.dh-eyebrow { grid-column: 1; display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--k); }
+.dh-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--k); box-shadow: 0 0 0 0 color-mix(in srgb, var(--k) 45%, transparent); animation: dhPing 1.6s ease-out .3s 2; }
+@keyframes dhPing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--k) 45%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+.dh-status { letter-spacing: .02em; text-transform: none; font-weight: 600; font-size: 11px; padding: 1px 8px; border-radius: 999px; color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 13%, transparent); }
+.dh-status:empty { display: none; }
+.dh-status.s-issued, .dh-status.s-paid, .dh-status.s-delivered { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.dh-status.s-cancelled, .dh-status.s-void { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.dh-status.changed { animation: dhPop .35s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes dhPop { 0% { transform: scale(.8); opacity: .4; } 100% { transform: none; opacity: 1; } }
+
+.dh-main { grid-column: 1; min-width: 0; display: flex; align-items: flex-start; gap: 6px; }
+.dh-main > div { min-width: 0; }
+.doc-hero h1 { font-size: 26px; letter-spacing: -0.02em; margin: 2px 0 2px; cursor: copy; transition: color .15s; width: fit-content; }
+.doc-hero h1:hover { color: var(--k); }
+.doc-hero .subtitle { margin: 0; font-size: 13px; line-height: 1.5; }
+.doc-hero .split-note { display: none; } /* shown in the flow instead */
+.dh-copy { position: relative; margin-top: 9px; padding: 4px; border: 0; background: none; color: var(--text-tertiary); border-radius: 6px; opacity: 0; transform: translateX(-4px); transition: opacity .15s, transform .15s, color .15s, background .15s; cursor: pointer; }
+.dh-main:hover .dh-copy, .dh-copy:focus-visible { opacity: 1; transform: none; }
+.dh-copy:hover { color: var(--k); background: color-mix(in srgb, var(--k) 12%, transparent); }
+.dh-copied { position: absolute; left: 50%; top: -4px; transform: translate(-50%, -100%) scale(.85); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
+  color: #fff; background: var(--k); opacity: 0; pointer-events: none; transition: opacity .15s, transform .2s cubic-bezier(.3, 1.6, .5, 1); }
+.doc-hero.copied .dh-copy { opacity: 1; transform: none; color: var(--k); }
+.doc-hero.copied .dh-copied { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+
+.dh-side { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: flex; gap: 6px; }
+.dh-meta { display: flex; flex-direction: column; gap: 3px; padding: 7px 12px; border-radius: 10px; transition: background .15s; }
+.dh-meta:hover { background: color-mix(in srgb, var(--text-secondary) 8%, transparent); }
+.dh-meta + .dh-meta { border-left: 1px solid var(--border); border-radius: 0 10px 10px 0; }
+.dh-meta-label { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+.dh-meta-value { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.dh-ago { color: var(--text-secondary); font-size: 12px; }
+
+/* The linked documents: BOQ › Quotation › Split off › Delivery Notes › Invoices */
+.doc-flow { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 0; margin-top: 12px; padding-top: 12px; border-top: 1px dashed color-mix(in srgb, var(--k) 25%, var(--border)); }
+.doc-flow[hidden] { display: none; }
+.df-group { --c: var(--doc-file); display: flex; flex-direction: column; gap: 4px; animation: dhIn .35s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(.12s + var(--i) * 70ms); }
+.df-group[data-kind="boq"] { --c: var(--doc-boq); }
+.df-group[data-kind="quotation"] { --c: var(--doc-quotation); }
+.df-group[data-kind="subsidiary"] { --c: color-mix(in srgb, var(--doc-quotation) 65%, var(--doc-letter)); }
+.df-group[data-kind="deliveryNote"] { --c: var(--doc-delivery); }
+.df-group[data-kind="invoice"] { --c: var(--doc-invoice); }
+.df-kind { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--c); padding-left: 2px; }
+.df-docs { display: flex; flex-wrap: wrap; gap: 6px; }
+.df-doc { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 8px; font-size: 12.5px; font-weight: 550; font-variant-numeric: tabular-nums;
+  color: var(--text); text-decoration: none; background: var(--panel); border: 1px solid color-mix(in srgb, var(--c) 30%, var(--border));
+  transition: transform .15s cubic-bezier(.2, .7, .2, 1), box-shadow .15s, border-color .15s, background .15s; }
+a.df-doc:hover { transform: translateY(-1.5px); border-color: var(--c); background: color-mix(in srgb, var(--c) 9%, var(--panel)); box-shadow: 0 4px 12px color-mix(in srgb, var(--c) 22%, transparent); text-decoration: none; color: var(--text); }
+a.df-doc:active { transform: translateY(0) scale(.97); }
+a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.df-doc.current { color: #fff; background: var(--c); border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 22%, transparent); }
+.df-status { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-tertiary); }
+.df-status.s-issued, .df-status.s-paid, .df-status.s-delivered { background: var(--success); }
+.df-status.s-cancelled, .df-status.s-void { background: var(--danger); }
+.df-doc.current .df-status { background: #fff; opacity: .85; }
+.df-link { align-self: flex-end; width: 30px; height: 29px; margin: 0 8px; position: relative; flex: none; }
+.df-link::before { content: ''; position: absolute; left: 0; right: 6px; top: 50%; height: 1.5px; background: linear-gradient(90deg, var(--border), var(--text-tertiary));
+  transform-origin: left; animation: dfGrow .4s ease-out both; animation-delay: calc(.1s + var(--i) * 70ms); }
+.df-link::after { content: ''; position: absolute; right: 2px; top: calc(50% - 3.5px); width: 6px; height: 6px; border-top: 1.5px solid var(--text-tertiary); border-right: 1.5px solid var(--text-tertiary); transform: rotate(45deg);
+  animation: dfFade .3s ease-out both; animation-delay: calc(.3s + var(--i) * 70ms); }
+@keyframes dfFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dfGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@media (max-width: 860px) {
+  .doc-hero { grid-template-columns: minmax(0, 1fr); }
+  .dh-side { grid-column: 1; grid-row: auto; margin-top: 10px; }
+  .dh-meta { padding-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .doc-hero, .dh-dot, .df-group, .df-link::before, .df-link::after, .dh-status.changed { animation: none !important; }
+  .df-doc, .dh-copy, .dh-copied { transition: none; }
+}
