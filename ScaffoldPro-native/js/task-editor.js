@@ -40,11 +40,11 @@
     const $ = (id) => modal.querySelector(`#${id}`);
     return new Promise((resolve) => {
       $('tk-title').textContent = task ? 'Edit Task' : 'New Task';
-      $('tk-text').value = task ? task.title : '';
+      $('tk-text').value = task ? task.title : (opts.title || '');
       $('tk-assignee').value = task ? (task.assignee || '') : (opts.assignee || '');
       $('tk-due').value = task ? (task.dueDate || '') : (opts.dueDate || '');
       $('tk-time').value = task ? (task.dueTime || '') : (opts.dueTime || '');
-      $('tk-priority').value = task && task.priority === 'High' ? 'High' : '';
+      $('tk-priority').value = (task ? task.priority : opts.priority) === 'High' ? 'High' : '';
       $('tk-notes').value = task ? (task.notes || '') : '';
       $('tk-people').innerHTML = (opts.people || []).map((n) => `<option value="${esc(n)}"></option>`).join('');
       const projects = opts.projects || [];
