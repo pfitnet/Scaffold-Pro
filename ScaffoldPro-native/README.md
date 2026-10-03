@@ -3127,3 +3127,25 @@ Every form control is now drawn by the app instead of macOS, on every page
 - My Tasks / Everyone's / Done is a sliding segmented control with counts;
   the chosen tab and folded groups are remembered. Light and dark; all motion
   off with Reduce Motion. Each project's Tasks tab is unchanged.
+
+## Batch 134 — Preview before saving; subsidiaries asked for at export
+
+- **Preview:** Export › PDF (BOQ, quotation, invoice, delivery note) and
+  Export › Word now open the document in a preview inside ScaffoldPro
+  first — the finished PDF's pages, or the Word copy drawn as it reads —
+  with zoom (−, fit, +; ⌘−, ⌘0, ⌘+). Nothing goes into the project folder
+  until **Save to Project Folder** (⌘S); then **Open**, **Show in Finder**
+  or **Done**. Cancel (or Esc) keeps nothing. The Word copy is drawn by
+  docx-preview (js/vendor, Apache-2.0, with JSZip, MIT); it breaks pages
+  only where the document does, so each document shows as one continuous
+  page with the letterhead's top band at the top and its address band at
+  the end — Word itself splits it into pages.
+- **Subsidiaries:** the Export list is just PDF and Word again. With a
+  quotation that has subsidiaries, choosing PDF, Word or Print asks "Attach
+  the subsidiary too?" — **Qt… Only** or **Attach Qt…-s1** (or Cancel).
+  Attached, the PDF and Print have each subsidiary right after the
+  quotation's own pages; the Word file has each as its own section (its own
+  letterhead, or a landscape sheet), page numbers starting again at 1. The
+  earlier ticked setting is gone (it was kept with the quotation, where an
+  older copy of the app on another Mac could drop it — likely why it didn't
+  work).

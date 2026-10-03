@@ -403,7 +403,9 @@
       { line: 13.5, before: gapBefore(69, 13.5, 13.5), align: 'center' });
   }
 
-  function documentXML(d) {
+  // The letter's body and its section settings; `n` numbers its header
+  // and footer when several documents go into one file.
+  function letterParts(d, n = '') {
     const L = d;
     // The body starts where continuation pages do on the PDF (first baseline
     // 95.25pt); the first page's opening starts 9pt lower (104.25pt).
@@ -420,11 +422,16 @@
     const letter = d.paperSize === 'Letter';
     const pageW = letter ? 12240 : 11906;
     const pageH = letter ? 15840 : 16838;
-    const sect = `<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader"/><w:footerReference w:type="default" r:id="rIdFooter"/>` +
+    const sect = `<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader${n}"/><w:footerReference w:type="default" r:id="rIdFooter${n}"/>` +
       `<w:pgSz w:w="${pageW}" w:h="${pageH}"/>` +
       `<w:pgMar w:top="${TW(top)}" w:right="${TW(L.pageWidth - L.textRight)}" w:bottom="${TW(L.pageHeight - L.contentBottom - 4)}" ` +
       `w:left="${TW(L.textLeft)}" w:header="0" w:footer="${TW(12.4)}" w:gutter="0"/></w:sectPr>`;
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${body.join('')}${sect}</w:body></w:document>`;
+    return { body: body.join(''), sect };
+  }
+
+  function documentXML(d) {
+    const p = letterParts(d);
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${p.body}${p.sect}</w:body></w:document>`;
   }
 
   const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
@@ -682,6 +689,14 @@
   const RIGHT_EXTRA = 0.9;
 
   function buildSheetDocx(d) {
+    const p = sheetParts(d);
+    const documentXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${p.body}${p.sect}</w:body></w:document>`;
+    return sheetPackage(d, documentXML);
+  }
+
+  // The sheet as one table, and its section settings (`refs`: header and
+  // footer references, when it follows a letter in the same file).
+  function sheetParts(d, refs = '') {
     // A sheet shrunk to fit one page has thinner rules and less padding.
     const k = d.scale || 1;
     const PAD = 2.625 * k, HALF = HALF_RULE * k, EXTRA = RIGHT_EXTRA * k;
@@ -760,11 +775,13 @@
       '<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>' +
       '<w:tblLook w:val="0000" w:firstRow="0" w:lastRow="0" w:firstColumn="0" w:lastColumn="0" w:noHBand="1" w:noVBand="1"/></w:tblPr>' +
       `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${TW(w)}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`;
-    const sect = `<w:sectPr><w:pgSz w:w="${TW(d.pageWidth)}" w:h="${TW(d.pageHeight)}"${d.landscape ? ' w:orient="landscape"' : ''}/>` +
+    const sect = `<w:sectPr>${refs}<w:pgSz w:w="${TW(d.pageWidth)}" w:h="${TW(d.pageHeight)}"${d.landscape ? ' w:orient="landscape"' : ''}/>` +
       `<w:pgMar w:top="${TW(d.top)}" w:right="${TW(Math.max(0, d.pageWidth - d.right))}" w:bottom="${TW(d.pageHeight - d.bottomLimit)}" ` +
       `w:left="${TW(d.left)}" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>`;
-    const documentXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${table}` +
-      `${para('', { line: 1 })}${sect}</w:body></w:document>`;
+    return { body: table + para('', { line: 1 }), sect };
+  }
+
+  function sheetPackage(d, documentXML) {
     const rels = (items) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${items.join('')}</Relationships>`;
     const created = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     return zip([
@@ -796,17 +813,123 @@
     ]);
   }
 
+  // ---------- several documents in one file ----------
+  //
+  // A quotation with its subsidiaries after it: each document is its own
+  // section (portrait letterhead or landscape sheet) with its own header and
+  // footer; a sheet after a letter gets empty ones, so the letterhead isn't
+  // carried onto it.
+  function buildCombinedDocx(layouts) {
+    if (layouts.length === 1) return layouts[0].kind === 'sheet' ? buildSheetDocx(layouts[0]) : buildLetterDocx(layouts[0]);
+    const letterLayouts = layouts.filter((d) => d.kind !== 'sheet');
+    const hasLetter = letterLayouts.length > 0;
+    const first = layouts[0];
+    const rels = (items) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${items.join('')}</Relationships>`;
+    const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const files = [];
+    const overrides = [];
+    const docRels = [`<Relationship Id="rIdStyles" Type="${REL}/styles" Target="styles.xml"/>`, `<Relationship Id="rIdSettings" Type="${REL}/settings" Target="settings.xml"/>`];
+    const HDR = 'application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml';
+    const FTR = 'application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml';
+    // Fonts (from the first letter) and letterheads (one image per paper size).
+    const embedded = {};
+    const fontRels = [];
+    if (hasLetter) {
+      (letterLayouts[0].fonts || []).forEach((f, i) => {
+        const guid = newGuid();
+        const rid = `rIdFont${i + 1}`;
+        embedded[f.style] = { rid, guid };
+        files.push({ name: `word/fonts/font${i + 1}.odttf`, data: obfuscate(fromBase64(f.data), guid) });
+        fontRels.push(`<Relationship Id="${rid}" Type="${REL}/font" Target="fonts/font${i + 1}.odttf"/>`);
+      });
+      docRels.push(`<Relationship Id="rIdFonts" Type="${REL}/fontTable" Target="fontTable.xml"/>`);
+      overrides.push('<Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>');
+      files.push({ name: 'word/fontTable.xml', data: fontTableXML(embedded) }, { name: 'word/_rels/fontTable.xml.rels', data: rels(fontRels) });
+    }
+    const letterheads = [];
+    const sections = layouts.map((d, i) => {
+      const n = String(i + 1);
+      if (d.kind === 'sheet') {
+        const refs = hasLetter ? '<w:headerReference w:type="default" r:id="rIdHeaderBlank"/><w:footerReference w:type="default" r:id="rIdFooterBlank"/>' : '';
+        return sheetParts(d, refs);
+      }
+      let image = letterheads.indexOf(d.letterheadPNG);
+      if (image < 0) {
+        letterheads.push(d.letterheadPNG);
+        image = letterheads.length - 1;
+        files.push({ name: `word/media/letterhead${image + 1}.png`, data: fromBase64(d.letterheadPNG) });
+      }
+      files.push(
+        { name: `word/header${n}.xml`, data: headerXML(d) },
+        { name: `word/_rels/header${n}.xml.rels`, data: rels([`<Relationship Id="rIdLetterhead" Type="${REL}/image" Target="media/letterhead${image + 1}.png"/>`]) },
+        { name: `word/footer${n}.xml`, data: footerXML(d) },
+      );
+      overrides.push(`<Override PartName="/word/header${n}.xml" ContentType="${HDR}"/>`, `<Override PartName="/word/footer${n}.xml" ContentType="${FTR}"/>`);
+      docRels.push(`<Relationship Id="rIdHeader${n}" Type="${REL}/header" Target="header${n}.xml"/>`, `<Relationship Id="rIdFooter${n}" Type="${REL}/footer" Target="footer${n}.xml"/>`);
+      return letterParts(d, n);
+    });
+    if (hasLetter && layouts.some((d) => d.kind === 'sheet')) {
+      files.push({ name: 'word/headerBlank.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:hdr ${NS}><w:p/></w:hdr>` },
+        { name: 'word/footerBlank.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:ftr ${NS}><w:p/></w:ftr>` });
+      overrides.push(`<Override PartName="/word/headerBlank.xml" ContentType="${HDR}"/>`, `<Override PartName="/word/footerBlank.xml" ContentType="${FTR}"/>`);
+      docRels.push(`<Relationship Id="rIdHeaderBlank" Type="${REL}/header" Target="headerBlank.xml"/>`, `<Relationship Id="rIdFooterBlank" Type="${REL}/footer" Target="footerBlank.xml"/>`);
+    }
+    // Each document's pages are numbered from 1.
+    for (const p of sections) p.sect = p.sect.replace('</w:sectPr>', '<w:pgNumType w:start="1"/></w:sectPr>');
+    // Each section ends with a (tiny) paragraph holding its settings; the last with the body's.
+    const body = sections.map((p, i) => (i < sections.length - 1
+      ? `${p.body}<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>${p.sect}</w:pPr></w:p>`
+      : `${p.body}${p.sect}`)).join('');
+    const created = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    files.unshift(
+      { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Default Extension="png" ContentType="image/png"/>' +
+        '<Default Extension="odttf" ContentType="application/vnd.openxmlformats-officedocument.obfuscatedFont"/>' +
+        '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+        '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+        '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>' +
+        overrides.join('') +
+        '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+        '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+        '</Types>' },
+      { name: '_rels/.rels', data: rels([
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>',
+        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>',
+        '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>',
+      ]) },
+      { name: 'docProps/core.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+        `<dc:title>${xml(`${first.title} ${first.number}`)}</dc:title><dc:creator>ScaffoldPro</dc:creator>` +
+        `<dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified></cp:coreProperties>` },
+      { name: 'docProps/app.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>ScaffoldPro</Application></Properties>' },
+      { name: 'word/document.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${body}</w:body></w:document>` },
+      { name: 'word/_rels/document.xml.rels', data: rels(docRels) },
+      { name: 'word/styles.xml', data: hasLetter ? stylesXML() : stylesXML().replace(new RegExp(BODY_FONT, 'g'), 'Calibri') },
+      { name: 'word/settings.xml', data: hasLetter ? settingsXML() : settingsXML().replace('<w:embedTrueTypeFonts/>', '') },
+    );
+    return zip(files);
+  }
+
+  // Builds the .docx (with `layout.attach`: more documents after it, e.g. a
+  // quotation's subsidiaries), shows it in the preview (js/doc-preview.js),
+  // and saves it into the project folder when that's confirmed.
   async function exportWord(fetchLayout) {
     const layout = await fetchLayout();
     if (!layout || !layout.ok) return { ok: false, error: (layout && layout.error) || 'The Word document couldn\u2019t be prepared.' };
-    const bytes = layout.kind === 'sheet' ? buildSheetDocx(layout) : buildLetterDocx(layout);
-    return root.api.files.saveWord({
+    const extra = (layout.attach || []).filter((l) => l && l.ok);
+    const bytes = extra.length ? buildCombinedDocx([layout, ...extra])
+      : layout.kind === 'sheet' ? buildSheetDocx(layout) : buildLetterDocx(layout);
+    const save = (open) => root.api.files.saveWord({
       projectNumber: layout.projectNumber, subfolder: layout.subfolder, fileName: layout.fileName,
-      reference: layout.number, data: toBase64(bytes),
+      reference: layout.number, data: toBase64(bytes), open: open !== false,
     });
+    if (root.docPreview && root.docPreview.word) return root.docPreview.word({ bytes, fileName: layout.fileName, title: `${layout.title || 'Document'} ${layout.number || ''}`.trim(), save });
+    return save(true);
   }
 
   root.buildLetterDocx = buildLetterDocx;
+  root.buildCombinedDocx = buildCombinedDocx;
   root.buildSheetDocx = buildSheetDocx;
   root.__setSheetBaseline = (v) => { SHEET_BASELINE_AT = v; };
   root.exportWord = exportWord;

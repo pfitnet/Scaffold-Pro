@@ -164,7 +164,8 @@
       updateNotes: (id, notes) => callNative('boq:updateNotes', { id: id, notes: notes }),
       // force: also an issued one (after the page has asked twice).
       remove: (id, force) => callNative('boq:delete', { id: id, force: !!force }),
-      exportPDF: (id) => callNative('boq:exportPDF', { id: id }),
+      // opts: { preview: true } → the PDF comes back to show (js/doc-preview.js) before it's saved.
+      exportPDF: (id, opts) => callNative('boq:exportPDF', Object.assign({ id: id }, opts || {})),
       exportWord: (id) => callNative('boq:exportWord', { id: id }),
       updateDetails: (id, changes) => callNative('boq:updateDetails', Object.assign({ id: id }, changes)),
       moveLineItem: (id, direction) => callNative('boq:moveLineItem', { id: id, direction: direction }),
@@ -213,8 +214,6 @@
       split: (id, lineIds, blockIds) => callNative('quotations:split', { id: id, lineIds: lineIds, blockIds: blockIds }),
       // A subsidiary's lines and sections back onto its parent; the subsidiary is deleted: { ok, error, id (the parent) }.
       revertSplit: (id) => callNative('quotations:revertSplit', { id: id }),
-      // Export › Attach › Subsidiaries: they go after this quotation's own pages.
-      setAttachSubsidiaries: (id, on) => callNative('quotations:setAttachSubsidiaries', { id: id, on: !!on }),
       addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
       // The standard manpower rates (Settings), into a rates section — or a new one if blockId is null.
       addStandardRates: (quotationId, blockId) => callNative('quotations:addStandardRates', { quotationId: quotationId, blockId: blockId || null }),
@@ -225,9 +224,11 @@
       updateStatus: (id, status) => callNative('quotations:updateStatus', { id: id, status: status }),
       // force: also an issued one (after the page has asked twice).
       remove: (id, force) => callNative('quotations:delete', { id: id, force: !!force }),
-      exportPDF: (id) => callNative('quotations:exportPDF', { id: id }),
+      // opts: { preview: true } → the PDF comes back to show (js/doc-preview.js) before it's saved, withSubsidiaries.
+      exportPDF: (id, opts) => callNative('quotations:exportPDF', Object.assign({ id: id }, opts || {})),
       exportWord: (id) => callNative('quotations:exportWord', { id: id }),
-      print: (id) => callNative('quotations:print', { id: id }),
+      // opts: { withSubsidiaries } — its subsidiaries printed after it.
+      print: (id, opts) => callNative('quotations:print', Object.assign({ id: id }, opts || {})),
       // Several quotations in one PDF (in the order given), optionally each with its drawings.
       combinePDF: (ids, includeDrawings) => callNative('quotations:combinePDF', { ids: ids, includeDrawings: !!includeDrawings }),
       // The client's signed copy (PDF or photo/scan), kept in the project's Quotations folder.
@@ -252,7 +253,8 @@
       recordPayment: (id, amount, details) => callNative('invoices:recordPayment', Object.assign({ id: id, amount: amount }, details || {})),
       // force: also an issued one (after the page has asked twice).
       remove: (id, force) => callNative('invoices:delete', { id: id, force: !!force }),
-      exportPDF: (id) => callNative('invoices:exportPDF', { id: id }),
+      // opts: { preview: true } → the PDF comes back to show (js/doc-preview.js) before it's saved.
+      exportPDF: (id, opts) => callNative('invoices:exportPDF', Object.assign({ id: id }, opts || {})),
       exportWord: (id) => callNative('invoices:exportWord', { id: id }),
       print: (id) => callNative('invoices:print', { id: id }),
     },
@@ -302,7 +304,8 @@
       updateStatus: (id, status) => callNative('deliveryNotes:updateStatus', { id: id, status: status }),
       // force: also an issued one (after the page has asked twice).
       remove: (id, force) => callNative('deliveryNotes:delete', { id: id, force: !!force }),
-      exportPDF: (id) => callNative('deliveryNotes:exportPDF', { id: id }),
+      // opts: { preview: true } → the PDF comes back to show (js/doc-preview.js) before it's saved.
+      exportPDF: (id, opts) => callNative('deliveryNotes:exportPDF', Object.assign({ id: id }, opts || {})),
       exportWord: (id) => callNative('deliveryNotes:exportWord', { id: id }),
       print: (id) => callNative('deliveryNotes:print', { id: id }),
     },
@@ -317,6 +320,11 @@
     // Word copies built by js/docx-export.js, saved next to the PDFs.
     files: {
       saveWord: (input) => callNative('files:saveWord', input),
+      // The PDF shown in the preview (js/doc-preview.js): save it into the project folder, or let it go.
+      savePreview: (token) => callNative('files:savePreview', { token: token }),
+      discardPreview: (token) => callNative('files:discardPreview', { token: token }),
+      // A file just saved: open it, or show it in Finder.
+      openSaved: (path, reveal) => callNative('files:openSaved', { path: path, reveal: !!reveal }),
       // Shows a BOQ / quotation / invoice / delivery note's file in Finder.
       // kind: 'BOQ', 'Quotation', 'Invoice' or 'DeliveryNote'.
       locateDocument: (kind, id) => callNative('files:locateDocument', { kind: kind, id: id }),
