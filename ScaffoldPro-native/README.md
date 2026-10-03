@@ -2698,3 +2698,9 @@ Every form control is now drawn by the app instead of macOS, on every page
   before.
 - js/widgets.js: `setupWidgets(grid, button, null, { place, about, load,
   choices, store })` turns on Cancel / Change ▾ for a page.
+
+## Batch 108 — Customise under the Overview
+
+- A project Overview's **Customise** button now sits under its panels, at
+  the right. While you arrange them, **Cancel** and **Change** take its
+  place there. Change's list opens above it when there's no room below.

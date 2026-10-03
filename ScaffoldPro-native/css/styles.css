@@ -1745,8 +1745,8 @@ button.pd-stat:active:not(:disabled) { transform: translateY(0) scale(.98); }
 .pd-overview > .panel:nth-of-type(3) { animation-delay: 100ms; }
 .pd-overview > .panel:nth-of-type(4) { animation-delay: 150ms; }
 .pd-overview.customising > .panel { animation: none; }
-/* Overview: Customise (and while arranging, Cancel and Change ▾) above the panels. */
-.pd-overview-bar { display: flex; justify-content: flex-end; gap: 8px; margin: -4px 0 12px; }
+/* Overview: Customise (and while arranging, Cancel and Change ▾) under the panels. */
+.pd-overview-bar { display: flex; justify-content: flex-end; gap: 8px; margin: 2px 0 8px; }
 .pd-details { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; margin: 0; }
 .pd-field { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; padding: 7px 8px; margin: 0 -8px; border-radius: 10px; transition: background-color .15s; }
 .pd-field:hover { background: var(--row-hover); }
