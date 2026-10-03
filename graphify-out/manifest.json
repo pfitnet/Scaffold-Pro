@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1791022578.1200113,
-    "seen": 1791022772.862461,
-    "ast_hash": "b116f1d324963fa508029813a3ae1434",
+    "mtime": 1791023417.0223603,
+    "seen": 1791023488.4050515,
+    "ast_hash": "c034230494cf5b041bdd36f86c53fb1a",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791022578.1189058,
-    "seen": 1791022772.8625002,
-    "ast_hash": "8cf70833aeafea81343c2ddddf7e0836",
+    "mtime": 1791023463.5841715,
+    "seen": 1791023488.4050884,
+    "ast_hash": "d0139f193818dd3299a36fe462eeac29",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -222,9 +222,9 @@
     "semantic_hash": ""
   },
   "tools/pdf-preview/sheet.py": {
-    "mtime": 1791020557.2198184,
-    "seen": 1791020617.80715,
-    "ast_hash": "7c99c1668cf5243fd4f9bfbbeadf24c1",
+    "mtime": 1791023463.586937,
+    "seen": 1791023488.4050927,
+    "ast_hash": "4a75d858d1f7b6667924a5d4e13218d4",
     "semantic_hash": ""
   },
   "tools/pdf-preview/word.py": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791022767.6360545,
-    "seen": 1791022772.8625088,
-    "ast_hash": "0cbe4fe4b496a73b108b33a14dfd028c",
+    "mtime": 1791023482.9555616,
+    "seen": 1791023488.405097,
+    "ast_hash": "aaa517f0f3e663649a24b516c40f80ab",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/boq-editor.html": {
-    "mtime": 1791022701.076362,
-    "seen": 1791022772.862511,
-    "ast_hash": "1202da9ce0bd94b8f40b1d8d8900192f",
+    "mtime": 1791023427.0395641,
+    "seen": 1791023488.405099,
+    "ast_hash": "dddd439109c029ec172a7a1920104069",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/clients.html": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1791022701.0768106,
-    "seen": 1791022772.862522,
-    "ast_hash": "39a3f3ad4b119afe2662716e52d186d7",
+    "mtime": 1791023427.0415552,
+    "seen": 1791023488.4051085,
+    "ast_hash": "b6563e9778539b485001883f2a0afcc3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
@@ -426,9 +426,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/delivery-schedule.js": {
-    "mtime": 1791022636.322789,
-    "seen": 1791022772.862469,
-    "ast_hash": "1ba58034e6b66479ac8e24c3ee7a628c",
+    "mtime": 1791023417.0241501,
+    "seen": 1791023488.4050589,
+    "ast_hash": "efe8c45be0b6eb55aa4d1bd069e4a4a1",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/letter-editor.js": {

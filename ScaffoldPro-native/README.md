@@ -2914,3 +2914,24 @@ Every form control is now drawn by the app instead of macOS, on every page
     with no items;
   - then the Sort choices, with the current one ticked (BOQ and
     quotation only).
+
+## Batch 119 — Delivery schedule internal notes; Export › Internal / External › PDF / Excel
+
+- Each delivery day has **Internal notes** (a row under Notes, its boxes
+  dashed) for the team only, e.g. the driver, the gate or loading order.
+  The **Notes** row above is for the client. A quotation copying its BOQ's
+  schedule copies the internal notes too.
+- **Export** in the delivery schedule:
+  - resting the pointer on it lists **Internal** (with the internal
+    notes, for the team) and **External** (the notes only, for the
+    client);
+  - resting on either opens **PDF** or **Excel** to its left;
+  - an Internal PDF says "DELIVERY SCHEDULE (INTERNAL)" on its banner and
+    lists "Internal notes:" after the notes. It's saved as
+    `…_Delivery Schedule (Internal)_Qt26212-007.pdf`, and the Excel copy
+    as `… Delivery Schedule (Internal).xlsx` with an Internal notes row.
+  - A click on Export itself saves the External PDF.
+- The schedule printed with the quotation or BOQ never shows the
+  internal notes.
+- `QuotationDeliveryDay.internalNote`; `BQSheet.deliverySchedule(…,
+  internal:)` in main.swift (and its copy in tools/pdf-preview/sheet.py).

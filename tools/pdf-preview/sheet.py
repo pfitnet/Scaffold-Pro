@@ -257,7 +257,7 @@ def render(L):
         y = bottom
     return img
 
-def schedule(info, lines, days, chinese=False):
+def schedule(info, lines, days, chinese=False, internal=False):
     """BQSheet.deliverySchedule: a delivery schedule as landscape sheets in the BQ sheet's style.
     lines: (id, name, unit, quantity, unit kg); days: dicts with day, date, quantities, note."""
     if not lines or not days: return []
@@ -285,7 +285,8 @@ def schedule(info, lines, days, chinese=False):
         if last: edges.append(right)
         n = len(edges) - 1
         rows = []
-        banner = f"DELIVERY SCHEDULE (DAY {chunk[0]['day']} – {chunk[-1]['day']})" if len(days) > per else 'DELIVERY SCHEDULE'
+        marks = (['INTERNAL'] if internal else []) + ([f"DAY {chunk[0]['day']} – {chunk[-1]['day']}"] if len(days) > per else [])
+        banner = 'DELIVERY SCHEDULE' + (f" ({', '.join(marks)})" if marks else '')
         rows.append(dict(kind='banner', height=27.75, fill='ED7D31', cells=[cell(left, right, banner, 19.99, 'center', 6.375, 'title')], repeats=True))
         mid = left + width * 0.56; ie = [left, left + 68.25, mid, mid + 68.25, right]
         for r in [('Project Code  :', info[0], 'Job Site          :', info[2]), ('Client             :', info[1], 'Document      :', info[3])]:
@@ -317,13 +318,17 @@ def schedule(info, lines, days, chinese=False):
             cells += [cell(edges[4 + j], edges[5 + j], x, 11, 'center', 6.375) for j, x in enumerate(t[2])]
             if last: cells.append(cell(edges[n - 1], edges[n], t[3], 11, 'center', 6.375))
             rows.append(dict(kind='total', height=21, fill=None, cells=cells, repeats=False))
-        notes = []
-        for d in chunk:
-            if d.get('note'):
-                date = day(d.get('date')); notes.append(f"Day {d['day']}{f' ({date})' if date else ''}: {d['note']}")
-        if notes:
-            texts = ['Notes:']
-            for nt in notes: texts += wrap(nt, right - left - 2 * 2.625, f11)
+        def noted(field):
+            out = []
+            for d in chunk:
+                if d.get(field):
+                    date = day(d.get('date')); out.append(f"Day {d['day']}{f' ({date})' if date else ''}: {d[field]}")
+            return out
+        notes = noted('note'); inotes = noted('internalNote') if internal else []
+        if notes or inotes:
+            texts = []
+            if notes: texts.append('Notes:'); [texts.extend(wrap(nt, right - left - 2 * 2.625, f11)) for nt in notes]
+            if inotes: texts.append('Internal notes:'); [texts.extend(wrap(nt, right - left - 2 * 2.625, f11)) for nt in inotes]
             for i, t in enumerate(texts):
                 first, end = i == 0, i == len(texts) - 1
                 rows.append(dict(kind='notes', height=14.25 + (9 if first else 0) + (9 if end else 0), fill=None, repeats=False, joinNext=not end,

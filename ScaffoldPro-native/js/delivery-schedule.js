@@ -81,7 +81,9 @@
       const w = dayWeight(d);
       return `<td class="num ${d.sent ? 'ds-sent' : ''}">${num(pcs)} pcs${w ? `<div class="small-note">${kg(w)}</div>` : ''}</td>`;
     }).join('');
-    const notes = data.days.map((d) => `<td class="${d.sent ? 'ds-sent' : ''}"><input type="text" class="ds-note" data-day="${esc(d.id)}" value="${esc(d.note || '')}" placeholder="Note" /></td>`).join('');
+    const notes = data.days.map((d) => `<td class="${d.sent ? 'ds-sent' : ''}"><input type="text" class="ds-note" data-day="${esc(d.id)}" value="${esc(d.note || '')}" placeholder="Note" title="Printed for the client" /></td>`).join('');
+    // For the team only: on an Internal export, never on the client's copy.
+    const internalNotes = data.days.map((d) => `<td class="${d.sent ? 'ds-sent' : ''}"><input type="text" class="ds-note ds-internal" data-day="${esc(d.id)}" value="${esc(d.internalNote || '')}" placeholder="Internal note" title="For the team only — on an Internal export, not on the client’s copy" /></td>`).join('');
     const totalPcs = lines.reduce((a, l) => a + scheduled(l.id), 0);
     const totalLeft = lines.reduce((a, l) => a + Math.max(0, Math.round(Number(l.quantity) || 0) - scheduled(l.id)), 0);
     const across = box.querySelector('.ds-scroll') ? box.querySelector('.ds-scroll').scrollLeft : 0; // kept when redrawn
@@ -91,6 +93,7 @@
       <tfoot>
         <tr><td>Total</td><td></td>${foot}<td class="num">${num(totalPcs)}</td><td class="num">${num(totalLeft)}</td></tr>
         <tr class="ds-notes"><td>Notes</td><td></td>${notes}<td></td><td></td></tr>
+        <tr class="ds-notes ds-internal-row"><td>Internal notes <span class="small-note">(not for the client)</span></td><td></td>${internalNotes}<td></td><td></td></tr>
       </tfoot></table></div>`;
     // Scrolled across: an edge on the pinned item column.
     const scroll = box.querySelector('.ds-scroll');
@@ -137,11 +140,13 @@
       });
     }
     for (const input of box.querySelectorAll('.ds-note')) {
-      input.addEventListener('change', () => update(input.dataset.day, { note: input.value }));
+      const field = input.classList.contains('ds-internal') ? 'internalNote' : 'note';
+      input.addEventListener('change', () => update(input.dataset.day, { [field]: input.value }));
     }
   }
 
-  async function exportCSV() {
+  // Excel: External (the notes) or Internal (the internal notes too).
+  async function exportCSV(internal) {
     const lines = materials();
     if (!lines.length || !data.days.length) { alert('Add a delivery day first.'); return; }
     const cell = (c) => { const t = String(c ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
@@ -152,7 +157,8 @@
       out.push([l.itemDescription, l.unit || '', quoted, ...data.days.map((d) => d.quantities[l.id] || ''), scheduled(l.id), quoted - scheduled(l.id)]);
     }
     out.push(['Notes', '', '', ...data.days.map((d) => d.note || ''), '', '']);
-    const name = `${isBOQ() ? detail.boqNumber : detail.quotationNumber} Delivery Schedule.xlsx`;
+    if (internal) out.push(['Internal notes', '', '', ...data.days.map((d) => d.internalNote || ''), '', '']);
+    const name = `${isBOQ() ? detail.boqNumber : detail.quotationNumber} Delivery Schedule${internal ? ' (Internal)' : ''}.xlsx`;
     // Saved in the project's Quotations (or BOQ) folder, then opened.
     const r = await window.api.accounts.saveCSV(name, out.map((row) => row.map(cell).join(',')).join('\r\n'),
       { projectNumber: detail.projectNumber, subfolder: isBOQ() ? 'BOQ' : 'Quotations' });
@@ -187,12 +193,32 @@
         if (r && r.ok === false) { alert(r.error); return; }
         await load();
       });
-      document.getElementById('ds-csv-btn').addEventListener('click', exportCSV);
-      // The landscape sheet printed after the document, on its own.
-      document.getElementById('ds-pdf-btn').addEventListener('click', async () => {
+      // Export: External (for the client: the notes) or Internal (the
+      // internal notes too), each as a PDF — the landscape sheet printed
+      // after the document — or Excel, opening to the left. A click on
+      // Export itself: External PDF.
+      const pdf = async (internal) => {
         if (!data.days.some((d) => Object.values(d.quantities || {}).some((q) => q > 0))) { alert('Put some items on a day first.'); return; }
-        const r = await api().deliverySchedulePDF(quotationId);
+        const r = await api().deliverySchedulePDF(quotationId, internal);
         if (r && r.ok === false) alert(r.error);
+      };
+      const formats = (which) => [
+        { label: 'PDF', sub: 'The landscape schedule sheet', value: `${which}:pdf` },
+        { label: 'Excel', sub: 'A workbook (.xlsx) to edit', value: `${which}:excel` },
+      ];
+      window.hoverMenu.attach(document.getElementById('ds-export-btn'), {
+        heading: 'Export',
+        minWidth: 230,
+        align: 'right',
+        onClick: () => pdf(false),
+        items: () => [
+          { label: 'Internal', sub: 'With the internal notes — for the team', value: 'internal', items: formats('internal') },
+          { label: 'External', sub: 'The notes only — for the client', value: 'external', items: formats('external') },
+        ],
+        onPick: (v) => {
+          const [which, format] = v.split(':');
+          if (format === 'pdf') pdf(which === 'internal'); else exportCSV(which === 'internal');
+        },
       });
       const copy = document.getElementById('ds-copy-boq-btn');
       if (copy) copy.addEventListener('click', copyFromBOQ);

@@ -959,6 +959,9 @@ input.ds-note { width: 120px; font-size: 12px; }
 .ds-done { color: var(--success); }
 table.ds tfoot td { font-weight: 600; }
 table.ds tr.ds-notes td { font-weight: normal; }
+/* Internal notes: for the team only — a quieter row, the boxes dashed. */
+table.ds tr.ds-internal-row td:first-child { color: var(--text-secondary); }
+input.ds-note.ds-internal { border-style: dashed; }
 /* The items stay in view while the days are scrolled across (the first
    column pinned at the left, a soft edge once the days slide under it). */
 table.ds tr > :first-child { position: sticky; left: 0; z-index: 2; background: var(--panel); }
@@ -1599,9 +1602,9 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
 }
 
 /* Export: a click saves the PDF; resting on it lists PDF and Word (js/hover-menu.js). */
-button.export-menu, button.widgets-change { display: inline-flex; align-items: center; gap: 6px; }
-button.export-menu::after, button.widgets-change::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
-button.export-menu.hm-active::after, button.widgets-change.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
+button.export-menu, button.ds-export, button.widgets-change { display: inline-flex; align-items: center; gap: 6px; }
+button.export-menu::after, button.ds-export::after, button.widgets-change::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
+button.export-menu.hm-active::after, button.ds-export.hm-active::after, button.widgets-change.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
 
 /* An item with its own list (js/hover-menu.js): a chevron pointing the way it opens. */
 .hm-chev { flex: 0 0 18px; display: flex; justify-content: center; padding-top: 4px; color: var(--text-tertiary); }
