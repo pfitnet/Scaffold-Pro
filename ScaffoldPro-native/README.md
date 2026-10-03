@@ -2732,7 +2732,7 @@ Every form control is now drawn by the app instead of macOS, on every page
     sum isn't saved: the box flashes red and goes back.
   - + − × ÷ and x, *, / all work, and 1,250 is read as 1250.
   - Quantities are still whole numbers, so 10/4 saves as 3.
-  - ↑ / ↓ add or take one (Shift: ten), as the number boxes did.
+  - (Batch 113: ↑ / ↓ now move to the box above / below instead.)
 - A BOQ and its linked quotations share the sum. Multiply… changes the
   quantities, so it clears their sums.
 - js/calc-input.js (`calcRead`, `calcChange`, `calcAttr`); main.swift:
@@ -2771,3 +2771,20 @@ Every form control is now drawn by the app instead of macOS, on every page
 - The pages still read and save dates as 2026-09-24, so nothing saved
   changes. `upgradeDate` / `parseDate` and `window.appDay(iso)` in
   js/controls.js.
+
+## Batch 113 — Arrow keys move from box to box
+
+- In a table (line items, rates, the delivery schedule…), **↑ / ↓ go to
+  the box above / below** in the same column, carrying on into the next
+  section's table, and **← / → go to the box beside it** once the cursor
+  is at that end of the text (or the whole number is selected, as when
+  you arrive in a box). It works like a spreadsheet; the box you leave is
+  saved, as with Tab.
+- **The arrows no longer change a quantity or price.** Before, ↑ / ↓
+  added or took one, which was easy to do by accident. The − / + stepper
+  that shows on resting over a number box is still there for that.
+- In a number box outside a table (e.g. Mark up %), ↑ / ↓ go to the box
+  before / after it in the same form or dialog.
+- Dates keep ↓ for the calendar; time boxes and lists are as before.
+- In js/controls.js (`boxBelow`, `boxBeside`); js/calc-input.js no
+  longer steps.
