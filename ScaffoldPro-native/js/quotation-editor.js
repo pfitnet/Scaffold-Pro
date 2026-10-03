@@ -434,7 +434,7 @@ function renderBlocks() {
   const container = document.getElementById('extra-sections');
   const locked = d.status !== 'Draft';
   container.innerHTML = '';
-  for (const btn of ['add-priced-btn', 'add-rates-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
+  for (const btn of ['add-priced-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
 
   d.blocks.forEach((block) => {
     const lines = d.lineItems.filter((i) => i.blockId === block.id).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -903,7 +903,7 @@ async function init() {
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
     blockCall(window.api.quotations.addStandardRates(quotationId, null)));
-  for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-rates-btn', 'Rates'], ['add-note-btn', 'Note']]) {
+  for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {
     document.getElementById(btn).addEventListener('click', () => blockCall(window.api.quotations.addBlock(quotationId, kind)));
   }
 
