@@ -221,7 +221,7 @@ function renderLineItems() {
           ? (item.notes ? `<div class="line-note">${item.notes}</div>` : '')
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>
       <td>${item.unit}</td>
-      <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isIssued ? 'disabled' : ''} /></td>
+      <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isIssued ? 'disabled' : ''} /></td>
       <td class="num">${money(rate)}</td>
       <td>${isIssued ? '' : window.discountButtonHTML(discountLabel, "Discount this item's rate (only the new rate is printed)")}</td>
       <td class="num">${weight(item.weightKg)}</td>
@@ -231,7 +231,7 @@ function renderLineItems() {
         <button class="remove-btn">Remove</button>`}</td>`;
 
     const qtyInput = tr.querySelector('.qty-input');
-    qtyInput.addEventListener('change', () => updateLine(item.id, { quantity: Math.max(1, Math.round(Number(qtyInput.value) || 0)) }));
+    window.calcChange(qtyInput, (v, f) => updateLine(item.id, { quantity: Math.max(1, Math.round(v)), quantityFormula: f }));
     const removeBtn = tr.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
     const lineAction = async (call) => {

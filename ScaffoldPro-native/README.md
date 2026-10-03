@@ -2718,3 +2718,23 @@ Every form control is now drawn by the app instead of macOS, on every page
   those; the others keep their places.
 - main.swift: `PriceListItem.pinOrder`, `reorderPinnedItems(ids:)`, action
   `priceListItems:reorderPinned`.
+
+## Batch 110 — Sums in quantity and price boxes
+
+- A line item's **quantity** (BOQ, quotation, delivery note, invoice) and
+  **unit price** (quotation, invoice) box works out a sum: type `14+28`,
+  `2 x 7`, `(3+2)*4` or `120/4`.
+  - The answer is saved and shown. The sum is kept with the line.
+  - A small accent corner marks a box that holds a sum.
+  - Click into the box to see or change the sum. A plain number clears it.
+  - While you type a sum, **= 42** shows above the box.
+  - Escape puts back what was there. Something that isn't a number or a
+    sum isn't saved: the box flashes red and goes back.
+  - + − × ÷ and x, *, / all work, and 1,250 is read as 1250.
+  - Quantities are still whole numbers, so 10/4 saves as 3.
+  - ↑ / ↓ add or take one (Shift: ten), as the number boxes did.
+- A BOQ and its linked quotations share the sum. Multiply… changes the
+  quantities, so it clears their sums.
+- js/calc-input.js (`calcRead`, `calcChange`, `calcAttr`); main.swift:
+  `quantityFormula` on every kind of line, `priceFormula` on quotation and
+  invoice lines, and `lineFormula()`.

@@ -332,16 +332,16 @@ function renderLineItems() {
       <td class="num row-no">${rowNo}</td>
       <td>${isDelivery ? '<span class="line-tag">Delivery</span>' : ''}${item.itemDescription}</td>
       <td>${item.unit}</td>
-      <td class="num"><input type="number" class="qty-input" min="1" step="1" value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-      <td class="num"><input type="number" class="price-input${overridden ? ' override' : ''}" min="0" step="0.01" value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+      <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
+      <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
       <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
       <td class="num">${money(lineTotal)}</td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 
     const qtyInput = tr.querySelector('.qty-input');
     const priceInput = tr.querySelector('.price-input');
-    qtyInput.addEventListener('change', () => updateLine(item.id, { quantity: Math.max(1, Math.round(Number(qtyInput.value) || 0)) }));
-    priceInput.addEventListener('change', () => updateLine(item.id, { appliedUnitPrice: parseFloat(priceInput.value) || 0 }));
+    window.calcChange(qtyInput, (v, f) => updateLine(item.id, { quantity: Math.max(1, Math.round(v)), quantityFormula: f }));
+    window.calcChange(priceInput, (v, f) => updateLine(item.id, { appliedUnitPrice: Math.max(0, v), priceFormula: f }));
     const removeBtn = tr.querySelector('.remove-btn');
     if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
     const discountBtn = tr.querySelector('.discount-btn');
