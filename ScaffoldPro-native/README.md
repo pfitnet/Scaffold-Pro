@@ -3051,3 +3051,23 @@ Every form control is now drawn by the app instead of macOS, on every page
   "SUBSIDIARY" label, "of Qt26210-004" (a link) with that quotation's status,
   and a **Revert** button with an undo icon. The BOQ import icon moves to
   the right end.
+
+## Batch 130 — Document header card
+
+- The top of every document editor (BOQ, quotation, delivery note, invoice,
+  letter) is one card, tinted in the document type's colour (as on the
+  Dashboard) with an accent bar:
+  - the type and its status ("QUOTATION · Draft"; the status follows the
+    Status list, with a small pop when it changes);
+  - the number, large — click it (or the copy mark beside it) to copy it,
+    with a "Copied" bubble — and the project line under it;
+  - at the right, **Created by** and **Last worked on** (hover for the exact
+    time);
+  - along the bottom, the linked documents as a flow of coloured chips:
+    BOQ › Quotation › **Split off** (subsidiaries) › Delivery Notes ›
+    Invoices; the current one filled in, a dot for each one's status (grey
+    draft, green issued, red cancelled). Chips lift on hover; the arrows draw
+    in on opening.
+- The old "Split off it: …" line is gone — subsidiaries are in the flow, as
+  is the quotation a subsidiary was split off.
+- Motion is switched off with macOS Reduce Motion.

@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791033086.0692914,
-    "seen": 1791033109.9111235,
-    "ast_hash": "b3b4ef073272f4114accf48bfcb928e1",
+    "mtime": 1791033899.9133983,
+    "seen": 1791033948.2097733,
+    "ast_hash": "d6966839fe355495a338e41a023e4f19",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791032549.3770218,
-    "seen": 1791032564.882171,
-    "ast_hash": "63df3a751dde600b0710c968ce7aa80d",
+    "mtime": 1791033899.9167354,
+    "seen": 1791033948.2097874,
+    "ast_hash": "7c28bbcda141b6b46644a2230d924b67",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791033106.0754347,
-    "seen": 1791033109.9111454,
-    "ast_hash": "ad8cf52a42e45bb1ff5d2c713667ee80",
+    "mtime": 1791033942.4847336,
+    "seen": 1791033948.209797,
+    "ast_hash": "f44ea660039b744d122bce46ce108e7d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1791033086.0687718,
-    "seen": 1791033109.9111588,
-    "ast_hash": "7307fabe67f3492d5bd236ea0a8f7372",
+    "mtime": 1791033899.9167354,
+    "seen": 1791033948.2098093,
+    "ast_hash": "ee4175fa45035367138139c866a1cdeb",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
@@ -462,9 +462,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/doc-authors.js": {
-    "mtime": 1791019945.0512896,
-    "seen": 1791020067.0330348,
-    "ast_hash": "c9e38be0868c105bc88976d4d4825205",
+    "mtime": 1791033899.9133983,
+    "seen": 1791033948.2097533,
+    "ast_hash": "1c6eb70357659c34007946fe179553d3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dialogs.js": {
