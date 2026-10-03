@@ -3032,3 +3032,13 @@ Every form control is now drawn by the app instead of macOS, on every page
   (description, qty, unit price, per), with Add Row at the end — before, it
   was a separate line in a different order. Rates sections do the same
   (Description · Rate · Per), with Fill Standard Rates under them.
+
+## Batch 128 — Subsidiaries found by their number too
+
+- A subsidiary (Qt26210-004-s1) showed neither "Subsidiary of Qt26210-004"
+  nor Revert when its record had lost the link to the quotation it was split
+  off (most likely saved by an older copy of the app — e.g. on another Mac
+  sharing the data — which drops fields it doesn't know). Now the original
+  is also found by the number: "-sN" at the end, the rest being a quotation
+  of the same project. The bracket, Revert, the project page's nesting and
+  the parent's "Split off it: …" all use it.
