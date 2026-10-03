@@ -40,6 +40,9 @@ function render() {
   }
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   letters = (await window.api.letters.list(document.getElementById('project-filter').value || null)) || [];
   render();

@@ -14253,6 +14253,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: LetterheadPicture(png: PDFGenerator.letterheadPNG(paperSize: paper, dpi: 144)?.base64EncodedString(), paperSize: paper))
         case "quotations:deliverySchedule":
             respond(id: id, encodable: db.deliverySchedule(quotationId: (payload["id"] as? String) ?? ""))
+        case "quotations:deliverySchedulePDF":
+            handleExportSchedulePDF(id: id, kind: (payload["kind"] as? String) ?? "Quotation", documentId: (payload["id"] as? String) ?? "")
         case "quotations:addDeliveryDay":
             let error = db.addDeliveryDay(quotationId: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -15978,6 +15980,25 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         guard document.pageCount > 0, let data = document.dataRepresentation() else { return nil }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-schedule-\(id).pdf")
         return (try? data.write(to: url)) != nil ? url : nil
+    }
+
+    /// The delivery schedule on its own (its Export › PDF): the landscape
+    /// sheet, saved in the document's folder as "…_Delivery Schedule_Qt26212-007.pdf" and opened.
+    private func handleExportSchedulePDF(id: String, kind: String, documentId: String) {
+        let isBOQ = kind == "BOQ"
+        let doc: (number: String, projectNumber: String)? = isBOQ
+            ? db.getBOQDetail(id: documentId).map { ($0.boqNumber, $0.projectNumber) }
+            : db.getQuotationDetail(id: documentId).map { ($0.quotationNumber, $0.projectNumber) }
+        guard let doc = doc else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: isBOQ ? "BOQ not found." : "Quotation not found.", path: nil))
+            return
+        }
+        guard let file = deliveryScheduleFile(kind: isBOQ ? "BOQ" : "Quotation", id: documentId), let data = try? Data(contentsOf: file) else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Put some items on a day of the schedule first.", path: nil))
+            return
+        }
+        deliverPDF(id: id, mode: .export, data: data, paperSize: NSSize(width: 842.88, height: 595.92), projectNumber: doc.projectNumber,
+                   subfolder: isBOQ ? "BOQ" : "Quotations", documentNumber: doc.number, docTypeTag: "Delivery Schedule")
     }
 
     /// The project code, client and job site at the top of a sheet, as on the BQ sheet.

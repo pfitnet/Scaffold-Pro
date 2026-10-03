@@ -22,7 +22,8 @@
 //   window.hoverMenu.isOpen()             // a list is showing
 //   <button class="export-menu" data-pdf="export-pdf-btn" data-word="export-word-btn">Export</button>
 //     (set up by itself): a click saves the PDF; resting on it lists PDF and
-//     Word. The real buttons stay on the page, hidden, with their own code.
+//     Word (or Excel, with data-excel="…" in place of data-word). The real
+//     buttons stay on the page, hidden, with their own code.
 
 (function () {
   if (window.hoverMenu) return;
@@ -332,16 +333,18 @@
 
   window.hoverMenu = { attach, forSelect, selectItems, pickInSelect, isOpen: () => !!open };
 
-  // Export: PDF by default, or Word from its list.
+  // Export: PDF by default, or Word (or Excel) from its list.
   function exportMenu(button) {
     const pdf = document.getElementById(button.dataset.pdf || 'export-pdf-btn');
-    const word = document.getElementById(button.dataset.word || 'export-word-btn');
+    const excel = button.dataset.excel ? document.getElementById(button.dataset.excel) : null;
+    const word = excel || document.getElementById(button.dataset.word || 'export-word-btn');
     if (!pdf) return;
     const busy = () => { button.disabled = !!(pdf.disabled || (word && word.disabled)); };
     const watch = new MutationObserver(busy);
     [pdf, word].filter(Boolean).forEach((b) => watch.observe(b, { attributes: true, attributeFilter: ['disabled'] }));
     busy();
-    if (!button.title) button.title = word ? 'Save a PDF — or rest the pointer here to choose PDF or Word' : 'Save a PDF';
+    const other = excel ? 'Excel' : 'Word';
+    if (!button.title) button.title = word ? `Save a PDF — or rest the pointer here to choose PDF or ${other}` : 'Save a PDF';
     if (!word) { button.addEventListener('click', () => pdf.click()); return; }
     attach(button, {
       heading: 'Export as',
@@ -349,9 +352,10 @@
       onClick: () => pdf.click(),
       items: () => [
         { label: 'PDF', sub: 'The printed copy — the default', value: 'pdf' },
-        { label: 'Word', sub: 'A .docx laid out like the PDF', value: 'word' },
+        excel ? { label: 'Excel', sub: 'A workbook (.xlsx) to edit', value: 'other' }
+          : { label: 'Word', sub: 'A .docx laid out like the PDF', value: 'other' },
       ],
-      onPick: (v) => (v === 'word' ? word : pdf).click(),
+      onPick: (v) => (v === 'other' ? word : pdf).click(),
     });
   }
 
@@ -390,11 +394,38 @@
     });
   }
 
+  // Line Items' ☰: "Multiply quantities…" (greyed out while the page's
+  // Multiply button is hidden: an issued document, or no items) and the
+  // Sort choices — data-multiply="multiply-btn" data-sort="line-sort".
+  function linesMenu(button) {
+    const multiply = document.getElementById(button.dataset.multiply || '');
+    const sort = document.getElementById(button.dataset.sort || '');
+    const refresh = () => {
+      button.title = [multiply ? 'Multiply quantities' : '', sort && sort.selectedOptions[0] ? `Sort: ${sort.selectedOptions[0].textContent}` : '']
+        .filter(Boolean).join('\n');
+    };
+    if (sort) sort.addEventListener('change', refresh);
+    refresh();
+    attach(button, {
+      minWidth: 230,
+      align: 'right',
+      items: () => [
+        ...(multiply ? [{ label: 'Multiply quantities…', sub: 'e.g. ×2 for 2 sets of the same scaffold', value: 'multiply', disabled: multiply.classList.contains('hidden') || multiply.disabled }] : []),
+        ...(sort ? [{ group: 'Sort' }, ...selectItems(sort).filter((it) => it.group == null).map((it) => ({ ...it, value: `sort:${it.value}` }))] : []),
+      ],
+      onPick: (v) => {
+        if (v === 'multiply') multiply.click();
+        else if (v.startsWith('sort:')) { pickInSelect(sort, v.slice(5)); refresh(); }
+      },
+    });
+  }
+
   // Every icon picker on the page (.tb-pick) works this way, and every Export and ☰ button.
   const setUp = () => {
     document.querySelectorAll('.tb-pick select').forEach((select) => forSelect(select));
     document.querySelectorAll('button.export-menu').forEach(exportMenu);
     document.querySelectorAll('button.group-menu').forEach(groupMenu);
+    document.querySelectorAll('button.lines-menu').forEach(linesMenu);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setUp);
   else setUp();

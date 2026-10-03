@@ -49,6 +49,9 @@ function localDay(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => loadDetail();
+
 async function loadDetail() {
   currentDetail = await window.api.deliveryNotes.get(deliveryNoteId);
   if (!currentDetail) {

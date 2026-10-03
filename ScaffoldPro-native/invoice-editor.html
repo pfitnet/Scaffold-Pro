@@ -98,7 +98,11 @@
         <div>
           <div class="lines-head">
             <h2>Line Items</h2>
-            <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities — e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
+            <!-- Multiply is in the ☰ list (js/hover-menu.js, .lines-menu); the real button stays here, hidden. -->
+            <span class="hidden">
+              <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities — e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
+            </span>
+            <span class="ml-menu"><button type="button" class="tb-ico lines-menu" id="lines-menu-btn" data-no-icon data-multiply="multiply-btn" aria-label="Multiply quantities"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg></button></span>
           </div>
           <div id="line-items"></div>
           <details class="custom-item" id="custom-item-box">

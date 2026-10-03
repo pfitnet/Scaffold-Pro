@@ -295,6 +295,9 @@ async function renderAnnouncements() {
   window.announcements.render(document.getElementById('team-announce-bar'));
 }
 
+// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
+window.appRefresh = () => load();
+
 async function load() {
   [team, signing] = await Promise.all([window.api.team.page(), window.api.signatures.page()]);
   await window.loadPersonColors();

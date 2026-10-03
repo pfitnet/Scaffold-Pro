@@ -84,6 +84,7 @@
     const notes = data.days.map((d) => `<td class="${d.sent ? 'ds-sent' : ''}"><input type="text" class="ds-note" data-day="${esc(d.id)}" value="${esc(d.note || '')}" placeholder="Note" /></td>`).join('');
     const totalPcs = lines.reduce((a, l) => a + scheduled(l.id), 0);
     const totalLeft = lines.reduce((a, l) => a + Math.max(0, Math.round(Number(l.quantity) || 0) - scheduled(l.id)), 0);
+    const across = box.querySelector('.ds-scroll') ? box.querySelector('.ds-scroll').scrollLeft : 0; // kept when redrawn
     box.innerHTML = `<div class="ds-scroll"><table class="ds">
       <thead><tr><th>Item</th><th class="num">${isBOQ() ? 'Quantity' : 'Quoted'}</th>${head}<th class="num">Scheduled</th><th class="num">Left</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -91,6 +92,12 @@
         <tr><td>Total</td><td></td>${foot}<td class="num">${num(totalPcs)}</td><td class="num">${num(totalLeft)}</td></tr>
         <tr class="ds-notes"><td>Notes</td><td></td>${notes}<td></td><td></td></tr>
       </tfoot></table></div>`;
+    // Scrolled across: an edge on the pinned item column.
+    const scroll = box.querySelector('.ds-scroll');
+    const edge = () => scroll.classList.toggle('scrolled', scroll.scrollLeft > 0);
+    scroll.addEventListener('scroll', edge, { passive: true });
+    scroll.scrollLeft = across;
+    edge();
     wire(box);
   }
 
@@ -181,6 +188,12 @@
         await load();
       });
       document.getElementById('ds-csv-btn').addEventListener('click', exportCSV);
+      // The landscape sheet printed after the document, on its own.
+      document.getElementById('ds-pdf-btn').addEventListener('click', async () => {
+        if (!data.days.some((d) => Object.values(d.quantities || {}).some((q) => q > 0))) { alert('Put some items on a day first.'); return; }
+        const r = await api().deliverySchedulePDF(quotationId);
+        if (r && r.ok === false) alert(r.error);
+      });
       const copy = document.getElementById('ds-copy-boq-btn');
       if (copy) copy.addEventListener('click', copyFromBOQ);
     },

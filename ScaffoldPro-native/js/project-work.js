@@ -162,6 +162,12 @@
   }
 
   window.projectWork = {
+    // Inspections and tasks again (after ⌘Z / ⌘Y).
+    async reload() {
+      if (!project) return;
+      await loadInspections();
+      await loadTasks();
+    },
     async load(p, options) {
       project = p;
       opts = options || {};
