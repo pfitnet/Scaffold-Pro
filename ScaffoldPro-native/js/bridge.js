@@ -213,6 +213,8 @@
       split: (id, lineIds, blockIds) => callNative('quotations:split', { id: id, lineIds: lineIds, blockIds: blockIds }),
       // A subsidiary's lines and sections back onto its parent; the subsidiary is deleted: { ok, error, id (the parent) }.
       revertSplit: (id) => callNative('quotations:revertSplit', { id: id }),
+      // Export › Attach › Subsidiaries: they go after this quotation's own pages.
+      setAttachSubsidiaries: (id, on) => callNative('quotations:setAttachSubsidiaries', { id: id, on: !!on }),
       addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
       // The standard manpower rates (Settings), into a rates section — or a new one if blockId is null.
       addStandardRates: (quotationId, blockId) => callNative('quotations:addStandardRates', { quotationId: quotationId, blockId: blockId || null }),

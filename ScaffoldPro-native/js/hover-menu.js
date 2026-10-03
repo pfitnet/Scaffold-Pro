@@ -350,12 +350,19 @@
       heading: 'Export as',
       minWidth: 200,
       onClick: () => pdf.click(),
+      // A page can add its own items after these (button.exportExtras =
+      // { items: () => [...], pick: (value) => … }), e.g. a quotation's
+      // Attach › Subsidiaries.
       items: () => [
         { label: 'PDF', sub: 'The printed copy — the default', value: 'pdf' },
         excel ? { label: 'Excel', sub: 'A workbook (.xlsx) to edit', value: 'other' }
           : { label: 'Word', sub: 'A .docx laid out like the PDF', value: 'other' },
+        ...(button.exportExtras ? button.exportExtras.items() : []),
       ],
-      onPick: (v) => (v === 'other' ? word : pdf).click(),
+      onPick: (v) => {
+        if (v === 'pdf' || v === 'other') (v === 'other' ? word : pdf).click();
+        else if (button.exportExtras) button.exportExtras.pick(v);
+      },
     });
   }
 

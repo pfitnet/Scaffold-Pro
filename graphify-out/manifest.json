@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1791030032.2868738,
-    "seen": 1791030079.719429,
-    "ast_hash": "2557e2b095bdb23f15364ced0f7a9349",
+    "mtime": 1791034020.4323256,
+    "seen": 1791034056.7964664,
+    "ast_hash": "79610567ab065ca156471efb5b9c866f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791033899.9133983,
-    "seen": 1791033948.2097733,
-    "ast_hash": "d6966839fe355495a338e41a023e4f19",
+    "mtime": 1791034020.433295,
+    "seen": 1791034056.7965026,
+    "ast_hash": "b07596b14de020b97cc6931715c952cc",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791033899.9167354,
-    "seen": 1791033948.2097874,
-    "ast_hash": "7c28bbcda141b6b46644a2230d924b67",
+    "mtime": 1791034020.425036,
+    "seen": 1791034056.7965138,
+    "ast_hash": "8415dc2fd490887a7ff1a42208025eb0",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791033942.4847336,
-    "seen": 1791033948.209797,
-    "ast_hash": "f44ea660039b744d122bce46ce108e7d",
+    "mtime": 1791034051.3047287,
+    "seen": 1791034056.7965221,
+    "ast_hash": "31da0a1d67b3ece908e4bd799ec9c693",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -606,9 +606,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/hover-menu.js": {
-    "mtime": 1791022711.3821223,
-    "seen": 1791022772.862477,
-    "ast_hash": "67a13e082e43af3cab1f8c9194e26bbb",
+    "mtime": 1791034020.4327295,
+    "seen": 1791034056.7964861,
+    "ast_hash": "d8797d5d868d4d2dd4237e9870a64439",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/undo.js": {

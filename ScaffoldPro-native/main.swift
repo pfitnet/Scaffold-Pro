@@ -1469,6 +1469,9 @@ struct Quotation: Codable {
     /// Split off another quotation (`splitQuotation`): listed under it as
     /// its subsidiary. Not linked — each is changed on its own.
     var parentQuotationId: String? = nil
+    /// Export PDF / Print add the quotations split off it right after its
+    /// own pages (Export › Attach › Subsidiaries).
+    var attachSubsidiaries: Bool? = nil
 }
 
 struct QuotationLineItem: Codable {
@@ -1840,6 +1843,8 @@ struct QuotationDetail: Codable {
     /// The quotation it was split off, and the ones split off it.
     var parent: QuotationRef? = nil
     var subsidiaries: [QuotationRef] = []
+    /// Its subsidiaries go after its own pages when exported or printed.
+    var attachSubsidiaries = false
 }
 
 struct QuotationActionResult: Codable {
@@ -6877,6 +6882,7 @@ final class AppDatabase {
             .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
         detail.subsidiaries = all.filter { parentQuotation(of: $0, in: all)?.id == q.id }.sorted { $0.quotationNumber < $1.quotationNumber }
             .map { QuotationRef(id: $0.id, number: $0.quotationNumber, status: $0.status) }
+        detail.attachSubsidiaries = q.attachSubsidiaries == true
         return detail
     }
 
@@ -7328,6 +7334,15 @@ final class AppDatabase {
         guard let r = q.quotationNumber.range(of: #"-s\d+$"#, options: .regularExpression) else { return nil }
         let base = String(q.quotationNumber[..<r.lowerBound])
         return all.first { $0.id != q.id && $0.projectId == q.projectId && $0.quotationNumber == base }
+    }
+
+    /// Export › Attach › Subsidiaries (an export setting, so any status).
+    func setQuotationAttachSubsidiaries(id: String, on: Bool) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+        qs[i].attachSubsidiaries = on ? true : nil
+        quotationsStore.writeAll(qs)
+        return nil
     }
 
     /// A subsidiary's number: its parent's with "-s1", "-s2"… (Qt26212-007-s1).
@@ -14555,6 +14570,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.splitQuotation(id: (payload["id"] as? String) ?? "",
                                                          lineIds: (payload["lineIds"] as? [String]) ?? [],
                                                          blockIds: (payload["blockIds"] as? [String]) ?? []))
+        case "quotations:setAttachSubsidiaries":
+            let error = db.setQuotationAttachSubsidiaries(id: (payload["id"] as? String) ?? "", on: (payload["on"] as? Bool) ?? false)
+            respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:revertSplit":
             respond(id: id, encodable: db.revertQuotationSplit(id: (payload["id"] as? String) ?? ""))
         case "quotations:removeBlock":
@@ -16435,10 +16453,23 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Everything added after a quotation's own pages: its delivery
     /// schedule, the BOQ it follows (not after a landscape quotation, which
     /// is the BQ sheet itself), then its image and PDF drawings.
-    private func quotationAttachments(_ detail: QuotationDetail) -> [URL] {
+    private func quotationAttachments(_ detail: QuotationDetail, withSubsidiaries: Bool = true) -> [URL] {
         let boq = detail.orientation == "Landscape" ? nil : followedBOQFile(detail)
-        return [deliveryScheduleFile(kind: "Quotation", id: detail.id), boq].compactMap { $0 }
+        return (withSubsidiaries ? subsidiaryFiles(detail) : [])
+            + [deliveryScheduleFile(kind: "Quotation", id: detail.id), boq].compactMap { $0 }
             + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
+    }
+
+    /// Export › Attach › Subsidiaries: each quotation split off this one
+    /// (not cancelled ones), as it prints, written to a temporary PDF so it
+    /// follows this quotation's own pages.
+    private func subsidiaryFiles(_ detail: QuotationDetail) -> [URL] {
+        guard detail.attachSubsidiaries else { return [] }
+        return detail.subsidiaries.filter { $0.status != "Cancelled" }.compactMap { ref -> URL? in
+            guard let sub = db.getQuotationDetail(id: ref.id), let data = quotationPDFData(sub) else { return nil }
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-\(sub.id).pdf")
+            return (try? data.write(to: url)) != nil ? url : nil
+        }
     }
 
     /// A quotation laid out on the letterhead (as Qt26193).
@@ -16550,7 +16581,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 parts.append((detail.deliveryNoteNumber, detail.projectNumber, generator.generate(deliveryNoteLetter(detail, note: note, company: company))))
             } else {
                 guard let detail = db.getQuotationDetail(id: docId), var data = quotationPDFData(detail) else { continue }
-                let extra = includeDrawings ? quotationAttachments(detail) : [deliveryScheduleFile(kind: "Quotation", id: detail.id)].compactMap { $0 }
+                let extra = includeDrawings ? quotationAttachments(detail, withSubsidiaries: false) : [deliveryScheduleFile(kind: "Quotation", id: detail.id)].compactMap { $0 }
                 data = PDFAttachments.append(extra, to: data, paperSize: paperSize)
                 parts.append((detail.quotationNumber, detail.projectNumber, data))
             }
@@ -17461,7 +17492,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let paper = company.paperSize ?? "A4"
         guard let pages = quotationPDFData(detail, signature: signature, chop: picture("chop")) else { fail("Could not prepare the document."); return }
         let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
-        let data = PDFAttachments.append(quotationAttachments(detail), to: pages, paperSize: size)
+        let data = PDFAttachments.append(quotationAttachments(detail, withSubsidiaries: false), to: pages, paperSize: size)
         let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: detail.projectNumber, subfolder: "Quotations",

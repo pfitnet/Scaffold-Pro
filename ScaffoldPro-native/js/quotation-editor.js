@@ -969,6 +969,23 @@ async function init() {
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('split-btn').addEventListener('click', splitQuotation);
   document.getElementById('revert-split-btn').addEventListener('click', revertSplit);
+  // Export › Attach › Subsidiaries (only with some): a tick, kept with the quotation.
+  document.getElementById('export-btn').exportExtras = {
+    items: () => {
+      const subs = (currentDetail && currentDetail.subsidiaries) || [];
+      if (!subs.length) return [];
+      return [{ group: 'Attach' }, {
+        label: 'Subsidiaries', value: 'attach-subs', current: !!currentDetail.attachSubsidiaries,
+        sub: `${subs.map((r) => r.number).join(', ')} after this quotation (PDF and Print)`,
+      }];
+    },
+    pick: async (v) => {
+      if (v !== 'attach-subs') return;
+      const r = await window.api.quotations.setAttachSubsidiaries(quotationId, !currentDetail.attachSubsidiaries);
+      if (r && r.ok === false) { await appAlert(r.error); return; }
+      await loadDetail();
+    },
+  };
   document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
     blockCall(window.api.quotations.addStandardRates(quotationId, null)));
   for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {
