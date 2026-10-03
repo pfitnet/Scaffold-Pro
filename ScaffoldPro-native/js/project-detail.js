@@ -820,7 +820,9 @@ function renderStats() {
     ['invoices', 'Invoices', tabCounts.invoices], ['files', 'Drawings & Docs', tabCounts.files != null ? tabCounts.files : files],
     ['tasks', 'Open Tasks', tabCounts.tasks],
   ];
-  box.innerHTML = tiles.map(([tab, label, n]) => `<button type="button" class="pd-stat${n ? '' : ' zero'}" data-tab="${tab}" data-no-icon>
+  // Each kind's colour, as on the Dashboard (css/styles.css, .dk-…).
+  const colour = { boq: 'dk-boq', quotations: 'dk-quotation', delivery: 'dk-delivery', invoices: 'dk-invoice', files: 'dk-file' };
+  box.innerHTML = tiles.map(([tab, label, n]) => `<button type="button" class="pd-stat ${colour[tab] || ''}${n ? '' : ' zero'}" data-tab="${tab}" data-no-icon>
     <b>${n || 0}</b><span>${label}</span></button>`).join('');
   for (const b of box.querySelectorAll('.pd-stat')) b.addEventListener('click', () => {
     showTab(b.dataset.tab);

@@ -41,6 +41,14 @@
   --field-hover: #c3c3c9;
   --control-h: 30px;
   --seg-active: #ffffff;
+  /* Each kind of document's colour (muted), to find them at a glance:
+     a thin stripe or a dot, never a fill. */
+  --doc-boq: #4f8f89;
+  --doc-quotation: #5b78a8;
+  --doc-delivery: #a8834f;
+  --doc-invoice: #6a8f5a;
+  --doc-letter: #8670a0;
+  --doc-file: #8a8d94;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   color-scheme: light;
@@ -69,6 +77,12 @@
     --warning: #f0a53a;
     --warning-soft: rgba(240, 165, 58, 0.14);
     --success: #5cc46f;
+    --doc-boq: #6aa59f;
+    --doc-quotation: #7d96c2;
+    --doc-delivery: #bf9c6a;
+    --doc-invoice: #87a877;
+    --doc-letter: #a08cba;
+    --doc-file: #8f9299;
     --row-hover: rgba(255, 255, 255, 0.03);
     --header-bg: #2a2a2c;
     --shadow-control: 0 0.5px 1px rgba(0, 0, 0, 0.4);
@@ -1119,6 +1133,28 @@ tr.row-in { animation: rowIn .32s cubic-bezier(.2, .8, .2, 1) both; }
   font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
 .doc-bracket-count { font-weight: 500; color: var(--text-tertiary); }
 .doc-bracket table.compact td { padding-left: 10px; padding-right: 10px; }
+
+/* Document kinds' colours: .dk-boq, .dk-quotation… set --dk; a widget
+   shows it as a thin stripe or a dot (js/doc-kinds in dashboard.js,
+   projects.js, project-detail.js). */
+.dk-boq { --dk: var(--doc-boq); }
+.dk-quotation { --dk: var(--doc-quotation); }
+.dk-delivery { --dk: var(--doc-delivery); }
+.dk-invoice { --dk: var(--doc-invoice); }
+.dk-letter { --dk: var(--doc-letter); }
+.dk-file { --dk: var(--doc-file); }
+.dk-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--dk, var(--text-tertiary)); flex: none; }
+.doc-bracket[class*="dk-"] { border-left: 3px solid color-mix(in srgb, var(--dk) 75%, transparent); }
+.doc-bracket[class*="dk-"] .doc-bracket-head { background: color-mix(in srgb, var(--dk) 7%, var(--header-bg)); }
+.doc-bracket-head .dk-label { display: inline-flex; align-items: center; gap: 7px; }
+.pj-doc[class*="dk-"]:not(.none) { border-color: color-mix(in srgb, var(--dk) 30%, var(--hairline)); }
+.pj-doc[class*="dk-"]::before { content: ""; align-self: center; width: 6px; height: 6px; border-radius: 50%; background: var(--dk); margin-right: 1px; }
+.pj-doc.none[class*="dk-"]::before { background: var(--text-tertiary); }
+button.pd-stat[class*="dk-"] { position: relative; overflow: hidden; }
+button.pd-stat[class*="dk-"]::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: color-mix(in srgb, var(--dk) 80%, transparent); }
+button.pd-stat.zero[class*="dk-"]::before { opacity: .35; }
+.tabs button .dk-dot { width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; }
+tr.dk-row > td:first-child { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dk) 70%, transparent); }
 
 /* An empty Dashboard panel with something to start (e.g. "+ New Task"). */
 .empty-widget { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 2px 2px; color: var(--text-tertiary); font-size: 13px; }

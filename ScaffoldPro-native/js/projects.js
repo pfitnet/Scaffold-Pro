@@ -35,11 +35,13 @@ const ICON = {
 // The documents a project holds, in the order they're made.
 const DOCS = [['boqCount', 'BOQ', 'BOQs', 'boq'], ['quotationCount', 'Quotation', 'Quotations', 'quotations'], ['deliveryNoteCount', 'Delivery Note', 'Delivery Notes', 'deliveryNotes'], ['invoiceCount', 'Invoice', 'Invoices', 'invoices']];
 const SHORT = { boqCount: 'BQ', quotationCount: 'Qt', deliveryNoteCount: 'DN', invoiceCount: 'Inv' };
+// Each kind's colour (css/styles.css, .dk-…), as on the Dashboard and the project's page.
+const COLOUR = { boqCount: 'dk-boq', quotationCount: 'dk-quotation', deliveryNoteCount: 'dk-delivery', invoiceCount: 'dk-invoice' };
 
 function docChips(p) {
   return DOCS.map(([key, one, many, tab]) => {
     const n = Number(p[key]) || 0;
-    return `<span class="pj-doc${n ? '' : ' none'}" data-tab="${tab}" title="${n} ${n === 1 ? one : many}"><b>${n}</b>${SHORT[key]}</span>`;
+    return `<span class="pj-doc ${COLOUR[key]}${n ? '' : ' none'}" data-tab="${tab}" title="${n} ${n === 1 ? one : many}"><b>${n}</b>${SHORT[key]}</span>`;
   }).join('');
 }
 
