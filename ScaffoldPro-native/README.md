@@ -2943,3 +2943,11 @@ Every form control is now drawn by the app instead of macOS, on every page
   (`BQSheet.deliverySchedule`, `deliveryScheduleFile`,
   `handleExportSchedulePDF`). Nothing else changes; the page still sends
   `internal: true` for an Internal export.
+
+## Batch 121 — Quotation: one rates button
+
+- The quotation editor's **+ Rates Section** button is gone; it duplicated
+  **+ Standard Manpower Rates**, which adds the same kind of section (shown
+  after the total as "(Rate Only)") already filled with the standard rates
+  from Settings › Standard Quotation. Its rows can still be edited, added
+  or removed, and existing rates sections are unchanged.
