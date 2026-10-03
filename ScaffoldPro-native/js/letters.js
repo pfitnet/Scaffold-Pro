@@ -13,7 +13,7 @@ function esc(value) {
 
 function dayText(iso) {
   const d = new Date(iso || '');
-  return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep');
 }
 
 const PILL = { Issued: 'pill-success', Cancelled: 'pill-danger', Draft: '' };

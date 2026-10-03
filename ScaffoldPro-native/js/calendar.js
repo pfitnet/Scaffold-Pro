@@ -92,7 +92,7 @@ function render() {
     const end = new Date(weekStart);
     end.setDate(end.getDate() + 6);
     const sameMonth = end.getMonth() === weekStart.getMonth();
-    document.getElementById('cal-title').textContent = `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: sameMonth ? undefined : 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    document.getElementById('cal-title').textContent = `${weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: sameMonth ? undefined : 'short' }).replace('Sept', 'Sep')} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep')}`;
   } else {
     document.getElementById('cal-title').textContent = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   }
@@ -135,7 +135,7 @@ function render() {
   const groups = {};
   for (const e of next) (groups[e.date] = groups[e.date] || []).push(e);
   document.getElementById('agenda').innerHTML = Object.keys(groups).length
-    ? Object.keys(groups).sort().map((k) => `<div class="ev-day">${k === today ? 'Today' : new Date(`${k}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</div>${groups[k].map(item).join('')}`).join('')
+    ? Object.keys(groups).sort().map((k) => `<div class="ev-day">${k === today ? 'Today' : new Date(`${k}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace('Sept', 'Sep')}</div>${groups[k].map(item).join('')}`).join('')
     : '<div class="empty-inline">Nothing coming up.</div>';
 }
 

@@ -115,7 +115,7 @@
   // A task as a row: tick box, title, project, who, due.
   window.taskRowHTML = function taskRowHTML(row, opts = {}) {
     const t = row.task;
-    const due = t.dueDate ? new Date(`${t.dueDate}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+    const due = t.dueDate ? new Date(`${t.dueDate}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep') : '';
     return `<tr class="task-row${t.done ? ' task-done' : ''}" data-id="${esc(t.id)}">
       <td class="task-check"><input type="checkbox" class="task-done-box" ${t.done ? 'checked' : ''} title="${t.done ? 'Not done yet' : 'Done'}" /></td>
       <td><span class="task-title">${t.priority === 'High' ? '<span class="status-pill pill-danger task-high">High</span> ' : ''}${esc(t.title)}</span>

@@ -54,7 +54,7 @@ function inPeriod(day, p) {
 
 function periodLabel(p) {
   if (p.from === '0000-01-01' && p.to === '9999-12-31') return 'All dates';
-  const f = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const f = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep');
   return `${p.from === '0000-01-01' ? 'Start' : f(p.from)} – ${p.to === '9999-12-31' ? 'today' : f(p.to)}`;
 }
 
@@ -131,7 +131,7 @@ function tableFor(f) {
       numeric: [5],
       rows: list.map((x) => ({
         href: `invoice-editor.html?id=${encodeURIComponent(x.invoiceId)}`,
-        cells: [x.undated ? `<span title="Recorded before payments were dated">${x.date}*</span>` : x.date, esc(x.invoiceNumber),
+        cells: [x.undated ? `<span title="Recorded before payments were dated">${window.appDay(x.date)}*</span>` : window.appDay(x.date), esc(x.invoiceNumber),
           esc(project(x.projectId)?.projectNumber || ''), esc(x.method || '—'), esc(x.reference || ''), money(x.amount)],
         csv: [x.date, x.invoiceNumber, project(x.projectId)?.projectNumber || '', x.method || '', x.reference || '', x.amount],
       })),
@@ -170,7 +170,7 @@ function tableFor(f) {
         return {
           liability: l.id,
           cells: [`${esc(l.name)}${l.reference ? `<div class="small-note">${esc(l.reference)}</div>` : ''}`, esc(l.kind), esc(l.creditor || '—'),
-            l.startDate, l.dueDate ? `<span class="${x.isOverdue ? 'neg' : ''}">${l.dueDate}</span>` : '—',
+            window.appDay(l.startDate), l.dueDate ? `<span class="${x.isOverdue ? 'neg' : ''}">${window.appDay(l.dueDate)}</span>` : '—',
             l.monthlyPayment ? money(l.monthlyPayment) : '—', money(l.amount), money(x.paid), money(x.balance), status(x)],
           csv: [l.name, l.kind, l.creditor || '', l.startDate, l.dueDate || '', l.monthlyPayment || '', l.interestRatePercent || '', l.reference || '',
             l.amount, x.paid, x.balance, x.balance <= 0.004 ? 'Paid off' : x.isOverdue ? 'Overdue' : 'Owing'],
@@ -313,7 +313,7 @@ function renderLiabilityPayments(x) {
   const list = document.getElementById('li-payment-list');
   list.innerHTML = x.payments.length === 0 ? '<p class="small-note">No payments recorded yet.</p>' : `<table class="money">
     <thead><tr><th>Date</th><th>Note</th><th class="num">Amount</th><th></th></tr></thead>
-    <tbody>${x.payments.map((p) => `<tr><td>${p.date}</td><td>${esc(p.note || '')}</td><td class="num">${money(p.amount)}</td>
+    <tbody>${x.payments.map((p) => `<tr><td>${window.appDay(p.date)}</td><td>${esc(p.note || '')}</td><td class="num">${money(p.amount)}</td>
       <td><button class="remove-btn" data-payment="${esc(p.id)}">Remove</button></td></tr>`).join('')}</tbody></table>`;
   for (const b of list.querySelectorAll('[data-payment]')) {
     b.addEventListener('click', async () => {

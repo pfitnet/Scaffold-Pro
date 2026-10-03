@@ -5,11 +5,16 @@
 //     the system's pop-up menu;
 //   • numbers — the system's ▲▼ arrows are hidden (css/styles.css); resting
 //     on a number field shows the app's − / + stepper (hold to repeat);
-//   • dates — a date (or month) field opens the app's calendar.
+//   • dates — a date (or month) field opens the app's calendar, and is
+//     typed as 24/09/2026 (09/2026 for a month) and shown as 24 Sep 2026
+//     (Sep 2026), whatever the Mac's region is set to.
 // The real <select> / <input> stays in the page and keeps its value, so the
 // pages' own code reads and saves it as before: picking sets the value and
-// fires "input" and "change", as the system's controls do. Fields added
-// later (tables, dialogs) get the same, as they appear.
+// fires "input" and "change", as the system's controls do. (A date field's
+// value is still "2026-09-24", as the system's.) Fields added later
+// (tables, dialogs) get the same, as they appear.
+//
+//   window.appDay('2026-09-24')  → "24 Sep 2026" (for dates shown in lists)
 
 (function () {
   if (window.appControls) return;
@@ -136,7 +141,7 @@
   function openCalendar(input) {
     if (cal && cal.input === input) return;
     closeCalendar(false);
-    const monthMode = input.type === 'month';
+    const monthMode = (input.dataset.date || input.type) === 'month';
     const today = new Date();
     const parts = (input.value || '').split('-').map(Number);
     let viewY = parts[0] || today.getFullYear();
@@ -210,6 +215,15 @@
     draw();
     place();
     requestAnimationFrame(() => el.classList.add('open'));
+    // A date typed in the field: the calendar turns to it.
+    cal.sync = () => {
+      const [y, m] = (input.value || '').split('-').map(Number);
+      if (!y) return;
+      viewY = y;
+      if (m) viewM = m - 1;
+      draw();
+      place();
+    };
     // A click in the calendar leaves the focus in the field (so typing still works there).
     el.addEventListener('pointerdown', (e) => e.preventDefault());
     el.addEventListener('mousedown', (e) => e.preventDefault());
@@ -250,25 +264,162 @@
     });
     document.addEventListener('pointerdown', outsideCalendar, true);
   }
-  const dateLike = (el) => el && el.matches && el.matches('input[type="date"], input[type="month"]') && !el.disabled && !el.readOnly && !el.closest('[data-native]');
+  const dateLike = (el) => el && el.matches && el.matches('input[type="date"], input[type="month"], input[data-date]') && !el.disabled && !el.readOnly && !el.closest('[data-native]');
   // A click on a date field opens the calendar (not the system's); typing in it still works.
   document.addEventListener('mousedown', (e) => {
     const input = e.target;
     if (!dateLike(input) || e.button !== 0) return;
-    e.preventDefault();
-    input.focus({ preventScroll: true });
+    // Already typing in it: the click still places the cursor.
+    if (!(input.dataset.date && document.activeElement === input)) {
+      e.preventDefault();
+      input.focus({ preventScroll: true });
+    }
     if (cal && cal.input === input) closeCalendar(false); else openCalendar(input);
   }, true);
   document.addEventListener('keydown', (e) => {
     const input = e.target;
     if (!dateLike(input)) return;
-    // ↓ with ⌥, or Space: the calendar, with the chosen day ready for the arrow keys.
-    if ((e.key === 'ArrowDown' && e.altKey) || e.key === ' ') {
+    // ↓ (a typed date field), ⌥↓, or Space (the system's): the calendar,
+    // with the chosen day ready for the arrow keys.
+    if ((e.key === 'ArrowDown' && (e.altKey || input.dataset.date)) || (e.key === ' ' && !input.dataset.date)) {
       e.preventDefault();
+      if (input.dataset.date) commitDate(input);
       openCalendar(input);
       const t = cal && cal.el.querySelector('.cal-cell[tabindex="0"]');
       if (t) t.focus();
     } else if (e.key === 'Escape' && cal) { e.preventDefault(); closeCalendar(true); }
+  }, true);
+
+  // ---------- Date fields: typed 24/09/2026, shown 24 Sep 2026 ----------
+  // The system's date field follows the Mac's region (09/24/2026 in the US).
+  // Each one becomes a text field that reads and writes "2026-09-24" as its
+  // value, as before, but is typed day first and shown as 24 Sep 2026.
+  // Typing takes 24/09/2026, 24/9/26, 24-9, 24.09.2026, 24092026, 24 Sep
+  // 2026, 24sep or 2026-09-24 (no year: this year); "today" too.
+
+  const MON = MONTHS.map((name) => name.slice(0, 3));
+  const nativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  const isDay = (y, m, d) => { const t = new Date(y, m - 1, d); return y > 999 && t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d; };
+  const fullYear = (y) => (y === undefined || y === '' ? new Date().getFullYear() : String(y).length <= 2 ? 2000 + Number(y) : Number(y));
+  const monthNamed = (word) => {
+    const w = String(word || '').toLowerCase().replace(/\.$/, '');
+    return w.length >= 3 ? MONTHS.findIndex((name) => name.toLowerCase().startsWith(w)) + 1 : 0;
+  };
+  // "2026-09-24" (or "2026-09"), "" for an empty box, null when it isn't a date.
+  function parseDate(text, kind) {
+    const s = String(text || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
+    if (!s) return '';
+    const out = (y, m, d) => (kind === 'month'
+      ? (m >= 1 && m <= 12 && y > 999 ? `${y}-${pad(m)}` : null)
+      : (isDay(y, m, d) ? `${y}-${pad(m)}-${pad(d)}` : null));
+    let r;
+    if (/^today$/i.test(s)) { const t = new Date(); return out(t.getFullYear(), t.getMonth() + 1, t.getDate()); }
+    if ((r = /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/.exec(s))) return out(Number(r[1]), Number(r[2]), Number(r[3] || 1));
+    if (kind === 'month') {
+      if ((r = /^(\d{1,2})\s?[/.\- ]\s?(\d{2}|\d{4})$/.exec(s))) return out(fullYear(r[2]), Number(r[1]));
+      if ((r = /^([a-z]+\.?)\s?(\d{2}|\d{4})?$/i.exec(s))) return out(fullYear(r[2]), monthNamed(r[1]));
+      return null;
+    }
+    if ((r = /^(\d{1,2})\s?[/.\- ]\s?(\d{1,2})(?:\s?[/.\- ]\s?(\d{2}|\d{4}))?$/.exec(s))) return out(fullYear(r[3]), Number(r[2]), Number(r[1]));
+    if ((r = /^(\d{2})(\d{2})(\d{4}|\d{2})$/.exec(s))) return out(fullYear(r[3]), Number(r[2]), Number(r[1]));
+    if ((r = /^(\d{1,2})\s?([a-z]+\.?)\s?(\d{2}|\d{4})?$/i.exec(s))) return out(fullYear(r[3]), monthNamed(r[2]), Number(r[1]));
+    if ((r = /^([a-z]+\.?)\s?(\d{1,2})\s(\d{4})$/i.exec(s))) return out(Number(r[3]), monthNamed(r[1]), Number(r[2]));
+    return null;
+  }
+  // Typed: 24/09/2026 · shown: 24 Sep 2026 (months: 09/2026 · Sep 2026).
+  const typedDate = (iso, kind) => {
+    const [y, m, d] = String(iso || '').split('-');
+    if (!y) return '';
+    return kind === 'month' ? `${m}/${y}` : `${d}/${m}/${y}`;
+  };
+  const shownDate = (iso, kind) => {
+    const [y, m, d] = String(iso || '').split('-').map(Number);
+    if (!y || !m) return '';
+    return kind === 'month' ? `${MON[m - 1]} ${y}` : `${d} ${MON[m - 1]} ${y}`;
+  };
+  // For dates shown in lists and tables: "24 Sep 2026" (a timestamp: its day).
+  window.appDay = (value, empty = '—') => {
+    const v = String(value || '');
+    const iso = /^\d{4}-\d{2}-\d{2}T/.test(v) && !isNaN(new Date(v))
+      ? (() => { const t = new Date(v); return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`; })()
+      : v.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? shownDate(iso, 'date') : (v || empty);
+  };
+
+  function upgradeDate(input) {
+    const kind = input.type;
+    if (input.__dateKind || (kind !== 'date' && kind !== 'month') || input.closest('[data-native]')) return;
+    const start = nativeValue.get.call(input);
+    input.__dateKind = kind;
+    input.__iso = '';
+    input.type = 'text';
+    input.dataset.date = kind;
+    input.setAttribute('autocomplete', 'off');
+    input.spellcheck = false;
+    if (!input.placeholder) input.placeholder = kind === 'month' ? 'mm/yyyy' : 'dd/mm/yyyy';
+    // .value is "2026-09-24", as the system's date field: while typing, the
+    // typed date once it's a whole one.
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get() {
+        if (input.__typing) { const p = parseDate(nativeValue.get.call(input), kind); if (p !== null) return p; }
+        return input.__iso;
+      },
+      set(v) {
+        const s = String(v ?? '');
+        const p = /^\d{4}-\d{2}/.test(s) ? parseDate(s.slice(0, kind === 'month' ? 7 : 10), kind) : null;
+        input.__iso = p || '';
+        nativeValue.set.call(input, input.__typing ? typedDate(input.__iso, kind) : shownDate(input.__iso, kind));
+      },
+    });
+    input.value = start;
+  }
+  // The typed date is taken (Return, or leaving the field); not a date: put back.
+  function commitDate(input) {
+    const kind = input.__dateKind;
+    if (!kind) return;
+    const p = parseDate(nativeValue.get.call(input), kind);
+    const changed = p !== null && p !== input.__iso;
+    if (p === null) {
+      input.classList.add('calc-bad');
+      setTimeout(() => input.classList.remove('calc-bad'), 900);
+    } else input.__iso = p;
+    nativeValue.set.call(input, input.__typing ? typedDate(input.__iso, kind) : shownDate(input.__iso, kind));
+    if (changed) fire(input);
+  }
+  document.addEventListener('focusin', (e) => {
+    const input = e.target;
+    if (!input.__dateKind) return;
+    input.__typing = true;
+    nativeValue.set.call(input, typedDate(input.__iso, input.__dateKind));
+    requestAnimationFrame(() => { if (document.activeElement === input) try { input.select(); } catch (err) { /* ignore */ } });
+  }, true);
+  document.addEventListener('focusout', (e) => {
+    const input = e.target;
+    if (!input.__dateKind) return;
+    input.__typing = false;
+    commitDate(input);
+  }, true);
+  // Typing isn't a change yet (the pages save on "change"): only the calendar follows it.
+  document.addEventListener('input', (e) => {
+    const input = e.target;
+    if (!input.__dateKind || !e.isTrusted) return;
+    e.stopPropagation();
+    if (cal && cal.input === input && cal.sync && parseDate(nativeValue.get.call(input), input.__dateKind)) cal.sync();
+  }, true);
+  // (The text field's own "change" on leaving it: the date's is fired above, once taken.)
+  document.addEventListener('change', (e) => { if (e.target.__dateKind && e.isTrusted) e.stopPropagation(); }, true);
+  document.addEventListener('keydown', (e) => {
+    const input = e.target;
+    if (!input.__dateKind || e.isComposing || e.defaultPrevented) return;
+    if (e.key === 'Enter') { commitDate(input); closeCalendar(false); }
+    // Escape: what was typed goes back (a second Escape closes a dialog, as usual).
+    else if (e.key === 'Escape' && !cal && nativeValue.get.call(input) !== typedDate(input.__iso, input.__dateKind)) {
+      e.preventDefault();
+      e.stopPropagation();
+      nativeValue.set.call(input, typedDate(input.__iso, input.__dateKind));
+      input.select();
+    }
   }, true);
   document.addEventListener('scroll', (e) => { if (cal && !cal.el.contains(e.target)) closeCalendar(false); }, true);
   window.addEventListener('resize', () => closeCalendar(false));
@@ -278,7 +429,9 @@
   function scan(root) {
     if (!root || !root.querySelectorAll) return;
     if (root.tagName === 'SELECT') enhanceSelect(root);
+    else if (root.tagName === 'INPUT') upgradeDate(root);
     root.querySelectorAll('select').forEach(enhanceSelect);
+    root.querySelectorAll('input[type="date"], input[type="month"]').forEach(upgradeDate);
   }
   function start() {
     scan(document.body);
@@ -289,5 +442,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 
-  window.appControls = { enhanceSelect, openCalendar, closeCalendar };
+  window.appControls = { enhanceSelect, openCalendar, closeCalendar, upgradeDate, parseDate };
 })();

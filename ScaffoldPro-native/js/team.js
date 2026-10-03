@@ -21,7 +21,7 @@ function when(iso) {
   if (mins < 2) return 'just now';
   if (mins < 60) return `${mins} min ago`;
   if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep');
 }
 
 function initials(name) {

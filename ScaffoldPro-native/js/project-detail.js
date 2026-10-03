@@ -204,7 +204,7 @@ async function refreshInvoiceList() {
         : inv.quotationNumber ? `<div class="sub">From ${esc(inv.quotationNumber)}</div>` : ''}</td>
       <td><span class="status-pill">${inv.status}</span></td>
       ${window.createdByCell(inv)}
-      <td>${inv.dueDate || '—'}</td>
+      <td>${window.appDay(inv.dueDate)}</td>
       <td class="num">${money(inv.total)}</td>
       <td class="num">${money(inv.amountPaid)}</td>`;
     tr.appendChild(window.documentRowActions('Invoice', { id: inv.id, number: inv.invoiceNumber, status: inv.status }, refreshInvoiceList));
@@ -244,7 +244,7 @@ async function refreshDeliveryNoteList() {
         ? `<div class="sub">Invoiced in ${esc(dn.invoiceNumbers.join(', '))}</div>` : ''}</td>
       <td><span class="status-pill">${dn.status}</span></td>
       ${window.createdByCell(dn)}
-      <td>${(dn.deliveryDate || '').slice(0, 10)}</td>
+      <td>${window.appDay(dn.deliveryDate)}</td>
       <td>${dn.itemCount}</td>`;
     tr.appendChild(window.documentRowActions('DeliveryNote', { id: dn.id, number: dn.deliveryNoteNumber, status: dn.status }, refreshDeliveryNoteList));
     tbody.appendChild(tr);
@@ -343,7 +343,7 @@ function renderFileList(containerId, items, api, opts) {
       ${categoryCell}${linkCell}
       <td class="c-type">${esc(item.fileType)}</td>
       <td class="c-size">${formatFileSize(item.fileSizeBytes)}</td>
-      <td class="c-date">${(item.uploadedAt || '').slice(0, 10)}</td>
+      <td class="c-date">${window.appDay(item.uploadedAt, '')}</td>
       <td class="c-desc"><input type="text" class="desc-input" value="${(item.description || '').replace(/"/g, '&quot;')}" placeholder="Add a description" /></td>
       <td class="file-actions"></td>`;
 
@@ -735,12 +735,12 @@ function setupTabs() {
 function formatDay(value) {
   if (!value) return '—';
   const d = new Date(value.length <= 10 ? `${value}T00:00:00` : value);
-  return isNaN(d) ? value : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return isNaN(d) ? value : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep');
 }
 
 function formatWhen(iso) {
   const d = new Date(iso);
-  return isNaN(d) ? iso : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return isNaN(d) ? iso : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace('Sept', 'Sep');
 }
 
 const SVG = (paths, size = 16) => `<svg viewBox="0 0 20 20" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;

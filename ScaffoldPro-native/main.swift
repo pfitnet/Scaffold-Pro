@@ -2708,9 +2708,10 @@ func isoFromDay(_ day: String) -> String? {
 
 func formatDateForDisplay(_ iso: String) -> String {
     guard let date = isoFormatter.date(from: iso) else { return iso }
+    // "24 Sep 2026", whatever the Mac's region is set to.
     let displayFormatter = DateFormatter()
-    displayFormatter.dateStyle = .medium
-    displayFormatter.timeStyle = .none
+    displayFormatter.locale = Locale(identifier: "en_US_POSIX") // "Sep", not en_GB's "Sept"
+    displayFormatter.dateFormat = "d MMM yyyy"
     return displayFormatter.string(from: date)
 }
 
@@ -15406,7 +15407,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// "22 Sep 2026", as on the original.
     private func letterDate(_ iso: String) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_GB")
+        formatter.locale = Locale(identifier: "en_US_POSIX") // "Sep", not en_GB's "Sept"
         formatter.dateFormat = "d MMM yyyy"
         if let date = isoFormatter.date(from: iso) ?? isoFromDay(iso).flatMap({ isoFormatter.date(from: $0) }) {
             return formatter.string(from: date)

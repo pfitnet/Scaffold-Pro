@@ -185,7 +185,7 @@ function renderDirectorBar() {
   const bar = document.getElementById('director-bar');
   bar.classList.toggle('hidden', d.status === 'Cancelled');
   if (d.status === 'Cancelled') return;
-  const day = (iso) => { const x = new Date(iso); return isNaN(x) ? '' : x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
+  const day = (iso) => { const x = new Date(iso); return isNaN(x) ? '' : x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep'); };
   bar.classList.toggle('signed-done', !!d.directorSignedBy && !d.signPendingWith);
   if (d.signPendingWith) {
     bar.innerHTML = `<span class="signed-text"><span class="status-pill pill-warning">To sign</span>
@@ -229,7 +229,7 @@ function renderSignedBar() {
   bar.classList.toggle('hidden', d.status === 'Draft' && !hasCopy);
   if (d.status === 'Draft' && !hasCopy) return;
   const on = (d.signedCopyAt ? new Date(d.signedCopyAt) : null);
-  const onText = on && !isNaN(on) ? on.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  const onText = on && !isNaN(on) ? on.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep') : '';
   bar.classList.toggle('signed-done', hasCopy && d.signedCopyExists);
   if (hasCopy && d.signedCopyExists) {
     bar.innerHTML = `

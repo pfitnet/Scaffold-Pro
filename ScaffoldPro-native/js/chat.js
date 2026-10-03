@@ -56,7 +56,7 @@
     if (mins < 1) return 'now';
     if (mins < 60) return `${mins}m`;
     if (mins < 60 * 24) return time(iso);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep');
   }
   // Only emoji (1–3 of them): shown large.
   const emojiOnly = (t) => /^(\p{Extended_Pictographic}(️|‍\p{Extended_Pictographic})*\s*){1,3}$/u.test(t.trim());

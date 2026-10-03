@@ -117,7 +117,7 @@ function detailRow(item) {
     : '<p class="small-note">Nothing out on hire.</p>';
   const moves = data.movements.filter((m) => m.movement.itemKey === item.key).slice(0, 12);
   const history = moves.length
-    ? `<table class="compact"><tbody>${moves.map((m) => `<tr><td class="muted">${esc(m.movement.date)}</td><td>${KIND_LABELS[m.movement.kind] || m.movement.kind}</td>
+    ? `<table class="compact"><tbody>${moves.map((m) => `<tr><td class="muted nowrap">${esc(window.appDay(m.movement.date))}</td><td>${KIND_LABELS[m.movement.kind] || m.movement.kind}</td>
         <td>${esc(m.projectNumber || '')}</td><td class="muted">${esc(m.movement.reference || '')}</td>
         <td class="num ${m.movement.quantity > 0 ? 'qty-in' : 'qty-out'}">${signed(m.movement.quantity)}</td></tr>`).join('')}</tbody></table>`
     : '<p class="small-note">No movements yet.</p>';
@@ -156,7 +156,7 @@ function renderMovements() {
   container.innerHTML = `<table class="sortable">
     <thead><tr><th>Date</th><th>Movement</th><th>Item</th><th class="num">Qty</th><th>Project</th><th>Reference</th><th>Notes</th><th></th></tr></thead>
     <tbody>${list.map((m) => `<tr>
-      <td>${esc(m.movement.date)}</td>
+      <td class="nowrap">${esc(window.appDay(m.movement.date))}</td>
       <td>${KIND_LABELS[m.movement.kind] || esc(m.movement.kind)}</td>
       <td>${esc(m.movement.itemDescription)}</td>
       <td class="num ${m.movement.quantity > 0 ? 'qty-in' : 'qty-out'}">${signed(m.movement.quantity)}</td>
