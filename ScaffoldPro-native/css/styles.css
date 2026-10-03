@@ -1597,6 +1597,19 @@ button.export-menu, button.widgets-change { display: inline-flex; align-items: c
 button.export-menu::after, button.widgets-change::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
 button.export-menu.hm-active::after, button.widgets-change.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
 
+/* An item with its own list (js/hover-menu.js): a chevron pointing the way it opens. */
+.hm-chev { flex: 0 0 18px; display: flex; justify-content: center; padding-top: 4px; color: var(--text-tertiary); }
+.hm-item.hm-sub-open { background: var(--accent-soft); }
+.hm-item:hover .hm-chev, .hm-item:focus-visible .hm-chev { color: rgba(255, 255, 255, .85); }
+.hm-submenu { transform: translateX(4px) scale(.985); transform-origin: top right; }
+.hm-submenu.to-right { transform: translateX(-4px) scale(.985); transform-origin: top left; }
+.hm-submenu.open { transform: none; }
+/* Material List: the ☰ (category, import, export) then + Add Item, at the right. */
+.ml-menu { position: relative; display: inline-flex; }
+.ml-menu .tb-ico { position: relative; width: 34px; height: 32px; margin-left: 0; border-radius: 8px; cursor: pointer; }
+.ml-menu .tb-ico:hover, .ml-menu .tb-ico.hm-active, .ml-menu .tb-ico:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.ml-menu .tb-ico.filtered .am-dot { transform: scale(1); }
+
 /* Add Materials: the heading, then search and the ☰ list (price list, category) at the right. */
 .am-head { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
 .am-head h2 { margin: 0; white-space: nowrap; }

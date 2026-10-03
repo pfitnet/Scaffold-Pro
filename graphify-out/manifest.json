@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/price-lists.js": {
-    "mtime": 1790772366.2072978,
-    "seen": 1790774145.2014596,
-    "ast_hash": "9217e6d08d7a74e0ee6d634aba4688e0",
+    "mtime": 1791021606.8864279,
+    "seen": 1791021700.003122,
+    "ast_hash": "1ecddcfca9f0dcebd7d719be67d5cd7a",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/project-detail.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791021181.988052,
-    "seen": 1791021242.738539,
-    "ast_hash": "7d081c33f3b7adaf677ac49ea326ce6a",
+    "mtime": 1791021685.5950422,
+    "seen": 1791021700.003135,
+    "ast_hash": "172b442da52a8ca13da5acf424c616c2",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791021237.0396023,
-    "seen": 1791021242.7385485,
-    "ast_hash": "5fcaa5fae8e8aa28b207873700e8b2d4",
+    "mtime": 1791021695.2355816,
+    "seen": 1791021700.0031433,
+    "ast_hash": "836877c9cc3d09bae41e853e6b1adbba",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -300,9 +300,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/price-lists.html": {
-    "mtime": 1790971999.6031585,
-    "seen": 1790972049.751366,
-    "ast_hash": "292b86f796fe969a8dadb9f00fb90f75",
+    "mtime": 1791021597.590164,
+    "seen": 1791021700.0031533,
+    "ast_hash": "6f5a96e77144d61faf40ec6ea0a0ad4b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/project-detail.html": {
@@ -606,9 +606,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/hover-menu.js": {
-    "mtime": 1790971808.504236,
-    "seen": 1790971872.292305,
-    "ast_hash": "3e31b87a8a666d2998a8191c7a592b57",
+    "mtime": 1791021579.4361663,
+    "seen": 1791021700.0031116,
+    "ast_hash": "b5ad367a519bf9854157f54ed42daf96",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/undo.js": {

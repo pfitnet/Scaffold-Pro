@@ -7272,11 +7272,21 @@ final class AppDatabase {
         return DeliveryScheduleData(days: days, weights: weights)
     }
 
-    /// Adds the next day (Day n+1) to a quotation's (or BOQ's) delivery schedule.
+    /// Adds the next day (Day n+1) to a quotation's (or BOQ's) delivery
+    /// schedule, dated the day after the latest date put in for a day
+    /// before it. Only Day 1 (or when no day has a date yet) starts blank.
     func addDeliveryDay(quotationId: String) -> String? {
         guard getQuotation(id: quotationId) != nil || getBOQ(id: quotationId) != nil else { return "Document not found." }
-        let next = (quotationDeliveriesStore.readAll().filter { $0.quotationId == quotationId }.map { $0.day }.max() ?? 0) + 1
-        quotationDeliveriesStore.insert(QuotationDeliveryDay(id: makeId("qdday"), quotationId: quotationId, day: next, date: nil, sent: nil,
+        let days = quotationDeliveriesStore.readAll().filter { $0.quotationId == quotationId }
+        let last = days.max { ($0.day, $0.createdAt) < ($1.day, $1.createdAt) }
+        let date: String? = days.compactMap { validDay($0.date) }.max().flatMap { day in
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(identifier: "UTC")
+            f.dateFormat = "yyyy-MM-dd"
+            return f.date(from: day).flatMap { Calendar(identifier: .gregorian).date(byAdding: .day, value: 1, to: $0) }.map { f.string(from: $0) }
+        }
+        quotationDeliveriesStore.insert(QuotationDeliveryDay(id: makeId("qdday"), quotationId: quotationId, day: (last?.day ?? 0) + 1, date: date, sent: nil,
                                                              note: nil, quantities: [:], createdAt: nowISO(), updatedAt: nowISO()))
         return nil
     }

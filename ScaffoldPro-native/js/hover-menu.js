@@ -9,7 +9,9 @@
 // In the list ↑ ↓ move, typing jumps to a choice, Return picks, Escape closes.
 //
 //   window.hoverMenu.attach(button, {
-//     items: () => [{ label, sub, value, current, disabled } | { group: 'Heading' }],
+//     items: () => [{ label, sub, value, current, disabled, items } | { group: 'Heading' }],
+//       (an item with its own `items` opens them beside it — to the left, or
+//       the right where there's no room — on resting on it, a click, or →/←)
 //     onPick: (value) => …,
 //     openOn: 'hover' | 'press',
 //   });
@@ -27,10 +29,16 @@
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const CHECK = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
   let open = null; // { trigger, menu, close }
+  const CHEVRON = '<svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true"><path d="M6.5 1.5 3 5l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const itemHTML = (it, i, role, aria) => `<button type="button" class="hm-item${it.current ? ' current' : ''}${it.items ? ' hm-has-sub' : ''}" role="${role}" ${aria} data-i="${i}" ${it.disabled ? 'disabled' : ''} data-no-icon tabindex="-1"${it.items ? ' aria-haspopup="menu"' : ''}>
+          ${it.items ? `<span class="hm-chev">${CHEVRON}</span>` : `<span class="hm-check">${it.current ? CHECK : ''}</span>`}
+          <span class="hm-text"><span class="hm-label">${esc(it.label)}</span>${it.sub ? `<span class="hm-sub">${esc(it.sub)}</span>` : ''}</span></button>`;
 
   function attach(trigger, options) {
     const press = options.openOn === 'press';
     let menu = null;
+    let submenu = null; // { el, of: the item button }
+    let subTimer = null;
     let leaveTimer = null;
     let enterTimer = null;
     let typed = '';
@@ -40,13 +48,79 @@
     const isDisabled = () => trigger.disabled || trigger.getAttribute('aria-disabled') === 'true';
 
     const onOutside = (e) => {
-      if (!menu || menu.contains(e.target) || trigger.contains(e.target)) return;
+      if (!menu || menu.contains(e.target) || trigger.contains(e.target) || (submenu && submenu.el.contains(e.target))) return;
       close(false);
+    };
+    const closeSub = () => {
+      clearTimeout(subTimer);
+      if (!submenu) return;
+      const { el, of } = submenu;
+      submenu = null;
+      of.classList.remove('hm-sub-open');
+      of.setAttribute('aria-expanded', 'false');
+      el.classList.remove('open');
+      setTimeout(() => el.remove(), 120);
+    };
+    // An item's own list, beside the menu: to the left (or the right without room).
+    const openSub = (button, it, focus) => {
+      if (submenu && submenu.of === button) { if (focus) { const f = submenu.el.querySelector('.hm-item:not([disabled])'); if (f) f.focus(); } return; }
+      closeSub();
+      const el = document.createElement('div');
+      el.className = 'hm-menu hm-submenu';
+      el.setAttribute('role', 'menu');
+      el.setAttribute('data-no-icon', '');
+      el.innerHTML = it.items.map((child, i) => itemHTML(child, i, 'menuitem', '')).join('');
+      document.body.appendChild(el);
+      submenu = { el, of: button };
+      button.classList.add('hm-sub-open');
+      button.setAttribute('aria-expanded', 'true');
+      el.style.minWidth = '200px';
+      const r = button.getBoundingClientRect(), m = menu.getBoundingClientRect();
+      const w = el.offsetWidth, h = el.offsetHeight;
+      let left = m.left - w + 2;
+      if (left < 8) left = Math.min(m.right - 2, window.innerWidth - w - 8);
+      const top = Math.max(8, Math.min(r.top - 6, window.innerHeight - h - 8));
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+      el.classList.toggle('to-right', left > m.left);
+      requestAnimationFrame(() => el.classList.add('open'));
+      el.addEventListener('pointerenter', () => { clearTimeout(leaveTimer); clearTimeout(subTimer); });
+      if (!press) el.addEventListener('pointerleave', scheduleClose);
+      el.addEventListener('pointerdown', (e) => e.preventDefault());
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('.hm-item');
+        if (!b || b.disabled) return;
+        const child = it.items[Number(b.dataset.i)];
+        close(true);
+        options.onPick(child.value);
+      });
+      el.addEventListener('keydown', (e) => {
+        const all = [...el.querySelectorAll('.hm-item:not([disabled])')];
+        const at = all.indexOf(document.activeElement);
+        const back = el.classList.contains('to-right') ? 'ArrowLeft' : 'ArrowRight';
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const next = e.key === 'ArrowDown' ? Math.min(all.length - 1, at + 1) : Math.max(0, at - 1);
+          if (all[next]) all[next].focus();
+        } else if (e.key === 'Escape' || e.key === back) {
+          e.preventDefault(); e.stopPropagation();
+          closeSub();
+          button.focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (all[at]) all[at].click();
+        } else if (e.key === 'Tab') close(false);
+      });
+      el.addEventListener('focusout', (e) => {
+        if (submenu && submenu.el === el && !el.contains(e.relatedTarget) && !(menu && menu.contains(e.relatedTarget))) close(false);
+      });
+      if (focus) { const f = el.querySelector('.hm-item:not([disabled])'); if (f) f.focus(); }
     };
 
     const close = (refocus) => {
       clearTimeout(leaveTimer);
       clearTimeout(enterTimer);
+      closeSub();
       if (!menu) return;
       const m = menu;
       menu = null;
@@ -89,9 +163,8 @@
       menu.innerHTML = (options.heading ? `<div class="hm-heading">${esc(options.heading)}</div>` : '') +
         items.map((it, i) => it.group != null
           ? `<div class="hm-heading hm-group">${esc(it.group)}</div>`
-          : `<button type="button" class="hm-item${it.current ? ' current' : ''}" role="${press ? 'option' : 'menuitemradio'}" aria-${press ? 'selected' : 'checked'}="${it.current ? 'true' : 'false'}" data-i="${i}" ${it.disabled ? 'disabled' : ''} data-no-icon tabindex="-1">
-          <span class="hm-check">${it.current ? CHECK : ''}</span>
-          <span class="hm-text"><span class="hm-label">${esc(it.label)}</span>${it.sub ? `<span class="hm-sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('');
+          : itemHTML(it, i, press ? 'option' : (it.items ? 'menuitem' : 'menuitemradio'),
+            it.items ? '' : `aria-${press ? 'selected' : 'checked'}="${it.current ? 'true' : 'false'}"`)).join('');
       document.body.appendChild(menu);
       place();
       // A long list opens at the current choice.
@@ -112,8 +185,18 @@
         const b = e.target.closest('.hm-item');
         if (!b || b.disabled) return;
         const it = items[Number(b.dataset.i)];
+        if (it.items) { openSub(b, it, true); return; }
         close(true);
         options.onPick(it.value);
+      });
+      // Resting on an item with its own list opens it; on another, closes it.
+      menu.addEventListener('pointerover', (e) => {
+        const b = e.target.closest('.hm-item');
+        if (!b) return;
+        clearTimeout(subTimer);
+        const it = items[Number(b.dataset.i)];
+        if (it && it.items && !b.disabled) subTimer = setTimeout(() => menu && openSub(b, it, false), 90);
+        else if (submenu && submenu.of !== b) subTimer = setTimeout(closeSub, 160);
       });
       menu.addEventListener('keydown', (e) => {
         const all = [...menu.querySelectorAll('.hm-item:not([disabled])')];
@@ -122,6 +205,10 @@
           e.preventDefault();
           const next = e.key === 'ArrowDown' ? Math.min(all.length - 1, at + 1) : Math.max(0, at - 1);
           if (all[next]) all[next].focus();
+        } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') && all[at] && all[at].classList.contains('hm-has-sub')) {
+          // ← (or →, Return): the item's own list.
+          e.preventDefault(); e.stopPropagation();
+          openSub(all[at], items[Number(all[at].dataset.i)], true);
         } else if (e.key === 'Home' || e.key === 'End') {
           e.preventDefault();
           const item = e.key === 'Home' ? all[0] : all[all.length - 1];
@@ -141,7 +228,7 @@
         }
       });
       menu.addEventListener('focusout', (e) => {
-        if (menu && !menu.contains(e.relatedTarget) && e.relatedTarget !== trigger) close(false);
+        if (menu && !menu.contains(e.relatedTarget) && e.relatedTarget !== trigger && !(submenu && submenu.el.contains(e.relatedTarget))) close(false);
       });
       if (focusItem) focusFirst();
     };
@@ -155,7 +242,7 @@
       clearTimeout(leaveTimer);
       // A moment's grace, so the pointer can cross from the button to the list.
       leaveTimer = setTimeout(() => {
-        if (menu && menu.contains(document.activeElement)) return;
+        if (menu && (menu.contains(document.activeElement) || (submenu && submenu.el.contains(document.activeElement)))) return;
         close(false);
       }, 220);
     }
