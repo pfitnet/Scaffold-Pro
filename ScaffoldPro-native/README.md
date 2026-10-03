@@ -2738,3 +2738,14 @@ Every form control is now drawn by the app instead of macOS, on every page
 - js/calc-input.js (`calcRead`, `calcChange`, `calcAttr`); main.swift:
   `quantityFormula` on every kind of line, `priceFormula` on quotation and
   invoice lines, and `lineFormula()`.
+
+## Batch 111 — Linked BOQs and quotations share their drawings
+
+- A drawing uploaded (or dropped) on a **quotation that's linked to a
+  BOQ** now shows in the BOQ's Drawings panel too, marked "From Qt…". It
+  also shows in the BOQ's other linked quotations, and is added after the
+  BOQ's pages when the BOQ is exported or printed.
+- As before, a quotation shows its BOQ's drawings, marked "From BQ…".
+  A quotation that was only made from a BOQ (not linked) still has just
+  the BOQ's drawings and its own.
+- `documentDrawings(kind:id:)` in main.swift.
