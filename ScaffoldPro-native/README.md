@@ -3006,3 +3006,18 @@ Every form control is now drawn by the app instead of macOS, on every page
     (with a rates section already, the standard rates it hasn't got);
   - **Notes** — goes to the Notes box.
 - The button's style is shared (`button.add-section` in css/styles.css).
+
+## Batch 126 — Subsidiary numbers (-s1) and Revert
+
+- A quotation split off another is numbered after it: Qt26212-007 →
+  **Qt26212-007-s1**, then -s2… (splitting Qt26212-007-s1 gives
+  Qt26212-007-s1-s1). Documents made from it carry the same part, e.g. an
+  invoice H26212-007-s1. Subsidiaries made before this keep their numbers.
+- In a subsidiary, the BOQ bracket under Dates & Pricing says **Subsidiary
+  of Qt26212-007** (a link to it) with a **Revert** button: after a
+  confirmation, all its lines and sections go back onto Qt26212-007 (after
+  its own; a section whose letter is taken there gets the next free one) and
+  the subsidiary is deleted, then Qt26212-007 opens. Both must be drafts;
+  quotations split off the subsidiary move up to Qt26212-007.
+- The header's "Split from …" line moved into that bracket; the parent's
+  header still lists "Split off it: …".

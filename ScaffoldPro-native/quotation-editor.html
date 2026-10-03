@@ -45,6 +45,10 @@
     .extra-title-row .block-prefix { width: 44px; }
     .extra-section table input { width: 100%; padding: 3px 6px; box-sizing: border-box; }
     .extra-section table .narrow { width: 64px; }
+    .subsidiary-actions { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+    .subsidiary-of { color: var(--text-secondary); }
+    .subsidiary-of a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .subsidiary-of a:hover { text-decoration: underline; }
     .split-note { margin-top: 4px; font-size: 12.5px; color: var(--text-secondary); }
     .split-note a { color: var(--accent); text-decoration: none; }
     .split-note a:hover { text-decoration: underline; }
@@ -156,6 +160,11 @@
               <button id="link-boq-btn" title="Keep this quotation and the BOQ the same: a change to either is made to the other">Link</button>
             </span>
             <span class="boq-reference-note" id="boq-reference-note"></span>
+            <!-- A subsidiary (split off another quotation): which one, and Revert -->
+            <span class="subsidiary-actions hidden" id="subsidiary-actions">
+              <span class="subsidiary-of" id="subsidiary-of"></span>
+              <button id="revert-split-btn" title="Put its lines and sections back on the quotation it was split off, and delete this one">Revert</button>
+            </span>
             <!-- Linked: just what can be done about it -->
             <span class="link-actions hidden" id="boq-link-actions">
               <span class="link-mark" id="boq-link-mark"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1"/><path d="M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1"/></svg><span class="sr-only">Linked</span></span>
