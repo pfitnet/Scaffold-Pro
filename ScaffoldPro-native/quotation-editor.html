@@ -45,10 +45,34 @@
     .extra-title-row .block-prefix { width: 44px; }
     .extra-section table input { width: 100%; padding: 3px 6px; box-sizing: border-box; }
     .extra-section table .narrow { width: 64px; }
-    .subsidiary-actions { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
-    .subsidiary-of { color: var(--text-secondary); }
-    .subsidiary-of a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    /* A subsidiary: the bracket in the quotation colour, saying which
+       quotation it was split off, with Revert. (Not being linked to a BOQ
+       is normal for one, so that isn't said.) */
+    .boq-reference.is-subsidiary {
+      --sub: var(--doc-quotation);
+      padding: 12px 14px; gap: 12px; border-radius: var(--radius, 8px);
+      border-color: color-mix(in srgb, var(--sub) 38%, var(--border));
+      background: linear-gradient(90deg, color-mix(in srgb, var(--sub) 14%, var(--panel)), color-mix(in srgb, var(--sub) 5%, var(--panel)));
+      box-shadow: inset 3px 0 0 var(--sub);
+    }
+    .boq-reference.is-subsidiary .boq-reference-note { display: none; }
+    .boq-reference.is-subsidiary #boq-import-toggle { order: 3; opacity: .75; }
+    .boq-reference.is-subsidiary #boq-import-toggle:hover { opacity: 1; }
+    .boq-reference.is-subsidiary .boq-import-controls { order: 4; flex-basis: 100%; }
+    .subsidiary-actions { order: 1; flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; }
+    .subsidiary-actions.hidden { display: none; }
+    .sub-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: var(--sub); background: color-mix(in srgb, var(--sub) 20%, transparent); }
+    .sub-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .sub-label { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--sub); }
+    .subsidiary-of { font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .subsidiary-of a { color: var(--sub); text-decoration: none; font-weight: 650; }
     .subsidiary-of a:hover { text-decoration: underline; }
+    .subsidiary-of .sub-status { margin-left: 6px; font-size: 11px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+      color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 14%, transparent); }
+    button.sub-revert { flex: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 600;
+      color: var(--sub); border-color: color-mix(in srgb, var(--sub) 45%, var(--border)); background: color-mix(in srgb, var(--sub) 8%, var(--panel)); }
+    button.sub-revert:hover:not(:disabled) { background: color-mix(in srgb, var(--sub) 18%, var(--panel)); border-color: var(--sub); }
     .split-note { margin-top: 4px; font-size: 12.5px; color: var(--text-secondary); }
     .split-note a { color: var(--accent); text-decoration: none; }
     .split-note a:hover { text-decoration: underline; }
@@ -166,8 +190,12 @@
             <span class="boq-reference-note" id="boq-reference-note"></span>
             <!-- A subsidiary (split off another quotation): which one, and Revert -->
             <span class="subsidiary-actions hidden" id="subsidiary-actions">
-              <span class="subsidiary-of" id="subsidiary-of"></span>
-              <button id="revert-split-btn" title="Put its lines and sections back on the quotation it was split off, and delete this one">Revert</button>
+              <span class="sub-icon" aria-hidden="true"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4.5" r="1.8"/><circle cx="6" cy="15.5" r="1.8"/><circle cx="14.5" cy="9" r="1.8"/><path d="M6 6.3v7.4"/><path d="M6 11c0-1.6 1.2-2 3-2h3.7"/></svg></span>
+              <span class="sub-text">
+                <span class="sub-label">Subsidiary</span>
+                <span class="subsidiary-of" id="subsidiary-of"></span>
+              </span>
+              <button type="button" class="sub-revert" id="revert-split-btn" data-no-icon title="Put its lines and sections back on the quotation it was split off, and delete this one"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7.5h8a4 4 0 0 1 0 8h-4"/><path d="M7.5 4.5l-3 3 3 3"/></svg>Revert</button>
             </span>
             <!-- Linked: just what can be done about it -->
             <span class="link-actions hidden" id="boq-link-actions">

@@ -133,8 +133,9 @@ function render() {
   // A subsidiary: "Subsidiary of Qt…" and Revert, in the same bracket.
   const sub = document.getElementById('subsidiary-actions');
   sub.classList.toggle('hidden', !d.parent);
+  sub.closest('.boq-reference').classList.toggle('is-subsidiary', !!d.parent);
   if (d.parent) {
-    document.getElementById('subsidiary-of').innerHTML = `Subsidiary of <a href="quotation-editor.html?id=${encodeURIComponent(d.parent.id)}">${esc(d.parent.number)}</a>${d.parent.status === 'Draft' ? '' : ` <span class="muted">(${esc(d.parent.status.toLowerCase())})</span>`}`;
+    document.getElementById('subsidiary-of').innerHTML = `of <a href="quotation-editor.html?id=${encodeURIComponent(d.parent.id)}" title="Open ${esc(d.parent.number)}">${esc(d.parent.number)}</a><span class="sub-status">${esc(d.parent.status)}</span>`;
     const revert = document.getElementById('revert-split-btn');
     revert.disabled = isLocked || d.parent.status !== 'Draft';
     revert.title = isLocked ? 'Set this quotation back to Draft to revert it'
