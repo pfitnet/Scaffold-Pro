@@ -2676,3 +2676,25 @@ Every form control is now drawn by the app instead of macOS, on every page
   - The two are side by side, and each file shows as a small card.
   - The "Drop … here" boxes are gone until files are dragged from
     Finder over the window. Each column then shows where to drop.
+
+## Batch 107 — Arrange a project's Overview like the Dashboard
+
+- **Customise** above a project's Overview arranges its panels the way
+  the Dashboard's are arranged:
+  - drag a panel by its bar to move it;
+  - drag its right edge to make it ¼, ½, ¾ or full width;
+  - drag it into the **Widgets** tray (or press ×) to take it off, and
+    drag it back to put it on again.
+  The panels are Project Details, Quick Actions, Recent Activity, and
+  Description & Notes.
+- While you're arranging, nothing is kept until you choose:
+  - **Cancel** (or Escape) puts every panel back as it was before.
+  - **Change**: rest the pointer on it, or click it, to choose:
+    - **For this project:** only this project looks like this.
+    - **For all projects:** every project looks like this, including
+      ones arranged on their own.
+- The arrangement is kept on this Mac (`project.layout` for all projects,
+  `project.layout:<number>` for one). The Dashboard's Customise works as
+  before.
+- js/widgets.js: `setupWidgets(grid, button, null, { place, about, load,
+  choices, store })` turns on Cancel / Change ▾ for a page.

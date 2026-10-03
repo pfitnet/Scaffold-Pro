@@ -1558,9 +1558,9 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
 }
 
 /* Export: a click saves the PDF; resting on it lists PDF and Word (js/hover-menu.js). */
-button.export-menu { display: inline-flex; align-items: center; gap: 6px; }
-button.export-menu::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
-button.export-menu.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
+button.export-menu, button.widgets-change { display: inline-flex; align-items: center; gap: 6px; }
+button.export-menu::after, button.widgets-change::after { content: ''; width: 6px; height: 6px; margin-top: -3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .6; transition: transform .15s, margin .15s; }
+button.export-menu.hm-active::after, button.widgets-change.hm-active::after { transform: rotate(225deg); margin-top: 3px; }
 
 /* Add Materials: the heading, then search and the ☰ list (price list, category) at the right. */
 .am-head { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
@@ -1740,11 +1740,13 @@ button.pd-stat:hover:not(:disabled) { transform: translateY(-2px); background: v
 button.pd-stat:active:not(:disabled) { transform: translateY(0) scale(.98); }
 
 /* Overview: details and Quick Actions, then recent activity and the notes. */
-.pd-overview { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr); gap: 14px; align-items: start; }
-.pd-overview > .panel { margin: 0; animation: pjIn .45s cubic-bezier(.2, .8, .2, 1) both; }
-.pd-overview > .panel:nth-child(2) { animation-delay: 50ms; }
-.pd-overview > .panel:nth-child(3) { animation-delay: 100ms; }
-.pd-overview > .panel:nth-child(4) { animation-delay: 150ms; }
+.pd-overview > .panel { animation: pjIn .45s cubic-bezier(.2, .8, .2, 1) both; }
+.pd-overview > .panel:nth-of-type(2) { animation-delay: 50ms; }
+.pd-overview > .panel:nth-of-type(3) { animation-delay: 100ms; }
+.pd-overview > .panel:nth-of-type(4) { animation-delay: 150ms; }
+.pd-overview.customising > .panel { animation: none; }
+/* Overview: Customise (and while arranging, Cancel and Change ▾) above the panels. */
+.pd-overview-bar { display: flex; justify-content: flex-end; gap: 8px; margin: -4px 0 12px; }
 .pd-details { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; margin: 0; }
 .pd-field { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; padding: 7px 8px; margin: 0 -8px; border-radius: 10px; transition: background-color .15s; }
 .pd-field:hover { background: var(--row-hover); }
@@ -1782,7 +1784,7 @@ body.dragging-files .files-columns .drop-box { min-height: 0; opacity: 1; transf
 @media (max-width: 1000px) {
   .pd-hero { grid-template-columns: minmax(0, 1fr); }
   .pd-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .pd-overview, .files-columns, .pd-details { grid-template-columns: minmax(0, 1fr); }
+  .files-columns, .pd-details { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
   .pd-overview > .panel, .pd-timeline li, .st-active .pd-status i { animation: none; }

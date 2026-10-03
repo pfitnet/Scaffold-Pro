@@ -56,21 +56,26 @@
 
       <!-- Overview (section 17) -->
       <section class="tab-panel" data-panel="overview">
-        <div class="pd-overview">
-          <div class="panel pd-details-panel">
+        <!-- Its panels can be moved, resized or taken off like the Dashboard's
+             (Customise), for this project or for every project (js/widgets.js) -->
+        <div class="pd-overview-bar">
+          <button id="pd-customise-btn" data-no-icon title="Move, resize, hide or show the Overview’s panels">Customise</button>
+        </div>
+        <div class="dash-grid pd-overview" id="pd-overview">
+          <div class="panel pd-details-panel" data-widget="details" data-title="Project Details" data-span="2">
             <h3 class="panel-title">Project Details</h3>
             <dl class="pd-details" id="overview-details"></dl>
           </div>
           <!-- As the Dashboard's Quick Actions panel -->
-          <div class="panel pd-actions-panel">
+          <div class="panel pd-actions-panel" data-widget="actions" data-title="Quick Actions" data-span="2">
             <h3 class="panel-title">Quick Actions</h3>
             <div class="qa-grid pd-qa" id="pd-quick-actions"></div>
           </div>
-          <div class="panel pd-activity-panel">
+          <div class="panel pd-activity-panel" data-widget="activity" data-title="Recent Activity" data-span="2">
             <div class="pd-panel-head"><h3 class="panel-title">Recent Activity</h3><button type="button" class="link-btn pd-all-history" data-no-icon>All history</button></div>
             <div id="overview-activity"></div>
           </div>
-          <div class="panel pd-notes-panel">
+          <div class="panel pd-notes-panel" data-widget="notes" data-title="Description &amp; Notes" data-span="2">
             <h3 class="panel-title">Description</h3>
             <p class="prose" id="overview-description"></p>
             <h3 class="panel-title" style="margin-top:16px;">Internal Notes</h3>
@@ -297,6 +302,7 @@
   <script src="js/keep-focus.js"></script>
   <script src="js/task-editor.js"></script>
   <script src="js/project-work.js"></script>
+  <script src="js/widgets.js"></script>
   <script src="js/project-detail.js"></script>
 </body>
 </html>
