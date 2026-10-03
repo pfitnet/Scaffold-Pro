@@ -5,6 +5,8 @@
 //     the system's pop-up menu;
 //   • numbers — the system's ▲▼ arrows are hidden (css/styles.css); resting
 //     on a number field shows the app's − / + stepper (hold to repeat);
+//   • arrow keys — move from box to box (in tables, as in a spreadsheet),
+//     never change a number;
 //   • dates — a date (or month) field opens the app's calendar, and is
 //     typed as 24/09/2026 (09/2026 for a month) and shown as 24 Sep 2026
 //     (Sep 2026), whatever the Mac's region is set to.
@@ -423,6 +425,92 @@
   }, true);
   document.addEventListener('scroll', (e) => { if (cal && !cal.el.contains(e.target)) closeCalendar(false); }, true);
   window.addEventListener('resize', () => closeCalendar(false));
+
+  // ---------- Arrow keys: from box to box ----------
+  // In a table, ↑ / ↓ go to the box above / below (the same column, the
+  // next section's table too), and ← / → to the box beside it once the
+  // cursor is at that end of the text (or it's all selected) — as in a
+  // spreadsheet. A number box outside a table: ↑ / ↓ go to the box before
+  // / after it. The arrows never change a number (the − / + stepper does).
+  // The box left is saved ("change"), as with Tab.
+
+  const BOX = 'input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=reset]):not([type=file]):not([type=range]):not([type=color]):not([type=hidden]):not([type=time])';
+  const canGo = (el) => el.matches(BOX) && !el.disabled && !el.readOnly && el.offsetParent !== null && !el.closest('[data-native]');
+  const numberBox = (el) => el.type === 'number' || el.classList.contains('calc-input');
+  const STATE = new Set(['has-formula', 'calc-bad']);
+  const signature = (el) => `${el.type}|${[...el.classList].filter((c) => !STATE.has(c)).sort().join('.')}`;
+  function goTo(el) {
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    try { el.select(); } catch (err) { /* nothing to select */ }
+  }
+  // The nearest box above (dir −1) or below (+1) that shares the column.
+  function boxBelow(input, dir) {
+    const r = input.getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    let best = null;
+    let bestScore = Infinity;
+    for (const el of input.closest('table').querySelectorAll(BOX)) {
+      if (el === input || !canGo(el)) continue;
+      const b = el.getBoundingClientRect();
+      const dy = (b.top + b.height / 2 - mid) * dir;
+      const overlap = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+      if (dy < r.height / 2 || overlap <= 0) continue;
+      const score = dy * 1000 - overlap;
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    if (best) return best;
+    // The first / last row: the same kind of box in the table before / after (sections).
+    const alike = [...document.querySelectorAll(BOX)].filter((el) => canGo(el) && el.closest('td, th') && signature(el) === signature(input));
+    const next = alike[alike.indexOf(input) + dir];
+    return next && next.closest('table') !== input.closest('table') ? next : null;
+  }
+  function boxBeside(input, dir) {
+    const r = input.getBoundingClientRect();
+    const row = input.closest('tr');
+    let best = null;
+    let bestDx = Infinity;
+    for (const el of row.querySelectorAll(BOX)) {
+      if (el === input || !canGo(el)) continue;
+      const dx = (el.getBoundingClientRect().left - r.left) * dir;
+      if (dx > 0 && dx < bestDx) { bestDx = dx; best = el; }
+    }
+    return best;
+  }
+  // The cursor at the end it's moving past (or everything selected).
+  function atEdge(input, dir) {
+    let start, end;
+    try { start = input.selectionStart; end = input.selectionEnd; } catch (err) { return true; }
+    if (start === null) return true; // a number box
+    const length = nativeValue.get.call(input).length;
+    if (start === 0 && end === length) return true;
+    return start === end && (dir > 0 ? end === length : start === 0);
+  }
+  document.addEventListener('keydown', (e) => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches(BOX) || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+    const vertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+    if (!vertical && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const dir = e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1;
+    const inTable = !!input.closest('td, th') && !!input.closest('table');
+    if (inTable && !input.dataset.date) {
+      if (vertical) {
+        e.preventDefault();
+        const to = boxBelow(input, dir);
+        if (to) goTo(to);
+      } else if (input.closest('tr') && atEdge(input, dir)) {
+        const to = boxBeside(input, dir);
+        if (to) { e.preventDefault(); goTo(to); }
+      }
+    } else if (vertical && numberBox(input)) {
+      // Outside a table: the box before / after it, in the same dialog or form.
+      e.preventDefault();
+      const scope = input.closest('.modal, .app-dialog, [role="dialog"], form') || document;
+      const list = [...scope.querySelectorAll(BOX)].filter(canGo);
+      const to = list[list.indexOf(input) + dir];
+      if (to) goTo(to);
+    }
+  }, true);
 
   // ---------- Fields added later ----------
 

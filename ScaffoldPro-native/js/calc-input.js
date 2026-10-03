@@ -140,19 +140,7 @@
     // Left unchanged: the result again.
     if (input.dataset.formula && input.value.trim() === input.dataset.formula) input.value = input.dataset.shown;
   });
-  // ↑ / ↓ on a plain number: one more / one less, as the number boxes did.
-  document.addEventListener('keydown', (e) => {
-    if ((e.key !== 'ArrowUp' && e.key !== 'ArrowDown') || !isCalc(e.target) || e.altKey || e.metaKey || e.ctrlKey) return;
-    const input = e.target;
-    const text = input.value.trim().replace(/,/g, '');
-    if (!/^-?\d+(\.\d+)?$/.test(text)) return;
-    e.preventDefault();
-    const step = e.shiftKey ? 10 : 1;
-    const n = Number(text) + (e.key === 'ArrowUp' ? step : -step);
-    const decimals = (text.split('.')[1] || '').length;
-    input.value = decimals ? n.toFixed(decimals) : String(n);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  // (↑ / ↓ go to the box above / below — js/controls.js.)
   // Escape puts back what was there.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !isCalc(e.target)) return;
