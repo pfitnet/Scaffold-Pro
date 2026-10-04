@@ -102,9 +102,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/invoice-editor.js": {
-    "mtime": 1791049414.3522804,
-    "seen": 1791049865.3038864,
-    "ast_hash": "cde638b0b86795c74c50f6aa4fb868ea",
+    "mtime": 1791082152.3385756,
+    "seen": 1791082198.7680855,
+    "ast_hash": "b2d5dd3a9b1af68869b5b93ecc6896ba",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/line-discount.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791051369.2159564,
-    "seen": 1791051430.2360349,
-    "ast_hash": "2b2fa5589e0b6d4a3bfe018dcba465dd",
+    "mtime": 1791082131.0202096,
+    "seen": 1791082198.7681143,
+    "ast_hash": "f99ec253e8705efe57ffa60801f4b5c0",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791067876.8051398,
-    "seen": 1791067883.2764592,
-    "ast_hash": "27e64415bc506305bab18047f813bf56",
+    "mtime": 1791082191.3119998,
+    "seen": 1791082198.7681236,
+    "ast_hash": "c03ec4c587ba40959d6e37e169373dcc",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/invoice-editor.html": {
-    "mtime": 1791049414.3507125,
-    "seen": 1791049865.3039289,
-    "ast_hash": "0934fb31ad6d2283ee529635f2ed3b7a",
+    "mtime": 1791082146.8397949,
+    "seen": 1791082198.76813,
+    "ast_hash": "600f67e56c5253b9a047e710ff18945d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/price-lists.html": {

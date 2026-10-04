@@ -1968,6 +1968,10 @@ struct InvoiceDetail: Codable {
     var deliveryTotal: Double
     /// One-off charges from the quotation's priced sections.
     var otherChargesTotal: Double
+    /// True while a draft's payment terms follow Settings › Invoices
+    /// (it hasn't been given terms of its own); the Settings text.
+    var paymentTermsFromSettings: Bool? = nil
+    var defaultPaymentTerms: String? = nil
 }
 
 struct InvoiceActionResult: Codable {
@@ -5287,6 +5291,27 @@ final class AppDatabase {
         UserDefaults.standard.set(true, forKey: key)
     }
 
+    /// Once: draft invoices still carrying the payment terms copied from
+    /// their quotation (never edited) follow Settings › Invoices instead.
+    func linkDraftInvoiceTermsToSettingsIfNeeded() {
+        let key = "ScaffoldPro.invoiceTermsFollowSettings"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let standard = nonBlank(getCompanySettings().defaultPaymentTerms)
+        var invs = invoicesStore.readAll()
+        var changed = false
+        for i in invs.indices where invs[i].status == "Draft" {
+            guard let terms = invs[i].paymentTerms else { continue }
+            let copied = invs[i].sourceQuotationId.flatMap { quotations[$0] }.map { $0.paymentTerms == terms } ?? false
+            if copied || nonBlank(terms) == standard {
+                invs[i].paymentTerms = nil
+                changed = true
+            }
+        }
+        if changed { invoicesStore.writeAll(invs) }
+        UserDefaults.standard.set(true, forKey: key)
+    }
+
     /// Section 8's "Edit item" — item code is intentionally left alone
     /// here (it's the identifier everything else keys off), everything
     /// else is editable.
@@ -7784,7 +7809,7 @@ final class AppDatabase {
         var invoice = Invoice(
             id: makeId("invoice"), projectId: projectId, sourceQuotationId: quotation.id,
             invoiceNumber: invoiceNumber,
-            status: "Draft", invoiceDate: nowISO(), dueDate: dueDate, paymentTerms: quotation.paymentTerms ?? settings.defaultPaymentTerms,
+            status: "Draft", invoiceDate: nowISO(), dueDate: dueDate, paymentTerms: nil,  // follows Settings until edited
             discountType: quotation.discountType, discountValue: quotation.discountValue, taxRatePercent: quotation.taxRatePercent,
             amountPaid: 0, notes: settings.defaultNotes, createdAt: nowISO(), updatedAt: nowISO()
         )
@@ -7905,9 +7930,10 @@ final class AppDatabase {
         let totals = invoiceTotals(inv, lineItems: items)
         let client = clientsStore.readAll().first { $0.id == project.clientId }
         let site = sitesStore.readAll().first { $0.id == project.siteId }
-        return InvoiceDetail(
+        let settingsTerms = getCompanySettings().defaultPaymentTerms
+        var detail = InvoiceDetail(
             id: inv.id, invoiceNumber: inv.invoiceNumber, status: inv.status, invoiceDate: inv.invoiceDate,
-            dueDate: inv.dueDate, paymentTerms: inv.paymentTerms, discountType: inv.discountType,
+            dueDate: inv.dueDate, paymentTerms: inv.paymentTerms ?? settingsTerms, discountType: inv.discountType,
             discountValue: inv.discountValue, taxRatePercent: inv.taxRatePercent, amountPaid: inv.amountPaid,
             notes: inv.notes, createdAt: inv.createdAt, updatedAt: inv.updatedAt,
             projectNumber: project.projectNumber, projectName: project.name,
@@ -7920,6 +7946,9 @@ final class AppDatabase {
             materialsSubtotal: totals.materials, materialsCharge: totals.materialsCharge, deliveryTotal: totals.delivery,
             otherChargesTotal: totals.other
         )
+        detail.paymentTermsFromSettings = inv.paymentTerms == nil && inv.status == "Draft"
+        detail.defaultPaymentTerms = settingsTerms
+        return detail
     }
 
     private func touchInvoice(_ id: String) {
@@ -7981,7 +8010,11 @@ final class AppDatabase {
         guard invs[index].status == "Draft" else { return "This invoice is issued and can no longer be edited." }
 
         invs[index].dueDate = dueDate
-        invs[index].paymentTerms = paymentTerms
+        // The Settings text (as shown while following it) keeps following
+        // Settings; anything else — a blank box too — is this invoice's own.
+        let typed = (paymentTerms ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let standard = (getCompanySettings().defaultPaymentTerms ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        invs[index].paymentTerms = typed == standard ? nil : (paymentTerms ?? "")
         invs[index].notes = notes
         invs[index].discountType = discountType
         invs[index].discountValue = discountValue
@@ -8023,6 +8056,11 @@ final class AppDatabase {
         }
         let changed = previous != status
         invs[index].status = status
+        // Once issued, its payment terms stay as printed, whatever Settings
+        // says later.
+        if previous == "Draft" && status != "Draft" && invs[index].paymentTerms == nil {
+            invs[index].paymentTerms = getCompanySettings().defaultPaymentTerms ?? ""
+        }
         invs[index].updatedAt = nowISO()
         invoicesStore.writeAll(invs)
         if changed {
@@ -19527,6 +19565,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db.fixScafomCurrencyIfNeeded()
         db.applyDeliveryChargeUpdateIfNeeded()
         db.movePaymentTermsIntoKeyTermsIfNeeded()
+        db.linkDraftInvoiceTermsToSettingsIfNeeded()
         db.moveBOQMarkupsOntoRates()
         db.addStructuresToQuotationSubjects()
         db.addMissingSPProducts(loadSeed("sp_pricelist.json"))

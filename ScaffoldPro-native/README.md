@@ -3192,3 +3192,21 @@ Every form control is now drawn by the app instead of macOS, on every page
   switch matches the rest of the app.
 - **Projects.** New Project lines up with the title.
 - **Chat.** Avatars lean in on hover and the open chat is ringed.
+
+## Batch 137 — Invoice payment terms follow Settings; empty-state icon
+
+- **Payment terms.** A draft invoice now takes its payment terms from
+  Settings › Invoices › Default Payment Terms. It no longer copies the
+  quotation's terms, and it stays linked: change the Settings text and
+  every draft that hasn't been given terms of its own follows.
+  - A "Linked to Settings" tag beside Payment Terms shows when a draft is
+    linked.
+  - Type different terms and they become the invoice's own. "Use Settings
+    default" links it back.
+  - Issuing an invoice fixes the terms as printed.
+  - Once, on opening: drafts whose terms were simply copied from their
+    quotation (or match Settings) are linked to Settings.
+- **Empty lists.** The inbox icon sits on a full gradient tile again. A
+  background sizing slip had made it look like a small highlighted square
+  on a dark tile. The tint behind empty lists is softer, with no visible
+  arc.

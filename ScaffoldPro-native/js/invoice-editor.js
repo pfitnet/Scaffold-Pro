@@ -122,6 +122,7 @@ function render() {
     window.refreshParagraphPreview(paymentTermsInput);
   }
   paymentTermsInput.disabled = isLocked;
+  renderTermsSource(d, isLocked);
 
   const discountTypeSelect = document.getElementById('discount-type-select');
   discountTypeSelect.value = d.discountType;
@@ -234,11 +235,31 @@ async function removeLine(lineId) {
   await loadDetail();
 }
 
+// Whether the payment terms follow Settings › Invoices (a draft that
+// hasn't been given its own), with a way back to them.
+function renderTermsSource(d, isLocked) {
+  const el = document.getElementById('terms-source');
+  if (!el) return;
+  if (isLocked) { el.innerHTML = ''; return; }
+  if (d.paymentTermsFromSettings) {
+    el.innerHTML = '<span class="ts-linked" title="Change them in Settings › Invoices, or type here to give this invoice its own">Linked to Settings</span>';
+    return;
+  }
+  el.innerHTML = '<span class="ts-own">This invoice’s own</span> <button type="button" class="link-btn" id="terms-reset-btn">Use Settings default</button>';
+  document.getElementById('terms-reset-btn').addEventListener('click', async () => {
+    const box = document.getElementById('payment-terms-input');
+    box.value = d.defaultPaymentTerms || '';
+    window.refreshParagraphPreview(box);
+    await saveHeader();
+  });
+}
+
 async function saveHeader() {
   const header = {
     invoiceDate: document.getElementById('doc-date-input').value || null,
     dueDate: document.getElementById('due-date-input').value || null,
-    paymentTerms: document.getElementById('payment-terms-input').value || null,
+    // A blank box is kept as blank (no terms); the Settings text follows Settings.
+    paymentTerms: document.getElementById('payment-terms-input').value,
     notes: document.getElementById('notes-box').value || null,
     discountType: document.getElementById('discount-type-select').value,
     discountValue: parseFloat(document.getElementById('discount-value-input').value) || 0,
