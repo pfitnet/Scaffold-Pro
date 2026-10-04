@@ -3210,3 +3210,48 @@ Every form control is now drawn by the app instead of macOS, on every page
   background sizing slip had made it look like a small highlighted square
   on a dark tile. The tint behind empty lists is softer, with no visible
   arc.
+
+## Batch 138 — A new Calendar
+
+- **Header.** The title is the period you're looking at ("3 – 9 Oct 2026"
+  or "October 2026") under a "Calendar · Week 41" eyebrow. Beside it, a
+  chip per kind counts what's on, and anything overdue is shown first in
+  red. A New Task button sits at the right.
+- **Toolbar.**
+  - Previous, Today and Next sit together, and Today turns blue while
+    today is in view.
+  - A Week / Month switch, and a compact "week starts" choice.
+  - Filters are colour pills with counts; a switched-off kind turns into a
+    dashed outline. ⌥-click a pill to show only that kind, and ⌥-click it
+    again to show everything.
+- **Week.**
+  - Each day heading shows a big date, with coloured dots for what's on.
+    Today has a gradient circle, and weekends and past days are quieter.
+  - Items are rounded cards with their kind's icon, time, title and
+    detail, and they lift on hover. Items at the same time sit side by
+    side instead of on top of each other.
+  - Each hour has a faint half-hour line. Hovering an empty hour shows
+    "+ 09:00"; click it to add a task then.
+  - The time now is a red line on today, with a pulsing dot and the time
+    in the hour column, faint across the rest of the week. It moves on its
+    own.
+  - The day headings stay pinned on frosted glass while the hours scroll.
+    The week opens an hour before now.
+- **Month.** Today is a gradient circle and the chosen day is outlined.
+  Hovering a day shows a "+" to add a task, and double-clicking a day adds
+  one too. "+2 more" shows that day in the side panel.
+- **Side panel.**
+  - A mini month: dots under the days that have something, a band over
+    the days in view, and click any day to go there.
+  - The chosen day, with a big date tile and a timeline (All day, then by
+    time) of icon cards. A free day says so, with "Add a task".
+  - "Up Next": the next 14 days by day (Today, Tomorrow, then weekdays),
+    with a count.
+- **Hover preview.** Rest the pointer on any item for a frosted card with
+  its kind, title, detail, date and time, person, and overdue or done.
+  Click to open it as before.
+- **Keys.** ← → move a day and ↑ ↓ a week (the view follows). T goes to
+  today, W and M switch view, N adds a task, and Page Up / Page Down move
+  a period. A key strip under the calendar lists them.
+- **Motion.** Moving between weeks or months slides the grid, items pop
+  in, and the summary chips spring in. Reduce Motion is respected.
