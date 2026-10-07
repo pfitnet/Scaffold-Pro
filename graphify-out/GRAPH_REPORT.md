@@ -1,7 +1,7 @@
 # Graph Report - Scaffold-Pro  (2026-10-07)
 
 ## Corpus Check
-- 93 files · ~423,044 words
+- 93 files · ~423,687 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 38 file(s) not represented in the graph (top: .whl 16, .css 6, .ttf 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `97b4d70f`
+- Built from commit: `9b0bd568`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

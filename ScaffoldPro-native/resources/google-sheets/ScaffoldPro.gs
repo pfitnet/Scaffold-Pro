@@ -5,10 +5,12 @@
  * ScaffoldPro — and brings changes made in the sheet back into ScaffoldPro.
  *
  *   Overview  — who has done how much this week, projects by status, the latest work
- *   Projects  — each project (a shaded row), then one row per sub-project
- *               (-001, -002 …) with its BOQ, quotations, delivery notes and
- *               invoices and how far it has got. The sub-project rows fold
- *               away under their project (the − / + at the left).
+ *   Projects  — one line per project (shaded), then one per sub-project
+ *               (-001, -002 …). The BOQ / Quotation / Delivery Note / Invoice
+ *               cells fill in with their colour as each goes out (pale while
+ *               a draft; hover for the document numbers), and Next Step says
+ *               what's next. The sub-project rows fold away under their
+ *               project (the − / + at the left, or ScaffoldPro › Fold all).
  *               Change a project's Stage or Notes here and ScaffoldPro is
  *               updated; a sub-project's Notes are kept in the sheet only.
  *   Activity  — everything done in ScaffoldPro, newest first: When, Who,
@@ -42,26 +44,29 @@
 const SHEET_URL = '';
 
 // The tabs' layout. A sheet made with an older layout is rebuilt in this one.
-const LAYOUT = '2';
+const LAYOUT = '3';
 const TABS = { overview: 'Overview', activity: 'Activity', projects: 'Projects', sync: '_sync' };
 const ACTIVITY_HEAD = ['When', 'Who', 'Project', 'What', 'ID'];
-const PROJECT_HEAD = ['Ref', 'Name', 'Client · Site', 'Stage', 'BOQ', 'Quotations', 'Delivery Notes', 'Invoices', 'Letters', 'Last Update', 'Notes', 'ID'];
+const PROJECT_HEAD = ['Ref', 'Project', 'Client · Site', 'Stage', 'BOQ', 'Quotation', 'Delivery Note', 'Invoice', 'Letters', 'Next Step', 'Last Update', 'Notes', 'ID'];
+const PROJECT_WIDTHS = [80, 330, 250, 105, 82, 92, 108, 88, 74, 210, 130, 220, 60];
+// Short cells are centred; text reads from the left.
+const PROJECT_ALIGN = ['center', 'left', 'left', 'center', 'center', 'center', 'center', 'center', 'center', 'left', 'center', 'left', 'left'];
 // On a project's row these go back into ScaffoldPro.
 const EDITABLE = { 'Stage': 'status', 'Notes': 'internalNotes' };
 const STATUSES = ['Planning', 'Quotation', 'Active', 'On Hold', 'Completed', 'Archived'];
-// How far a sub-project has got, and its colour.
-const STAGE_COLOURS = {
-  Draft: ['#f1f3f4', '#5f6368'], Quoted: ['#ede7f6', '#5e35b1'], Accepted: ['#e3f2fd', '#1565c0'],
-  Delivered: ['#fff3e0', '#b26a00'], Invoiced: ['#e8eaf6', '#3949ab'], Paid: ['#e6f4ea', '#1e7e34'], Cancelled: ['#fce8e6', '#c5221f'],
-};
-// ScaffoldPro's own colours: each kind of document, and project statuses.
-const DOC_COLOURS = { 'BOQ': '#3f938b', 'Quotations': '#5374b8', 'Delivery Notes': '#b0843f', 'Invoices': '#5d9150', 'Letters': '#8a6cb0' };
+// The progress cells, each in ScaffoldPro's colour for that kind of document
+// (the payload's list for it in brackets).
+const STEPS = [['BOQ', 'boqs', '#3f938b'], ['Quotation', 'quotations', '#5374b8'], ['Delivery Note', 'deliveryNotes', '#b0843f'],
+  ['Invoice', 'invoices', '#5d9150'], ['Letters', 'letters', '#8a6cb0']];
 const STATUS_COLOURS = { Planning: '#8b6cf0', Quotation: '#c98a14', Active: '#2a8a4a', 'On Hold': '#e0793a', Completed: '#3a66f0', Archived: '#9196a3' };
 // In Activity, a line about a document is tinted in that document's colour.
 const ACTIVITY_KINDS = [['\\bQt\\d', '#5374b8'], ['\\bBQ\\d', '#3f938b'], ['\\bDN\\d', '#b0843f'], ['\\bH\\d{4}', '#5d9150'], ['\\bP?L\\d', '#8a6cb0']];
+// Backups and undo / redo aren't work: never shown.
+const NOISE = /backup made|^undone:|^redone:|^restored from/i;
 const KEEP_ACTIVITY_ROWS = 20000;
 const DATE_FORMAT = 'd mmm yyyy h:mm';
-const HEAD_BG = '#1f2a44', HEAD_FG = '#ffffff', PROJECT_BG = '#eef2fb', LINE = '#dfe3ea';
+const HEAD_BG = '#1f2a44', HEAD_FG = '#ffffff', PROJECT_BG = '#eef2fb', LINE = '#e3e6ec', PROJECT_LINE = '#b9c2d3';
+const INK = '#202124', SOFT = '#80868b', FAINT = '#b0b5bb';
 
 // ---------------------------------------------------------------- setup
 
@@ -71,6 +76,9 @@ const HEAD_BG = '#1f2a44', HEAD_FG = '#ffffff', PROJECT_BG = '#eef2fb', LINE = '
 function onOpen() {
   try {
     SpreadsheetApp.getUi().createMenu('ScaffoldPro')
+      .addItem('Fold all projects', 'foldAll')
+      .addItem('Unfold all projects', 'unfoldAll')
+      .addSeparator()
       .addItem('Connection secret', 'showSecret')
       .addItem('Rebuild Overview tab', 'buildOverview_')
       .addToUi();
@@ -97,6 +105,10 @@ function showSecret() {
   Logger.log(message);
   try { SpreadsheetApp.getUi().alert(message); } catch (e) { /* run from the editor: see the log */ }
 }
+
+// Projects tab: just the projects (each folds its sub-projects away), or everything.
+function foldAll() { try { ss_().getSheetByName(TABS.projects).collapseAllRowGroups(); } catch (e) { /* no groups */ } }
+function unfoldAll() { try { ss_().getSheetByName(TABS.projects).expandAllRowGroups(); } catch (e) { /* no groups */ } }
 
 // The sheet: the one the script belongs to, or the one in SHEET_URL.
 function ss_() {
@@ -128,58 +140,65 @@ function ensureTabs_() {
   // The empty first tab a new spreadsheet comes with.
   ['Sheet1', '工作表1'].forEach((name) => {
     const extra = ss.getSheetByName(name);
-    if (extra && extra.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(extra);
+    if (extra && extra.getLastRow() === 0 && extra.getLastColumn() === 0 && ss.getSheets().length > 1) ss.deleteSheet(extra);
   });
   if (fresh) {
     migrateActivity_(act);
     // The Projects tab is written again in full by the next sync.
+    try { prj.getDataRange().clearNote().setDataValidation(null); } catch (e) { /* empty */ }
     prj.clear();
     try { prj.getRange(1, 1, prj.getMaxRows(), 1).shiftRowGroupDepth(-8); } catch (e) { /* no groups */ }
     sync.clearContents();
   }
-  const head = (sh, cols, widths) => {
+  const head = (sh, cols, widths, align) => {
     if (sh.getRange(1, 1).getValue() !== cols[0] || fresh) {
-      sh.getRange(1, 1, 1, sh.getMaxColumns()).clearContent();
+      if (sh.getMaxColumns() < cols.length) sh.insertColumnsAfter(sh.getMaxColumns(), cols.length - sh.getMaxColumns());
+      try { sh.showColumns(1, sh.getMaxColumns()); } catch (e) { /* none hidden */ }
+      sh.getRange(1, 1, 1, sh.getMaxColumns()).clear();
       sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold').setBackground(HEAD_BG).setFontColor(HEAD_FG)
-        .setVerticalAlignment('middle');
-      sh.setRowHeight(1, 30);
+        .setVerticalAlignment('middle').setHorizontalAlignments([align]);
+      sh.setRowHeight(1, 32);
       sh.setFrozenRows(1);
       widths.forEach((w, i) => sh.setColumnWidth(i + 1, w));
       // The ID column is ScaffoldPro's: hidden.
       sh.hideColumns(cols.length);
+      return true;
     }
+    return false;
   };
-  head(act, ACTIVITY_HEAD, [150, 110, 240, 460, 60]);
-  act.getRange('A2:A').setNumberFormat(DATE_FORMAT);
-  act.getRange('A2:D').setVerticalAlignment('top').setWrap(true);
-  head(prj, PROJECT_HEAD, [120, 240, 220, 100, 130, 160, 160, 150, 110, 170, 240, 60]);
-  prj.setFrozenColumns(1);
-  prj.getRange('A2:K').setVerticalAlignment('top').setWrap(true);
+  head(act, ACTIVITY_HEAD, [140, 100, 260, 520, 60], ['center', 'center', 'left', 'left', 'left']);
+  // The progress headings in their documents' colours.
+  if (head(prj, PROJECT_HEAD, PROJECT_WIDTHS, PROJECT_ALIGN)) {
+    STEPS.forEach(([h, , colour]) => prj.getRange(1, PROJECT_HEAD.indexOf(h) + 1).setBackground(colour).setFontColor('#ffffff'));
+  }
+  prj.setFrozenColumns(2);
   try { prj.setRowGroupControlPosition(SpreadsheetApp.GroupControlTogglePosition.BEFORE); } catch (e) { /* older API */ }
   if (fresh) {
+    // Activity: one line a row, the time and person centred.
+    const rows = Math.max(act.getMaxRows() - 1, 1);
+    act.getRange(2, 1, rows, 4).setVerticalAlignment('middle').setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+    act.getRange(2, 1, rows, 2).setHorizontalAlignment('center');
+    act.getRange(2, 1, rows, 1).setNumberFormat(DATE_FORMAT).setFontColor(SOFT);
+    try { act.setRowHeightsForced(2, rows, 24); } catch (e) { /* older API */ }
     props.setProperty('COLOURED', '');
     props.setProperty('LAYOUT', LAYOUT);
   }
-  // The document columns' headings in their colours.
-  Object.keys(DOC_COLOURS).forEach((h) => {
-    prj.getRange(1, PROJECT_HEAD.indexOf(h) + 1).setBackground(DOC_COLOURS[h]).setFontColor('#ffffff');
-  });
 }
 
-// The old Activity layout (When, Who, Project, Project Name, What,
-// Reference, From, ID) put into the new one.
+// Activity from an older layout: the old columns (When, Who, Project,
+// Project Name, What, Reference, From, ID) put into the new ones, and
+// backups and undo / redo taken out.
 function migrateActivity_(sh) {
   const values = sh.getDataRange().getValues();
   const head = values[0].map(str_);
-  if (head.indexOf('Project Name') < 0 && head.indexOf('Reference') < 0) return;
   const c = {}; head.forEach((h, i) => { c[h] = i; });
   const get = (r, h) => (c[h] >= 0 ? r[c[h]] : '');
-  // Backups and undo / redo aren't work: left out.
-  const noise = (r) => /backup made|^undone:|^redone:|^restored from/i.test(str_(get(r, 'What')));
-  const rows = values.slice(1).filter((r) => !noise(r)).map((r) => [
+  if (head.indexOf('What') < 0) return;
+  const old = head.indexOf('Project Name') >= 0 || head.indexOf('Reference') >= 0;
+  const rows = values.slice(1).filter((r) => !NOISE.test(str_(get(r, 'What')))).map((r) => [
     get(r, 'When'), str_(get(r, 'Who')),
-    [str_(get(r, 'Project')), str_(get(r, 'Project Name'))].filter(Boolean).join(' '),
-    [str_(get(r, 'What')), str_(get(r, 'Reference'))].filter(Boolean).join(' — '),
+    old ? [str_(get(r, 'Project')), str_(get(r, 'Project Name'))].filter(Boolean).join(' ') : str_(get(r, 'Project')),
+    old ? [str_(get(r, 'What')), str_(get(r, 'Reference'))].filter(Boolean).join(' — ') : str_(get(r, 'What')),
     str_(get(r, 'ID')),
   ]);
   sh.clear();
@@ -187,14 +206,17 @@ function migrateActivity_(sh) {
   if (rows.length) sh.getRange(2, 1, rows.length, ACTIVITY_HEAD.length).setValues(rows);
 }
 
-// Each sub-project's stage in its colour.
+// A column's letter (1 → A).
+const letter_ = (n) => { let s = ''; for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+const colOf_ = (h) => letter_(PROJECT_HEAD.indexOf(h) + 1);
+
+// Projects: each project's stage in its colour, and who last worked on
+// it in theirs.
 function stageColours_(sh, people) {
-  const range = sh.getRange('D2:D');
-  const rule = (text, bg, fg) => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(text).setBackground(bg).setFontColor(fg).setRanges([range]).build();
-  const rules = Object.keys(STAGE_COLOURS).map((stage) => rule(stage, STAGE_COLOURS[stage][0], STAGE_COLOURS[stage][1]))
-    .concat(Object.keys(STATUS_COLOURS).map((st) => rule(st, tint_(STATUS_COLOURS[st], 0.8), STATUS_COLOURS[st])));
-  // Who last worked on it, in their colour.
-  const last = sh.getRange('J2:J');
+  const stage = sh.getRange(colOf_('Stage') + '2:' + colOf_('Stage'));
+  const rules = Object.keys(STATUS_COLOURS).map((st) => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(st)
+    .setBackground(tint_(STATUS_COLOURS[st], 0.82)).setFontColor(STATUS_COLOURS[st]).setBold(true).setRanges([stage]).build());
+  const last = sh.getRange(colOf_('Last Update') + '2:' + colOf_('Last Update'));
   Object.keys(people || {}).forEach((name) => {
     rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextContains('· ' + name).setFontColor(people[name]).setRanges([last]).build());
   });
@@ -234,16 +256,23 @@ function buildOverview_() {
   const ss = ss_();
   const sh = ss.getSheetByName(TABS.overview) || ss.insertSheet(TABS.overview);
   sh.clear();
+  const id = colOf_('ID'), stage = colOf_('Stage');
   sh.getRange('A1').setValue('ScaffoldPro — Overview').setFontSize(16).setFontWeight('bold');
-  sh.getRange('A2').setValue('Last synced');
+  sh.getRange('A2').setValue('Last synced').setFontColor(SOFT);
+  sh.getRange('B2').setHorizontalAlignment('left').setFontColor(SOFT);
   sh.getRange('A4').setValue('Who did what — last 7 days').setFontWeight('bold');
   sh.getRange('A5').setFormula('=IFERROR(QUERY(Activity!A2:D, "select B, count(D) where A >= date \'"&TEXT(TODAY()-7,"yyyy-mm-dd")&"\' and B <> \'\' group by B order by count(D) desc label B \'Who\', count(D) \'Things done\'", 0), "Nothing yet")');
   sh.getRange('D4').setValue('Projects by stage').setFontWeight('bold');
-  sh.getRange('D5').setFormula('=IFERROR(QUERY(Projects!A2:L, "select D, count(A) where L <> \'\' and not L contains \'#\' group by D label D \'Stage\', count(A) \'Projects\'", 0), "Nothing yet")');
+  sh.getRange('D5').setFormula('=IFERROR(QUERY(Projects!A2:' + id + ', "select ' + stage + ', count(A) where ' + id + ' <> \'\' and not ' + id + ' contains \'#\' group by ' + stage + ' label ' + stage + ' \'Stage\', count(A) \'Projects\'", 0), "Nothing yet")');
   sh.getRange('G4').setValue('Latest work').setFontWeight('bold');
   sh.getRange('G5').setFormula('=IFERROR(QUERY(Activity!A2:D, "select A, B, C, D where D <> \'\' order by A desc limit 25 label A \'When\', B \'Who\', C \'Project\', D \'What\'", 0), "Nothing yet")');
   sh.getRange('G6:G').setNumberFormat(DATE_FORMAT);
-  [150, 90, 30, 110, 80, 30, 140, 110, 200, 380].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  ['A5:B5', 'D5:E5', 'G5:J5'].forEach((a) => sh.getRange(a).setFontWeight('bold').setFontColor(SOFT).setBorder(null, null, true, null, null, null, LINE, SpreadsheetApp.BorderStyle.SOLID));
+  // Numbers, times and names centred; the rest from the left.
+  ['B5:B', 'E5:E', 'G5:H'].forEach((a) => sh.getRange(a).setHorizontalAlignment('center'));
+  sh.getRange('A1:J').setVerticalAlignment('middle');
+  sh.getRange('I6:J').setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  [180, 90, 30, 110, 80, 30, 140, 100, 260, 420].forEach((w, i) => sh.setColumnWidth(i + 1, w));
   ss.setActiveSheet(sh);
   ss.moveActiveSheet(1);
 }
@@ -285,18 +314,110 @@ function out_(obj) {
 
 const str_ = (v) => (v === null || v === undefined ? '' : String(v)).trim();
 const date_ = (iso) => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d : ''; };
+// "7 Oct · William" (the year only when it isn't this year's).
 const when_ = (iso, who, tz) => {
   const d = date_(iso);
   if (!d) return who || '';
-  return Utilities.formatDate(d, tz || 'Asia/Hong_Kong', 'd MMM yyyy HH:mm') + (who ? ' · ' + who : '');
+  const zone = tz || 'Asia/Hong_Kong';
+  const sameYear = Utilities.formatDate(d, zone, 'yyyy') === Utilities.formatDate(new Date(), zone, 'yyyy');
+  return Utilities.formatDate(d, zone, sameYear ? 'd MMM' : 'd MMM yyyy') + (who ? ' · ' + who : '');
 };
-const lines_ = (list) => (list || []).join('\n');
 // A colour mixed with white: amount 0 (the colour) … 1 (white).
 const tint_ = (hex, amount) => {
   const n = parseInt(String(hex).replace('#', ''), 16);
   const mix = (c) => Math.round(c + (255 - c) * amount).toString(16).padStart(2, '0');
   return '#' + mix((n >> 16) & 255) + mix((n >> 8) & 255) + mix(n & 255);
 };
+
+// ---------------------------------------------------------------- progress
+
+// "Qt26212-001 · Issued · client signed" → its number, status and note.
+const doc_ = (s) => { const p = str_(s).split(' · '); return { no: p[0], status: p[1] || '', flag: p[2] || '' }; };
+
+// What a document's status reads as in its progress cell, and how far it
+// has got: 0 cancelled, 1 draft, 2 out (issued, sent, delivered), 3 finished.
+function look_(field, d) {
+  const st = d.status;
+  if (/^(Cancelled|Void|Superseded)$/i.test(st)) return { label: 'Cancelled', level: 0 };
+  if (/^(Rejected|Declined|Lost)$/i.test(st)) return { label: st, level: 0, bad: true };
+  if (/^draft$/i.test(st) || !st) return { label: 'Draft', level: 1 };
+  if (field === 'quotations') {
+    if (d.flag === 'client signed') return { label: 'Signed', level: 3 };
+    if (/^accepted$/i.test(st)) return { label: 'Accepted', level: 3 };
+    return { label: st === 'Issued' ? 'Sent' : st, level: 2 };
+  }
+  if (field === 'deliveryNotes') return { label: d.flag === 'signed' ? 'Signed' : st === 'Issued' ? 'Delivered' : st, level: d.flag === 'signed' ? 3 : 2 };
+  if (field === 'invoices') {
+    if (/^paid$/i.test(st)) return { label: 'Paid', level: 3 };
+    if (/^overdue$/i.test(st)) return { label: 'Overdue', level: 2, bad: true };
+    return { label: st, level: 2 };
+  }
+  return { label: st, level: 2 };
+}
+
+// One cell: the furthest of its documents ("Sent", "Draft (2)"), the
+// numbers for its note, and how far → { label, level, bad, note }.
+function step_(field, list) {
+  const docs = (list || []).map(doc_).filter((d) => d.no);
+  if (!docs.length) return { label: '', level: -1, note: '' };
+  const looks = docs.map((d) => look_(field, d));
+  const best = looks.reduce((a, b) => (b.level > a.level || (b.level === a.level && b.bad) ? b : a));
+  const live = looks.filter((l) => l.level > 0).length;
+  return {
+    label: best.label + (live > 1 ? ' (' + live + ')' : ''), level: best.level, bad: !!best.bad,
+    note: docs.map((d) => d.no + ' — ' + [d.status, d.flag].filter(Boolean).join(', ')).join('\n'),
+  };
+}
+
+// What's next for a sub-project, in plain words, and whether it's waiting
+// on someone else.
+function next_(cells) {
+  const at = (field) => cells[field] || { level: -1 };
+  const inv = at('invoices'), dn = at('deliveryNotes'), q = at('quotations'), boq = at('boqs');
+  const all = [inv, dn, q, boq].filter((c) => c.level >= 0);
+  if (!all.length) return { text: '' };
+  if (all.every((c) => c.level === 0)) return { text: 'Cancelled', quiet: true };
+  if (inv.level === 3) return { text: 'Done', done: true };
+  if (inv.level === 2) return { text: inv.bad ? 'Chase payment (overdue)' : 'Waiting for payment', waiting: true, bad: inv.bad };
+  if (inv.level === 1) return { text: 'Issue the invoice' };
+  if (dn.level >= 2) return { text: 'Invoice it' };
+  if (dn.level === 1) return { text: 'Deliver' };
+  if (q.level === 3) return { text: 'Deliver' };
+  if (q.level === 2) return { text: 'Waiting for the client', waiting: true };
+  if (q.level === 1) return { text: 'Send the quotation' };
+  if (q.level === 0) return { text: 'Quotation ' + q.label.toLowerCase(), quiet: true, bad: q.bad };
+  if (boq.level >= 2) return { text: 'Make the quotation' };
+  return { text: 'Finish the BOQ' };
+}
+
+// A project's row: how many of its sub-projects have each kind of document
+// out ("3 of 8"), and what most of them are waiting for.
+function summary_(subCells) {
+  const out = {};
+  STEPS.forEach(([, field]) => {
+    if (field === 'letters') return;
+    const have = subCells.filter((c) => c.cells[field].level >= 1);
+    const done = have.filter((c) => c.cells[field].level >= 2).length;
+    out[field] = have.length ? { label: done + ' of ' + have.length, level: done === 0 ? 1 : done === have.length ? 2 : 1.5, note: '' } : { label: '', level: -1, note: '' };
+  });
+  const counts = {};
+  subCells.forEach((c) => { if (c.next.text && !c.next.done && !c.next.quiet) counts[c.next.text] = (counts[c.next.text] || 0) + 1; });
+  const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  const done = subCells.filter((c) => c.next.done).length;
+  let text = top.slice(0, 2).map((t) => t + (counts[t] > 1 ? ' ×' + counts[t] : '')).join(' · ') + (top.length > 2 ? ' …' : '');
+  if (!text && done) text = 'Done';
+  return { cells: out, next: { text: text, done: !top.length && done > 0, note: top.map((t) => counts[t] + ' × ' + t).join('\n') } };
+}
+
+// A sub-project's name without its project's name in front:
+// "Batch 3 of Materials - Rental - GL-18 …" → "Rental - GL-18 …".
+function shortTitle_(title, projectName) {
+  const t = str_(title), p = str_(projectName);
+  if (!p || t.toLowerCase().indexOf(p.toLowerCase()) !== 0) return t;
+  return t.slice(p.length).replace(/^[\s\-–—:·,]+/, '') || t;
+}
+
+// ---------------------------------------------------------------- projects
 
 // Projects: a row per project and, under it, a row per sub-project. What
 // was changed on a project's row since the last sync goes back to
@@ -310,7 +431,9 @@ function syncProjects_(projects) {
   const col = {};
   PROJECT_HEAD.forEach((h, i) => { col[h] = i; });
   const last = sh.getLastRow();
-  const rows = last > 1 ? sh.getRange(2, 1, last - 1, width).getValues() : [];
+  const range = last > 1 ? sh.getRange(2, 1, last - 1, width) : null;
+  const rows = range ? range.getValues() : [];
+  const oldNotes = range ? range.getNotes() : [];
 
   // What ScaffoldPro last wrote for a project's editable cells.
   const snap = {};
@@ -320,10 +443,15 @@ function syncProjects_(projects) {
   const changes = [];
   const sheetWins = {};
   const keptNotes = {};   // a sub-project's notes: the sheet's own
-  rows.forEach((r) => {
+  const folded = {};      // projects whose sub-projects are folded away
+  rows.forEach((r, k) => {
     const id = str_(r[col['ID']]);
     if (!id) return;
     if (id.indexOf('#') >= 0) { keptNotes[id] = r[col['Notes']]; return; }
+    const next = rows[k + 1];
+    if (next && str_(next[col['ID']]).indexOf(id + '#') === 0) {
+      try { if (sh.getRowGroup(k + 3, 1).isCollapsed()) folded[id] = true; } catch (e) { /* no group */ }
+    }
     const before = snap[id];
     if (!before) return;
     Object.keys(EDITABLE).forEach((h) => {
@@ -336,51 +464,66 @@ function syncProjects_(projects) {
     });
   });
 
-  const out = [];
-  const kinds = [];     // 'p' or 's' for each row written
+  const out = [];     // the cells' values
+  const looks = [];   // per row: { kind, cells, next }
   const sorted = projects.slice().sort((a, b) => str_(b.number).localeCompare(str_(a.number), undefined, { numeric: true }));
   sorted.forEach((p) => {
     const wins = sheetWins[p.id] || {};
+    const subs = (p.subs || []).map((s) => {
+      const cells = {};
+      STEPS.forEach(([, field]) => { cells[field] = field === 'letters' ? { label: '', level: -1, note: '' } : step_(field, s[field]); });
+      return { s: s, cells: cells, next: next_(cells) };
+    });
+    const sum = summary_(subs);
+    sum.cells.letters = step_('letters', p.letters);
     const row = new Array(width).fill('');
     row[col['Ref']] = p.number;
-    row[col['Name']] = p.name;
+    row[col['Project']] = p.name;
     row[col['Client · Site']] = [p.client, p.site].filter(Boolean).join(' · ');
     row[col['Stage']] = 'status' in wins ? wins.status : (p.status || '');
-    row[col['Letters']] = lines_(p.letters);
+    STEPS.forEach(([h, field]) => { row[col[h]] = sum.cells[field].label; });
+    row[col['Next Step']] = sum.next.text;
     row[col['Last Update']] = when_(p.lastActivity, p.lastBy, tz);
     row[col['Notes']] = 'internalNotes' in wins ? wins.internalNotes : (p.internalNotes || '');
     row[col['ID']] = p.id;
-    out.push(row); kinds.push('p');
-    (p.subs || []).forEach((s) => {
+    out.push(row); looks.push({ kind: 'p', cells: sum.cells, next: sum.next, id: p.id });
+    subs.forEach(({ s, cells, next }) => {
       const sid = p.id + '#' + s.key;
       const sub = new Array(width).fill('');
-      sub[col['Ref']] = '↳ ' + s.ref;
-      sub[col['Name']] = s.title || '';
-      sub[col['Stage']] = s.stage || '';
-      sub[col['BOQ']] = lines_(s.boqs);
-      sub[col['Quotations']] = lines_(s.quotations);
-      sub[col['Delivery Notes']] = lines_(s.deliveryNotes);
-      sub[col['Invoices']] = lines_(s.invoices);
+      sub[col['Ref']] = str_(s.ref).replace(str_(p.number), '').trim() || s.ref;
+      sub[col['Project']] = shortTitle_(s.title, p.name);
+      STEPS.forEach(([h, field]) => { sub[col[h]] = cells[field].label; });
+      sub[col['Next Step']] = next.text;
       sub[col['Last Update']] = when_(s.updated, s.updatedBy, tz);
       sub[col['Notes']] = sid in keptNotes ? keptNotes[sid] : '';
       sub[col['ID']] = sid;
-      out.push(sub); kinds.push('s');
+      out.push(sub); looks.push({ kind: 's', cells: cells, next: next });
     });
   });
+  // On hover: the document numbers behind each progress cell, and names
+  // cut short.
+  const notes = looks.map((l, k) => PROJECT_HEAD.map((h) => {
+    const step = STEPS.find((st) => st[0] === h);
+    if (step) return l.cells[step[1]].note || '';
+    if (h === 'Next Step' && l.kind === 'p') return l.next.note || '';
+    // A name too long for its cell, in full.
+    if (h === 'Project' || h === 'Client · Site') { const v = str_(out[k][col[h]]); return v.length > 44 ? v : ''; }
+    return '';
+  }));
 
   // Written only when something is different (no edit history every minute).
   const norm = (rs) => JSON.stringify(rs.map((r) => r.map((v) => (v instanceof Date ? v.getTime() : str_(v)))));
-  if (norm(out) !== norm(rows)) {
-    if (rows.length) sh.getRange(2, 1, rows.length, width).clearContent().setBackground(null).setFontWeight(null).setDataValidation(null);
+  if (norm(out) !== norm(rows) || norm(notes) !== norm(oldNotes)) {
+    if (range) range.clearContent().clearNote().clearFormat().setDataValidation(null);
     try { sh.getRange(2, 1, Math.max(sh.getMaxRows() - 1, 1), 1).shiftRowGroupDepth(-8); } catch (e) { /* no groups */ }
     if (out.length) {
-      sh.getRange(2, 1, out.length, width).setValues(out);
-      lookOf_(sh, kinds, width);
+      sh.getRange(2, 1, out.length, width).setValues(out).setNotes(notes);
+      lookOf_(sh, looks, folded);
     }
   }
 
   // Remember what ScaffoldPro and the sheet now agree on (projects' rows).
-  const snapRows = out.filter((r, i) => kinds[i] === 'p').map((r) => {
+  const snapRows = out.filter((r, i) => looks[i].kind === 'p').map((r) => {
     const o = {};
     Object.keys(EDITABLE).forEach((h) => { o[EDITABLE[h]] = str_(r[col[h]]); });
     return [str_(r[col['ID']]), JSON.stringify(o)];
@@ -390,37 +533,67 @@ function syncProjects_(projects) {
   return changes;
 }
 
-// Projects shaded and bold, with the Stage list; their sub-projects
-// grouped under them (to fold away).
-function lookOf_(sh, kinds, width) {
-  const n = kinds.length;
-  const bg = kinds.map((k) => new Array(width).fill(k === 'p' ? PROJECT_BG : null));
-  const weight = kinds.map((k) => new Array(width).fill(k === 'p' ? 'bold' : 'normal'));
-  const colour = kinds.map((k) => new Array(width).fill(k === 'p' ? '#1f2a44' : '#3c4043'));
-  // Each document in its kind's colour (a soft tint behind, the colour in the text).
+// How the Projects tab looks: one line a row; each project shaded and bold
+// with a line above it and the Stage list, its sub-projects under it
+// (folding away); the progress cells filling in with their document's
+// colour as the work goes out; Next Step in plain words.
+function lookOf_(sh, looks, folded) {
+  const n = looks.length;
+  const width = PROJECT_HEAD.length;
+  const col = {};
+  PROJECT_HEAD.forEach((h, i) => { col[h] = i; });
   const body = sh.getRange(2, 1, n, width);
-  const values = body.getValues();
-  Object.keys(DOC_COLOURS).forEach((h) => {
-    const c = PROJECT_HEAD.indexOf(h);
-    for (let r = 0; r < n; r++) {
-      if (!str_(values[r][c])) continue;
-      if (kinds[r] === 's') bg[r][c] = tint_(DOC_COLOURS[h], 0.88);
-      colour[r][c] = DOC_COLOURS[h];
-    }
+  const bg = [], ink = [], weight = [], style = [];
+  looks.forEach((l) => {
+    const p = l.kind === 'p';
+    const b = new Array(width).fill(p ? PROJECT_BG : null);
+    const c = new Array(width).fill(p ? INK : '#3c4043');
+    const w = new Array(width).fill('normal');
+    const s = new Array(width).fill('normal');
+    if (p) { w[col['Ref']] = 'bold'; w[col['Project']] = 'bold'; c[col['Client · Site']] = '#5f6368'; } else { c[col['Ref']] = SOFT; }
+    c[col['Last Update']] = SOFT;
+    STEPS.forEach(([h, field, colour]) => {
+      const cell = l.cells[field], i = col[h];
+      if (!cell || cell.level < 0) return;
+      if (cell.level === 0) { c[i] = cell.bad ? '#c5221f' : FAINT; s[i] = 'italic'; return; }
+      if (cell.level === 1) { c[i] = FAINT; return; }          // draft: barely there
+      if (cell.level === 1.5) { b[i] = tint_(colour, 0.88); c[i] = colour; w[i] = 'bold'; return; }
+      b[i] = tint_(colour, cell.level >= 3 ? 0.55 : 0.75);       // out: filled in, deeper once finished
+      c[i] = cell.bad ? '#c5221f' : colour;
+      w[i] = 'bold';
+    });
+    const nx = l.next || {};
+    const i = col['Next Step'];
+    if (nx.done) { c[i] = '#1e7e34'; w[i] = 'bold'; } else if (nx.bad) { c[i] = '#c5221f'; } else if (nx.waiting || nx.quiet) { c[i] = SOFT; s[i] = 'italic'; } else { c[i] = INK; }
+    bg.push(b); ink.push(c); weight.push(w); style.push(s);
   });
-  body.setBackgrounds(bg).setFontWeights(weight).setFontColors(colour);
+  body.setBackgrounds(bg).setFontColors(ink).setFontWeights(weight).setFontStyles(style)
+    .setVerticalAlignment('middle').setHorizontalAlignments(looks.map(() => PROJECT_ALIGN))
+    .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  try { sh.setRowHeightsForced(2, n, 26); } catch (e) { sh.setRowHeights(2, n, 26); }
   body.setBorder(null, null, null, null, null, true, LINE, SpreadsheetApp.BorderStyle.SOLID);
+  const tops = [];
+  looks.forEach((l, r) => { if (l.kind === 'p') tops.push('A' + (r + 2) + ':' + letter_(width) + (r + 2)); });
+  if (tops.length) sh.getRangeList(tops).setBorder(true, null, null, null, null, null, PROJECT_LINE, SpreadsheetApp.BorderStyle.SOLID);
   const rule = SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).setAllowInvalid(true).build();
-  sh.getRange(2, PROJECT_HEAD.indexOf('Stage') + 1, n, 1).setDataValidations(kinds.map((k) => [k === 'p' ? rule : null]));
+  sh.getRange(2, col['Stage'] + 1, n, 1).setDataValidations(looks.map((l) => [l.kind === 'p' ? rule : null]));
+  // Sub-projects grouped under their project; folded ones stay folded.
   let i = 0;
   while (i < n) {
-    if (kinds[i] !== 'p') { i++; continue; }
+    if (looks[i].kind !== 'p') { i++; continue; }
     let j = i + 1;
-    while (j < n && kinds[j] === 's') j++;
-    if (j > i + 1) { try { sh.getRange(i + 3, 1, j - i - 1, 1).shiftRowGroupDepth(1); } catch (e) { /* no groups */ } }
+    while (j < n && looks[j].kind === 's') j++;
+    if (j > i + 1) {
+      try {
+        sh.getRange(i + 3, 1, j - i - 1, 1).shiftRowGroupDepth(1);
+        if (folded[looks[i].id]) sh.getRowGroup(i + 3, 1).collapse();
+      } catch (e) { /* no groups */ }
+    }
     i = j;
   }
 }
+
+// ---------------------------------------------------------------- activity
 
 // Activity: ScaffoldPro's entries not in the sheet yet go in at the top;
 // rows typed in by hand get an ID and go back to ScaffoldPro.
@@ -453,7 +626,8 @@ function syncActivity_(entries) {
     typed.push({ id: newId, when: when.toISOString(), who: str_(r[col['Who']]), project: project, what: what, reference: '' });
   });
 
-  const fresh = entries.filter((e) => e.id && !seen.has(e.id))
+  // (An older ScaffoldPro still sends backups and undo: left out here too.)
+  const fresh = entries.filter((e) => e.id && !seen.has(e.id) && !NOISE.test(str_(e.what)))
     .sort((a, b) => String(b.when).localeCompare(String(a.when)));
   if (fresh.length) {
     const rows = fresh.map((e) => [
@@ -463,8 +637,12 @@ function syncActivity_(entries) {
       e.id,
     ]);
     sh.insertRowsBefore(2, rows.length);
-    sh.getRange(2, 1, rows.length, width).setValues(rows).setBackground(null).setFontWeight('normal');
-    sh.getRange(2, 1, rows.length, 1).setNumberFormat(DATE_FORMAT);
+    const added = sh.getRange(2, 1, rows.length, width);
+    added.setValues(rows).setBackground(null).setFontWeight('normal').setFontColor('#3c4043').setFontStyle('normal')
+      .setVerticalAlignment('middle').setHorizontalAlignments(rows.map(() => ['center', 'center', 'left', 'left', 'left']))
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP).setBorder(false, false, false, false, false, false);
+    sh.getRange(2, 1, rows.length, 1).setNumberFormat(DATE_FORMAT).setFontColor(SOFT);
+    try { sh.setRowHeightsForced(2, rows.length, 24); } catch (e) { /* older API */ }
     // Newest first, even when another Mac's work arrives late.
     sh.getRange(2, 1, sh.getLastRow() - 1, width).sort({ column: col['When'] + 1, ascending: false });
   }
