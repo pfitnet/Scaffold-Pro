@@ -309,8 +309,7 @@ function wireOthers() {
       await load();
     });
     on('.sign-open', async () => {
-      const res = await window.api.signatures.openFile(r.filePath);
-      if (res && res.ok === false) await window.appAlert(res.error);
+      if (await window.openSignedCopy({ path: r.filePath, quotationId: r.documentId, number: r.number })) await load();
     });
   }
 }

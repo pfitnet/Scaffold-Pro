@@ -3537,3 +3537,47 @@ Every form control is now drawn by the app instead of macOS, on every page
 - The Google Sheets request now passes its result on as constants rather
   than captured variables, so it's also safe in Swift 6 mode.
 - The Unit Rates comment is back above its own function.
+
+## Batch 151 — Quit on close, who made a project, your projects first, invoice terms, subsidiaries, signing
+
+- **Closing the window quits ScaffoldPro.** The launch card was only
+  hidden, so the app kept running with no window. Whatever was being typed
+  is saved first.
+- **Edit Project Details › Created by.** Set who made a project, e.g. one
+  made before names were recorded. The suggestions are the team's names.
+  The name is kept in the project record, so every Mac shows it, and the
+  history notes the change.
+- **Your projects first.** On the Projects page, the group of the person
+  using this Mac is always at the top (e.g. Jeremie's on Jeremie's Mac).
+  The others follow by number of projects.
+- **Settings › Invoices › Standard Terms.** Bank Details and Default Payment
+  Terms are now one box with the formatting bar (Hanging Indent, Bullets,
+  Numbering, Indent / Outdent) and an "As printed" preview. Invoices print
+  it under Payment Information exactly as formatted.
+  - Bank details already set are added under the standard terms once
+    (unless they're there already).
+  - The same goes for any invoice that has its own terms, so every invoice
+    prints as before.
+  - The invoice editor's box is "Terms (payment and bank details)".
+- **Projects › Overview: subsidiaries.** A quotation and its subsidiaries
+  share one dashed violet "family" box. The subsidiaries are indented
+  under it, marked "Subsidiary · Issued", on a violet branch. Green is
+  kept for linked documents only.
+- **The chop goes over the signature**, further in, on both the portrait
+  quotation and the landscape sheet. It's drawn after the signature, so it
+  sits on top.
+- **Open Signed PDF** (in the quotation and in Team › Signatures) shows the
+  signed copy in the in-program preview. It's already saved, so the
+  choices are:
+  - **Done**;
+  - **Withdraw Sign & Chop** (red). After a confirmation, the quotation is
+    no longer marked signed, the request reads Withdrawn, and the signed
+    PDF goes to the Trash.
+- **Unit Rates PDF** columns, narrower:
+  - No.
+  - Item Description
+  - Unit / Weight ("kg" in each cell, not in the heading)
+  - Unit / Monthly Rental
+  - Unit / Sale Price
+
+  There's no Unit column. Table headings can now run to two lines.

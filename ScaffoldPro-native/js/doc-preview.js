@@ -59,7 +59,7 @@
         <footer class="dp-foot">
           <span class="dp-note">${esc(note || 'Nothing is saved until you click Save.')}</span>
           <span class="dp-actions">
-            <button type="button" class="dp-cancel">${actions ? 'Close' : 'Cancel'}</button>
+            <button type="button" class="dp-cancel${actions && actions.some((a) => a.key === 'done') ? ' hidden' : ''}">${actions ? 'Close' : 'Cancel'}</button>
             ${actions ? actions.map((a) => `<button type="button" class="dp-act${a.primary ? ' primary' : ''}${a.danger ? ' danger' : ''}" data-act="${esc(a.key)}" disabled>${a.html || esc(a.label)}</button>`).join('')
               : '<button type="button" class="primary dp-save" disabled>Save to Project Folder</button>'}
           </span>

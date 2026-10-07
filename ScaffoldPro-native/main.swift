@@ -4556,6 +4556,30 @@ final class AppDatabase {
 
     func getSignRequest(id: String) -> SignRequest? { signRequestsStore.readAll().first { $0.id == id } }
 
+    /// Takes back a director's signature and chop: the quotation is no
+    /// longer marked signed, its request says Withdrawn, and the signed
+    /// PDF goes to the Trash (so it can still be put back from there).
+    func withdrawDirectorSignature(quotationId: String) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let qi = qs.firstIndex(where: { $0.id == quotationId }) else { return "Quotation not found." }
+        let q = qs[qi]
+        guard let signer = q.directorSignedBy else { return "\(q.quotationNumber) isn’t signed." }
+        let path = q.directorSignedPath
+        qs[qi].directorSignedPath = nil
+        qs[qi].directorSignedAt = nil
+        qs[qi].directorSignedBy = nil
+        quotationsStore.writeAll(qs)
+        var all = signRequestsStore.readAll()
+        if let i = all.lastIndex(where: { $0.documentId == quotationId && $0.status == "Signed" }) {
+            all[i].status = "Withdrawn"
+            all[i].decidedAt = nowISO()
+            signRequestsStore.writeAll(all)
+        }
+        if let p = path, fileIsPresent(p) { try? FileManager.default.trashItem(at: URL(fileURLWithPath: p), resultingItemURL: nil) }
+        logActivity(projectId: q.projectId, "\(signer)’s signature and chop withdrawn by \(TeamSync.memberName)", reference: q.quotationNumber)
+        return nil
+    }
+
     /// Records the outcome, and tells whoever asked (an announcement just for them).
     func finishSignRequest(id: String, signed: Bool, filePath: String?, reply: String?) -> String? {
         var all = signRequestsStore.readAll()
@@ -5293,6 +5317,26 @@ final class AppDatabase {
     }
     /// Section 17: editing a project's details after creation. The
     /// project number never changes (section 12 — permanent identifier).
+    /// Who a project or document was made by, set by hand (e.g. for one
+    /// made before names were recorded). Kept in the record itself, so
+    /// every Mac shows it; `file` is its store, e.g. "projects.json".
+    func setCreator(file: String, id: String, name: String) -> String? {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return "Choose who made it." }
+        let url = dataDir.appendingPathComponent(file)
+        guard let data = try? Data(contentsOf: url), var list = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]],
+              let i = list.firstIndex(where: { ($0["id"] as? String) == id }) else { return "Not found." }
+        let before = list[i]["createdBy"] as? String
+        guard before != clean else { return nil }
+        list[i]["createdBy"] = clean
+        // Not this Mac's: "mine" then goes by the name.
+        list[i].removeValue(forKey: "createdByDevice")
+        guard let out = try? JSONSerialization.data(withJSONObject: list, options: [.withoutEscapingSlashes]) else { return "It couldn’t be saved." }
+        StoreFile.write(out, to: url)
+        logActivity(projectId: file == "projects.json" ? id : nil, "Made by set to \(clean)", reference: before.map { "was \($0)" })
+        return nil
+    }
+
     func updateProject(id: String, payload: [String: Any], logChange: Bool = true) -> String? {
         var items = projectsStore.readAll()
         guard let i = items.firstIndex(where: { $0.id == id }) else { return "Project not found." }
@@ -5733,6 +5777,30 @@ final class AppDatabase {
         }
         if changed { quotationsStore.writeAll(qs) }
         UserDefaults.standard.set(true, forKey: key)
+    }
+
+    /// Settings › Invoices has one "Standard Terms" box now: the bank
+    /// details are part of it. Bank details kept on their own are added
+    /// under the standard terms, and under any invoice's own terms that
+    /// don't already have them, so every invoice prints as before.
+    func mergeBankDetailsIntoTermsIfNeeded() {
+        var settings = getCompanySettings()
+        guard let bank = nonBlank(settings.bankDetails) else { return }
+        let firstLine = bank.split(separator: "\n").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? bank
+        func withBank(_ terms: String?) -> String {
+            guard let t = nonBlank(terms) else { return bank }
+            return t.contains(firstLine) ? t : t + "\n\n" + bank
+        }
+        var invs = invoicesStore.readAll()
+        var changed = false
+        for i in invs.indices where invs[i].paymentTerms != nil {
+            let merged = withBank(invs[i].paymentTerms)
+            if merged != invs[i].paymentTerms { invs[i].paymentTerms = merged; changed = true }
+        }
+        if changed { invoicesStore.writeAll(invs) }
+        settings.defaultPaymentTerms = withBank(settings.defaultPaymentTerms)
+        settings.bankDetails = nil
+        saveCompanySettingsDirect(settings)
     }
 
     /// Once: draft invoices still carrying the payment terms copied from
@@ -9999,7 +10067,9 @@ final class PDFGenerator {
 
     private func configure(for doc: LetterDocument) {
         rowHeight = doc.tableRowHeight.map { CGFloat($0) } ?? (doc.compactTable ? 21.1 : 24.1)
-        headerHeight = doc.compactTable ? 23.0 : 24.1
+        // A column title can run to two lines ("Unit\nMonthly Rental").
+        let headingLines = doc.columns.map { $0.title.components(separatedBy: "\n").count }.max() ?? 1
+        headerHeight = (doc.compactTable ? 23.0 : 24.1) + CGFloat(max(0, headingLines - 1)) * 13.0
         baselineBelowMiddle = doc.tableRowHeight.map { max(3.2, CGFloat($0) / 2 - 6.2) } ?? (doc.compactTable ? 4.1 : 5.2)
     }
 
@@ -10495,8 +10565,11 @@ final class PDFGenerator {
         for x in edges { vRule(x, top, headerHeight) }
         let font = body(11, bold: true)
         for (i, column) in columns.enumerated() {
-            text(column.title, x: (edges[i] + edges[i + 1] + rule) / 2,
-                 baseline: cellBaseline(top: top, height: headerHeight, lines: 1, line: 0), font: font, align: .center)
+            let lines = column.title.components(separatedBy: "\n")
+            for (j, line) in lines.enumerated() {
+                text(line, x: (edges[i] + edges[i + 1] + rule) / 2,
+                     baseline: cellBaseline(top: top, height: headerHeight, lines: lines.count, line: j), font: font, align: .center)
+            }
         }
         cursor += headerHeight
     }
@@ -10791,11 +10864,12 @@ final class PDFGenerator {
                 text(sub, x: column.textX, baseline: baseline + 14.0, font: font)
             }
             let ruleY = baseline + 75.75
-            if let chop = signature.chopImage {
-                image(chop, x: column.textX + 108, top: baseline + 4, width: 84, height: 84, centred: true)
-            }
             if let sig = signature.signatureImage {
                 image(sig, x: column.textX, top: baseline + (signature.subheading == nil ? 12 : 22), width: 165, height: ruleY - baseline - (signature.subheading == nil ? 13 : 23))
+            }
+            // The chop goes over the signature, well inside the line.
+            if let chop = signature.chopImage {
+                image(chop, x: column.textX + 62, top: baseline + 6, width: 84, height: 84, centred: true)
             }
             fill(column.ruleX, ruleY, column.ruleWidth, 0.75, .black)
             for (j, line) in signature.lines.enumerated() {
@@ -12491,17 +12565,22 @@ final class BQSheetRenderer {
     private func drawSigning(over cell: SheetCell, rowTop: Double, rowBottom: Double) {
         let h = layout.pageHeight
         let room = rowBottom - rowTop
+        var signatureWidth = (cell.x1 - cell.x0) * 0.4
         if let sig = signatureImage {
             let maxW = (cell.x1 - cell.x0) * 0.62, maxH = room * 0.92
             let k = min(maxW / Double(sig.width), maxH / Double(sig.height))
             let w = Double(sig.width) * k, ht = Double(sig.height) * k
             context.draw(sig, in: CGRect(x: cell.x0 + 6, y: h - rowBottom + 1, width: w, height: ht))
+            signatureWidth = w
         }
+        // The chop goes over the signature (its middle a little past the
+        // signature's middle), not out at the end of the line.
         if let chop = chopImage {
             let side = room * 1.45
             let k = side / Double(max(chop.width, chop.height))
             let w = Double(chop.width) * k, ht = Double(chop.height) * k
-            context.draw(chop, in: CGRect(x: cell.x1 - w - 4, y: h - rowBottom - ht * 0.25, width: w, height: ht))
+            let x = min(cell.x0 + 6 + signatureWidth * 0.6 - w / 2, cell.x1 - w - 4)
+            context.draw(chop, in: CGRect(x: max(cell.x0 + 6, x), y: h - rowBottom - ht * 0.25, width: w, height: ht))
         }
     }
 
@@ -15669,7 +15748,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "projects:changeNumber":
             handleChangeProjectNumber(id: id, projectId: (payload["id"] as? String) ?? "", newNumber: (payload["projectNumber"] as? String) ?? "")
         case "projects:update":
-            let error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
+            var error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
+            if error == nil, let maker = nonBlank(payload["createdBy"] as? String) {
+                error = db.setCreator(file: "projects.json", id: (payload["id"] as? String) ?? "", name: maker)
+            }
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:setLineLink":
             let error = db.setQuotationLineLink(lineId: (payload["id"] as? String) ?? "", linked: (payload["linked"] as? Bool) ?? true, prevail: payload["prevail"] as? String)
@@ -16345,6 +16427,23 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "signatures:sign":
             handleSignQuotation(id: id, requestId: (payload["id"] as? String) ?? "")
+        case "signatures:previewSigned":
+            // The signed copy as it was saved, for the preview (nothing to save).
+            let path = (payload["path"] as? String) ?? ""
+            guard fileIsPresent(path), let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+                respond(id: id, encodable: PreviewResult(ok: false, error: "The signed PDF isn’t there any more."))
+                break
+            }
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let drawn = NativeBridge.previewPages(data)
+                DispatchQueue.main.async {
+                    self?.respond(id: id, encodable: PreviewResult(ok: true, error: nil, token: nil, fileName: name, pages: drawn.pages, pageCount: drawn.count))
+                }
+            }
+        case "signatures:unsign":
+            let error = db.withdrawDirectorSignature(quotationId: (payload["quotationId"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "signatures:openFile":
             let path = (payload["path"] as? String) ?? ""
             if fileIsPresent(path) {
@@ -17503,17 +17602,18 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let client = (payload["clientId"] as? String).flatMap { db.getClient(id: $0) }
         let block = client.map { clientBlock($0) } ?? (name: nonBlank(payload["clientName"] as? String) ?? "", lines: [])
         let roundUp = db.markupRoundsUp
+        let price: (Double?) -> String = { p in p.map { formatMoney(markedUpPrice($0, markupPercent: markup, roundUp: roundUp)) } ?? "" }
         let rows: [LetterTableRow] = items.enumerated().map { index, item in
-            let weight = item.weightKg.map { String(format: "%.2f", $0) } ?? "—"
-            let rental = item.unitRentalPrice.map { formatMoney(markedUpPrice($0, markupPercent: markup, roundUp: roundUp)) } ?? "—"
-            return .item(["\(index + 1)", item.itemName, weight, rental, item.unit])
+            // "kg" goes in the weight cells (the .weight column), not the heading.
+            let weight = item.weightKg.map { String(format: "%.2f", $0) } ?? ""
+            return .item(["\(index + 1)", item.itemName, weight, price(item.unitRentalPrice), price(item.unitSalePrice)])
         }
         let columns = [
             LetterColumn(title: "No.", width: 29.25, kind: .center),
-            LetterColumn(title: "Item Description", width: 219.75, kind: .left),
-            LetterColumn(title: "Unit Weight (kg)", width: 86.0, kind: .right),
-            LetterColumn(title: "Unit Monthly Rental", width: 117.0, kind: .money),
-            LetterColumn(title: "Unit", width: 55.0, kind: .center),
+            LetterColumn(title: "Item Description", width: 251.75, kind: .left),
+            LetterColumn(title: "Unit\nWeight", width: 70.0, kind: .weight),
+            LetterColumn(title: "Unit\nMonthly Rental", width: 78.0, kind: .money),
+            LetterColumn(title: "Unit\nSale Price", width: 78.0, kind: .money),
         ]
         let today = nowISO()
         let letter = LetterDocument(
@@ -18257,7 +18357,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
 
         var payment: [LetterParagraph] = []
-        if let terms = nonBlank(detail.paymentTerms) { payment += paymentTermParagraphs(terms, label: "Payment Terms") }
+        // The standard terms (with the bank details), as formatted in Settings.
+        if let terms = nonBlank(detail.paymentTerms) { payment += formattedParagraphs(terms) }
         if let bank = nonBlank(company.bankDetails) { payment.append(.text(bank, link: nil)) }
         var sections = remarks(detail.notes)
         if !payment.isEmpty { sections.append(LetterSection(heading: "Payment Information", paragraphs: payment)) }
@@ -20911,6 +21012,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db.applyDeliveryChargeUpdateIfNeeded()
         db.movePaymentTermsIntoKeyTermsIfNeeded()
         db.linkDraftInvoiceTermsToSettingsIfNeeded()
+        db.mergeBankDetailsIntoTermsIfNeeded()
         db.moveBOQMarkupsOntoRates()
         db.addStructuresToQuotationSubjects()
         db.addMissingSPProducts(loadSeed("sp_pricelist.json"))
@@ -20977,6 +21079,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         window.toolbarStyle = .unified
         // Reopen at the same size and position as last time.
         window.setFrameAutosaveName("ScaffoldProMainWindow")
+        // Closing the window quits ScaffoldPro (the hidden launch card
+        // would otherwise keep it running). What's being typed is saved first.
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+            self?.webView?.evaluateJavaScript("try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.dispatchEvent(new Event('beforeunload')); } catch (e) {}", completionHandler: nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+        }
 
         let contentController = WKUserContentController()
         bridge = NativeBridge(db: db, storage: storage)

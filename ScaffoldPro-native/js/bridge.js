@@ -485,6 +485,10 @@
       decline: (id, reply) => callNative('signatures:decline', { id, reply }),
       sign: (id) => callNative('signatures:sign', { id }),
       openFile: (path) => callNative('signatures:openFile', { path }),
+      // The saved signed copy, for the preview → { ok, pages, fileName }
+      previewSigned: (path) => callNative('signatures:previewSigned', { path }),
+      // Takes back the signature and chop (the signed PDF goes to the Trash).
+      unsign: (quotationId) => callNative('signatures:unsign', { quotationId }),
       chooseImage: (which) => callNative('signatures:chooseImage', { which }),
       removeImage: (which) => callNative('signatures:removeImage', { which }),
       image: (which) => callNative('signatures:image', { which }),

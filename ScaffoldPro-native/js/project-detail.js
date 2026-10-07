@@ -964,6 +964,12 @@ function setupEditSheet() {
       `<option value="${s.id}" ${p.site && p.site.id === s.id ? 'selected' : ''}>${esc(s.name)}${s.isArchived ? ' (archived)' : ''}</option>`).join('');
     for (const f of fields) $(`e-${f}`).value = p[f] ? String(p[f]).slice(0, f.endsWith('Date') ? 10 : undefined) : '';
     $('e-projectNumber').value = p.projectNumber;
+    // Who made it: from the record, or worked out from the history; it can
+    // be set by hand (e.g. for a project made before names were recorded).
+    const [authors, people] = await Promise.all([window.api.authors.get('project', p.id).catch(() => null), window.api.tasks.people().catch(() => [])]);
+    $('e-createdBy').value = (authors && authors.createdBy) || '';
+    $('e-createdBy').dataset.was = $('e-createdBy').value;
+    $('e-people').innerHTML = (people || []).map((n) => `<option value="${esc(n)}"></option>`).join('');
     $('e-error').classList.add('hidden');
     $('edit-modal').classList.remove('hidden');
     $('e-name').focus();
@@ -983,6 +989,8 @@ function setupEditSheet() {
     };
     const payload = { clientId: $('e-clientId').value, siteId: $('e-siteId').value };
     for (const f of fields) payload[f] = $(`e-${f}`).value;
+    const maker = $('e-createdBy').value.trim();
+    if (maker && maker !== $('e-createdBy').dataset.was) payload.createdBy = maker;
     const result = await window.api.projects.update(currentProject.id, payload);
     if (!result.ok) return showError(result.error);
     // A new project code: its folder is renamed, so the page reloads under it.
@@ -998,6 +1006,7 @@ function setupEditSheet() {
     $('edit-modal').classList.add('hidden');
     currentProject = await window.api.projects.get(currentProject.projectNumber);
     renderProjectHeader();
+    if (payload.createdBy && window.docHeader) window.docHeader.refresh();
     await refreshHistory();
   });
   $('edit-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') $('edit-modal').classList.add('hidden'); });
