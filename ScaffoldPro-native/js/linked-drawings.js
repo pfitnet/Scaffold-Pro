@@ -43,7 +43,8 @@
           <td class="muted">${esc(d.fileType)}</td>
           <td class="row-actions">${d.boqId
             ? `<button data-open-boq="${d.boqId}">Open BOQ</button> <button data-locate-boq="${d.boqId}" title="Show the BOQ's exported PDF in Finder">Locate File</button>`
-            : d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}</td>
+            : d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}
+            ${d.boqId || d.fromBOQNumber ? '' : `<button class="ld-remove" data-remove="${d.id}" data-no-icon title="Take this drawing off">Remove</button>`}</td>
         </tr>`).join('')}</tbody></table>`;
       for (const b of container.querySelectorAll('[data-open]')) {
         b.addEventListener('click', async () => {
@@ -59,6 +60,21 @@
           const r = await window.api.files.locateDocument('BOQ', b.dataset.locateBoq);
           if (!r || !r.ok) alert((r && r.error) || 'The file couldn’t be shown in Finder.');
           else if (r.note) alert(r.note);
+        });
+      }
+      for (const b of container.querySelectorAll('[data-remove]')) {
+        b.addEventListener('click', async () => {
+          const d = drawings.find((x) => x.id === b.dataset.remove);
+          const name = d ? (d.storedFilename || d.originalName) : 'this drawing';
+          const doc = options.kind === 'BOQ' ? 'BOQ' : 'quotation';
+          const pick = await window.appChoose(`Remove ${name}?\n\n${d && !d.fileExists ? 'Its file can’t be found any more. ' : ''}Take it off this ${doc} only (it stays with the project’s drawings), or remove it from the project altogether. The file itself is never deleted.`, [
+            { label: `Off this ${doc}`, value: 'unlink' },
+            { label: 'From the Project', value: 'remove', danger: true },
+          ]);
+          if (!pick) return;
+          const r = pick === 'unlink' ? await window.api.drawings.setLink(b.dataset.remove, null, null) : await window.api.drawings.removeReference(b.dataset.remove);
+          if (r && r.ok === false) { await window.appAlert(r.error); return; }
+          await refresh();
         });
       }
       for (const b of container.querySelectorAll('[data-reveal]')) {

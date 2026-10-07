@@ -3303,3 +3303,33 @@ Every form control is now drawn by the app instead of macOS, on every page
   - A browser not used for two weeks drops off the list.
   - Fixed: browser users never showed at all. Their "last seen" time
     couldn't be read, which also meant it was re-saved on every request.
+
+## Batch 141 — Deleting projects; projects grouped by who made them
+
+- **Delete Project.** Right-click a project on the Projects page, or use
+  Edit Details on its page, and choose Delete Project….
+  - **An empty project** (no documents, drawings or files yet) goes after
+    a simple "Delete?".
+  - **A project with anything in it** is behind a wall. The dialog lists
+    what will go (e.g. 3 quotations, 1 BOQ, 1 invoice, 2 drawings), and
+    Delete Project only works once the project's name, or its number, is
+    typed in.
+  - Its quotations, BOQs, delivery notes, invoices (and their payments),
+    letters, inspections and the records of its drawings and documents
+    are deleted, and any request to sign its quotations is withdrawn.
+  - Its folder goes to the Trash, so the files can still be put back
+    from there. Tasks and expenses are kept, without the project.
+- **Projects grouped.** The Projects page folds into one group per person
+  who created the projects (most projects first), and inside each, one
+  group per client. Click a heading to fold or unfold it; folded groups
+  stay folded on this Mac. Searching opens everything.
+- **Bigger project numbers** on the cards and in the list.
+- **Remove a drawing** from a BOQ or quotation: each drawing in the
+  editor's Drawings list has a Remove button. You can take it off this
+  document only (it stays with the project's drawings), or remove it from
+  the project. The file itself is never deleted, which suits drawings
+  marked "File unavailable".
+- **New Project: "+ Add New Client…" / "+ Add New Site…"** at the top of
+  the Client and Site lists open a small sheet for the essentials (name,
+  contact, phone, address). The new client or site is chosen straight
+  away.

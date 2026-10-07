@@ -57,6 +57,8 @@ function contextMenu(e, p) {
     'separator',
     { label: 'New Quotation…', action: () => openProject(p, 'quotations') },
     { label: 'Copy Project Number', action: () => window.copyText(p.projectNumber) },
+    'separator',
+    { label: 'Delete Project…', danger: true, action: async () => { if (await window.deleteProject(p)) refresh(); } },
   ]);
 }
 
@@ -112,6 +114,59 @@ function sorted(list) {
   return list.slice().sort(by);
 }
 
+// Folded away (remembered on this Mac): "who" or "who|client" keys.
+let closed = new Set();
+try { closed = new Set(JSON.parse(localStorage.getItem('projects.closed') || '[]')); } catch (e) { /* ignore */ }
+const keepClosed = () => { try { localStorage.setItem('projects.closed', JSON.stringify([...closed])); } catch (e) { /* ignore */ } };
+const CHEV = '<svg class="pj-chev" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// The projects in folding groups: who made them, then each client.
+function grouped(list, searching) {
+  const byWho = new Map();
+  for (const p of list) {
+    const who = p.createdBy || 'Not recorded';
+    if (!byWho.has(who)) byWho.set(who, []);
+    byWho.get(who).push(p);
+  }
+  const whos = [...byWho.keys()].sort((a, b) => (a === 'Not recorded') - (b === 'Not recorded') || byWho.get(b).length - byWho.get(a).length || a.localeCompare(b));
+  let i = 0;
+  return whos.map((who) => {
+    const mine = byWho.get(who);
+    const byClient = new Map();
+    for (const p of mine) {
+      const c = p.clientName || 'No client';
+      if (!byClient.has(c)) byClient.set(c, []);
+      byClient.get(c).push(p);
+    }
+    const clients = [...byClient.keys()].sort((a, b) => a.localeCompare(b));
+    const whoOpen = searching || !closed.has(who);
+    return `<section class="pj-group${whoOpen ? ' open' : ''}" data-fold="${esc(who)}">
+      <button type="button" class="pj-group-head" aria-expanded="${whoOpen}" data-no-icon>${CHEV}
+        <span class="pj-group-who">${who === 'Not recorded' ? '<span class="muted">Creator not recorded</span>' : window.personTag(who)}</span>
+        <span class="pj-group-count">${mine.length} project${mine.length === 1 ? '' : 's'} · ${clients.length} client${clients.length === 1 ? '' : 's'}</span></button>
+      <div class="pj-fold"><div class="pj-fold-inner">${clients.map((c) => {
+        const key = `${who}|${c}`;
+        const open = searching || !closed.has(key);
+        const items = byClient.get(c);
+        const body = state.view === 'list' ? listView(items) : `<div class="pj-grid">${items.map((p) => card(p, i++)).join('')}</div>`;
+        return `<div class="pj-sub${open ? ' open' : ''}" data-fold="${esc(key)}">
+          <button type="button" class="pj-sub-head" aria-expanded="${open}" data-no-icon>${CHEV}${ICON.client}<span class="pj-sub-name">${esc(c)}</span><span class="pj-group-count">${items.length}</span></button>
+          <div class="pj-fold"><div class="pj-fold-inner">${body}</div></div></div>`;
+      }).join('')}</div></div></section>`;
+  }).join('');
+}
+
+document.getElementById('list-container').addEventListener('click', (e) => {
+  const head = e.target.closest('.pj-group-head, .pj-sub-head');
+  if (!head) return;
+  const box = head.parentElement;
+  const open = !box.classList.contains('open');
+  box.classList.toggle('open', open);
+  head.setAttribute('aria-expanded', String(open));
+  if (open) closed.delete(box.dataset.fold); else closed.add(box.dataset.fold);
+  keepClosed();
+});
+
 function renderProjects() {
   const container = document.getElementById('list-container');
   document.querySelectorAll('.pj-view button').forEach((b) => b.classList.toggle('on', b.dataset.view === state.view));
@@ -136,7 +191,7 @@ function renderProjects() {
     });
     return;
   }
-  container.innerHTML = state.view === 'list' ? listView(shown) : `<div class="pj-grid">${shown.map(card).join('')}</div>`;
+  container.innerHTML = grouped(shown, !!q);
   if (!calm) {
     container.classList.remove('pj-enter');
     void container.offsetWidth;
@@ -212,16 +267,79 @@ async function openModal() {
   document.getElementById('proposed-number').textContent = proposed;
   document.getElementById('proposed-number').dataset.value = proposed;
 
-  const [clients, sites] = await Promise.all([window.api.clients.list(), window.api.sites.list()]);
-  document.getElementById('f-client').innerHTML =
-    '<option value="">Select a client</option>' + clients.map((c) => `<option value="${c.id}">${c.companyName}</option>`).join('');
-  document.getElementById('f-site').innerHTML =
-    '<option value="">Select a site</option>' + sites.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
+  await fillParties();
+  document.getElementById('f-client').value = '';
+  document.getElementById('f-site').value = '';
   // From Clients & Sites (a client dragged onto a site): both chosen already.
   const ps = new URLSearchParams(location.search);
   if (ps.get('client')) document.getElementById('f-client').value = ps.get('client');
   if (ps.get('site')) document.getElementById('f-site').value = ps.get('site');
 }
+// The client and site lists, each with "+ Add New…" at the top.
+async function fillParties(select) {
+  const [clients, sites] = await Promise.all([window.api.clients.list(), window.api.sites.list()]);
+  const keepC = document.getElementById('f-client').value;
+  const keepS = document.getElementById('f-site').value;
+  document.getElementById('f-client').innerHTML = '<option value="">Select a client</option><option value="__new__">+ Add New Client…</option>'
+    + clients.map((c) => `<option value="${esc(c.id)}">${esc(c.companyName)}</option>`).join('');
+  document.getElementById('f-site').innerHTML = '<option value="">Select a site</option><option value="__new__">+ Add New Site…</option>'
+    + sites.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+  document.getElementById('f-client').value = (select && select.client) || (keepC !== '__new__' ? keepC : '');
+  document.getElementById('f-site').value = (select && select.site) || (keepS !== '__new__' ? keepS : '');
+}
+
+// A small sheet over the New Project one: the essentials of a new client or site.
+function quickAdd(kind) {
+  return new Promise((resolve) => {
+    const client = kind === 'client';
+    const el = document.createElement('div');
+    el.className = 'modal-backdrop qa-backdrop';
+    el.innerHTML = `
+      <div class="modal qa-sheet" role="dialog" aria-labelledby="qa-title">
+        <h2 id="qa-title">${client ? 'New Client' : 'New Site'}</h2>
+        <div class="form-grid">
+          <div class="field span-2"><label for="qa-name">${client ? 'Company Name' : 'Site Name'}</label><input type="text" id="qa-name" autocomplete="off" /></div>
+          <div class="field"><label for="qa-contact">Contact Person</label><input type="text" id="qa-contact" /></div>
+          <div class="field"><label for="qa-phone">Phone</label><input type="text" id="qa-phone" /></div>
+          <div class="field span-2"><label for="qa-address">Address</label><input type="text" id="qa-address" /></div>
+          ${client ? '<div class="field span-2"><label for="qa-email">Email</label><input type="text" id="qa-email" /></div>' : ''}
+        </div>
+        <div class="small-note">More details can be added later on Clients &amp; Sites.</div>
+        <div class="error-text hidden" id="qa-error"></div>
+        <div class="actions"><button type="button" id="qa-cancel">Cancel</button><button type="button" class="primary" id="qa-save">Add ${client ? 'Client' : 'Site'}</button></div>
+      </div>`;
+    document.body.appendChild(el);
+    const $q = (id) => el.querySelector(`#${id}`);
+    const close = (v) => { el.remove(); resolve(v); };
+    const save = async () => {
+      const name = $q('qa-name').value.trim();
+      if (!name) { $q('qa-error').textContent = `Enter the ${client ? 'company' : 'site'} name.`; $q('qa-error').classList.remove('hidden'); $q('qa-name').focus(); return; }
+      const input = client
+        ? { companyName: name, contactPerson: $q('qa-contact').value, phone: $q('qa-phone').value, address: $q('qa-address').value, email: $q('qa-email').value }
+        : { name, contactPerson: $q('qa-contact').value, phone: $q('qa-phone').value, address: $q('qa-address').value };
+      const made = await (client ? window.api.clients.create(input) : window.api.sites.create(input));
+      if (!made || !made.id) { $q('qa-error').textContent = (made && made.error) || 'It couldn’t be added.'; $q('qa-error').classList.remove('hidden'); return; }
+      close(made.id);
+    };
+    $q('qa-cancel').addEventListener('click', () => close(null));
+    $q('qa-save').addEventListener('click', save);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); save(); }
+    });
+    setTimeout(() => $q('qa-name').focus(), 30);
+  });
+}
+
+for (const [field, kind] of [['f-client', 'client'], ['f-site', 'site']]) {
+  document.getElementById(field).addEventListener('change', async (e) => {
+    if (e.target.value !== '__new__') return;
+    e.target.value = '';
+    const id = await quickAdd(kind);
+    if (id) await fillParties(kind === 'client' ? { client: id } : { site: id });
+  });
+}
+
 function closeModal() {
   document.getElementById('modal-backdrop').classList.add('hidden');
 }
