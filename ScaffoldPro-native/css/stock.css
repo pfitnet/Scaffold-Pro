@@ -131,7 +131,8 @@
 .sk-detail .line:last-child { border-bottom: none; }
 .sk-detail .in { color: var(--sk-in); font-weight: 650; }
 .sk-detail .out { color: var(--sk-out); font-weight: 650; }
-.sk-detail .rent { color: var(--sk-rent); }
+.sk-detail .rent, .sk-mini-wrap .rent { color: var(--sk-rent); }
+.sk-bar-note { font-size: 12px; color: var(--text-tertiary); }
 .sk-detail .muted { color: var(--text-tertiary); }
 .sk-quick { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
 .sk-quick button { height: 30px; padding: 0 12px; font-size: 12.5px; }
@@ -214,7 +215,7 @@
 .k-WriteOff { background: #c5221f; }
 .k-Delivery { background: #b0843f; }
 .k-Sale { background: #5d9150; }
-.k-RentOut, .k-RentBack { background: #9c6b98; }
+.k-RentIn, .k-RentReturn { background: #9c6b98; }
 
 /* ---- empty ---- */
 .sk-empty { padding: 48px 20px; text-align: center; color: var(--text-secondary); border: 1px dashed var(--border); border-radius: 14px; animation: sk-fade .3s both; }

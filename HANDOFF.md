@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 167.
+"## Batch N" section per change, newest at the bottom, up to Batch 168.
 
 ---
 
@@ -63,7 +63,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **168**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **169**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -161,7 +161,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–167, newest last)
+## 5. Recent work (Batches 147–168, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -193,9 +193,12 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **167:** stock leaves the yard when a delivery note's **signed copy** is
   uploaded (not when it's issued); Stock › **Returns** asks on a set day
   whether the items are back (All Returned / Part Returned… / Not Yet);
-  materials **rented** by other companies (Rent Out / Rent Back, Rented tab);
+  materials **rented** (Rented tab);
   calendar week view no longer cuts titles or day names; Settings shows
   delivery charges as a rate table and terms as a preview.
+- **168:** "Rented" = materials **we rent from other companies** (Rent In /
+  Send Back, kinds `RentIn` / `RentReturn`). They're in the yard or on site
+  but not owned: Owned = in the yard + on hire − rented in.
 
 ---
 
@@ -213,7 +216,7 @@ only by reading the code. Ask the user to check one PDF after updating.
   - crane quotations;
   - the Stock batch save (`stock:addMovements`) against real data;
   - Batch 167: stock booked on signed-copy upload, the one-time clean-up of
-    unsigned notes, Returns and Rent Out / Rent Back against real data.
+    unsigned notes, Returns, and Rent In / Send Back (Batch 168) against real data.
 - **Ideas offered but not asked for:** job type on the Google Sheet; a
   crane-only filter on Projects; a free local AI agent (needs the Mac's chip
   and RAM); AutoCAD / DXF (needs templates).
