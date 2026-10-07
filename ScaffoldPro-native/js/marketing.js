@@ -33,6 +33,8 @@ function today() {
 function showTab(name) {
   for (const b of document.querySelectorAll('#mk-tabs button')) b.classList.toggle('active', b.dataset.tab === name);
   for (const p of document.querySelectorAll('.tab-panel')) p.classList.toggle('active', p.dataset.panel === name);
+  // The Client Report and Promotions tabs load when first shown.
+  document.dispatchEvent(new CustomEvent('marketing:tab', { detail: name }));
 }
 
 // ---- overview ----

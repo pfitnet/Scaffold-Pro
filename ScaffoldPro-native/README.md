@@ -3470,3 +3470,29 @@ Every form control is now drawn by the app instead of macOS, on every page
     the middle of the page. Its files follow the cover.
   - Page numbers carry on through the covers.
 - Export PDF on a letter shows the preview first (since Batch 145).
+
+## Batch 148 — Marketing: client quotation report and Promotions
+
+- **Marketing › Client Report** shows the quotations issued to one client
+  (or everyone) in a period:
+  - Periods: This Month (or any month picked, e.g. Lingma in September),
+    Last Month, this Quarter, This Year, or Custom dates.
+  - The header gives the count, the total quoted, how many were accepted
+    (invoiced or signed) and their value. Each row opens its quotation.
+  - **Export Report…** makes a PDF on the letterhead ("QUOTATIONS ISSUED").
+    It's previewed first and saved to Administration › Marketing Reports.
+- **Marketing › Promotions** holds campaigns to win new work:
+  - Each campaign has a name, how it's done (Letter, Email, Visit, Call,
+    Event), a status (Planning, Running, Done) and a goal.
+  - **+ Add Targets…** picks leads and clients (search, filter by kind), or
+    adds any other company with its contact and address.
+  - Each target moves through To Contact → Sent → Replied → Meeting → Won
+    (or Not Interested). The funnel at the top counts each step; click a
+    step to see only those. ✎ adds a note to a target.
+  - **The letter:** one promotional letter (Re: line and body, a default
+    introduction to start from). {Company} and {Contact} are filled in for
+    each target.
+  - **Write Letters** makes a draft letter for each ticked target (or
+    everyone without one), numbered PL26-001… in Letters. Each is opened
+    from the Letter column to check, export or print, then marked Sent.
+  - Campaigns save as they're edited; the list shows how far each has got.

@@ -39,6 +39,8 @@
       <button data-tab="followups">Follow-ups</button>
       <button data-tab="leads">Leads</button>
       <button data-tab="references">Project References</button>
+      <button data-tab="report">Client Report</button>
+      <button data-tab="promotions">Promotions</button>
     </div>
 
     <section class="tab-panel active mo-viz" data-panel="overview">
@@ -111,6 +113,31 @@
       </div>
       <div id="mk-references"></div>
     </section>
+
+    <section class="tab-panel" data-panel="report">
+      <div class="cr-bar">
+        <label class="cr-field">Client<select id="cr-client"></select></label>
+        <div class="segmented" id="cr-period" role="group" aria-label="Period">
+          <button type="button" data-p="month" class="active" data-no-icon>This Month</button>
+          <button type="button" data-p="last" data-no-icon>Last Month</button>
+          <button type="button" data-p="quarter" data-no-icon>Quarter</button>
+          <button type="button" data-p="year" data-no-icon>This Year</button>
+          <button type="button" data-p="custom" data-no-icon>Custom</button>
+        </div>
+        <label class="cr-field cr-month">Month<input type="month" id="cr-month" /></label>
+        <span class="cr-custom hidden" id="cr-custom"><input type="date" id="cr-from" /> – <input type="date" id="cr-to" /></span>
+        <span class="toolbar-spacer"></span>
+        <button class="primary" id="cr-pdf" data-no-icon>Export Report…</button>
+      </div>
+      <div id="cr-result"></div>
+    </section>
+
+    <section class="tab-panel" data-panel="promotions">
+      <div class="pr-layout">
+        <aside class="pr-list"><button type="button" class="primary pr-new" id="pr-new" data-no-icon>+ New Campaign</button><div id="pr-cards"></div></aside>
+        <div class="pr-detail" id="pr-detail"></div>
+      </div>
+    </section>
   </main>
 
   <div class="modal-backdrop hidden" id="lead-modal">
@@ -146,5 +173,8 @@
   <script src="js/icons.js"></script>
   <script src="js/marketing-overview.js"></script>
   <script src="js/marketing.js"></script>
+  <script src="js/doc-preview.js"></script>
+  <script src="js/marketing-report.js"></script>
+  <script src="js/promotions.js"></script>
 </body>
 </html>
