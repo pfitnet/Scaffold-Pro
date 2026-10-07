@@ -4049,3 +4049,59 @@ The Stock page is rebuilt from the ground up: `stock.html`, `css/stock.css`,
 - **Export:** what's shown to Excel (the list, on hire, or history).
 - **Manual:** the Stock chapter and the Settings figure are redone with
   new screenshots.
+
+## Batch 167 — Stock from signed delivery notes; returns; rented; calendar and settings tidied
+
+- **Stock follows the signed delivery note.** A delivery note's items now
+  leave the yard when its **signed copy is uploaded** (and the note is
+  issued), not when it's issued. They're on hire at the project's site (or
+  sold, for a sale). Removing the signed copy, setting the note back to
+  Draft, cancelling or deleting it books them back in.
+  - Once, on updating: delivery notes that are issued but not signed stop
+    holding stock out.
+  - The delivery note's signed-copy bar says how many pieces are out at the
+    site and when we'll ask about them, with a link to Stock › Returns.
+- **Returns: are they back?** A new **Returns** tab on the Stock page lists
+  each signed delivery note with items still on site: what went, what's
+  back, what's still out, item by item.
+  - On a set day we ask. The day is the project's finish date, else 30
+    days after the signed copy came in, and it can be changed on the card.
+  - When it's due: the card turns amber, a calm note sits above the tabs
+    ("Are the items back from site?"), the tab shows a count, and the
+    Calendar shows "DN… back from site?" (on today once it's passed).
+  - **All Returned** books everything still out back into the yard today.
+  - **Part Returned…** opens Record Stock with what's still out filled in,
+    to change to what came back. The rest stays on site, and we ask again in
+    two weeks.
+  - **Not Yet** asks again in two weeks.
+  - Returns recorded the usual way (Record Stock › Return) count too: they
+    settle the project's delivery notes oldest first.
+- **Rented.** Materials rented by other companies are a status of their own.
+  - Record Stock has **Rent Out** and **Rent Back**, with the company's name
+    (clients are suggested). Renting takes them out of the yard; they still
+    count as owned.
+  - The list has a **Rented** column, the totals a "Pieces rented" figure,
+    and the bars a third colour (a muted mauve).
+  - A **Rented** tab shows them by company, with **Back…** to bring a
+    company's items back in one go. History has a "Rented" filter.
+  - An item's details show who rents it, with Rent Out… and Rent Back….
+  - Export includes rented, and the Returns and Rented tabs export too.
+- **Calendar.** The week view no longer cuts things off.
+  - All-day items show their whole title over up to three lines, and
+    document numbers like DN26210-004 stay in one piece.
+  - The day heads show the weekday over the date, centred, so they fit
+    however narrow the columns get.
+  - The week opens a little above 07:00, so that hour's label isn't cut in
+    half under the day heads.
+  - Below 1,280 px wide, the mini month and lists go under the calendar,
+    so the week keeps room for its items.
+  - Month view items end with "…" instead of being cut off.
+- **Settings.**
+  - **Delivery charges by weight** show as a small rate table: the weights
+    along the top, the price under each. When the window is narrow, it
+    becomes a two-column list.
+  - **Standard terms** (and the quotations' key terms) show a short preview
+    as they print: the first few labels beside their wording, then "+ 2
+    more terms · 1 paragraph".
+- **Manual:** the Stock chapter and its screenshot are redone, and the
+  delivery note chapter says the signed copy books the stock out.

@@ -2123,6 +2123,10 @@ struct DeliveryNote: Codable {
     /// Delivery Notes folder). It's added after the invoice that bills it.
     var signedCopyPath: String? = nil
     var signedCopyAt: String? = nil
+    /// When to ask whether its items are back from site (Stock › Returns),
+    /// set by "Not yet" or a part return. nil = the project's finish date,
+    /// else 30 days after the signed copy came in.
+    var returnCheckDate: String? = nil
 }
 
 /// No pricing fields on purpose — section 23 lists delivery notes as
@@ -2194,6 +2198,12 @@ struct DeliveryNoteDetail: Codable {
     var signedCopyAt: String? = nil
     var signedCopyExists = false
     var invoiceNumbers: [String] = []
+    /// Its items are booked out of the stock (issued and signed), how many
+    /// are still on site, and when we'll ask whether they're back.
+    var stockBooked = false
+    var isSale = false
+    var stockOutstanding: Double? = nil
+    var returnCheckDate: String? = nil
 }
 
 struct DeliveryNoteActionResult: Codable {
@@ -4148,6 +4158,14 @@ final class AppDatabase {
             events.append(CalendarEvent(date: day, kind: "Delivery", title: "\(dn.deliveryNoteNumber) delivered",
                                         detail: p.map { "\($0.projectNumber) \($0.name)" }, url: "delivery-note-editor.html?id=\(dn.id)", done: dn.status != "Draft"))
         }
+        // Signed delivery notes: the day to ask whether their items are back
+        // (shown on today once it has passed).
+        for r in deliveryReturns() {
+            guard let day = inRange(r.checkDate < today ? today : r.checkDate) else { continue }
+            events.append(CalendarEvent(date: day, kind: "Delivery", title: "\(r.deliveryNoteNumber) back from site?",
+                                        detail: ["\(r.projectNumber) \(r.projectName)", "\(Int(r.outstanding)) pcs out", r.checkDate < today ? "asked since \(r.checkDate)" : nil].compactMap { $0 }.joined(separator: " · "),
+                                        url: "stock.html?tab=returns&dn=\(r.deliveryNoteId)", overdue: r.checkDate < today))
+        }
         // Inspections done, and due.
         for r in inspectionsStore.readAll() {
             guard let day = inRange(r.inspectedOn), let p = projects[r.projectId] else { continue }
@@ -4966,6 +4984,8 @@ final class AppDatabase {
         deliveryNotesStore.writeAll(notes)
         logActivity(projectId: notes[i].projectId, path == nil ? "Signed copy removed from delivery note" : "Signed delivery note received",
                     reference: notes[i].deliveryNoteNumber)
+        // Signed: its items are now out of the yard, at the site.
+        syncDeliveryStock(notes[i])
         return nil
     }
 
@@ -9223,7 +9243,7 @@ final class AppDatabase {
         let items = deliveryNoteLineItems(for: dn.id)
         let client = clientsStore.readAll().first { $0.id == project.clientId }
         let site = sitesStore.readAll().first { $0.id == project.siteId }
-        return DeliveryNoteDetail(
+        var detail = DeliveryNoteDetail(
             id: dn.id, deliveryNoteNumber: dn.deliveryNoteNumber, status: dn.status, deliveryDate: dn.deliveryDate,
             deliveryAddress: dn.deliveryAddress, deliveredBy: dn.deliveredBy, receivedBy: dn.receivedBy,
             notes: dn.notes, createdAt: dn.createdAt, updatedAt: dn.updatedAt,
@@ -9236,6 +9256,14 @@ final class AppDatabase {
             signedCopyExists: dn.signedCopyPath.map { fileIsPresent($0) } ?? false,
             invoiceNumbers: invoicesStore.readAll().filter { $0.status != "Cancelled" && ($0.sourceDeliveryNoteIds ?? []).contains(dn.id) }.map { $0.invoiceNumber }.sorted()
         )
+        detail.stockBooked = stockMovementsStore.readAll().contains { $0.deliveryNoteId == dn.id }
+        detail.isSale = deliveryNoteIsSale(dn)
+        if detail.stockBooked && !detail.isSale {
+            let row = deliveryReturns().first { $0.deliveryNoteId == dn.id }
+            detail.stockOutstanding = row?.outstanding ?? 0
+            detail.returnCheckDate = row?.checkDate
+        }
+        return detail
     }
 
     private func touchDeliveryNote(_ id: String) {
@@ -9380,10 +9408,9 @@ final class AppDatabase {
         notesArr[index].status = status
         notesArr[index].updatedAt = nowISO()
         deliveryNotesStore.writeAll(notesArr)
-        // Stock: an issued delivery note books its items out of the yard;
-        // cancelling or reopening it puts them back.
-        if status == "Issued" && previous != "Issued" { recordDeliveryStock(notesArr[index]) }
-        if previous == "Issued" && status != "Issued" { removeDeliveryStock(deliveryNoteId: id) }
+        // Stock: an issued, signed delivery note books its items out of the
+        // yard; cancelling or reopening it puts them back.
+        syncDeliveryStock(notesArr[index])
         if changed { logActivity(projectId: notesArr[index].projectId, "Delivery note \(status == "Draft" ? "returned to draft" : status.lowercased())", reference: notesArr[index].deliveryNoteNumber) }
         return nil
     }
@@ -11446,13 +11473,16 @@ final class PDFGenerator {
 //
 // Every change to the stock is a movement: + into the yard, − out of it.
 //   Opening / Purchase   received into the yard (+)
-//   Delivery             out to a project on hire (−), from an issued delivery note
-//   Sale                 out to a project for good (−), from a delivery note of a sale
-//   Return               back from a project (+)
+//   Delivery             out to a project's site on hire (−), from a delivery
+//                        note once it's issued and its signed copy is in
+//   Sale                 out to a project for good (−), the same way, for a sale
+//   Return               back from a project (+), maybe against one delivery note
+//   RentOut / RentBack   rented by another company (−), and back from it (+)
 //   WriteOff             lost, scrapped or damaged (−)
 //   Adjustment           a stock count's difference (±)
 // In the yard = the sum of all movements. On hire, per project = delivered
-// − returned. Owned = in the yard + on hire.
+// − returned. Rented, per company = rented out − back. Owned = in the yard
+// + on hire + rented.
 // =====================================================================
 
 struct StockMovement: Codable {
@@ -11475,6 +11505,10 @@ struct StockMovement: Codable {
     /// Lines recorded together on the Stock page (one receipt, one return,
     /// one stock count) share an id, so they're shown and removed together.
     var batchId: String? = nil
+    /// A return answering one signed delivery note (Stock › Returns).
+    var returnOfDeliveryNoteId: String? = nil
+    /// RentOut / RentBack: the company renting them.
+    var company: String? = nil
 }
 
 /// What a batch from the Stock page came to.
@@ -11505,6 +11539,11 @@ struct StockProjectQuantity: Codable {
     var quantity: Double
 }
 
+struct StockCompanyQuantity: Codable {
+    var company: String
+    var quantity: Double
+}
+
 struct StockItemRow: Codable {
     var key: String
     var priceListItemId: String?
@@ -11518,6 +11557,9 @@ struct StockItemRow: Codable {
     var onHire: Double
     var owned: Double
     var onHireByProject: [StockProjectQuantity]
+    /// Rented by other companies, and by whom.
+    var rented: Double = 0
+    var rentedByCompany: [StockCompanyQuantity] = []
 }
 
 struct StockMovementView: Codable {
@@ -11531,6 +11573,43 @@ struct StockData: Codable {
     var items: [StockItemRow]
     var movements: [StockMovementView]
     var projects: [ProjectRef]
+    /// Signed delivery notes with items still on site (Stock › Returns).
+    var returns: [DeliveryReturnRow] = []
+    /// Companies to suggest for renting: clients, and those renting already.
+    var companies: [String] = []
+}
+
+/// One item of a signed delivery note: sent, back, still on site.
+struct DeliveryReturnLine: Codable {
+    var itemKey: String
+    var priceListItemId: String?
+    var itemCode: String
+    var itemName: String
+    var unit: String
+    var delivered: Double
+    var returned: Double
+    var outstanding: Double
+}
+
+/// A signed delivery note with items still on site, and when to ask
+/// whether they're back.
+struct DeliveryReturnRow: Codable {
+    var deliveryNoteId: String
+    var deliveryNoteNumber: String
+    var projectId: String
+    var projectNumber: String
+    var projectName: String
+    var siteName: String?
+    var clientName: String?
+    var deliveryDate: String
+    var signedAt: String?
+    /// yyyy-MM-dd; due = on or before today.
+    var checkDate: String
+    var due: Bool
+    var delivered: Double
+    var returned: Double
+    var outstanding: Double
+    var lines: [DeliveryReturnLine]
 }
 
 // =====================================================================
@@ -11749,6 +11828,7 @@ extension AppDatabase {
             order.append(item.id)
         }
         var hire: [String: [String: Double]] = [:]
+        var rent: [String: [String: Double]] = [:]
         for m in movements {
             if rows[m.itemKey] == nil {
                 rows[m.itemKey] = StockItemRow(key: m.itemKey, priceListItemId: m.priceListItemId, sourceKey: nil, category: nil,
@@ -11760,6 +11840,9 @@ extension AppDatabase {
             if (m.kind == "Delivery" || m.kind == "Return"), let p = m.projectId {
                 hire[m.itemKey, default: [:]][p, default: 0] -= m.quantity
             }
+            if (m.kind == "RentOut" || m.kind == "RentBack"), let c = nonBlank(m.company) {
+                rent[m.itemKey, default: [:]][c, default: 0] -= m.quantity
+            }
         }
         for (key, byProject) in hire {
             let list = byProject.filter { abs($0.value) > 0.0001 }.map { entry -> StockProjectQuantity in
@@ -11769,12 +11852,107 @@ extension AppDatabase {
             rows[key]!.onHireByProject = list
             rows[key]!.onHire = list.reduce(0) { $0 + $1.quantity }
         }
-        for key in order { rows[key]!.owned = rows[key]!.inYard + rows[key]!.onHire }
+        for (key, byCompany) in rent {
+            let list = byCompany.filter { abs($0.value) > 0.0001 }.map { StockCompanyQuantity(company: $0.key, quantity: $0.value) }
+                .sorted { $0.company.localizedCaseInsensitiveCompare($1.company) == .orderedAscending }
+            rows[key]!.rentedByCompany = list
+            rows[key]!.rented = list.reduce(0) { $0 + $1.quantity }
+        }
+        for key in order { rows[key]!.owned = rows[key]!.inYard + rows[key]!.onHire + rows[key]!.rented }
         let views = movements.sorted { ($0.date, $0.createdAt) > ($1.date, $1.createdAt) }.map {
             StockMovementView(movement: $0, projectNumber: $0.projectId.flatMap { projectById[$0]?.projectNumber },
                               automatic: $0.deliveryNoteId != nil)
         }
-        return StockData(items: order.compactMap { rows[$0] }, movements: views, projects: projects)
+        var companies = Set(clientsStore.readAll().compactMap { nonBlank($0.companyName) })
+        for m in movements { if let c = nonBlank(m.company) { companies.insert(c) } }
+        return StockData(items: order.compactMap { rows[$0] }, movements: views, projects: projects,
+                         returns: deliveryReturns(movements: movements),
+                         companies: companies.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
+    }
+
+    /// When to ask whether a signed delivery note's items are back: the day
+    /// chosen, else the project's finish date, else 30 days after the signed
+    /// copy came in.
+    func returnCheckDay(_ note: DeliveryNote, project: Project?) -> String {
+        if let d = validDay(note.returnCheckDate) { return d }
+        let from = validDay(note.signedCopyAt) ?? validDay(note.deliveryDate) ?? todayYMD()
+        if let finish = validDay(project?.expectedCompletionDate), finish > from { return finish }
+        return addDays(from, 30) ?? from
+    }
+
+    /// Signed delivery notes with items still on site: what's still to come
+    /// back, and when to ask. A return recorded against a note settles that
+    /// note; other returns from the project settle its notes oldest first.
+    func deliveryReturns(movements: [StockMovement]? = nil) -> [DeliveryReturnRow] {
+        let all = movements ?? stockMovementsStore.readAll()
+        let today = todayYMD()
+        let notes = Dictionary(deliveryNotesStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let sites = Dictionary(sitesStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        // What each note booked out (on hire, not sold), item by item.
+        var sent: [String: [String: Double]] = [:]
+        var named: [String: StockMovement] = [:]
+        for m in all where m.kind == "Delivery" {
+            guard let nid = m.deliveryNoteId else { continue }
+            sent[nid, default: [:]][m.itemKey, default: 0] -= m.quantity
+            if named[m.itemKey] == nil { named[m.itemKey] = m }
+        }
+        var back: [String: [String: Double]] = [:]
+        var pool: [String: [String: Double]] = [:]
+        for m in all where m.kind == "Return" {
+            guard let pid = m.projectId else { continue }
+            var left = m.quantity
+            if let nid = m.returnOfDeliveryNoteId, let out = sent[nid]?[m.itemKey] {
+                let take = min(left, max(0, out - (back[nid]?[m.itemKey] ?? 0)))
+                back[nid, default: [:]][m.itemKey, default: 0] += take
+                left -= take
+            }
+            if left > 0.0001 { pool[pid, default: [:]][m.itemKey, default: 0] += left }
+        }
+        let ordered = sent.keys.compactMap { notes[$0] }
+            .sorted { ($0.deliveryDate, $0.deliveryNoteNumber) < ($1.deliveryDate, $1.deliveryNoteNumber) }
+        for note in ordered {
+            for (key, out) in sent[note.id] ?? [:] {
+                let free = pool[note.projectId]?[key] ?? 0
+                guard free > 0.0001 else { continue }
+                let take = min(free, max(0, out - (back[note.id]?[key] ?? 0)))
+                back[note.id, default: [:]][key, default: 0] += take
+                pool[note.projectId]?[key] = free - take
+            }
+        }
+        var rows: [DeliveryReturnRow] = []
+        for note in ordered {
+            let lines = (sent[note.id] ?? [:]).compactMap { entry -> DeliveryReturnLine? in
+                guard let m = named[entry.key], entry.value > 0.0001 else { return nil }
+                let b = back[note.id]?[entry.key] ?? 0
+                return DeliveryReturnLine(itemKey: entry.key, priceListItemId: m.priceListItemId, itemCode: m.itemCode, itemName: m.itemDescription,
+                                          unit: m.unit, delivered: entry.value, returned: b, outstanding: max(0, entry.value - b))
+            }.sorted { $0.itemCode.localizedStandardCompare($1.itemCode) == .orderedAscending }
+            let outstanding = lines.reduce(0) { $0 + $1.outstanding }
+            guard outstanding > 0.0001 else { continue }
+            let p = projects[note.projectId]
+            let check = returnCheckDay(note, project: p)
+            rows.append(DeliveryReturnRow(
+                deliveryNoteId: note.id, deliveryNoteNumber: note.deliveryNoteNumber, projectId: note.projectId,
+                projectNumber: p?.projectNumber ?? "", projectName: p?.name ?? "",
+                siteName: p.flatMap { sites[$0.siteId]?.name }, clientName: p.flatMap { clients[$0.clientId]?.companyName },
+                deliveryDate: validDay(note.deliveryDate) ?? String(note.deliveryDate.prefix(10)), signedAt: validDay(note.signedCopyAt),
+                checkDate: check, due: check <= today,
+                delivered: lines.reduce(0) { $0 + $1.delivered }, returned: lines.reduce(0) { $0 + $1.returned },
+                outstanding: outstanding, lines: lines))
+        }
+        return rows.sorted { ($0.checkDate, $0.deliveryNoteNumber) < ($1.checkDate, $1.deliveryNoteNumber) }
+    }
+
+    /// "Not yet": the day to ask again whether a delivery note's items are back.
+    func setReturnCheckDate(deliveryNoteId: String, day: String?) -> String? {
+        var notes = deliveryNotesStore.readAll()
+        guard let i = notes.firstIndex(where: { $0.id == deliveryNoteId }) else { return "Delivery note not found." }
+        guard let d = validDay(day) else { return "Enter a valid date." }
+        notes[i].returnCheckDate = d
+        deliveryNotesStore.writeAll(notes)
+        return nil
     }
 
     /// A movement entered on the Stock page: "Purchase" (received),
@@ -11820,22 +11998,33 @@ extension AppDatabase {
     }
 
     /// Many lines at once from the Stock page: one kind ("Purchase",
-    /// "Return", "WriteOff", "Count", "Opening"), one date, reference, notes
-    /// and (for a return) project, and its lines [{ priceListItemId,
-    /// itemCode, itemDescription, unit, quantity }]. Saved together, as one
-    /// batch (one step to undo); a count records only the differences.
+    /// "Return", "RentOut", "RentBack", "WriteOff", "Count", "Opening"), one
+    /// date, reference, notes, (for a return) project and maybe the signed
+    /// delivery note it answers, (for renting) the company, and its lines
+    /// [{ priceListItemId, itemCode, itemDescription, unit, quantity }].
+    /// Saved together, as one batch (one step to undo); a count records only
+    /// the differences.
     func addStockMovements(_ payload: [String: Any]) -> StockBatchResult {
         let kind = (payload["kind"] as? String) ?? ""
-        guard ["Opening", "Purchase", "Return", "WriteOff", "Count"].contains(kind) else {
+        guard ["Opening", "Purchase", "Return", "RentOut", "RentBack", "WriteOff", "Count"].contains(kind) else {
             return StockBatchResult(ok: false, error: "Choose what kind of stock change this is.", saved: 0, skipped: [], batchId: nil)
         }
         let lines = (payload["lines"] as? [[String: Any]]) ?? []
         guard !lines.isEmpty else { return StockBatchResult(ok: false, error: "Add at least one item.", saved: 0, skipped: [], batchId: nil) }
-        let projectId = nonBlank(payload["projectId"] as? String)
+        var projectId = nonBlank(payload["projectId"] as? String)
+        // A return answering a signed delivery note: from its project.
+        let noteId = kind == "Return" ? nonBlank(payload["deliveryNoteId"] as? String) : nil
+        let note: DeliveryNote? = noteId.flatMap { id in deliveryNotesStore.readAll().first(where: { $0.id == id }) }
+        if let note = note { projectId = note.projectId }
         if kind == "Return" {
             guard let p = projectId, projectsStore.readAll().contains(where: { $0.id == p }) else {
                 return StockBatchResult(ok: false, error: "Choose the project the items came back from.", saved: 0, skipped: [], batchId: nil)
             }
+        }
+        let renting = kind == "RentOut" || kind == "RentBack"
+        let company = renting ? nonBlank(payload["company"] as? String) : nil
+        if renting && company == nil {
+            return StockBatchResult(ok: false, error: "Enter the company renting them.", saved: 0, skipped: [], batchId: nil)
         }
         let date = validDay(payload["date"] as? String) ?? todayYMD()
         let reference = nonBlank(payload["reference"] as? String)
@@ -11864,7 +12053,7 @@ extension AppDatabase {
                 if seen.contains(key) { made.removeAll { $0.itemKey == key } }
                 quantity = value - (inYard[key] ?? 0)
                 guard abs(quantity) > 0.0001 else { skipped.append("\(name): count matches"); seen.insert(key); continue }
-            case "WriteOff":
+            case "WriteOff", "RentOut":
                 guard value > 0 else { skipped.append("\(name): no quantity"); continue }
                 quantity = -value
             default:
@@ -11876,15 +12065,21 @@ extension AppDatabase {
                 id: makeId("stock"), date: date, kind: kind == "Count" ? "Adjustment" : kind,
                 itemKey: key, priceListItemId: plId, itemCode: code, itemDescription: name, unit: unit.isEmpty ? "pc" : unit,
                 quantity: quantity, projectId: kind == "Return" ? projectId : nil, deliveryNoteId: nil,
-                reference: reference, notes: notes, createdAt: nowISO(), batchId: batchId))
+                reference: reference, notes: notes, createdAt: nowISO(), batchId: batchId,
+                returnOfDeliveryNoteId: note?.id, company: company))
         }
         guard !made.isEmpty else {
             return StockBatchResult(ok: false, error: kind == "Count" ? "Every count matches the stock already — nothing to change." : "Enter a quantity for at least one item.",
                                     saved: 0, skipped: skipped, batchId: nil)
         }
         stockMovementsStore.writeAll(existing + made)
-        let label = ["Opening": "Opening stock", "Purchase": "Stock received", "Return": "Stock returned", "WriteOff": "Stock written off", "Count": "Stock count"][kind] ?? "Stock"
-        logActivity(projectId: kind == "Return" ? projectId : nil, "\(label) — \(made.count) item\(made.count == 1 ? "" : "s")", reference: reference)
+        // Part of a delivery note back: ask about the rest in two weeks.
+        if let note = note, let next = addDays(todayYMD(), 14) { _ = setReturnCheckDate(deliveryNoteId: note.id, day: next) }
+        let label = ["Opening": "Opening stock", "Purchase": "Stock received", "Return": "Stock returned", "RentOut": "Stock rented out",
+                     "RentBack": "Stock back from rent", "WriteOff": "Stock written off", "Count": "Stock count"][kind] ?? "Stock"
+        let who = company.map { " (\($0))" } ?? ""
+        logActivity(projectId: kind == "Return" ? projectId : nil, "\(label) — \(made.count) item\(made.count == 1 ? "" : "s")\(who)",
+                    reference: reference ?? note?.deliveryNoteNumber)
         return StockBatchResult(ok: true, error: nil, saved: made.count, skipped: skipped, batchId: batchId)
     }
 
@@ -11928,8 +12123,30 @@ extension AppDatabase {
 
     func allPriceListItems() -> [PriceListItem] { priceListItemsStore.readAll() }
 
-    /// Books an issued delivery note's items out of the yard: on hire to
-    /// its project, or sold if it's for a sale.
+    /// A delivery note's items are out of the yard once it's issued and its
+    /// signed copy is in (on hire to its project's site, or sold); not
+    /// before, and not once it's cancelled or back to draft.
+    func syncDeliveryStock(_ note: DeliveryNote) {
+        let booked = stockMovementsStore.readAll().contains { $0.deliveryNoteId == note.id }
+        let due = note.status == "Issued" && note.signedCopyPath != nil
+        if due && !booked { recordDeliveryStock(note) } else if !due && booked { removeDeliveryStock(deliveryNoteId: note.id) }
+    }
+
+    /// Once: delivery notes issued but not signed no longer hold stock out
+    /// (they used to from the moment they were issued).
+    func bookStockOnSignedDeliveryNotesOnce() {
+        let key = "ScaffoldPro.stockFromSignedDeliveryNotes"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let signed = Set(deliveryNotesStore.readAll().filter { $0.status == "Issued" && $0.signedCopyPath != nil }.map { $0.id })
+        var all = stockMovementsStore.readAll()
+        let before = all.count
+        all.removeAll { m in m.deliveryNoteId.map { !signed.contains($0) } ?? false }
+        if all.count != before { stockMovementsStore.writeAll(all) }
+        UserDefaults.standard.set(true, forKey: key)
+    }
+
+    /// Books a delivery note's items out of the yard: on hire to its
+    /// project, or sold if it's for a sale.
     func recordDeliveryStock(_ note: DeliveryNote) {
         removeDeliveryStock(deliveryNoteId: note.id)
         let sale = deliveryNoteIsSale(note)
@@ -16598,6 +16815,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "stock:addMovements":
             respond(id: id, encodable: db.addStockMovements(payload))
+        case "stock:returnCheck":
+            let error = db.setReturnCheckDate(deliveryNoteId: (payload["deliveryNoteId"] as? String) ?? "", day: payload["date"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "stock:deleteBatch":
             let error = db.deleteStockBatch(batchId: (payload["batchId"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -21524,6 +21744,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         db.applyDeliveryChargeUpdateIfNeeded()
         db.movePaymentTermsIntoKeyTermsIfNeeded()
         db.linkDraftInvoiceTermsToSettingsIfNeeded()
+        db.bookStockOnSignedDeliveryNotesOnce()
         db.mergeBankDetailsIntoTermsIfNeeded()
         db.moveBOQMarkupsOntoRates()
         db.addStructuresToQuotationSubjects()

@@ -61,6 +61,31 @@
 .st-value code { font-size: 12.5px; padding: 1px 6px; border-radius: 5px; background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
 .st-value .arrow { margin: 0 6px; color: var(--text-tertiary); }
 .st-value .tag { display: inline-block; margin: 1px 4px 1px 0; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+/* Terms: a short preview as they print, label beside its wording. */
+.st-terms { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 14px; row-gap: 3px; font-size: 12.5px; line-height: 1.45; }
+.st-term { display: contents; }
+.st-term b { font-weight: 600; color: var(--text); white-space: nowrap; }
+.st-term span, .st-para { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.st-para { grid-column: 1 / -1; }
+.st-more { grid-column: 1 / -1; margin-top: 2px; font-size: 12px; color: var(--text-tertiary); }
+/* Delivery charges: a small rate table, weights along the top, prices
+   under; a two-column list (weight | price) when there isn't the room. */
+.st-row[data-show="rates"] .st-value { container-type: inline-size; }
+.st-rates { display: inline-grid; grid-template-rows: auto auto; grid-auto-flow: column; border-radius: 10px; overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--hairline); font-variant-numeric: tabular-nums; vertical-align: middle; }
+.st-rates > * { padding: 4px 12px; white-space: nowrap; text-align: right; border-left: 1px solid var(--hairline); }
+.st-rates .st-rh { text-align: left; border-left: none; font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--text-tertiary); }
+.st-rates .st-rk, .st-rates .st-rh:first-child { font-size: 11.5px; background: color-mix(in srgb, var(--text) 4%, transparent); }
+.st-rates .st-rk { color: var(--text-tertiary); }
+.st-rates b { font-size: 13px; font-weight: 650; color: var(--text); }
+.st-rates .st-rmore { font-size: 11.5px; color: var(--text-tertiary); }
+@container (max-width: 400px) {
+  .st-rates { grid-template-rows: none; grid-template-columns: auto auto; grid-auto-flow: row; }
+  .st-rates > * { border-left: none; border-top: 1px solid var(--hairline); padding: 3px 14px; }
+  .st-rates .st-rh { border-top: none; background: color-mix(in srgb, var(--text) 4%, transparent); }
+  .st-rates .st-rh + .st-rh { text-align: right; }
+  .st-rates .st-rk { background: none; text-align: left; color: var(--text-secondary); }
+}
 .st-value.plain { justify-self: end; text-align: right; }
 .st-row.edit:hover { background: color-mix(in srgb, var(--accent) 3.5%, transparent); }
 .st-row.edit .st-value { cursor: pointer; }

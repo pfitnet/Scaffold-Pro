@@ -180,7 +180,14 @@ function renderSummary() {
 }
 
 function chip(e) {
-  return `<a class="cal-ev${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" style="--k:${colorOf(e)}" href="${esc(e.url || '#')}" data-ev="${ref(e)}">${e.time ? `<span class="t">${esc(e.time)}</span>` : ''}${esc(e.title)}</a>`;
+  return `<a class="cal-ev${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" style="--k:${colorOf(e)}" href="${esc(e.url || '#')}" data-ev="${ref(e)}">${e.time ? `<span class="t">${esc(e.time)}</span>` : ''}<span class="tt">${esc(e.title)}</span></a>`;
+}
+
+// The week's all-day row: the whole title over up to three lines (the
+// columns are narrow), document numbers like DN26210-004 kept in one piece.
+function allDayChip(e) {
+  const title = esc(e.title).replace(/(\w)-(?=\w)/g, '$1\u2011');
+  return `<a class="cal-ev ad${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" style="--k:${colorOf(e)}" href="${esc(e.url || '#')}" data-ev="${ref(e)}"><span class="ad-t">${title}</span></a>`;
 }
 
 function renderMonth(byDay) {
@@ -252,7 +259,7 @@ function renderWeek(byDay) {
   }).join('');
   const allDay = '<div class="gutter">all day</div>' + days.map((d) => {
     const list = (byDay[ymd(d)] || []).filter((e) => !e.time);
-    return `<div class="wk-allday-cell${ymd(d) === today ? ' today' : ''}" data-day="${ymd(d)}">${list.slice(0, 3).map(chip).join('')}${list.length > 3 ? `<button class="cal-more" data-day-more="${ymd(d)}" data-no-icon>+${list.length - 3} more</button>` : ''}</div>`;
+    return `<div class="wk-allday-cell${ymd(d) === today ? ' today' : ''}" data-day="${ymd(d)}">${list.slice(0, 3).map(allDayChip).join('')}${list.length > 3 ? `<button class="cal-more" data-day-more="${ymd(d)}" data-no-icon>+${list.length - 3} more</button>` : ''}</div>`;
   }).join('');
   const gutter = `<div class="week-gutter">${[...Array(24)].map((_, h) => `<div class="hour-label">${h ? `${pad(h)}:00` : ''}</div>`).join('')}</div>`;
   const cols = days.map((d) => {
@@ -278,9 +285,11 @@ function renderWeek(byDay) {
     <div class="week-hours">${gutter}${cols}<div class="now-rule" aria-hidden="true"><span class="now-badge"></span></div></div></div>`;
   placeNow();
   const newBody = box.querySelector('.week-body');
-  // Opens an hour before now (or at 7 a.m.) the first time; keeps its place after that.
+  // Opens an hour before now (or at 7 a.m.) the first time; keeps its place
+  // after that. A little above the hour, so its label isn't cut in half
+  // under the day heads.
   const firstHour = days.some((d) => ymd(d) === today) ? Math.max(0, Math.min(new Date().getHours() - 1, 7)) : 7;
-  newBody.scrollTop = keepScroll !== null && scrolledOnce ? keepScroll : firstHour * HOUR_PX;
+  newBody.scrollTop = keepScroll !== null && scrolledOnce ? keepScroll : Math.max(0, firstHour * HOUR_PX - 14);
   scrolledOnce = true;
   for (const slot of box.querySelectorAll('.slot')) {
     slot.addEventListener('click', () => addTask(slot.closest('.week-col').dataset.day, `${pad(slot.dataset.hour)}:00`));

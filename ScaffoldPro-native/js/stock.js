@@ -6,17 +6,23 @@
 //             of the two. Click an item for where it's on hire, its recent
 //             history and quick actions. "Stocktake" puts a Counted box on
 //             every row: type the counts, save them all as one stock count.
+//   Returns   signed delivery notes with items still on site. On the day set
+//             we ask whether they're back: All Returned, Part Returned… (the
+//             sheet filled in with what's out, to change), or Not Yet.
 //   On Hire   by site, then project: what's there, with "Return…" to bring
 //             it all back in one go.
-//   History   every receipt, return, count, write-off and delivery, by day;
-//             things recorded together shown (and removed) together.
+//   Rented    by the company renting them, with "Back…".
+//   History   every receipt, return, rental, count, write-off and delivery,
+//             by day; things recorded together shown (and removed) together.
 //
-// Record Stock: one kind (Receive, Return, Count, Write Off), one date and
-// reference, as many items as needed — typed with suggestions (Return adds
-// the item and jumps to its quantity; Return there goes back for the next),
-// pasted from Excel, or filled in one click (everything on hire to a
-// project; a whole category). Saved as one batch (main.swift,
-// addStockMovements). Issued delivery notes book items out by themselves.
+// Record Stock: one kind (Receive, Return, Rent Out, Rent Back, Count, Write
+// Off), one date and reference, as many items as needed — typed with
+// suggestions (Return adds the item and jumps to its quantity; Return there
+// goes back for the next), pasted from Excel, or filled in one click
+// (everything on hire to a project or still out on a delivery note;
+// everything a company rents; a whole category). Saved as one batch
+// (main.swift, addStockMovements). A delivery note books its items out once
+// it's issued and its signed copy is uploaded.
 
 const S = {
   data: null,
@@ -29,7 +35,9 @@ const S = {
   histKind: '',
   openBatches: new Set(),
   stats: {},
+  flashDN: null,       // a delivery note to point at in Returns (?dn=…)
 };
+const RENT = '#9c6b98';
 
 const KIND = {
   Opening: { label: 'Opening stock', verb: 'Opening stock', colour: '#3f938b' },
@@ -37,6 +45,8 @@ const KIND = {
   Return: { label: 'Returned', verb: 'Returned', colour: '#5374b8' },
   Adjustment: { label: 'Stock count', verb: 'Counted', colour: '#8a6cb0' },
   WriteOff: { label: 'Written off', verb: 'Written off', colour: '#c5221f' },
+  RentOut: { label: 'Rented out', verb: 'Rented out', colour: RENT },
+  RentBack: { label: 'Back from rent', verb: 'Back from rent', colour: RENT },
   Delivery: { label: 'Delivered (on hire)', verb: 'Delivered', colour: '#b0843f' },
   Sale: { label: 'Delivered (sold)', verb: 'Sold', colour: '#5d9150' },
 };
@@ -49,6 +59,10 @@ const ICON = {
   WriteOff: '<path d="M4.5 6h11M8 6V4.5h4V6M6 6l.8 10h6.4L14 6M8.5 9v4.5M11.5 9v4.5"/>',
   Delivery: '<path d="M2.5 5.5h9v8h-9zM11.5 8.5h3.5l2.5 2.5v2.5h-6"/><circle cx="5.5" cy="14.5" r="1.5"/><circle cx="14.5" cy="14.5" r="1.5"/>',
   Sale: '<path d="M10.5 3H16v5.5L9 15.5 3.5 10z"/><circle cx="13" cy="6" r="1"/>',
+  RentOut: '<path d="M4 10h10M10.5 6.5 14 10l-3.5 3.5M4 4.5v11"/>',
+  RentBack: '<path d="M16 10H6M9.5 6.5 6 10l3.5 3.5M16 4.5v11"/>',
+  company: '<rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7.5 6.5h1.5M11 6.5h1.5M7.5 9.5h1.5M11 9.5h1.5M8.5 17v-3.5h3V17"/>',
+  check: '<path d="m5 10.5 3.2 3.2L15 7"/>',
   site: '<path d="M10 17.5s-5.5-4.6-5.5-9a5.5 5.5 0 0 1 11 0c0 4.4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>',
   chev: '<path d="M7.5 5 12.5 10l-5 5"/>',
   x: '<path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>',
@@ -64,6 +78,7 @@ const tonnes = (kg) => `${(kg / 1000).toLocaleString('en-US', { maximumFractionD
 const today = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 const day = (ymd) => (window.appDay ? window.appDay(ymd) : ymd);
 const held = (i) => Math.abs(i.owned) > 0.0001 || Math.abs(i.inYard) > 0.0001;
+const rentedOf = (i) => Math.max(0, i.rented || 0);
 const listOf = (i) => i.sourceKey || 'other';
 const catOf = (i) => i.category || (i.sourceKey ? 'Uncategorised' : 'Other items');
 const store = {
@@ -84,10 +99,14 @@ window.appRefresh = () => load();
 
 async function load() {
   S.data = await window.api.stock.data();
+  S.data.returns = S.data.returns || [];
   S.byKey = new Map(S.data.items.map((i) => [i.key, i]));
   renderStats();
+  renderDue();
   renderStock();
+  renderReturns();
   renderHire();
+  renderRented();
   renderHistory();
 }
 
@@ -112,6 +131,7 @@ function renderStats() {
   const items = S.data.items;
   const yard = items.reduce((a, i) => a + Math.max(0, i.inYard), 0);
   const hire = items.reduce((a, i) => a + Math.max(0, i.onHire), 0);
+  const rent = items.reduce((a, i) => a + rentedOf(i), 0);
   const kg = items.reduce((a, i) => a + (i.weightKg || 0) * Math.max(0, i.owned), 0);
   const box = $('sk-stats');
   if (!box.children.length) {
@@ -119,33 +139,58 @@ function renderStats() {
       <div class="sk-stat" style="--i:0"><b data-k="held">0</b><span>Items held</span></div>
       <div class="sk-stat" style="--i:1"><b data-k="yard">0</b><span><i class="dot" style="background:var(--sk-yard)"></i>Pieces in the yard</span></div>
       <div class="sk-stat" style="--i:2"><b data-k="hire">0</b><span><i class="dot" style="background:var(--sk-hire)"></i>Pieces on hire</span></div>
-      <div class="sk-stat" style="--i:3"><b data-k="kg">0 t</b><span>Weight owned</span></div>
-      <div class="sk-stat sk-split" style="--i:4"><div class="sk-split-bar"><i class="yard"></i><i class="hire"></i></div><div class="sk-split-legend"><span data-k="yardPct"></span><span data-k="hirePct"></span></div></div>`;
+      <div class="sk-stat" style="--i:3"><b data-k="rent">0</b><span><i class="dot" style="background:var(--sk-rent)"></i>Pieces rented</span></div>
+      <div class="sk-stat" style="--i:4"><b data-k="kg">0 t</b><span>Weight owned</span></div>
+      <div class="sk-stat sk-split" style="--i:5"><div class="sk-split-bar"><i class="yard"></i><i class="hire"></i><i class="rent"></i></div><div class="sk-split-legend"><span data-k="yardPct"></span><span data-k="hirePct"></span><span data-k="rentPct"></span></div></div>`;
   }
   const q = (k) => box.querySelector(`[data-k="${k}"]`);
   countTo(q('held'), items.filter(held).length, (v) => qty(v));
   countTo(q('yard'), yard, (v) => qty(v));
   countTo(q('hire'), hire, (v) => qty(v));
+  countTo(q('rent'), rent, (v) => qty(v));
   countTo(q('kg'), kg, (v) => tonnes(v));
-  const total = yard + hire || 1;
-  const yp = Math.round((yard / total) * 100);
-  box.querySelector('.sk-split-bar .yard').style.width = `${yard ? (yard / total) * 100 : 0}%`;
-  box.querySelector('.sk-split-bar .hire').style.width = `${hire ? (hire / total) * 100 : 0}%`;
-  q('yardPct').textContent = yard + hire ? `${yp}% in the yard` : 'Nothing recorded yet';
-  q('hirePct').textContent = yard + hire ? `${100 - yp}% on hire` : '';
+  const all = yard + hire + rent;
+  const pct = (v) => (all ? (v / all) * 100 : 0);
+  box.querySelector('.sk-split-bar .yard').style.width = `${pct(yard)}%`;
+  box.querySelector('.sk-split-bar .hire').style.width = `${pct(hire)}%`;
+  box.querySelector('.sk-split-bar .rent').style.width = `${pct(rent)}%`;
+  // A dot in each one's colour and its share (the cards say which is which).
+  const share = (v, c, what) => `<i class="dot" style="background:var(${c})"></i>${Math.round(pct(v))}%<span class="sr"> ${what}</span>`;
+  q('yardPct').innerHTML = all ? share(yard, '--sk-yard', 'in the yard') : 'Nothing recorded yet';
+  q('hirePct').innerHTML = all ? share(hire, '--sk-hire', 'on hire') : '';
+  q('rentPct').innerHTML = all && rent ? share(rent, '--sk-rent', 'rented') : '';
+  box.querySelector('.sk-split').title = all ? `${Math.round(pct(yard))}% in the yard, ${Math.round(pct(hire))}% on hire${rent ? `, ${Math.round(pct(rent))}% rented` : ''}` : '';
   const sites = new Set();
   for (const i of items) for (const h of i.onHireByProject) if (h.quantity > 0) sites.add(h.projectId);
   $('sk-n-hire').textContent = sites.size ? String(sites.size) : '';
+  $('sk-n-rented').textContent = companyHoldings().length || '';
+  const due = S.data.returns.filter((r) => r.due).length;
+  $('sk-n-returns').textContent = due || S.data.returns.length || '';
+  $('sk-n-returns').classList.toggle('due', !!due);
+}
+
+// Signed delivery notes whose day has come: a calm note above the tabs.
+function renderDue() {
+  const due = S.data.returns.filter((r) => r.due);
+  const box = $('sk-due');
+  box.classList.toggle('hidden', !due.length || S.tab === 'returns');
+  if (!due.length) return;
+  const names = due.slice(0, 3).map((r) => `<b>${esc(r.deliveryNoteNumber)}</b>`).join(', ') + (due.length > 3 ? ` and ${due.length - 3} more` : '');
+  box.innerHTML = `<span class="sk-due-ico">${svg(ICON.Delivery, 16)}</span>
+    <span>Are the items back from site? ${names} ${due.length === 1 ? 'is' : 'are'} due to be checked.</span>
+    <button type="button" data-no-icon id="sk-due-go">Check Now</button>`;
 }
 
 // ---------------------------------------------------------------- tabs
 
+const TABS = ['stock', 'returns', 'hire', 'rented', 'history'];
 function showTab(tab) {
   S.tab = tab;
   store.set('tab', tab);
   for (const b of document.querySelectorAll('#sk-tabs button')) b.classList.toggle('on', b.dataset.tab === tab);
-  for (const p of ['stock', 'hire', 'history']) $(`pane-${p}`).classList.toggle('hidden', p !== tab);
+  for (const p of TABS) $(`pane-${p}`).classList.toggle('hidden', p !== tab);
   moveInk();
+  if (S.data) renderDue();
   if (tab !== 'stock' && S.taking) endStocktake();
 }
 function moveInk() {
@@ -165,10 +210,11 @@ function shownItems() {
 }
 
 function bar(i) {
-  const yard = Math.max(0, i.inYard), hire = Math.max(0, i.onHire), all = yard + hire;
+  const yard = Math.max(0, i.inYard), hire = Math.max(0, i.onHire), rent = rentedOf(i), all = yard + hire + rent;
   if (!all) return '<div class="sk-mini-wrap"><div class="sk-mini"></div><small>—</small></div>';
-  return `<div class="sk-mini-wrap" title="${qty(yard)} in the yard, ${qty(hire)} on hire"><div class="sk-mini"><i class="yard" style="width:${(yard / all) * 100}%"></i><i class="hire" style="width:${(hire / all) * 100}%"></i></div>
-    <small>${Math.round((hire / all) * 100)}% on hire</small></div>`;
+  const out = Math.round(((hire + rent) / all) * 100);
+  return `<div class="sk-mini-wrap" title="${qty(yard)} in the yard, ${qty(hire)} on hire${rent ? `, ${qty(rent)} rented` : ''}"><div class="sk-mini"><i class="yard" style="width:${(yard / all) * 100}%"></i><i class="hire" style="width:${(hire / all) * 100}%"></i><i class="rent" style="width:${(rent / all) * 100}%"></i></div>
+    <small>${rent ? `${out}% out · ${Math.round((rent / all) * 100)}% rented` : `${out}% on hire`}</small></div>`;
 }
 
 function renderStock() {
@@ -184,15 +230,15 @@ function renderStock() {
   const cats = new Map();
   for (const i of items) { const c = catOf(i); if (!cats.has(c)) cats.set(c, []); cats.get(c).push(i); }
   const head = S.taking
-    ? '<div class="sk-row head"><span>Item</span><span class="num">In yard</span><span class="num">On hire</span><span class="num">Owned</span><span class="num">Counted</span><span class="num">Change</span></div>'
-    : '<div class="sk-row head"><span>Item</span><span class="num">In yard</span><span class="num">On hire</span><span class="num">Owned</span><span class="bar">Yard · Hire</span><span class="num">Weight owned</span></div>';
+    ? '<div class="sk-row head"><span>Item</span><span class="num">In yard</span><span class="num">On hire</span><span class="num">Rented</span><span class="num">Owned</span><span class="num">Counted</span><span class="num">Change</span></div>'
+    : '<div class="sk-row head"><span>Item</span><span class="num">In yard</span><span class="num">On hire</span><span class="num">Rented</span><span class="num">Owned</span><span class="bar">Yard · Out</span><span class="num">Weight owned</span></div>';
   let k = 0;
   box.innerHTML = [...cats].map(([cat, list], ci) => {
     const open = S.taking || !S.closedCats.has(cat) || !!$('sk-q').value.trim();
-    const yard = list.reduce((a, i) => a + i.inYard, 0), hire = list.reduce((a, i) => a + i.onHire, 0);
+    const yard = list.reduce((a, i) => a + i.inYard, 0), hire = list.reduce((a, i) => a + i.onHire, 0), rent = list.reduce((a, i) => a + rentedOf(i), 0);
     return `<section class="sk-cat${open ? ' open' : ''}" data-cat="${esc(cat)}" style="--i:${Math.min(ci, 12)}">
       <button type="button" class="sk-cat-head" data-no-icon aria-expanded="${open}"><span class="chev">${svg(ICON.chev, 14, 2)}</span><b>${esc(cat)}</b>
-        <span class="meta">${list.length} item${list.length === 1 ? '' : 's'} · ${qty(yard)} in the yard · ${qty(hire)} on hire</span></button>
+        <span class="meta">${list.length} item${list.length === 1 ? '' : 's'} · ${qty(yard)} in the yard · ${qty(hire)} on hire${rent ? ` · ${qty(rent)} rented` : ''}</span></button>
       <div class="sk-cat-body"><div>${head}${list.map((i) => rowHTML(i, k++)).join('')}</div></div></section>`;
   }).join('');
   if (S.taking) updateDock();
@@ -204,13 +250,13 @@ function rowHTML(i) {
   if (S.taking) {
     const c = S.counts.has(i.key) ? S.counts.get(i.key) : '';
     const diff = c === '' ? '' : n0(c) - n0(i.inYard);
-    return `<div class="sk-row" data-key="${esc(i.key)}">${name}${cell(i.inYard)}${cell(i.onHire)}${cell(i.owned)}
+    return `<div class="sk-row" data-key="${esc(i.key)}">${name}${cell(i.inYard)}${cell(i.onHire)}${cell(rentedOf(i))}${cell(i.owned)}
       <input type="number" class="sk-count${c !== '' ? ' changed' : ''}" min="0" step="1" value="${esc(c)}" placeholder="${qty(i.inYard)}" aria-label="Counted ${esc(i.itemName)}" />
       <span class="num sk-diff${diff === '' ? '' : diff > 0 ? ' up' : diff < 0 ? ' down' : ''}">${diff === '' ? '' : diff === 0 ? '✓' : signed(diff)}</span></div>`;
   }
   const open = S.open === i.key;
   return `<div class="sk-row${open ? ' expanded' : ''}" data-key="${esc(i.key)}" tabindex="0">${name}
-      ${cell(i.inYard, i.inYard < 0 ? ' title="More has gone out than was recorded in — a stocktake will put it right"' : '')}${cell(i.onHire)}${cell(i.owned)}
+      ${cell(i.inYard, i.inYard < 0 ? ' title="More has gone out than was recorded in — a stocktake will put it right"' : '')}${cell(i.onHire)}${cell(rentedOf(i))}${cell(i.owned)}
       <span class="bar">${bar(i)}</span>
       <span class="num zero">${i.weightKg ? `${(i.weightKg * i.owned).toLocaleString('en-US', { maximumFractionDigits: 1 })} kg` : '—'}</span></div>
     <div class="sk-detail${open ? ' open' : ''}"><div>${open ? detailHTML(i) : ''}</div></div>`;
@@ -218,13 +264,17 @@ function rowHTML(i) {
 
 function detailHTML(i) {
   const hire = i.onHireByProject.filter((h) => Math.abs(h.quantity) > 0.0001);
+  const rent = (i.rentedByCompany || []).filter((r) => r.quantity > 0.0001);
   const moves = S.data.movements.filter((m) => m.movement.itemKey === i.key).slice(0, 8);
   return `<div class="sk-detail-in">
-    <div><h4>On hire</h4>${hire.length ? hire.map((h) => `<div class="line"><span><a href="project-detail.html?number=${encodeURIComponent(h.projectNumber)}">${esc(h.projectNumber)}</a> <span class="muted">${esc(h.projectName)}</span></span><b>${qty(h.quantity)}</b></div>`).join('') : '<p class="muted">Nothing out on hire.</p>'}</div>
+    <div><h4>On hire</h4>${hire.length ? hire.map((h) => `<div class="line"><span><a href="project-detail.html?number=${encodeURIComponent(h.projectNumber)}">${esc(h.projectNumber)}</a> <span class="muted">${esc(h.projectName)}</span></span><b>${qty(h.quantity)}</b></div>`).join('') : '<p class="muted">Nothing out on hire.</p>'}
+      ${rent.length ? `<h4>Rented by</h4>${rent.map((r) => `<div class="line"><span>${esc(r.company)}</span><b class="rent">${qty(r.quantity)}</b></div>`).join('')}` : ''}</div>
     <div><h4>Recent</h4>${moves.length ? moves.map((m) => `<div class="line"><span><span class="muted">${esc(day(m.movement.date))}</span> · ${esc(KIND[m.movement.kind] ? KIND[m.movement.kind].label : m.movement.kind)}${m.projectNumber ? ` · ${esc(m.projectNumber)}` : ''}${m.movement.reference ? ` <span class="muted">${esc(m.movement.reference)}</span>` : ''}</span><span class="${m.movement.quantity > 0 ? 'in' : 'out'}">${signed(m.movement.quantity)}</span></div>`).join('') : '<p class="muted">No movements yet.</p>'}</div>
     <div class="sk-quick">
       <button type="button" data-q="Purchase" data-no-icon>Receive…</button>
       <button type="button" data-q="Return" data-no-icon${hire.length ? '' : ' disabled title="Nothing on hire"'}>Return…</button>
+      <button type="button" data-q="RentOut" data-no-icon>Rent Out…</button>
+      ${rent.length ? '<button type="button" data-q="RentBack" data-no-icon>Rent Back…</button>' : ''}
       <button type="button" data-q="Count" data-no-icon>Count…</button>
       <button type="button" data-q="WriteOff" data-no-icon>Write Off…</button>
     </div></div>`;
@@ -307,7 +357,7 @@ function renderHire() {
   }).filter((s) => s.list.length);
   const box = $('sk-hire');
   if (!sites.length) {
-    box.innerHTML = `<div class="sk-empty">${svg(ICON.site, 34, 1.4)}<h3>${q ? 'Nothing matches' : 'Nothing is out on hire'}</h3><p>Materials appear here, by site, once their delivery notes are issued.</p></div>`;
+    box.innerHTML = `<div class="sk-empty">${svg(ICON.site, 34, 1.4)}<h3>${q ? 'Nothing matches' : 'Nothing is out on hire'}</h3><p>Materials appear here, by site, once their delivery notes’ signed copies are uploaded.</p></div>`;
     return;
   }
   box.innerHTML = sites.map((s, si) => {
@@ -325,6 +375,103 @@ function renderHire() {
   }).join('');
 }
 
+// ---------------------------------------------------------------- returns
+
+function renderReturns() {
+  const box = $('sk-returns');
+  const list = S.data.returns;
+  if (!list.length) {
+    box.innerHTML = `<div class="sk-empty">${svg(ICON.check, 34, 1.6)}<h3>Nothing to check</h3><p>Every signed delivery note’s items are back. When a signed copy is uploaded, its items show here until they’re returned.</p></div>`;
+    return;
+  }
+  const now = today();
+  box.innerHTML = list.map((r, i) => {
+    const pct = r.delivered ? Math.round((r.returned / r.delivered) * 100) : 0;
+    const state = r.returned > 0.0001 ? `<span class="sk-state part">Part returned</span>` : '<span class="sk-state out">On site</span>';
+    const out = r.lines.filter((l) => l.outstanding > 0.0001);
+    const where = [r.projectNumber && `${r.projectNumber} ${r.projectName}`, r.siteName, r.clientName].filter(Boolean).map(esc).join(' · ');
+    const ask = r.due
+      ? `<span class="sk-ask due">${r.checkDate < now ? `Asked since ${esc(day(r.checkDate))} — are they back?` : 'Today — are they back?'}</span>`
+      : '<span class="sk-ask">We’ll ask on</span>';
+    return `<article class="sk-ret${r.due ? ' due' : ''}${S.flashDN === r.deliveryNoteId ? ' flash' : ''}" data-dn="${esc(r.deliveryNoteId)}" style="--i:${Math.min(i, 12)}">
+      <div class="sk-ret-head"><span class="sk-ret-ico">${svg(ICON.Delivery, 18)}</span>
+        <div class="who"><div><a href="delivery-note-editor.html?id=${encodeURIComponent(r.deliveryNoteId)}">${esc(r.deliveryNoteNumber)}</a>${state}</div><small>${where}</small></div>
+        <div class="meta"><b>${qty(r.outstanding)} pcs out</b><small>Delivered ${esc(day(r.deliveryDate))}</small></div></div>
+      <div class="sk-ret-prog" title="${qty(r.returned)} of ${qty(r.delivered)} back"><div class="sk-mini"><i class="yard" style="width:${pct}%"></i></div><small>${qty(r.returned)} of ${qty(r.delivered)} back</small></div>
+      <div class="sk-chipset">${out.map((l) => `<span class="sk-chip" title="${esc(l.itemCode)}${l.returned ? ` · ${qty(l.returned)} of ${qty(l.delivered)} back` : ''}">${esc(l.itemName)} <b>${qty(l.outstanding)}</b></span>`).join('')}</div>
+      <div class="sk-ret-foot">${ask}${r.due ? '' : `<input type="date" class="sk-ret-date" value="${esc(r.checkDate)}" aria-label="Ask on" />`}
+        <span class="sk-spacer"></span>
+        <button type="button" data-ret="later" data-no-icon title="Ask again in two weeks">Not Yet</button>
+        <button type="button" data-ret="part" data-no-icon title="Type what came back; the rest stays on site">Part Returned…</button>
+        <button type="button" class="primary" data-ret="all" data-no-icon title="Everything still out on ${esc(r.deliveryNoteNumber)} is back in the yard">All Returned</button></div>
+    </article>`;
+  }).join('');
+  if (S.flashDN) {
+    const card = box.querySelector(`.sk-ret[data-dn="${CSS.escape(S.flashDN)}"]`);
+    if (card) requestAnimationFrame(() => card.scrollIntoView({ block: 'center' }));
+    S.flashDN = null;
+  }
+}
+
+const plusDays = (ymd, n) => { const d = new Date(`${ymd}T00:00:00`); d.setDate(d.getDate() + n); const p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+
+async function answerReturn(r, how) {
+  if (how === 'later') {
+    const next = plusDays(today(), 14);
+    const res = await window.api.stock.returnCheck(r.deliveryNoteId, next);
+    if (res && !res.ok) { await window.appAlert(res.error); return; }
+    toast(`We’ll ask about ${r.deliveryNoteNumber} again on ${day(next)}`);
+    await load();
+  } else if (how === 'part') {
+    openRec('Return', { returnFor: r });
+  } else if (how === 'all') {
+    if (!await window.appConfirm(`Record everything still out on ${r.deliveryNoteNumber} (${qty(r.outstanding)} pcs) as back in the yard today?`, { ok: 'All Returned' })) return;
+    const lines = r.lines.filter((l) => l.outstanding > 0.0001).map((l) => ({ priceListItemId: l.priceListItemId, itemCode: l.itemCode, itemDescription: l.itemName, unit: l.unit, quantity: n0(l.outstanding) }));
+    const res = await window.api.stock.addMovements({ kind: 'Return', date: today(), reference: r.deliveryNoteNumber, deliveryNoteId: r.deliveryNoteId, projectId: r.projectId, lines });
+    if (!res || !res.ok) { await window.appAlert((res && res.error) || 'It couldn’t be saved.'); return; }
+    toast(`${r.deliveryNoteNumber}: all ${qty(r.outstanding)} pcs back in the yard`);
+    await load();
+  }
+}
+
+// ---------------------------------------------------------------- rented, by company
+
+function companyHoldings() {
+  const by = new Map();
+  for (const item of S.data.items) {
+    for (const r of item.rentedByCompany || []) {
+      if (r.quantity <= 0.0001) continue;
+      const k = r.company.toLowerCase();
+      if (!by.has(k)) by.set(k, { company: r.company, rows: [] });
+      by.get(k).rows.push({ item, quantity: r.quantity });
+    }
+  }
+  return [...by.values()].sort((a, b) => a.company.localeCompare(b.company));
+}
+
+function renderRented() {
+  const q = $('sk-rent-q').value.trim().toLowerCase();
+  const list = companyHoldings().map((c) => Object.assign({}, c, {
+    rows: c.rows.filter((r) => !q || `${c.company} ${r.item.itemCode} ${r.item.itemName}`.toLowerCase().includes(q)),
+  })).filter((c) => c.rows.length);
+  const box = $('sk-rented');
+  if (!list.length) {
+    box.innerHTML = `<div class="sk-empty">${svg(ICON.company, 34, 1.4)}<h3>${q ? 'Nothing matches' : 'Nothing is rented out'}</h3><p>Materials rented by other companies show here, by company. Use <b>Rent Out…</b> to record them.</p></div>`;
+    return;
+  }
+  box.innerHTML = list.map((c, ci) => {
+    const pcs = c.rows.reduce((a, r) => a + r.quantity, 0);
+    const kg = c.rows.reduce((a, r) => a + (r.item.weightKg || 0) * r.quantity, 0);
+    return `<section class="sk-site rent" style="--i:${Math.min(ci, 12)}">
+      <div class="sk-site-head"><span class="sk-site-ico">${svg(ICON.company, 18)}</span><div><b>${esc(c.company)}</b><small>${c.rows.length} item${c.rows.length === 1 ? '' : 's'} rented</small></div>
+        <div class="meta"><b>${qty(pcs)} pcs</b>${kg ? tonnes(kg) : ''}</div>
+        <button type="button" data-rentback="${esc(c.company)}" data-no-icon title="Record items back from ${esc(c.company)} — everything they rent filled in">Back…</button></div>
+      <div class="sk-site-proj"><div class="sk-chipset">${c.rows.sort((a, b) => String(a.item.itemCode).localeCompare(String(b.item.itemCode), undefined, { numeric: true }))
+        .map((r) => `<span class="sk-chip" title="${esc(r.item.itemCode)}">${esc(r.item.itemName)} <b>${qty(r.quantity)}</b></span>`).join('')}</div></div>
+    </section>`;
+  }).join('');
+}
+
 // ---------------------------------------------------------------- history
 
 function batches() {
@@ -332,17 +479,17 @@ function batches() {
   for (const m of S.data.movements) {
     const mv = m.movement;
     const key = mv.batchId || (mv.deliveryNoteId ? `dn:${mv.deliveryNoteId}:${mv.kind}` : `one:${mv.id}`);
-    if (!groups.has(key)) groups.set(key, { key, kind: mv.kind, date: mv.date, reference: mv.reference, notes: mv.notes, projectNumber: m.projectNumber, automatic: m.automatic, batchId: mv.batchId, lines: [] });
+    if (!groups.has(key)) groups.set(key, { key, kind: mv.kind, date: mv.date, reference: mv.reference, notes: mv.notes, projectNumber: m.projectNumber, company: mv.company, automatic: m.automatic, batchId: mv.batchId, lines: [] });
     groups.get(key).lines.push(m);
   }
   return [...groups.values()];
 }
 
 function renderHistory() {
-  const kinds = [['', 'All'], ['Purchase', 'Received'], ['Return', 'Returned'], ['Adjustment', 'Counts'], ['WriteOff', 'Written off'], ['Delivery', 'Delivered']];
+  const kinds = [['', 'All'], ['Purchase', 'Received'], ['Return', 'Returned'], ['RentOut', 'Rented'], ['Adjustment', 'Counts'], ['WriteOff', 'Written off'], ['Delivery', 'Delivered']];
   $('sk-kinds').innerHTML = kinds.map(([k, l]) => `<button type="button" data-kind="${k}" class="${S.histKind === k ? 'on' : ''}" data-no-icon>${l}</button>`).join('');
   const q = $('sk-hist-q').value.trim().toLowerCase();
-  const list = batches().filter((b) => (!S.histKind || b.kind === S.histKind || (S.histKind === 'Purchase' && b.kind === 'Opening') || (S.histKind === 'Delivery' && b.kind === 'Sale'))
+  const list = batches().filter((b) => (!S.histKind || b.kind === S.histKind || (S.histKind === 'Purchase' && b.kind === 'Opening') || (S.histKind === 'Delivery' && b.kind === 'Sale') || (S.histKind === 'RentOut' && b.kind === 'RentBack'))
     && (!q || `${b.reference || ''} ${b.projectNumber || ''} ${b.notes || ''} ${b.lines.map((l) => `${l.movement.itemCode} ${l.movement.itemDescription}`).join(' ')}`.toLowerCase().includes(q)));
   const box = $('sk-history');
   if (!list.length) {
@@ -357,13 +504,13 @@ function renderHistory() {
     const open = S.openBatches.has(b.key);
     const head = b.date !== lastDay ? `<div class="sk-day">${esc(day(b.date))}</div>` : '';
     lastDay = b.date;
-    const sub = [b.projectNumber, b.reference, b.notes].filter(Boolean).map(esc).join(' · ');
+    const sub = [b.projectNumber, b.company, b.reference, b.notes].filter(Boolean).map(esc).join(' · ');
     return `${head}<article class="sk-batch${open ? ' open' : ''}" data-key="${esc(b.key)}" style="--i:${Math.min(i++, 14)}">
       <button type="button" class="sk-batch-head" data-no-icon aria-expanded="${open}"><span class="sk-k k-${esc(b.kind)}">${svg(ICON[b.kind] || ICON.box, 16)}</span>
         <span class="what"><b>${esc(k.verb || k.label)} · ${b.lines.length} item${b.lines.length === 1 ? '' : 's'}</b><small>${sub || (b.automatic ? 'From a delivery note' : '&nbsp;')}</small></span>
         <span class="tot ${total > 0 ? 'in' : total < 0 ? 'out' : ''}">${signed(total)}</span></button>
       <div class="sk-batch-body"><div><div class="sk-batch-lines">${b.lines.map((l) => `<div class="line"><span>${esc(l.movement.itemDescription)} <span class="muted">${esc(l.movement.itemCode)}</span></span><b class="${l.movement.quantity > 0 ? 'in' : 'out'}">${signed(l.movement.quantity)}</b></div>`).join('')}
-        ${b.automatic ? '<p class="muted" style="margin:8px 0 0;font-size:12px">Booked by its delivery note — cancel or reopen the delivery note to change it.</p>' : `<div class="acts"><button type="button" class="danger-btn" data-remove="${esc(b.key)}" data-no-icon>Remove</button></div>`}
+        ${b.automatic ? '<p class="muted" style="margin:8px 0 0;font-size:12px">Booked by its signed delivery note — remove the signed copy, or cancel or reopen the delivery note, to change it.</p>' : `<div class="acts"><button type="button" class="danger-btn" data-remove="${esc(b.key)}" data-no-icon>Remove</button></div>`}
       </div></div></div></article>`;
   }).join('');
 }
@@ -373,21 +520,30 @@ function renderHistory() {
 const REC = {
   Purchase: { title: 'Receive Stock', hint: 'Bought or delivered into the yard: adds to what’s in the yard.', qty: 'Received', now: 'In yard' },
   Return: { title: 'Return from a Project', hint: 'Back from site: into the yard, and off hire for the project.', qty: 'Returned', now: 'On hire' },
+  RentOut: { title: 'Rent Out', hint: 'Rented by another company: out of the yard, and under Rented until they come back.', qty: 'Rented out', now: 'In yard' },
+  RentBack: { title: 'Back from Rent', hint: 'Back from the company renting them: into the yard, off their rental.', qty: 'Back', now: 'Rented' },
   Count: { title: 'Stock Count', hint: 'What you counted in the yard. Only the differences from the recorded figures are saved.', qty: 'Counted', now: 'In yard' },
   WriteOff: { title: 'Write Off', hint: 'Lost, scrapped or damaged: taken off what’s in the yard.', qty: 'Written off', now: 'In yard' },
 };
-const R = { kind: 'Purchase', lines: [], sel: -1, matches: [] };
+const KCOL = { Purchase: '#3f938b', Return: '#5374b8', RentOut: RENT, RentBack: RENT, Count: '#8a6cb0', WriteOff: '#c5221f' };
+// `note`: the signed delivery note a return answers (Stock › Returns).
+const R = { kind: 'Purchase', lines: [], sel: -1, matches: [], note: null };
+const renting = () => R.kind === 'RentOut' || R.kind === 'RentBack';
 
 function openRec(kind, opts = {}) {
   R.lines = [];
+  R.note = opts.returnFor || null;
   $('rec-date').value = today();
-  $('rec-ref').value = '';
+  $('rec-ref').value = R.note ? R.note.deliveryNoteNumber : '';
   $('rec-notes').value = '';
+  $('rec-company').value = opts.company || '';
   $('rec-error').classList.add('hidden');
   $('rec').classList.remove('hidden');
   setKind(kind || 'Purchase', true);
   if (opts.select) $('rec-project').value = opts.select;
   if (opts.projectId) { $('rec-project').value = opts.projectId; fillFromProject(); }
+  if (R.note) { $('rec-project').value = R.note.projectId; fillFromNote(); }
+  if (opts.fillCompany) fillFromCompany();
   for (const it of opts.items || []) addLine(it.item, false, it.quantity === undefined ? '' : it.quantity);
   renderLines();
   requestAnimationFrame(() => {
@@ -396,17 +552,24 @@ function openRec(kind, opts = {}) {
     (opts.items && opts.items.length && first ? first : $('rec-find')).focus();
   });
 }
-function closeRec() { $('rec').classList.add('hidden'); hideSuggest(); }
+function closeRec() { $('rec').classList.add('hidden'); hideSuggest(); R.note = null; }
 
 function setKind(kind, quiet) {
   R.kind = kind;
+  if (kind !== 'Return') R.note = null;
   const r = REC[kind];
-  $('rec-title').textContent = r.title;
-  $('rec-hint').textContent = r.hint;
+  $('rec-title').textContent = R.note ? `Back from Site — ${R.note.deliveryNoteNumber}` : r.title;
+  $('rec-hint').textContent = R.note
+    ? 'Change the quantities to what came back. Whatever isn’t returned stays on site, and we ask about it again in two weeks.'
+    : r.hint;
   $('rec-qty-head').textContent = r.qty;
-  $('rec-now-head').textContent = r.now;
+  $('rec-ref').placeholder = renting() ? 'Rental agreement, delivery note…' : 'Supplier invoice, return note…';
+  $('rec-now-head').textContent = R.note ? 'Still out' : r.now;
+  $('rec-project').disabled = !!R.note;
   document.querySelector('.sk-rec').classList.toggle('count', kind === 'Count');
   document.querySelector('.sk-rec-fields').classList.toggle('return', kind === 'Return');
+  document.querySelector('.sk-rec-fields').classList.toggle('rent', renting());
+  if (renting()) $('rec-companies').innerHTML = [...new Set([...companyHoldings().map((c) => c.company), ...(S.data.companies || [])])].map((c) => `<option value="${esc(c)}"></option>`).join('');
   for (const b of document.querySelectorAll('#rec-kind button')) { b.classList.toggle('on', b.dataset.kind === kind); b.setAttribute('aria-checked', b.dataset.kind === kind); }
   if (kind === 'Return') fillProjects();
   renderFill();
@@ -418,7 +581,7 @@ function moveSeg() {
   if (!on || !ink) return;
   ink.style.left = `${on.offsetLeft}px`;
   ink.style.width = `${on.offsetWidth}px`;
-  ink.style.backgroundColor = { Purchase: '#3f938b', Return: '#5374b8', Count: '#8a6cb0', WriteOff: '#c5221f' }[R.kind];
+  ink.style.backgroundColor = KCOL[R.kind];
 }
 
 // Projects with something on hire first, with how much.
@@ -439,9 +602,13 @@ function fillProjects() {
 function renderFill() {
   const box = $('rec-fill');
   const cats = [...new Set(S.data.items.map(catOf))];
-  if (R.kind === 'Return') {
+  if (R.kind === 'Return' && R.note) {
+    box.innerHTML = `<span>Quick fill:</span><button type="button" id="fill-note" data-no-icon>Everything still out on ${esc(R.note.deliveryNoteNumber)}</button>`;
+  } else if (R.kind === 'Return') {
     box.innerHTML = '<span>Quick fill:</span><button type="button" id="fill-hire" data-no-icon>Everything on hire to this project</button>';
-  } else if (R.kind === 'Count' || R.kind === 'Purchase') {
+  } else if (R.kind === 'RentBack') {
+    box.innerHTML = '<span>Quick fill:</span><button type="button" id="fill-company" data-no-icon>Everything this company rents</button>';
+  } else if (R.kind === 'Count' || R.kind === 'Purchase' || R.kind === 'RentOut') {
     box.innerHTML = `<span>Quick fill:</span><select id="fill-cat" aria-label="Category">${cats.map((c) => `<option>${esc(c)}</option>`).join('')}</select><button type="button" id="fill-cat-btn" data-no-icon>Add the whole category</button>
       ${R.kind === 'Count' ? '<button type="button" id="fill-held" data-no-icon>Every item we hold</button>' : ''}`;
   } else box.innerHTML = '';
@@ -453,7 +620,30 @@ function fillFromProject() {
   renderLines();
 }
 
+// A signed delivery note's items still out, at those quantities.
+function fillFromNote() {
+  for (const l of R.note.lines) {
+    if (l.outstanding <= 0.0001) continue;
+    const item = S.byKey.get(l.itemKey) || { key: l.itemKey, priceListItemId: l.priceListItemId, itemCode: l.itemCode, itemName: l.itemName, unit: l.unit, inYard: 0, onHireByProject: [], rentedByCompany: [] };
+    addLine(item, false, l.outstanding);
+  }
+  renderLines();
+}
+const rentedBy = (item, company) => { const c = company.trim().toLowerCase(); const r = (item.rentedByCompany || []).find((x) => x.company.toLowerCase() === c); return r ? r.quantity : 0; };
+function fillFromCompany() {
+  const c = $('rec-company').value.trim();
+  const rows = c ? S.data.items.filter((i) => rentedBy(i, c) > 0) : [];
+  if (!rows.length) { toast(c ? 'Nothing is rented by that company' : 'Enter the company first'); return; }
+  for (const i of rows) addLine(i, false, rentedBy(i, c));
+  renderLines();
+}
+
 function nowFor(item) {
+  if (R.kind === 'Return' && R.note) {
+    const l = R.note.lines.find((x) => x.itemKey === item.key);
+    return l ? l.outstanding : 0;
+  }
+  if (R.kind === 'RentBack') return rentedBy(item, $('rec-company').value);
   if (R.kind === 'Return') {
     const h = item.onHireByProject.find((x) => x.projectId === $('rec-project').value);
     return h ? h.quantity : 0;
@@ -569,10 +759,19 @@ function pasteRows(text) {
 async function saveRec() {
   const lines = R.lines.filter((l) => l.qty !== '').map((l) => lineOf(l.item, n0(l.qty)));
   if (!lines.length) return;
+  if (renting() && !$('rec-company').value.trim()) {
+    const err = $('rec-error');
+    err.textContent = 'Enter the company renting them.';
+    err.classList.remove('hidden');
+    $('rec-company').focus();
+    return;
+  }
   $('rec-save').disabled = true;
   const r = await window.api.stock.addMovements({
     kind: R.kind, date: $('rec-date').value, reference: $('rec-ref').value, notes: $('rec-notes').value,
     projectId: R.kind === 'Return' ? $('rec-project').value : null, lines,
+    deliveryNoteId: R.kind === 'Return' && R.note ? R.note.deliveryNoteId : null,
+    company: renting() ? $('rec-company').value.trim() : null,
   });
   if (!r || !r.ok) {
     const err = $('rec-error');
@@ -582,7 +781,7 @@ async function saveRec() {
     return;
   }
   closeRec();
-  const verb = { Purchase: 'received', Return: 'returned', Count: 'counted', WriteOff: 'written off' }[R.kind];
+  const verb = { Purchase: 'received', Return: 'returned', RentOut: 'rented out', RentBack: 'back from rent', Count: 'counted', WriteOff: 'written off' }[R.kind];
   toast(`${r.saved} item${r.saved === 1 ? '' : 's'} ${verb}${r.skipped && r.skipped.length ? ` · ${r.skipped.length} unchanged` : ''}`);
   await load();
 }
@@ -600,15 +799,28 @@ async function exportShown() {
       rows.push([s.name, s.address, p.project.projectNumber, p.project.clientName || '', r.item.itemCode, r.item.itemName, r.item.unit, n0(r.quantity), r.item.weightKg ? (r.item.weightKg * r.quantity).toFixed(1) : '']);
     }
     name = `Stock on Hire ${today()}.xlsx`;
+  } else if (S.tab === 'rented') {
+    rows = [['Company', 'Code', 'Item', 'Unit', 'Qty Rented', 'Weight (kg)']];
+    for (const c of companyHoldings()) for (const r of c.rows) {
+      rows.push([c.company, r.item.itemCode, r.item.itemName, r.item.unit, n0(r.quantity), r.item.weightKg ? (r.item.weightKg * r.quantity).toFixed(1) : '']);
+    }
+    name = `Stock Rented ${today()}.xlsx`;
+  } else if (S.tab === 'returns') {
+    rows = [['Delivery Note', 'Project', 'Site', 'Delivered', 'Ask On', 'Code', 'Item', 'Unit', 'Delivered Qty', 'Back', 'Still Out']];
+    for (const r of S.data.returns) for (const l of r.lines) {
+      rows.push([r.deliveryNoteNumber, `${r.projectNumber} ${r.projectName}`.trim(), r.siteName || '', r.deliveryDate, r.checkDate, l.itemCode, l.itemName, l.unit, n0(l.delivered), n0(l.returned), n0(l.outstanding)]);
+    }
+    name = `Stock Returns ${today()}.xlsx`;
   } else if (S.tab === 'history') {
-    rows = [['Date', 'Movement', 'Code', 'Item', 'Unit', 'Quantity', 'Project', 'Reference', 'Notes']]
+    rows = [['Date', 'Movement', 'Code', 'Item', 'Unit', 'Quantity', 'Project', 'Company', 'Reference', 'Notes']]
       .concat(S.data.movements.map((m) => [m.movement.date, KIND[m.movement.kind] ? KIND[m.movement.kind].label : m.movement.kind, m.movement.itemCode,
-        m.movement.itemDescription, m.movement.unit, n0(m.movement.quantity), m.projectNumber || '', m.movement.reference || '', m.movement.notes || '']));
+        m.movement.itemDescription, m.movement.unit, n0(m.movement.quantity), m.projectNumber || '', m.movement.company || '', m.movement.reference || '', m.movement.notes || '']));
     name = `Stock History ${today()}.xlsx`;
   } else {
-    rows = [['Category', 'Code', 'Item', 'Unit', 'In Yard', 'On Hire', 'Owned', 'Weight Owned (kg)', 'On hire by project']]
-      .concat(shownItems().map((i) => [catOf(i), i.itemCode, i.itemName, i.unit, n0(i.inYard), n0(i.onHire), n0(i.owned),
-        i.weightKg ? (i.weightKg * i.owned).toFixed(1) : '', i.onHireByProject.map((p) => `${p.projectNumber}: ${n0(p.quantity)}`).join('; ')]));
+    rows = [['Category', 'Code', 'Item', 'Unit', 'In Yard', 'On Hire', 'Rented', 'Owned', 'Weight Owned (kg)', 'On hire by project', 'Rented by']]
+      .concat(shownItems().map((i) => [catOf(i), i.itemCode, i.itemName, i.unit, n0(i.inYard), n0(i.onHire), n0(rentedOf(i)), n0(i.owned),
+        i.weightKg ? (i.weightKg * i.owned).toFixed(1) : '', i.onHireByProject.map((p) => `${p.projectNumber}: ${n0(p.quantity)}`).join('; '),
+        (i.rentedByCompany || []).map((r) => `${r.company}: ${n0(r.quantity)}`).join('; ')]));
     name = `Stock List ${today()}.xlsx`;
   }
   const r = await window.api.accounts.saveCSV(name, rows.map(csvLine).join('\r\n'));
@@ -624,7 +836,7 @@ function wire() {
   // Record Stock menu
   const menu = $('sk-record-menu');
   menu.innerHTML = Object.entries(REC).map(([k, r]) => `<button type="button" role="menuitem" data-kind="${k}" data-no-icon>
-    <span class="k-ico" style="background:${{ Purchase: '#3f938b', Return: '#5374b8', Count: '#8a6cb0', WriteOff: '#c5221f' }[k]}">${svg(ICON[k], 16)}</span>
+    <span class="k-ico" style="background:${KCOL[k]}">${svg(ICON[k], 16)}</span>
     <span><b>${esc(r.title)}</b><small>${esc(r.hint.split(':')[0])}</small></span></button>`).join('');
   const hideMenu = () => { menu.hidden = true; $('sk-record').setAttribute('aria-expanded', 'false'); };
   $('sk-record').addEventListener('click', (e) => {
@@ -675,10 +887,14 @@ function wire() {
     const quick = e.target.closest('button[data-q]');
     if (quick) {
       const item = S.byKey.get(S.open);
+      const k = quick.dataset.q;
       const hire = item.onHireByProject.filter((h) => h.quantity > 0);
-      // A return: from the (first) project it's on hire to, with that quantity.
-      const qtyNow = quick.dataset.q === 'Return' && hire.length ? hire[0].quantity : '';
-      openRec(quick.dataset.q, { items: [{ item, quantity: qtyNow }], select: quick.dataset.q === 'Return' && hire.length ? hire[0].projectId : null });
+      const rent = (item.rentedByCompany || []).filter((r) => r.quantity > 0);
+      // A return: from the (first) project it's on hire to, with that
+      // quantity; back from rent: from the (first) company renting it.
+      const qtyNow = k === 'Return' && hire.length ? hire[0].quantity : k === 'RentBack' && rent.length ? rent[0].quantity : '';
+      openRec(k, { items: [{ item, quantity: qtyNow }], select: k === 'Return' && hire.length ? hire[0].projectId : null,
+        company: k === 'RentBack' && rent.length ? rent[0].company : null });
       return;
     }
     if (S.taking || e.target.closest('a, input')) return;
@@ -725,6 +941,28 @@ function wire() {
   $('sk-hire-q').addEventListener('input', renderHire);
   $('sk-hire').addEventListener('click', (e) => { const b = e.target.closest('button[data-return]'); if (b) openRec('Return', { projectId: b.dataset.return }); });
 
+  // Returns: are a signed delivery note's items back?
+  $('sk-due').addEventListener('click', (e) => { if (e.target.closest('#sk-due-go')) showTab('returns'); });
+  $('sk-returns').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-ret]');
+    if (!b) return;
+    const r = S.data.returns.find((x) => x.deliveryNoteId === b.closest('.sk-ret').dataset.dn);
+    if (r) answerReturn(r, b.dataset.ret);
+  });
+  $('sk-returns').addEventListener('change', async (e) => {
+    if (!e.target.classList.contains('sk-ret-date') || !e.target.value) return;
+    const dn = e.target.closest('.sk-ret').dataset.dn;
+    const res = await window.api.stock.returnCheck(dn, e.target.value);
+    if (res && !res.ok) { await window.appAlert(res.error); return; }
+    toast(`We’ll ask on ${day(e.target.value)}`);
+    await load();
+  });
+
+  // Rented
+  $('sk-rent-q').addEventListener('input', renderRented);
+  $('sk-rent-new').addEventListener('click', () => openRec('RentOut'));
+  $('sk-rented').addEventListener('click', (e) => { const b = e.target.closest('button[data-rentback]'); if (b) openRec('RentBack', { company: b.dataset.rentback, fillCompany: true }); });
+
   // History
   $('sk-hist-q').addEventListener('input', renderHistory);
   $('sk-kinds').addEventListener('click', (e) => { const b = e.target.closest('button[data-kind]'); if (b) { S.histKind = b.dataset.kind; renderHistory(); } });
@@ -758,8 +996,11 @@ function wire() {
     document.querySelector(`#rec-kind button[data-kind="${next}"]`).focus();
   });
   $('rec-project').addEventListener('change', renderLines);
+  $('rec-company').addEventListener('input', renderLines);
   $('rec-fill').addEventListener('click', (e) => {
     if (e.target.id === 'fill-hire') fillFromProject();
+    if (e.target.id === 'fill-note') fillFromNote();
+    if (e.target.id === 'fill-company') fillFromCompany();
     if (e.target.id === 'fill-cat-btn') { const c = $('fill-cat').value; for (const i of S.data.items.filter((x) => catOf(x) === c)) addLine(i, false); renderLines(); }
     if (e.target.id === 'fill-held') { for (const i of S.data.items.filter(held)) addLine(i, false); renderLines(); }
   });
@@ -840,7 +1081,7 @@ function wire() {
   document.addEventListener('keydown', (e) => {
     if (!$('rec').classList.contains('hidden') || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openRec('Purchase'); }
-    if (e.key === '/') { e.preventDefault(); const q = { stock: 'sk-q', hire: 'sk-hire-q', history: 'sk-hist-q' }[S.tab]; $(q).focus(); }
+    if (e.key === '/') { const q = { stock: 'sk-q', hire: 'sk-hire-q', rented: 'sk-rent-q', history: 'sk-hist-q' }[S.tab]; if (q) { e.preventDefault(); $(q).focus(); } }
   });
 }
 
@@ -848,7 +1089,11 @@ async function init() {
   S.closedCats = new Set(store.get('closed', []));
   $('sk-held').checked = store.get('held', true);
   wire();
-  showTab(['stock', 'hire', 'history'].includes(store.get('tab', 'stock')) ? store.get('tab', 'stock') : 'stock');
+  // ?tab=returns&dn=… (from the calendar or a delivery note): that card.
+  const params = new URLSearchParams(location.search);
+  S.flashDN = params.get('dn');
+  const asked = params.get('tab') || store.get('tab', 'stock');
+  showTab(TABS.includes(asked) ? asked : 'stock');
   await load();
   moveInk();
 }
