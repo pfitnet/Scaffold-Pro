@@ -2415,9 +2415,40 @@ th:hover .mp-prov-tools { opacity: 1; }
 .pj-table td.pj-num .job-tag { margin: 7px 0 0; font: 600 10.5px/17px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; letter-spacing: .02em; }
 .pj-top .job-tag { margin-left: 10px; margin-right: auto; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; letter-spacing: .02em; }
 
-/* A crane job's quotation: the material list steps aside for "+ Add an item". */
-body.crane-job:not(.crane-materials) .am-head, body.crane-job:not(.crane-materials) #picker-results { display: none; }
-.crane-note { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; margin-bottom: 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.45;
-  background: color-mix(in srgb, #c98a14 9%, var(--panel)); border: 1px solid color-mix(in srgb, #c98a14 28%, var(--border)); color: var(--text-secondary); }
-.crane-note b { color: #a06d0c; font-size: 13px; }
-.crane-note .link-btn { align-self: flex-start; }
+/* A crane job's quotation: one column — items first, the item card always
+   open under them, drawings after; no material list or BOQ import. */
+body.crane-job .boq-grid { grid-template-columns: minmax(0, 1fr); }
+body.crane-job .boq-grid > div:first-child { order: 2; }
+body.crane-job .am-head, body.crane-job #picker-results, body.crane-job .boq-reference { display: none !important; }
+body.crane-job #custom-item-box > summary { display: none; }
+body.crane-job #custom-item-box .ci-card { margin-top: 12px; }
+body.crane-job .lines-head h2::after { content: ' — written out, as on the letter'; font-weight: 400; font-size: 12px; color: var(--text-tertiary); }
+/* A crane job's project page: no BOQs. */
+body.crane-job #tabs [data-tab="boq"], body.crane-job .pd-stat[data-tab="boq"], body.crane-job .qa-tile[data-action="new-boq"] { display: none !important; }
+
+/* "+ Add a custom item" / "+ Add an item": one card. */
+.ci-card { margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 10px; }
+.ci-editor { border: 1px solid var(--border); border-radius: 10px; background: var(--content, var(--bg)); overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.ci-editor:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring, color-mix(in srgb, var(--accent) 20%, transparent)); }
+.ci-editor .pf-strip { display: flex; align-items: center; gap: 4px; margin: 0; padding: 6px 8px; border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--text) 3%, transparent); flex-wrap: nowrap; }
+/* Toolbar buttons as in Google Docs: an icon in a square, its name on hover. */
+.ci-editor .pf-strip button { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; min-width: 0; padding: 0; border: none; background: none; box-shadow: none; border-radius: 8px; color: var(--text-secondary); }
+.ci-editor .pf-strip button:hover { background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--text); }
+.ci-editor .pf-strip button:active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.ci-editor .pf-strip button[data-tip]:hover::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 30; white-space: nowrap;
+  padding: 4px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; color: #fff; background: rgba(32, 33, 36, .92); pointer-events: none; }
+.ci-editor .pf-sep { width: 1px; height: 20px; background: var(--border); margin: 0 6px; }
+.ci-editor .pf-tip { margin-left: auto; font-size: 11px; color: var(--text-tertiary); white-space: nowrap; }
+.ci-editor #ci-description { display: block; width: 100%; border: none; border-radius: 0; box-shadow: none; background: transparent; padding: 10px 12px; min-height: 64px; resize: none; overflow: hidden; font: inherit; font-size: 13.5px; line-height: 1.45; }
+.ci-editor #ci-description:focus { outline: none; box-shadow: none; }
+.ci-fields { display: flex; align-items: flex-end; gap: 8px; }
+.ci-field { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--text-tertiary); text-transform: uppercase; }
+.ci-field input { height: 34px; }
+.ci-field.ci-unit input { width: 84px; }
+.ci-field.ci-qty input { width: 76px; }
+.ci-field.ci-extra { flex: 1; }
+.ci-field.ci-extra input { width: 100%; }
+.ci-fields > button { height: 34px; padding: 0 16px; white-space: nowrap; }
+.ci-preview:empty, .ci-preview:not(:has(.pf-preview:not(:empty))) { display: none; }
+.ci-preview .pf-preview-label { margin-top: 0; }
+.ci-preview .pf-preview { background: #fff; color: #111; border: 1px solid var(--hairline); border-style: solid; box-shadow: 0 1px 3px rgba(0,0,0,.08); }

@@ -3912,3 +3912,43 @@ every cell. The Projects tab (layout 3) now reads left to right.
   - In the editor, the scaffolding material list steps aside ("Show the
     material list" brings it back). "+ Add an item", the custom item box with
     its formatting, is open and in front.
+
+## Batch 164 — Sheet document numbers; item card; terms as a table; crane layout
+
+- **Google Sheet: document numbers instead of "Draft".**
+  - The BOQ / Quotation / Delivery Note / Invoice / Letters cells show the
+    document's own number (Qt26219-001; "+2" when there are more).
+  - The cell's colour says how far it has got: pale grey for a draft,
+    filled when sent or delivered, deeper when signed or paid, red when
+    overdue. Hovering gives each number's status.
+  - The Overview tab has a line explaining the colours.
+  - Layout 4: the progress columns are wider. The sheet picks this up by
+    itself from GitHub.
+- **The item card** ("+ Add a custom item" / "+ Add an item").
+  - One card: the description box with a toolbar along its top, then labelled
+    Unit, Qty and price (or weight) fields with an **Add Item** button, then
+    "As printed" only once there's formatting to see.
+  - The toolbar works like Google Docs: SVG icons (label and value,
+    bulleted list, 1. list, (i) list, decrease and increase indent), each
+    named on hover.
+- **Terms as a table** — Settings' standard terms, a quotation's key terms,
+  an invoice's terms and a BOQ's terms (`js/terms-table.js`).
+  - Each term is a row. Its label ("Payment", "Delivery", "Insurance") is set
+    and shaded on the left, with a pencil to rename it. What it says is in a
+    growing box on the right.
+  - Text that isn't a labelled term goes in paragraph rows across the full
+    width.
+  - "+ Add term" and "+ Add paragraph" sit below. Hovering a row shows move
+    up, move down and remove.
+  - A quotation left blank shows the standard terms greyed, with "Change them
+    here".
+  - The table keeps the same text as before ("Payment : …", lines under it
+    set in, paragraphs between blank lines), so the PDFs are unchanged.
+  - What's being typed isn't replaced by a reload; it's saved when the field
+    is left.
+- **Crane jobs.**
+  - The quotation is one column: the items, then the item card (always
+    open), then the drawings. There's no material list, no BOQ import and no
+    note box.
+  - The empty list says "No items yet — describe the first one below".
+  - The project page has no BOQ tab, no BOQ tile and no New BOQ.

@@ -563,6 +563,7 @@ async function init() {
   document.getElementById('notes-box').addEventListener('change', async (e) => {
     await window.api.boq.updateNotes(boqId, e.target.value);
   });
+  if (window.attachTermsTable) window.attachTermsTable(document.getElementById('terms-box'));
   document.getElementById('terms-box').addEventListener('change', async (e) => {
     const r = await window.api.boq.updateSheetExtras(boqId, { terms: e.target.value });
     if (r && !r.ok) alert(r.error);

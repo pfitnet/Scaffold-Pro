@@ -242,19 +242,38 @@
   }
 
   window.refreshParagraphPreview = function refreshParagraphPreview(ta) {
+    if (ta && ta.termsTable) { ta.termsTable.render(); return; }
     const preview = ta.pfPreview;
     if (!preview) return;
     const fallback = !ta.value.trim() && ta.pfFallback ? ta.pfFallback() : '';
-    preview.innerHTML = previewHTML(ta.value.trim() ? ta.value : fallback, ta.pfFit);
+    // A line item's box: the preview only once there's formatting to see.
+    const plain = ta.pfFit && !(/[\n\t]/.test(ta.value) && ta.value.split('\n').some((l) => hangingItem(l)));
+    preview.innerHTML = plain ? '' : previewHTML(ta.value.trim() ? ta.value : fallback, ta.pfFit);
+    ta.pfPreviewLabel.hidden = plain;
     ta.pfPreviewLabel.textContent = fallback ? 'As printed (standard terms from Settings):' : 'As printed:';
   };
 
   window.attachParagraphFormatting = function attachParagraphFormatting(ta, options) {
+    // Terms boxes are a table of labelled terms and paragraphs (js/terms-table.js).
+    if (!(options && options.fit) && window.attachTermsTable) { window.attachTermsTable(ta, options); return; }
     if (!ta || ta.pfPreview) return;
     addStyles();
     const bar = document.createElement('div');
     bar.className = 'pf-toolbar';
-    bar.innerHTML = `
+    if (options && options.strip) {
+      // A slim strip of buttons along the top of the box (custom items).
+      bar.className = 'pf-toolbar pf-strip';
+      bar.innerHTML = `
+        <button type="button" data-pf="hang" data-no-icon data-tip="Label : value" aria-label="Label and value, colons lined up" title="Label and value, colons lined up — type “Model”, press this, then its value"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h4.5M2.5 10h4.5M2.5 15h4.5M11.5 5h6M11.5 10h6M11.5 15h4"/><circle cx="9.25" cy="4" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="6" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="9" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="11" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="14" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="16" r=".55" fill="currentColor" stroke="none"/></svg></button>
+        <span class="pf-sep"></span>
+        <button type="button" data-pf="bullet" data-no-icon data-tip="Bulleted list" aria-label="Bulleted list"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="15" r="1.2" fill="currentColor" stroke="none"/><path d="M8 5h9M8 10h9M8 15h9"/></svg></button>
+        <button type="button" data-pf="number" data-no-icon data-tip="Numbered list" aria-label="Numbered list 1. 2. 3."><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5h9M8 10h9M8 15h9"/><path d="M3 3.6l1.2-.6v4" stroke-width="1.2"/><path d="M2.8 9c.3-.6 1.9-.8 1.9.3 0 .9-1.9 1.6-1.9 2.4h2" stroke-width="1.2"/><path d="M2.9 13.5h1.8l-1 1.2c.9 0 1.2.4 1.2.9 0 .9-1.5 1-2.1.4" stroke-width="1.2"/></svg></button>
+        <button type="button" data-pf="roman" data-no-icon data-tip="Numbered (i) (ii)" aria-label="Numbered list (i) (ii) (iii)"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5h9M8 10h9M8 15h9"/><path d="M4 3.5v3" stroke-width="1.3"/><path d="M3 8.5v3M5 8.5v3" stroke-width="1.3"/><path d="M2.4 13.5v3M4 13.5v3M5.6 13.5v3" stroke-width="1.2"/></svg></button>
+        <span class="pf-sep"></span>
+        <button type="button" data-pf="outdent" data-no-icon data-tip="Decrease indent" aria-label="Decrease indent"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5h8.5M9 8.5h8.5M9 12.5h8.5M2.5 16.5h15"/><path d="M6 6.5l-3.5 2 3.5 2z" fill="currentColor"/></svg></button>
+        <button type="button" data-pf="indent" data-no-icon data-tip="Increase indent" aria-label="Increase indent"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5h8.5M9 8.5h8.5M9 12.5h8.5M2.5 16.5h15"/><path d="M2.5 6.5l3.5 2-3.5 2z" fill="currentColor"/></svg></button>
+        <span class="pf-tip">${options.tip ? esc(options.tip) : ''}</span>`;
+    } else bar.innerHTML = `
       <button type="button" data-pf="hang" title="Label, colon, then the text in a hanging indent — e.g. “Deposit : 50% upon order confirmation”">Hanging Indent</button>
       <button type="button" data-pf="bullet" title="Bullet points with a hanging indent">• Bullets</button>
       <button type="button" data-pf="number" title="Numbered 1. 2. 3.">1. Numbering</button>
@@ -268,7 +287,7 @@
     label.textContent = 'As printed:';
     const preview = document.createElement('div');
     preview.className = 'pf-preview';
-    ta.after(label, preview);
+    if (options && options.previewIn) options.previewIn.append(label, preview); else ta.after(label, preview);
     ta.pfPreview = preview;
     ta.pfPreviewLabel = label;
     ta.pfFallback = options && options.fallback;
