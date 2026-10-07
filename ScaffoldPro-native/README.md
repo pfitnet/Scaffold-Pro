@@ -3386,3 +3386,14 @@ Every form control is now drawn by the app instead of macOS, on every page
   subsidiary take their quantities on the delivery schedule with them,
   day for day. Reverting the split brings them back onto the main
   quotation's days.
+
+## Batch 144 — Dashboard rows light up as one
+
+- Hovering a row in a Dashboard list (quotations awaiting reply, unpaid
+  invoices, recent delivery notes…) now lights the whole row at once.
+  Before, the first column changed straight away and the others faded in
+  after it, so the highlight seemed to travel column by column.
+- The coloured edge on those rows no longer touches the words. There's
+  room between them, and on hover the edge thickens in the document's own
+  colour instead of switching to blue.
+- The last row of a list has no line under it.
