@@ -3842,3 +3842,28 @@ every cell. The Projects tab (layout 3) now reads left to right.
 - **The core uses only** SpreadsheetApp, PropertiesService and Utilities. A
   feature needing another Google permission would go in the loader, and
   that would need one more paste.
+
+## Batch 162 — Custom items over several lines; scaffolding or crane job
+
+- **Custom items over several lines** (BOQ, quotation, delivery note and
+  invoice editors, "+ Add a custom item").
+  - The description is now a box that grows as you type.
+  - **Return** adds the item. **Shift-Return** starts a new line in the
+    same item, e.g. "Transport to site" with "incl. unloading by crane"
+    under it. Return in the unit, quantity, weight or price box also adds
+    the item.
+  - Once added, the box is cleared and goes back to one line
+    (`js/custom-item.js`).
+  - The line keeps its breaks in the editor (`.line-desc-text`) and on the
+    PDFs and Word documents, which already wrap on "\n".
+- **Scaffolding or crane job.**
+  - The New Project window starts with a slider: "Is this a scaffolding job
+    or a crane job?" Scaffolding ⇄ Crane, set to Scaffolding by default.
+    The arrow keys move it.
+  - It's kept as the project's `jobType` ("Scaffolding" / "Crane").
+    Projects made before count as scaffolding.
+  - The project page shows "Scaffolding job" or "Crane job" next to the
+    number. Edit Details has the same slider to change it, and the change is
+    noted in the history ("now a crane job").
+  - The Projects list marks crane jobs with an amber "Crane" tag, on cards
+    and in the list view.

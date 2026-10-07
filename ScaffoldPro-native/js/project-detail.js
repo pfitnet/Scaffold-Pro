@@ -787,7 +787,7 @@ function renderProjectHeader() {
   const hero = document.getElementById('pd-hero');
   hero.className = `pd-hero ${statusClass(p.status)}`;
   document.getElementById('project-header').innerHTML = `
-    <div class="pd-eyebrow"><span class="eyebrow pd-number" title="Copy the project number" role="button" tabindex="0">Project ${esc(p.projectNumber)}</span><span class="pd-status"><i></i>${esc(p.status)}</span></div>
+    <div class="pd-eyebrow"><span class="eyebrow pd-number" title="Copy the project number" role="button" tabindex="0">Project ${esc(p.projectNumber)}</span><span class="job-tag ${p.jobType === 'Crane' ? 'crane' : 'scaffolding'}" title="Type of job (Edit Details to change)">${p.jobType === 'Crane' ? 'Crane job' : 'Scaffolding job'}</span><span class="pd-status"><i></i>${esc(p.status)}</span></div>
     <h1>${esc(p.name)}</h1>
     <div class="subtitle pd-where">
       <span>${SVG(PD_ICONS.client, 14)}${p.client ? `<a href="clients.html?id=${p.client.id}">${esc(p.client.companyName)}</a>` : 'No client'}</span>
@@ -964,6 +964,7 @@ function setupEditSheet() {
       `<option value="${s.id}" ${p.site && p.site.id === s.id ? 'selected' : ''}>${esc(s.name)}${s.isArchived ? ' (archived)' : ''}</option>`).join('');
     for (const f of fields) $(`e-${f}`).value = p[f] ? String(p[f]).slice(0, f.endsWith('Date') ? 10 : undefined) : '';
     $('e-projectNumber').value = p.projectNumber;
+    $(p.jobType === 'Crane' ? 'e-job-crane' : 'e-job-scaffolding').checked = true;
     // Who made it: from the record, or worked out from the history; it can
     // be set by hand (e.g. for a project made before names were recorded).
     const [authors, people] = await Promise.all([window.api.authors.get('project', p.id).catch(() => null), window.api.tasks.people().catch(() => [])]);
@@ -989,6 +990,7 @@ function setupEditSheet() {
     };
     const payload = { clientId: $('e-clientId').value, siteId: $('e-siteId').value };
     for (const f of fields) payload[f] = $(`e-${f}`).value;
+    payload.jobType = document.querySelector('input[name="e-jobType"]:checked').value;
     const maker = $('e-createdBy').value.trim();
     if (maker && maker !== $('e-createdBy').dataset.was) payload.createdBy = maker;
     const result = await window.api.projects.update(currentProject.id, payload);

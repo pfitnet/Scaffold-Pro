@@ -219,7 +219,7 @@ function renderLineItems() {
     tr.innerHTML = `
       <td class="drag-col">${isIssued || items.length < 2 ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
       <td class="num row-no">${index + 1}</td>
-      <td>${item.itemDescription}${zhName(item)}
+      <td><span class="line-desc-text">${item.itemDescription}</span>${zhName(item)}
         ${isIssued
           ? (item.notes ? `<div class="line-note">${item.notes}</div>` : '')
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>

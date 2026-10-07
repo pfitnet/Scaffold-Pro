@@ -62,12 +62,15 @@ function contextMenu(e, p) {
   ]);
 }
 
+// Crane jobs are marked; scaffolding (most of the work) isn't.
+const jobTag = (p) => (p.jobType === 'Crane' ? '<span class="job-tag crane" title="Crane job">Crane</span>' : '');
+
 function card(p, i) {
   const when = ago(lastTouched(p));
   const total = DOCS.reduce((n, [key]) => n + (Number(p[key]) || 0), 0);
   return `<a class="pj-card ${statusClass(p.status)}" href="project-detail.html?number=${encodeURIComponent(p.projectNumber)}" data-number="${esc(p.projectNumber)}" style="--i:${Math.min(i, 14)}">
     <span class="pj-spot" aria-hidden="true"></span>
-    <div class="pj-top"><span class="pj-num">${esc(p.projectNumber)}</span><span class="pj-status"><i></i>${esc(p.status)}</span></div>
+    <div class="pj-top"><span class="pj-num">${esc(p.projectNumber)}</span>${jobTag(p)}<span class="pj-status"><i></i>${esc(p.status)}</span></div>
     <h3 class="pj-name">${esc(p.name)}</h3>
     <div class="pj-meta">
       <span title="Client">${ICON.client}<span>${esc(p.clientName || 'No client')}</span></span>
@@ -85,7 +88,7 @@ function card(p, i) {
 function listView(projects) {
   return `<table class="pj-table"><thead><tr><th>Number</th><th>Project</th><th>Site</th><th>Documents</th><th>Status</th><th>Last worked on</th><th>Created By</th></tr></thead><tbody>${
     projects.map((p, i) => `<tr class="pj-row ${statusClass(p.status)}" data-number="${esc(p.projectNumber)}" tabindex="0" style="--i:${Math.min(i, 14)}">
-      <td class="pj-num">${esc(p.projectNumber)}</td>
+      <td class="pj-num">${esc(p.projectNumber)}${jobTag(p)}</td>
       <td><div class="pj-row-name">${esc(p.name)}</div><div class="sub">${esc(p.clientName || '—')}</div></td>
       <td>${esc(p.siteName || '—')}</td>
       <td><div class="pj-docs">${docChips(p)}</div></td>
@@ -369,6 +372,7 @@ async function openModal() {
   document.getElementById('modal-backdrop').classList.remove('hidden');
   document.getElementById('form-error').classList.add('hidden');
   document.getElementById('f-name').value = '';
+  document.getElementById('f-job-scaffolding').checked = true;
   document.getElementById('f-override').checked = false;
   document.getElementById('f-manualNumber').value = '';
   document.getElementById('f-manualNumber').classList.add('hidden');
@@ -488,6 +492,7 @@ async function saveProject() {
     siteId,
     overrideNumber: override,
     manualNumber,
+    jobType: document.querySelector('input[name="f-jobType"]:checked').value,
   }, optional));
 
   if (!result.ok) {

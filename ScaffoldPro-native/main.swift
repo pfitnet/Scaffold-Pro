@@ -587,6 +587,14 @@ struct Project: Codable {
     var internalNotes: String?
     var status: String
     var createdAt: String
+    /// "Scaffolding" or "Crane" — asked when the project is made. nil
+    /// (projects made before) counts as scaffolding.
+    var jobType: String? = nil
+}
+
+/// A project's kind of job as kept: "Crane", else "Scaffolding".
+func normalJobType(_ value: Any?) -> String {
+    ((value as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "crane" ? "Crane" : "Scaffolding"
 }
 
 struct PriceList: Codable {
@@ -787,6 +795,8 @@ struct ProjectListEntry: Codable {
     var invoiceCount = 0
     var deliveryNoteCount = 0
     var lastActivityAt: String? = nil
+    /// "Scaffolding" or "Crane".
+    var jobType = "Scaffolding"
 }
 
 struct ProjectDetail: Codable {
@@ -802,6 +812,8 @@ struct ProjectDetail: Codable {
     var createdAt: String
     var client: Client?
     var site: Site?
+    /// "Scaffolding" or "Crane".
+    var jobType = "Scaffolding"
 }
 
 struct ProjectCreateResult: Codable {
@@ -5519,8 +5531,14 @@ final class AppDatabase {
         if payload.keys.contains("expectedCompletionDate") { items[i].expectedCompletionDate = text(payload, "expectedCompletionDate") }
         if payload.keys.contains("projectManager") { items[i].projectManager = text(payload, "projectManager") }
         if payload.keys.contains("internalNotes") { items[i].internalNotes = text(payload, "internalNotes") }
+        var newJob: String? = nil
+        if payload.keys.contains("jobType") {
+            let job = normalJobType(payload["jobType"])
+            if job != normalJobType(items[i].jobType) { newJob = job }
+            items[i].jobType = job
+        }
         projectsStore.writeAll(items)
-        if logChange { logActivity(projectId: id, "Project details edited") }
+        if logChange { logActivity(projectId: id, "Project details edited", reference: newJob.map { "now a \($0.lowercased()) job" }) }
         return nil
     }
 
@@ -18977,6 +18995,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 clientName: clients.first { $0.id == p.clientId }?.companyName,
                 siteName: sites.first { $0.id == p.siteId }?.name
             )
+            entry.jobType = normalJobType(p.jobType)
             entry.createdBy = names[p.id]?.createdBy
             entry.lastEditedBy = names[p.id]?.lastEditedBy
             if let st = stats[p.id] {
@@ -19034,7 +19053,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             projectDescription: project.projectDescription, startDate: project.startDate,
             expectedCompletionDate: project.expectedCompletionDate, projectManager: project.projectManager,
             internalNotes: project.internalNotes, createdAt: project.createdAt,
-            client: db.getClient(id: project.clientId), site: db.getSite(id: project.siteId)
+            client: db.getClient(id: project.clientId), site: db.getSite(id: project.siteId),
+            jobType: normalJobType(project.jobType)
         )
         respond(id: id, encodable: detail)
     }

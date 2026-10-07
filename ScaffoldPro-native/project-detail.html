@@ -227,6 +227,13 @@
         <div class="field"><label>Expected Completion</label><input type="date" id="e-expectedCompletionDate" /></div>
         <div class="field"><label>Project Manager</label><input type="text" id="e-projectManager" /></div>
         <div class="field"><label for="e-createdBy">Created by</label><input type="text" id="e-createdBy" list="e-people" placeholder="Who made this project" autocomplete="off" /><datalist id="e-people"></datalist></div>
+        <div class="field span-2 job-field"><label id="e-job-label">Type of job</label>
+        <div class="job-switch" role="radiogroup" aria-labelledby="e-job-label">
+          <input type="radio" name="e-jobType" id="e-job-scaffolding" value="Scaffolding" checked /><label for="e-job-scaffolding"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 2.5v15M15 2.5v15M5 6.5h10M5 11h10M5 15.5h10M5 6.5l10 4.5"/></svg>Scaffolding</label>
+          <input type="radio" name="e-jobType" id="e-job-crane" value="Crane" /><label for="e-job-crane"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17.5V3.5M2.5 17.5h6M5 3.5h12.5M5 6.5l3-3M15 3.5v5"/><path d="M13.5 8.5h3l-.5 2h-2z"/></svg>Crane</label>
+          <span class="job-thumb" aria-hidden="true"></span>
+        </div>
+      </div>
         <div class="field span-2"><label>Description</label><textarea id="e-projectDescription" rows="3"></textarea></div>
         <div class="field span-2"><label>Internal Notes</label><textarea id="e-internalNotes" rows="3"></textarea></div>
       </div>
