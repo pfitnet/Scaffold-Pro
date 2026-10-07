@@ -4968,7 +4968,12 @@ final class AppDatabase {
             guard let pid = e.projectId else { continue }
             if (last[pid]?.createdAt ?? "") < e.createdAt { last[pid] = e }
         }
-        let recent = all.filter { $0.createdAt >= cutoff }.sorted { $0.createdAt > $1.createdAt }.prefix(3000)
+        // Housekeeping (backups, undo / redo) isn't work: left out of the sheet.
+        func isNoise(_ e: ActivityEntry) -> Bool {
+            let a = e.action.lowercased()
+            return a.contains("backup made") || a.hasPrefix("undone:") || a.hasPrefix("redone:") || a.hasPrefix("restored from")
+        }
+        let recent = all.filter { $0.createdAt >= cutoff && !isNoise($0) }.sorted { $0.createdAt > $1.createdAt }.prefix(3000)
         let activity: [[String: Any]] = recent.map { e in
             let p = e.projectId.flatMap { byId[$0] }
             return ["id": e.id, "when": e.createdAt, "who": e.by ?? "", "project": p?.projectNumber ?? "", "projectName": p?.name ?? "",

@@ -3739,3 +3739,16 @@ The sheet uses ScaffoldPro's own colours.
   BQ… teal, DN… ochre, H… green, L… / PL… lavender.
 - Copy the new script into Apps Script, then use Deploy › Manage
   deployments › Edit › New version. The colours arrive with the next sync.
+
+## Batch 158 — Google Sheets: housekeeping left out
+
+Checked against the live sheet, which was syncing on the first layout with
+460 activity rows.
+
+- **Backups and undo aren't sent to the sheet any more.** "Automatic backup
+  made", "Backup made before updating ScaffoldPro", "Undone: …", "Redone:
+  …" and "Restored from …" filled the Activity tab and the "who did what"
+  counts. They're still in ScaffoldPro's own history. When an existing
+  sheet moves to the new layout, these lines are dropped from its Activity
+  tab too.
+- The empty **Sheet1** tab a new spreadsheet comes with is removed.
