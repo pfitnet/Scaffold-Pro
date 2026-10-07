@@ -464,6 +464,12 @@
       image: (which) => callNative('signatures:image', { which }),
     },
     // Messages for everyone, or for one team, shown at the top of the Dashboard.
+    // Costs › Manpower Rates: the workers, what we charge, and what each
+    // rate provider charges us → { rates: [{ name, rate, unit, costs: { provider: rate } }], providers }.
+    costs: {
+      manpower: () => callNative('costs:manpower'),
+      saveManpower: (input) => callNative('costs:saveManpower', input),
+    },
     announcements: {
       page: () => callNative('announcements:page'),
       post: (input) => callNative('announcements:post', input),

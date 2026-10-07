@@ -64,7 +64,7 @@ const NAV_ITEMS = [
   { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },
   { section: 'Operations' },
-  { page: 'price-lists', label: 'Material List', href: 'price-lists.html', key: '2' },
+  { page: 'price-lists', label: 'Costs', href: 'price-lists.html', key: '2' },
   { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },

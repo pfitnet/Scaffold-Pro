@@ -2295,3 +2295,33 @@ tr:hover .line-link, .line-link:focus-visible { opacity: 1; }
 .dash-grid table.compact tr.link-row td:first-child > * { transition: left .14s ease; }
 .dash-grid table.compact tr.link-row:hover td:first-child > * { left: 4px; }
 .dash-grid table.compact tr:last-child > td { border-bottom: none; }
+
+/* Costs › Manpower Rates (js/manpower-costs.js). */
+.mp-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 18px 20px 16px; }
+.mp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.mp-head h2 { margin: 0 0 2px; font-size: 16px; }
+.mp-head .small-note { margin: 0; max-width: 640px; }
+.mp-scroll { overflow-x: auto; }
+table.mp-table { box-shadow: none; border: 1px solid var(--hairline); min-width: 640px; }
+.mp-table th, .mp-table td { padding: 7px 10px; vertical-align: top; }
+.mp-table input { width: 100%; --control-h: 30px; }
+.mp-table .mp-unit { width: 64px; }
+.mp-table td.num input { text-align: right; }
+.mp-table th.mp-ours, .mp-table td.mp-ours { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.mp-prov-head { display: flex; align-items: center; gap: 4px; }
+.mp-prov-head { justify-content: flex-end; align-items: flex-start; }
+.mp-prov-name { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-align: right; line-height: 1.35; white-space: normal; max-width: 190px; }
+.mp-prov-tools { display: inline-flex; gap: 2px; flex: none; opacity: 0; transition: opacity .15s; }
+th:hover .mp-prov-tools { opacity: 1; }
+.mp-prov-tools button { width: 20px; height: 20px; min-width: 0; padding: 0; border: none; box-shadow: none; background: none; color: var(--text-tertiary); border-radius: 50%; font-size: 12px; text-transform: none; }
+.mp-prov-tools button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+.mp-prov-tools .mp-prov-remove:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+.mp-margin { display: block; margin-top: 3px; font-size: 11px; font-weight: 600; color: var(--success, #2f9e5b); font-variant-numeric: tabular-nums; }
+.mp-margin.neg { color: var(--danger); }
+.mp-margin.zero { color: var(--text-tertiary); }
+.mp-table td.best { background: color-mix(in srgb, #22b35e 8%, transparent); }
+.mp-table td.best::after { content: 'Cheapest'; display: block; margin-top: 2px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #22a356; }
+#mp-add-row { margin-top: 10px; }
+.mp-saved { margin-left: 12px; font-size: 12px; color: var(--success, #2f9e5b); opacity: 0; transition: opacity .3s; }
+.mp-saved.on { opacity: 1; }
+#costs-tabs { margin-bottom: 16px; }

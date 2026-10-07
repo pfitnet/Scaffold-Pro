@@ -179,7 +179,7 @@ async function loadSettings() {
   document.getElementById('documentLanguage-input').value = settings.documentLanguage === 'Chinese' ? 'Chinese' : 'English';
   document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
   document.getElementById('markupRounding-input').value = settings.markupRoundUp ? 'Up' : 'Nearest';
-  renderManpowerRates(settings.manpowerRates);
+  // Manpower rates: on Costs › Manpower Rates now.
   document.getElementById('eurRate-input').value = (settings.exchangeRates && settings.exchangeRates.EUR) || 8.93;
   for (const k of START_KEYS) {
     document.getElementById(`start-${k}`).value = (settings.numberStarts && settings.numberStarts[k]) || '';
@@ -211,7 +211,7 @@ async function saveSettings() {
   payload.deliveryRates = readDeliveryRates();
   payload.termsNewPage = document.getElementById('termsNewPage-input').value;
   payload.markupRounding = document.getElementById('markupRounding-input').value;
-  payload.manpowerRates = readManpowerRates();
+
   const minMonthly = document.getElementById('minimumMonthlyRental-input').value;
   payload.minimumMonthlyRental = minMonthly === '' ? 1000 : Math.max(0, Number(minMonthly) || 0);
   payload.boqTerms = document.getElementById('boqTerms-input').value;

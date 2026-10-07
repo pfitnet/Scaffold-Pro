@@ -3425,3 +3425,25 @@ Every form control is now drawn by the app instead of macOS, on every page
   - letters, whose Export PDF preview now works.
   
   BOQs, quotations, invoices and delivery notes already did this.
+
+## Batch 146 — Material List is now Costs, with manpower rates and their providers
+
+- The **Material List** page is now called **Costs** in the sidebar, and
+  has two tabs:
+  - **Materials** — the material lists, exactly as before.
+  - **Manpower Rates** — each kind of worker (Scaffolder CP, Scaffolder,
+    Rigger, General Helper…).
+- **Manpower Rates** (moved here from Settings › Quotations):
+  - For each worker it shows what unit they're paid by, **our rate** (what
+    a quotation charges, filled in by "Standard Manpower Rates"), and what
+    each **rate provider** charges us.
+  - The two providers are already set up: **Summit Engineering &
+    Resources Limited** and **Lingma Const. & Eng. Co. Ltd.**
+  - Under each provider's rate is what's left after paying them (amount
+    and %, red if they cost more than we charge). The cheapest provider for
+    each worker is marked.
+  - Add or remove workers. Add a provider (+ Add Provider), or rename or
+    remove one; the ✎ and × appear when hovering over its name.
+  - Everything saves as it's typed.
+- Settings › Quotations now points to Costs › Manpower Rates instead of
+  holding the table. The rates already set are kept.
