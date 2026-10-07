@@ -421,7 +421,7 @@ th {
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: var(--row-hover); }
-tr[style*="cursor: pointer"] td:first-child, .link-row td:first-child { box-shadow: inset 0 0 0 transparent; transition: box-shadow .2s var(--ease), background-color .15s; }
+tr[style*="cursor: pointer"] td:first-child, .link-row td:first-child { box-shadow: inset 0 0 0 transparent; transition: box-shadow .15s ease, background-color .15s ease; }
 tr[style*="cursor: pointer"]:hover td, .link-row:hover td { background: var(--accent-soft); }
 tr[style*="cursor: pointer"]:hover td:first-child, .link-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -1715,7 +1715,8 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
   background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 700; letter-spacing: 0; vertical-align: 1px; animation: dot-pop .3s cubic-bezier(.2, 1.6, .4, 1); }
 /* Rows: an accent edge slides in on the one under the pointer — down the
    whole row, also when a narrow panel stacks the row's details. */
-.dash-grid table.compact tr.link-row td:first-child { transition: box-shadow .14s ease; }
+/* Every cell of the row changes together (one band, not cell by cell). */
+.dash-grid table.compact tr.link-row td, .dash-grid table.compact tr.link-row td:first-child { transition: background-color .14s ease, box-shadow .14s ease; }
 .dash-grid table.compact tr.link-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 /* …and the row's words step aside from it. */
 .dash-grid table.compact tr.link-row td:first-child > * { position: relative; left: 0; transition: left .16s ease; }
@@ -2286,3 +2287,11 @@ tr:hover .line-link, .line-link:focus-visible { opacity: 1; }
 .sub-pick-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 .sub-pick-row:has(input:checked) { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .sub-pick-row > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+
+/* Dashboard rows with a document's colour edge: room between the edge and
+   the words, and on hover the edge grows in its own colour. */
+.dash-grid table.compact tr.dk-row > td:first-child { padding-left: 14px; }
+.dash-grid table.compact tr.link-row.dk-row:hover td:first-child { box-shadow: inset 4px 0 0 var(--dk); }
+.dash-grid table.compact tr.link-row td:first-child > * { transition: left .14s ease; }
+.dash-grid table.compact tr.link-row:hover td:first-child > * { left: 4px; }
+.dash-grid table.compact tr:last-child > td { border-bottom: none; }
