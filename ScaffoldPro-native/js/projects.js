@@ -125,9 +125,22 @@ function bracket(p, i) {
   const o = (overview && overview[p.id]) || {};
   const cols = OV_COLS.map(([key, title, page, colour]) => {
     const docs = o[key] || [];
+    const tile = (d, sub) => `<a class="ov-doc${sub ? ' ov-sub' : ''} ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-from="${esc(JSON.stringify(d.from || []))}">
+          <b>${esc(d.number)}</b><span class="ov-st">${sub ? 'Subsidiary · ' : ''}${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}</span></a>`;
+    // A document made from another in the same column (a quotation's
+    // subsidiaries) sits under it, indented, in one family box.
+    const here = new Set(docs.map((d) => d.id));
+    const parentOf = (d) => ((d.from || []).find((f) => here.has(f.id)) || {}).id;
+    const kids = (id) => docs.filter((d) => parentOf(d) === id);
+    const family = (d) => {
+      const subs = [];
+      const walk = (id) => { for (const k of kids(id)) { subs.push(k); walk(k.id); } };
+      walk(d.id);
+      return subs.length ? `<div class="ov-family">${tile(d, false)}${subs.map((k) => tile(k, true)).join('')}</div>` : tile(d, false);
+    };
+    const tops = docs.filter((d) => !parentOf(d));
     return `<div class="ov-col ${colour}"><div class="ov-col-title">${title}</div><div class="ov-stack">${docs.length
-      ? docs.map((d) => `<a class="ov-doc ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-from="${esc(JSON.stringify(d.from || []))}">
-          <b>${esc(d.number)}</b><span class="ov-st">${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}</span></a>`).join('')
+      ? tops.map(family).join('')
       : '<span class="ov-empty">—</span>'}</div></div>`;
   }).join('');
   return `<section class="ov-bracket ${statusClass(p.status)}" data-number="${esc(p.projectNumber)}" style="--i:${Math.min(i, 14)}">
@@ -159,8 +172,12 @@ function drawOverviewLines() {
         const s = src.getBoundingClientRect();
         const sameCol = Math.abs(s.left - to.left) < 4;
         let d;
-        if (sameCol) {
-          // A subsidiary under its main quotation: a loop down the left side.
+        const sub = el.classList.contains('ov-sub') && Math.abs(s.left - to.left) < 40;
+        if (sub) {
+          // A subsidiary under its main quotation: a branch down the left edge.
+          const x = s.left - b.left + 9, y1 = s.bottom - b.top, y2 = to.top + to.height / 2 - b.top, x2 = to.left - b.left;
+          d = `M ${x} ${y1} L ${x} ${y2 - 6} Q ${x} ${y2} ${x + 6} ${y2} L ${x2} ${y2}`;
+        } else if (sameCol) {
           const x = s.left - b.left - 2, y1 = s.top + s.height / 2 - b.top, y2 = to.top + to.height / 2 - b.top;
           d = `M ${x} ${y1} C ${x - 22} ${y1}, ${x - 22} ${y2}, ${x} ${y2}`;
         } else {
@@ -169,7 +186,7 @@ function drawOverviewLines() {
           const dx = Math.max(16, (x2 - x1) * 0.5);
           d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
         }
-        paths += `<path class="ov-line${f.linked ? ' linked' : ''}" d="${d}" data-a="${esc(f.id)}" data-b="${esc(el.dataset.doc)}"/>`;
+        paths += `<path class="ov-line${sub ? ' sub' : f.linked ? ' linked' : ''}" d="${d}" data-a="${esc(f.id)}" data-b="${esc(el.dataset.doc)}"/>`;
       }
     }
     svg.innerHTML = paths;
@@ -199,6 +216,8 @@ window.addEventListener('resize', () => { if (state.view === 'overview') drawOve
 
 // Folded away (remembered on this Mac): "who" or "who|client" keys.
 let closed = new Set();
+// This Mac's user: their own projects' group is always first.
+let me = null;
 try { closed = new Set(JSON.parse(localStorage.getItem('projects.closed') || '[]')); } catch (e) { /* ignore */ }
 const keepClosed = () => { try { localStorage.setItem('projects.closed', JSON.stringify([...closed])); } catch (e) { /* ignore */ } };
 const CHEV = '<svg class="pj-chev" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -211,7 +230,7 @@ function grouped(list, searching) {
     if (!byWho.has(who)) byWho.set(who, []);
     byWho.get(who).push(p);
   }
-  const whos = [...byWho.keys()].sort((a, b) => (a === 'Not recorded') - (b === 'Not recorded') || byWho.get(b).length - byWho.get(a).length || a.localeCompare(b));
+  const whos = [...byWho.keys()].sort((a, b) => (b === me) - (a === me) || (a === 'Not recorded') - (b === 'Not recorded') || byWho.get(b).length - byWho.get(a).length || a.localeCompare(b));
   let i = 0;
   return whos.map((who) => {
     const mine = byWho.get(who);
@@ -319,6 +338,7 @@ window.appRefresh = () => refresh();
 
 async function refresh() {
   overview = null;
+  if (me === null) { try { me = ((await window.api.users.page()) || {}).name || ''; } catch (e) { me = ''; } }
   allProjects = await window.api.projects.list();
   renderFilters();
   renderProjects();

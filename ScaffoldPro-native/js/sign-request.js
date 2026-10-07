@@ -68,4 +68,21 @@
       el.addEventListener('keydown', onKey);
     });
   };
+
+  // The director-signed copy, already saved: shown in the preview with
+  // Done, or Withdraw Sign & Chop. → true when it was withdrawn.
+  window.openSignedCopy = async function openSignedCopy({ path, quotationId, number }) {
+    if (!window.docPreview) { await window.api.signatures.openFile(path); return false; }
+    const r = await window.docPreview.pdf(() => window.api.signatures.previewSigned(path), {
+      title: `${number || 'Quotation'} — Signed & Chopped`,
+      note: 'Saved in the project’s Quotations folder.',
+      actions: [{ key: 'withdraw', label: 'Withdraw Sign & Chop', danger: true }, { key: 'done', label: 'Done', primary: true }],
+    });
+    if (r && r.ok === false) { await window.appAlert(r.error); return false; }
+    if (!r || r.action !== 'withdraw') return false;
+    if (!await window.appConfirm(`Withdraw the signature and chop on ${number}?\n\nIt's no longer marked as signed, and the signed PDF goes to the Trash.`, { ok: 'Withdraw', danger: true })) return false;
+    const res = await window.api.signatures.unsign(quotationId);
+    if (res && res.ok === false) { await window.appAlert(res.error); return false; }
+    return true;
+  };
 })();

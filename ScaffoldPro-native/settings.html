@@ -231,12 +231,11 @@
       </details>
 
       <details class="settings-section" id="invoices">
-        <summary><span class="section-title">Invoices</span><span class="section-desc">Due date, bank details, payment terms</span></summary>
+        <summary><span class="section-title">Invoices</span><span class="section-desc">Due date, and the standard terms with the bank details</span></summary>
         <div class="section-body">
     <div class="settings-grid">
           <div class="field"><label>Invoice Due After (days)</label><input type="number" id="defaultInvoiceDueDays-input" min="0" step="1" /></div>
-          <div class="field full"><label>Bank Details (shown on invoices, one line each)</label><textarea id="bankDetails-input"></textarea></div>
-          <div class="field full"><label for="defaultPaymentTerms-input">Default Payment Terms (printed on invoices)</label><textarea id="defaultPaymentTerms-input" rows="3"></textarea></div>
+          <div class="field full"><label for="defaultPaymentTerms-input">Standard Terms (printed on invoices under Payment Information: payment terms and bank details)</label><textarea id="defaultPaymentTerms-input" rows="10" placeholder="e.g. All payments should be made to the following account:&#10;Account Name : Proficiency (HK) Ltd&#10;Bank Name : OCBC Bank (Hong Kong) Limited"></textarea></div>
     </div>
         </div>
       </details>

@@ -225,7 +225,8 @@
         <div class="field"><label>Site</label><select id="e-siteId"></select></div>
         <div class="field"><label>Start Date</label><input type="date" id="e-startDate" /></div>
         <div class="field"><label>Expected Completion</label><input type="date" id="e-expectedCompletionDate" /></div>
-        <div class="field span-2"><label>Project Manager</label><input type="text" id="e-projectManager" /></div>
+        <div class="field"><label>Project Manager</label><input type="text" id="e-projectManager" /></div>
+        <div class="field"><label for="e-createdBy">Created by</label><input type="text" id="e-createdBy" list="e-people" placeholder="Who made this project" autocomplete="off" /><datalist id="e-people"></datalist></div>
         <div class="field span-2"><label>Description</label><textarea id="e-projectDescription" rows="3"></textarea></div>
         <div class="field span-2"><label>Internal Notes</label><textarea id="e-internalNotes" rows="3"></textarea></div>
       </div>

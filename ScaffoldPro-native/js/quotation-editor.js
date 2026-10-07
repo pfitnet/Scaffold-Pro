@@ -304,8 +304,7 @@ function setupDirectorBar() {
       if (r && r.ok === false) { await appAlert(r.error); return; }
       await loadDetail();
     } else if (b.dataset.dir === 'open') {
-      const r = await window.api.signatures.openFile(d.directorSignedPath);
-      if (r && r.ok === false) await appAlert(r.error);
+      if (await window.openSignedCopy({ path: d.directorSignedPath, quotationId: d.id, number: d.quotationNumber })) await loadDetail();
     }
   });
 }
