@@ -385,6 +385,17 @@
       useDefaultFolder: () => callNative('cloudBackup:useDefaultFolder'),
       reveal: () => callNative('cloudBackup:reveal'),
     },
+    // Settings › Google Sheets: the who / when / what overview sheet, kept in step both ways.
+    sheets: {
+      status: () => callNative('sheets:status'),
+      // Checks them with the sheet first → { ok, error }
+      link: (url, secret) => callNative('sheets:link', { url: url, secret: secret }),
+      unlink: () => callNative('sheets:unlink'),
+      syncNow: () => callNative('sheets:syncNow'),
+      // The Apps Script for the sheet, onto the clipboard.
+      copyScript: () => callNative('sheets:copyScript'),
+      openSheet: () => callNative('sheets:openSheet'),
+    },
     // Sharing the data with other Macs through a shared (iCloud Drive) folder.
     // Scaffold inspections (Form 5 register): each project's records, and what's due.
     inspections: {

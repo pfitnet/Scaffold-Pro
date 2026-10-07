@@ -3496,3 +3496,34 @@ Every form control is now drawn by the app instead of macOS, on every page
     everyone without one), numbered PL26-001… in Letters. Each is opened
     from the Letter column to check, export or print, then marked Sent.
   - Campaigns save as they're edited; the list shows how far each has got.
+
+## Batch 149 — Google Sheets overview, kept in step both ways
+
+- **Settings › Google Sheets** connects a Google Sheet that shows who did
+  what, and when. It syncs about every minute while ScaffoldPro is open
+  (and about 20 seconds after anything is saved).
+  - **Overview** tab: who did how much in the last 7 days, projects by
+    status, and the latest 25 things done.
+  - **Activity** tab: everything done in ScaffoldPro, newest first (When,
+    Who, Project, What, Reference). A row typed into the sheet with no ID
+    (e.g. "Site visit — checked ties") is added to ScaffoldPro's history.
+  - **Projects** tab: every project with its client, site, status, manager,
+    notes and last activity. Change **Status**, **Project Manager** or
+    **Notes** in the sheet and ScaffoldPro is updated (noted in the history
+    as done in Google Sheets). Change them in ScaffoldPro and the sheet is
+    updated. If both change between syncs, the sheet's edit wins.
+- **Setting it up** (the steps are in Settings too):
+  1. **Copy Script**.
+  2. In the sheet, open Extensions › Apps Script, paste the script, and run
+     **setup**.
+  3. Deploy it as a Web app (Execute as: Me; Who has access: Anyone).
+  4. Paste the Web app URL and the connection secret into Settings and
+     press **Connect**.
+- Set it up on one Mac, the office Mac that's usually open. The URL and
+  secret are kept in that Mac's settings, and that Mac keeps the sheet up
+  to date for everyone. In a browser (ScaffoldPro Web) the section only
+  says where it's set up.
+- Settings shows how the sheet is doing: in step and when it last synced,
+  changes taken in from the sheet, or what went wrong. It also has
+  **Open Sheet**, **Sync Now** and **Disconnect…**.
+- The script is bundled at `resources/google-sheets/ScaffoldPro.gs`.
