@@ -3276,3 +3276,30 @@ Every form control is now drawn by the app instead of macOS, on every page
     whose Review button opens the viewer directly.
 - The Signatures tab and the Dashboard bar check for new requests every
   15 seconds (was every minute).
+
+## Batch 140 — Changes in a second; browser users listed as themselves
+
+- **Fast lane between the office Macs.** Macs sharing a folder now also
+  send each change straight to each other over the office network, so a
+  chat message, a new quotation or an edit shows on the other Macs in
+  about a second. Before, everything waited for iCloud Drive, which can
+  take from a few seconds to minutes.
+  - iCloud Drive is still the record. A Mac on another network, or one
+    that was closed, catches up through iCloud as before.
+  - Only Macs in the same shared folder are listened to: each message is
+    signed with a key made from the shared folder's own file.
+  - The first time, macOS may ask to let ScaffoldPro find devices on the
+    local network, and the firewall may ask to accept incoming connections.
+    Allow both.
+- **Quicker checking.** Each Mac looks for the others' changes every
+  second (was every 2 seconds).
+- **People using ScaffoldPro Web are listed as themselves on every Mac.**
+  - Someone who signs in from a browser (e.g. Irene, through the office
+    Mac mini) appears on the Team page under their own name. Their device
+    reads "Safari on Mac via Harry's Mac mini (web)", on every Mac, not
+    just the one serving the web pages.
+  - The Mac mini itself stays listed under whoever uses it in the app
+    (e.g. Jeremie).
+  - A browser not used for two weeks drops off the list.
+  - Fixed: browser users never showed at all. Their "last seen" time
+    couldn't be read, which also meant it was re-saved on every request.

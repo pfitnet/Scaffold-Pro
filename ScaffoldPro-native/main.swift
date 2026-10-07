@@ -2748,6 +2748,13 @@ func nowISO() -> String {
     isoFormatter.string(from: Date())
 }
 
+private let plainISOFormatter = ISO8601DateFormatter()
+
+/// A time as saved by nowISO() (with fractions of a second) or without them.
+func parseISODate(_ text: String) -> Date? {
+    isoFormatter.date(from: text) ?? plainISOFormatter.date(from: text)
+}
+
 /// "1,234.56" rather than "1234.56" — every PDF money figure goes
 /// through this, per the person's explicit formatting preference.
 func formatMoney(_ value: Double) -> String {
@@ -4275,12 +4282,16 @@ final class AppDatabase {
         let sync = TeamSync.current
         var devices: [String: [TeamMember]] = [:]
         if let sync = sync {
-            for d in sync.members() { devices[d.name.lowercased(), default: []].append(d) }
+            for d in sync.members() {
+                // A browser not used for two weeks drops off the list.
+                if d.id.hasPrefix("web-"), (parseISODate(d.lastSeen).map { Date().timeIntervalSince($0) > 14 * 86400 } ?? true) { continue }
+                devices[d.name.lowercased(), default: []].append(d)
+            }
         } else if nonBlank(me) != nil {
             devices[me.lowercased()] = [TeamMember(id: "this", name: me, computer: TeamSync.computerName, lastSeen: nowISO(), isThisMac: true)]
         }
         // People using ScaffoldPro Web through this Mac.
-        for w in WebServer.shared.recentPeople() {
+        for w in WebServer.shared.recentPeople() where !(devices[w.name.lowercased()] ?? []).contains(where: { $0.id == "web-" + String(w.token.prefix(8)) }) {
             devices[w.name.lowercased(), default: []].append(TeamMember(id: "web-" + String(w.token.prefix(8)), name: w.name, computer: "\(w.agent) (web)", lastSeen: w.lastSeen))
         }
         var names: [String: String] = [:]
@@ -13379,6 +13390,10 @@ struct TeamMember: Codable {
     var version: String? = nil
     /// Runs an older version than this Mac.
     var outdated: Bool? = nil
+    /// Where it listens for the others' changes on the office network
+    /// (TeamLink): its port and addresses.
+    var linkPort: Int? = nil
+    var linkAddresses: [String]? = nil
 }
 
 struct TeamStatus: Codable {
@@ -13598,7 +13613,9 @@ final class TeamSync {
         for store in stores { materialize(store) }
         if only == nil { TeamSync.current = self } else { TeamSync.material = self }
         touchMember()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.checkForChanges() }
+        // Changes also go straight to the other Macs on the same network.
+        if only == nil { TeamLink.shared.start(root: root) }
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.checkForChanges() }
         Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in self?.touchMember() }
         return true
     }
@@ -13629,17 +13646,21 @@ final class TeamSync {
         var log = own[store] ?? [:]
         var places = order[store] ?? [:]
         var changed = false
+        var sent: [String: Any] = [:]
         let now = nextStamp()
         for (index, (id, record)) in after.list.enumerated() {
             guard before.canonical[id] != after.canonical[id] else { continue }
             // New records go after the rest, in the order they were saved.
             let place = places[id] ?? now + Double(index) * 1e-6
-            log[id] = Entry(t: now, c: place, v: portable(record))
+            let value = portable(record)
+            log[id] = Entry(t: now, c: place, v: value)
             places[id] = place
+            sent[id] = ["t": now, "c": place, "v": value] as [String: Any]
             changed = true
         }
         for id in before.canonical.keys where after.canonical[id] == nil {
             log[id] = Entry(t: now, c: places[id] ?? 0, v: nil)
+            sent[id] = ["t": now, "c": places[id] ?? 0, "v": NSNull()] as [String: Any]
             places[id] = nil
             changed = true
         }
@@ -13647,6 +13668,52 @@ final class TeamSync {
         own[store] = log
         order[store] = places
         writeOwnLog(store)
+        if only == nil { TeamLink.shared.send(device: device, store: store, records: sent) }
+    }
+
+    // MARK: the fast lane (TeamLink)
+
+    /// Changes other Macs sent straight over the network, ahead of iCloud
+    /// Drive bringing their logs: "device|store" → id → entry.
+    private var pushed: [String: [String: Entry]] = [:]
+
+    /// Another Mac's change, sent over the network (main thread).
+    func receivePushed(device from: String, store: String, records: [String: Any]) {
+        guard from != device, handles(store), !store.contains("/") else { return }
+        let key = "\(from)|\(store)"
+        var overlay = pushed[key] ?? [:]
+        let inFile = others.values.first { $0.device == from && $0.store == store }?.entries ?? [:]
+        var changed = false
+        for (id, raw) in records {
+            guard let e = raw as? [String: Any], let t = (e["t"] as? NSNumber)?.doubleValue else { continue }
+            if let have = overlay[id], have.t >= t { continue }
+            if let have = inFile[id], have.t >= t { continue }
+            overlay[id] = Entry(t: t, c: (e["c"] as? NSNumber)?.doubleValue ?? 0, v: e["v"] as? [String: Any])
+            changed = true
+        }
+        guard changed else { return }
+        pushed[key] = overlay
+        lastStamp = max(lastStamp, overlay.values.map { $0.t }.max() ?? 0)
+        materialize(store)
+        let name = memberName(of: from)
+        lastChangeAt = Date()
+        lastChangeBy = name
+        onRemoteChange?([store], [name])
+    }
+
+    /// Says where this Mac listens (once TeamLink is ready, or moved).
+    func announceLink() { touchMember() }
+
+    /// Someone using ScaffoldPro Web through this Mac: listed among the
+    /// devices on every Mac's Team page, as themselves.
+    func touchWebMember(name: String, token: String, agent: String) {
+        let fm = FileManager.default
+        try? fm.createDirectory(at: membersFolder, withIntermediateDirectories: true)
+        let id = "web-" + String(token.prefix(8))
+        let member = TeamMember(id: id, name: name, computer: "\(agent) via \(TeamSync.computerName) (web)", lastSeen: nowISO(), version: nil)
+        if let data = try? JSONEncoder().encode(member) {
+            try? data.write(to: membersFolder.appendingPathComponent("\(id).json"), options: .atomic)
+        }
     }
 
     /// Puts every record of this Mac's own (unshared) data into the shared
@@ -13751,6 +13818,12 @@ final class TeamSync {
         for (path, log) in scan.changed {
             others[path] = log
             stores.insert(log.store)
+            // What came over the network first is in the file now.
+            let key = "\(log.device)|\(log.store)"
+            if let overlay = pushed[key] {
+                let left = overlay.filter { id, e in (log.entries[id]?.t ?? -1) < e.t }
+                pushed[key] = left.isEmpty ? nil : left
+            }
             lastStamp = max(lastStamp, log.entries.values.map { $0.t }.max() ?? 0)
         }
         for path in scan.gone {
@@ -13770,6 +13843,10 @@ final class TeamSync {
         for log in others.values where log.store == store {
             for (id, e) in log.entries { consider(id, e, log.device) }
         }
+        for (key, entries) in pushed where key.hasSuffix("|" + store) {
+            let from = String(key.dropLast(store.count + 1))
+            for (id, e) in entries { consider(id, e, from) }
+        }
         for (id, e) in own[store] ?? [:] { consider(id, e, device) }
         order[store] = best.mapValues { $0.entry.c }
         let live = best.compactMap { id, b -> (String, Double, [String: Any])? in
@@ -13788,7 +13865,11 @@ final class TeamSync {
     private func touchMember() {
         let fm = FileManager.default
         try? fm.createDirectory(at: membersFolder, withIntermediateDirectories: true)
-        let me = TeamMember(id: device, name: TeamSync.memberName, computer: TeamSync.computerName, lastSeen: nowISO(), version: TeamSync.appVersion)
+        var me = TeamMember(id: device, name: TeamSync.memberName, computer: TeamSync.computerName, lastSeen: nowISO(), version: TeamSync.appVersion)
+        if only == nil, let port = TeamLink.shared.port {
+            me.linkPort = port
+            me.linkAddresses = TeamLink.shared.addresses
+        }
         if let data = try? JSONEncoder().encode(me) {
             try? data.write(to: membersFolder.appendingPathComponent("\(device).json"), options: .atomic)
         }
@@ -13888,7 +13969,7 @@ final class TeamSync {
         let recent = Date().addingTimeInterval(-14 * 86400)
         let mine = TeamSync.versionDate(TeamSync.appVersion)
         let newerElsewhere = list.contains { m in
-            guard m.isThisMac != true, let seen = ISO8601DateFormatter().date(from: m.lastSeen), seen > recent,
+            guard m.isThisMac != true, let seen = parseISODate(m.lastSeen), seen > recent,
                   let theirs = TeamSync.versionDate(m.version) else { return false }
             return mine.map { theirs > $0 } ?? false
         }
@@ -13988,6 +14069,140 @@ struct WebStatus: Codable {
     var error: String?
 }
 
+/// The fast lane between Macs sharing a folder on the same network: each
+/// change is also sent straight to the others, so it shows on their screens
+/// in a second instead of waiting for iCloud Drive (which can take from
+/// seconds to minutes). iCloud Drive stays the record; this only gets there
+/// first, and a Mac on another network simply waits for iCloud as before.
+/// Messages are signed with a key made from the shared folder's marker file,
+/// so only Macs in the same shared folder are listened to.
+final class TeamLink {
+    static let shared = TeamLink()
+    private var listener: NWListener?
+    private(set) var port: Int?
+    private(set) var addresses: [String] = []
+    private var key: SymmetricKey?
+    private var peers: [(host: String, port: Int)] = []
+    private var peersAt = Date.distantPast
+    private var addressTimer: Timer?
+    private let sendQueue = DispatchQueue(label: "ScaffoldPro.teamLink")
+
+    func start(root: URL) {
+        guard listener == nil else { return }
+        guard let marker = try? Data(contentsOf: root.appendingPathComponent(TeamSync.markerName)), !marker.isEmpty else { return }
+        key = SymmetricKey(data: Data(SHA256.hash(data: Data("ScaffoldPro link|".utf8) + marker)))
+        do {
+            let l = try NWListener(using: .tcp)
+            l.newConnectionHandler = { [weak self] connection in self?.receive(connection) }
+            l.stateUpdateHandler = { [weak self] state in
+                guard let self = self else { return }
+                switch state {
+                case .ready:
+                    self.port = l.port.map { Int($0.rawValue) }
+                    self.findAddresses()
+                case .failed(_):
+                    self.listener = nil
+                    self.port = nil
+                default:
+                    break
+                }
+            }
+            l.start(queue: .main)
+            listener = l
+            // A new address (another Wi-Fi, a new lease) is picked up.
+            addressTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in self?.findAddresses() }
+        } catch {
+            listener = nil
+        }
+    }
+
+    private func findAddresses() {
+        DispatchQueue.global(qos: .utility).async {
+            let found = Host.current().addresses.filter { $0.contains(".") && !$0.hasPrefix("127.") && !$0.hasPrefix("169.254.") }
+            DispatchQueue.main.async {
+                guard found != self.addresses else { return }
+                self.addresses = found
+                TeamSync.current?.announceLink()
+            }
+        }
+    }
+
+    /// The other Macs that are open and can be reached this way.
+    private func currentPeers() -> [(host: String, port: Int)] {
+        if Date().timeIntervalSince(peersAt) > 20, let sync = TeamSync.current {
+            peers = sync.members()
+                .filter { m in
+                    m.isThisMac != true && (m.linkPort ?? 0) > 0
+                        && (parseISODate(m.lastSeen).map { Date().timeIntervalSince($0) < 20 * 60 } ?? false)
+                }
+                .flatMap { m in (m.linkAddresses ?? []).map { (host: $0, port: m.linkPort ?? 0) } }
+            peersAt = Date()
+        }
+        return peers
+    }
+
+    private func sign(_ body: Data, _ key: SymmetricKey) -> String {
+        HMAC<SHA256>.authenticationCode(for: body, using: key).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Sends this Mac's change to a store to the others.
+    func send(device: String, store: String, records: [String: Any]) {
+        guard let key = key, listener != nil, !records.isEmpty else { return }
+        let targets = currentPeers()
+        guard !targets.isEmpty else { return }
+        let message: [String: Any] = ["device": device, "store": store, "records": records]
+        guard let body = try? JSONSerialization.data(withJSONObject: message) else { return }
+        let envelope: [String: Any] = ["body": body.base64EncodedString(), "mac": sign(body, key)]
+        guard let packet = try? JSONSerialization.data(withJSONObject: envelope) else { return }
+        for target in targets {
+            guard let port = NWEndpoint.Port(rawValue: UInt16(clamping: target.port)) else { continue }
+            let connection = NWConnection(host: NWEndpoint.Host(target.host), port: port, using: .tcp)
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    connection.send(content: packet, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in connection.cancel() })
+                case .failed(_), .waiting(_):
+                    connection.cancel()
+                default:
+                    break
+                }
+            }
+            connection.start(queue: sendQueue)
+            sendQueue.asyncAfter(deadline: .now() + 6) { connection.cancel() }
+        }
+    }
+
+    private func receive(_ connection: NWConnection) {
+        connection.start(queue: .main)
+        read(connection, Data())
+    }
+
+    private func read(_ connection: NWConnection, _ sofar: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) { [weak self] data, _, isComplete, error in
+            var buffer = sofar
+            if let data = data { buffer.append(data) }
+            if buffer.count > 32 << 20 { connection.cancel(); return }
+            if isComplete || error != nil {
+                connection.cancel()
+                self?.handle(buffer)
+                return
+            }
+            self?.read(connection, buffer)
+        }
+    }
+
+    private func handle(_ data: Data) {
+        guard let key = key,
+              let envelope = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let encoded = envelope["body"] as? String, let body = Data(base64Encoded: encoded),
+              let mac = envelope["mac"] as? String, mac == sign(body, key),
+              let message = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+              let device = message["device"] as? String, let store = message["store"] as? String,
+              let records = message["records"] as? [String: Any] else { return }
+        TeamSync.current?.receivePushed(device: device, store: store, records: records)
+    }
+}
+
 final class WebServer {
     static let shared = WebServer()
     weak var bridge: NativeBridge?
@@ -14042,13 +14257,13 @@ final class WebServer {
     private func session(for request: HTTPRequest) -> WebSession? {
         guard let token = request.cookie("sp_session"), var s = sessions[token] else { return nil }
         // Signed out after 30 days without use.
-        let f = ISO8601DateFormatter()
-        if let seen = f.date(from: s.lastSeen), Date().timeIntervalSince(seen) > 30 * 86400 { endSession(token); return nil }
-        if let seen = f.date(from: s.lastSeen), Date().timeIntervalSince(seen) < 60 { return s }
+        if let seen = parseISODate(s.lastSeen), Date().timeIntervalSince(seen) > 30 * 86400 { endSession(token); return nil }
+        if let seen = parseISODate(s.lastSeen), Date().timeIntervalSince(seen) < 60 { return s }
         s.lastSeen = nowISO()
         var all = sessions
         all[token] = s
         sessions = all
+        TeamSync.current?.touchWebMember(name: s.name, token: token, agent: s.agent)
         return s
     }
 
@@ -14126,8 +14341,7 @@ final class WebServer {
 
     /// Everyone using it from a browser lately (for the Team page).
     func recentPeople() -> [WebSession] {
-        let f = ISO8601DateFormatter()
-        return sessions.values.filter { f.date(from: $0.lastSeen).map { Date().timeIntervalSince($0) < 14 * 86400 } ?? false }
+        return sessions.values.filter { parseISODate($0.lastSeen).map { Date().timeIntervalSince($0) < 14 * 86400 } ?? false }
     }
 
     // MARK: HTTP
