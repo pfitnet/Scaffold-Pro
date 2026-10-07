@@ -4864,6 +4864,87 @@ final class AppDatabase {
         projectsStore.readAll().first { $0.id == id }
     }
 
+    /// What a project holds — asked before it's deleted.
+    struct ProjectContents: Codable {
+        var ok = true
+        var error: String? = nil
+        var projectNumber = ""
+        var name = ""
+        var boqs = 0, quotations = 0, deliveryNotes = 0, invoices = 0, letters = 0
+        var drawings = 0, documents = 0, inspections = 0, payments = 0
+        var total: Int { boqs + quotations + deliveryNotes + invoices + letters + drawings + documents + inspections }
+        var isEmpty = true
+    }
+
+    func projectContents(id: String) -> ProjectContents {
+        guard let p = getProject(id: id) else { var c = ProjectContents(); c.ok = false; c.error = "Project not found."; return c }
+        var c = ProjectContents()
+        c.projectNumber = p.projectNumber
+        c.name = p.name
+        c.boqs = boqsStore.readAll().filter { $0.projectId == id }.count
+        let quotationIds = Set(quotationsStore.readAll().filter { $0.projectId == id }.map { $0.id })
+        c.quotations = quotationIds.count
+        c.deliveryNotes = deliveryNotesStore.readAll().filter { $0.projectId == id }.count
+        let invoiceIds = Set(invoicesStore.readAll().filter { $0.projectId == id }.map { $0.id })
+        c.invoices = invoiceIds.count
+        c.payments = invoicePaymentsStore.readAll().filter { invoiceIds.contains($0.invoiceId) }.count
+        c.letters = lettersStore.readAll().filter { $0.projectId == id }.count
+        c.drawings = drawingsStore.readAll().filter { $0.projectId == id }.count
+        c.documents = documentsStore.readAll().filter { $0.projectId == id }.count
+        c.inspections = inspectionsStore.readAll().filter { $0.projectId == id }.count
+        c.isEmpty = c.total == 0
+        return c
+    }
+
+    /// Deletes a project and everything in it (documents, drawings and
+    /// documents' records, inspections). A project holding anything must be
+    /// confirmed by typing its name (or number). Tasks, expenses and stock
+    /// movements are kept, without the project. The folder is moved to the
+    /// Trash by the caller.
+    func deleteProject(id: String, confirm: String?) -> String? {
+        guard let p = getProject(id: id) else { return "Project not found." }
+        let contents = projectContents(id: id)
+        if !contents.isEmpty {
+            let typed = (confirm ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard typed == p.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() || typed == p.projectNumber.lowercased() else {
+                return "Type the project’s name exactly to delete it."
+            }
+        }
+        for b in boqsStore.readAll() where b.projectId == id { _ = deleteBOQ(id: b.id, includingIssued: true) }
+        let quotationIds = quotationsStore.readAll().filter { $0.projectId == id }.map { $0.id }
+        for q in quotationIds { _ = deleteQuotation(id: q, includingIssued: true) }
+        for d in deliveryNotesStore.readAll() where d.projectId == id { _ = deleteDeliveryNote(id: d.id, includingIssued: true) }
+        for i in invoicesStore.readAll() where i.projectId == id { _ = deleteInvoice(id: i.id, includingIssued: true) }
+        for l in lettersStore.readAll() where l.projectId == id { _ = deleteLetter(id: l.id, force: true) }
+        let drawings = drawingsStore.readAll()
+        if drawings.contains(where: { $0.projectId == id }) { drawingsStore.writeAll(drawings.filter { $0.projectId != id }) }
+        let documents = documentsStore.readAll()
+        if documents.contains(where: { $0.projectId == id }) { documentsStore.writeAll(documents.filter { $0.projectId != id }) }
+        let inspections = inspectionsStore.readAll()
+        if inspections.contains(where: { $0.projectId == id }) { inspectionsStore.writeAll(inspections.filter { $0.projectId != id }) }
+        let requests = signRequestsStore.readAll()
+        if requests.contains(where: { quotationIds.contains($0.documentId) && $0.status == "Pending" }) {
+            for r in requests where quotationIds.contains(r.documentId) && r.status == "Pending" { _ = withdrawSignRequest(id: r.id) }
+        }
+        var tasks = tasksStore.readAll()
+        if tasks.contains(where: { $0.projectId == id }) {
+            for i in tasks.indices where tasks[i].projectId == id { tasks[i].projectId = nil }
+            tasksStore.writeAll(tasks)
+        }
+        var expenses = expensesStore.readAll()
+        if expenses.contains(where: { $0.projectId == id }) {
+            for i in expenses.indices where expenses[i].projectId == id { expenses[i].projectId = nil }
+            expensesStore.writeAll(expenses)
+        }
+        let activity = activityStore.readAll()
+        if activity.contains(where: { $0.projectId == id }) { activityStore.writeAll(activity.filter { $0.projectId != id }) }
+        var projects = projectsStore.readAll()
+        projects.removeAll { $0.id == id }
+        projectsStore.writeAll(projects)
+        logActivity(projectId: nil, "Project deleted", reference: "\(p.projectNumber) — \(p.name)")
+        return nil
+    }
+
     func getProjectByNumber(_ number: String) -> Project? {
         projectsStore.readAll().first { $0.projectNumber == number }
     }
@@ -14852,6 +14933,21 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "projects:update":
             let error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "projects:contents":
+            respond(id: id, encodable: db.projectContents(id: (payload["id"] as? String) ?? ""))
+        case "projects:delete":
+            let pid = (payload["id"] as? String) ?? ""
+            let number = db.getProject(id: pid)?.projectNumber
+            let error = db.deleteProject(id: pid, confirm: payload["confirm"] as? String)
+            var trashed = false
+            if error == nil, let number = number, !number.isEmpty {
+                let folder = storage.projectFolder(number)
+                if FileManager.default.fileExists(atPath: folder.path) {
+                    trashed = (try? FileManager.default.trashItem(at: folder, resultingItemURL: nil)) != nil
+                }
+            }
+            struct DeleteProjectResult: Encodable { var ok: Bool; var error: String?; var folderTrashed: Bool }
+            respond(id: id, encodable: DeleteProjectResult(ok: error == nil, error: error, folderTrashed: trashed))
         case "projects:updateStatus":
             if let pid = payload["id"] as? String, let status = payload["status"] as? String {
                 db.updateProjectStatus(id: pid, status: status)

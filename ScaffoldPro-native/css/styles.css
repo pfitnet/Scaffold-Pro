@@ -2194,3 +2194,43 @@ a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
 .notify-actions .button-like { height: 28px; padding: 0 14px; font-size: 12.5px; }
 .notify-close { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; min-width: 0; padding: 0; border-radius: 50%; border: none; box-shadow: none; background: transparent; color: var(--text-tertiary); display: inline-flex; align-items: center; justify-content: center; }
 .notify-close:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); box-shadow: none; }
+
+/* Deleting a project that isn't empty (js/project-delete.js). */
+.pd-del-backdrop { z-index: 10060; }
+.pd-del { max-width: 460px; text-align: left; }
+.pd-del-icon { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
+  color: var(--danger); background: var(--danger-soft); }
+.pd-del h2 { font-size: 17px; margin-bottom: 6px; }
+.pd-del-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; margin: 6px 0 12px; padding: 10px 14px; list-style: none;
+  border-radius: 10px; background: var(--danger-soft); font-size: 13px; }
+.pd-del-list b { color: var(--danger); font-variant-numeric: tabular-nums; margin-right: 3px; }
+.pd-del-label { display: block; font-size: 12.5px; color: var(--text-secondary); margin: 10px 0 6px; }
+.pd-del input { width: 100%; }
+.pd-del.armed input { border-color: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 15%, transparent); }
+.pd-del.shake { animation: pd-shake .4s; }
+@keyframes pd-shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.pd-del .actions button.danger { background: var(--danger); border-color: var(--danger); color: #fff; box-shadow: none; }
+.pd-del .actions button.danger:disabled { opacity: .4; }
+.pd-del .actions button.danger:hover:not(:disabled) { filter: brightness(.95); }
+
+/* Projects: folding groups — who made them, then each client. */
+.pj-group { border: 1px solid var(--border); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--panel) 60%, transparent); margin-bottom: 14px; box-shadow: var(--shadow-card); }
+.pj-group-head, .pj-sub-head { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; border: none; box-shadow: none; background: none; text-align: left; color: var(--text); cursor: pointer; }
+.pj-group-head { padding: 14px 18px; font-size: 15px; font-weight: 650; border-radius: var(--radius-xl); }
+.pj-group-head:hover:not(:disabled), .pj-sub-head:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 5%, transparent); box-shadow: none; }
+.pj-sub { margin: 0 14px 12px; border-radius: 14px; border: 1px solid var(--hairline); background: var(--content, var(--bg)); }
+.pj-sub-head { padding: 10px 14px; font-size: 13.5px; font-weight: 600; border-radius: 14px; }
+.pj-sub-head svg:not(.pj-chev) { color: var(--text-tertiary); }
+.pj-sub-name { flex: none; }
+.pj-group-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
+.pj-chev { flex: none; color: var(--text-tertiary); transition: transform .3s var(--spring); }
+.open > .pj-group-head .pj-chev, .open > .pj-sub-head .pj-chev { transform: rotate(90deg); }
+.pj-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s var(--ease); }
+.open > .pj-fold { grid-template-rows: 1fr; }
+.pj-fold-inner { min-height: 0; overflow: hidden; }
+.pj-sub > .pj-fold > .pj-fold-inner > .pj-grid, .pj-sub > .pj-fold > .pj-fold-inner > .pj-table { margin: 2px 12px 14px; }
+.pj-sub > .pj-fold > .pj-fold-inner > .pj-grid { padding-top: 4px; }
+/* The project number reads first. */
+a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); }
+.pj-table td.pj-num { font-size: 15px; }
+.qa-backdrop { z-index: 10070; } .qa-sheet { max-width: 520px; }

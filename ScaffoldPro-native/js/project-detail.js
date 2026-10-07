@@ -970,6 +970,12 @@ function setupEditSheet() {
   });
 
   $('e-cancel-btn').addEventListener('click', () => $('edit-modal').classList.add('hidden'));
+  $('e-delete-btn').addEventListener('click', async () => {
+    const p = currentProject;
+    if (!p) return;
+    $('edit-modal').classList.add('hidden');
+    if (await window.deleteProject(p)) location.href = 'projects.html';
+  });
   $('e-save-btn').addEventListener('click', async () => {
     const showError = (message) => {
       $('e-error').textContent = message;

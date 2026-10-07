@@ -101,6 +101,9 @@
       updateStatus: (id, status) => callNative('projects:updateStatus', { id: id, status: status }),
       revealFolder: (projectNumber) => callNative('projects:revealFolder', { projectNumber: projectNumber }),
       uploadDrawing: (projectNumber, link) => callNative('projects:uploadDrawing', Object.assign({ projectNumber: projectNumber }, link || {})),
+      // What a project holds (asked before deleting), and deleting it.
+      contents: (id) => callNative('projects:contents', { id: id }),
+      remove: (id, confirm) => callNative('projects:delete', { id: id, confirm: confirm || null }),
     },
     drawings: {
       listForProject: (projectId) => callNative('drawings:listForProject', { projectId: projectId }),
