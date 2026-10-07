@@ -784,6 +784,9 @@ const statusClass = (s) => `st-${String(s || '').toLowerCase().replace(/[^a-z]+/
 function renderProjectHeader() {
   const p = currentProject;
   document.title = `${p.projectNumber} — ScaffoldPro`;
+  // A crane job has no BOQs: its BOQ tab, tile and "New BOQ" are hidden.
+  document.body.classList.toggle('crane-job', p.jobType === 'Crane');
+  if (p.jobType === 'Crane' && document.querySelector('#tabs [data-tab="boq"].active') && window.showTab) showTab('overview');
   const hero = document.getElementById('pd-hero');
   hero.className = `pd-hero ${statusClass(p.status)}`;
   document.getElementById('project-header').innerHTML = `

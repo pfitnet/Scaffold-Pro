@@ -88,34 +88,15 @@ async function loadDetail() {
 }
 
 // A crane job's quotation is the letter with its items written out (e.g.
-// "Provision of Tracked Telescopic Boom Lift" with Model : ZT14JC…): no
-// BQ sheet, and the custom item box in front instead of the scaffolding
-// material list (which can still be shown).
+// "Provision of Tracked Telescopic Boom Lift" with Model : ZT14JC…): one
+// column — the items, the item card always open under them, then the
+// drawings — with no material list, BOQ import or BQ sheet.
 function craneSetup(d) {
   const crane = d.jobType === 'Crane';
   document.body.classList.toggle('crane-job', crane);
   const page = document.getElementById('orientation-select').closest('.tb-pick');
   if (page) page.classList.toggle('hidden', crane);
-  const box = document.getElementById('custom-item-box');
-  const summary = box.querySelector('summary');
-  if (!summary.dataset.plain) summary.dataset.plain = summary.textContent;
-  summary.textContent = crane ? '+ Add an item' : summary.dataset.plain;
-  if (crane && !craneSetup.opened) { box.open = true; craneSetup.opened = true; }
-  let note = document.getElementById('crane-materials-note');
-  if (crane && !note) {
-    note = document.createElement('div');
-    note.id = 'crane-materials-note';
-    note.className = 'crane-note';
-    note.innerHTML = `<b>Crane job</b><span>Write each item in “+ Add an item”: a line such as “Provision of Tracked Telescopic Boom Lift”, a blank line, then its details with Hanging Indent (Model : ZT14JC, Manufacturer : ZOOMLION…). It prints as a letter quotation.</span>
-      <button type="button" class="link-btn" data-no-icon id="crane-show-materials">Show the material list</button>`;
-    const head = document.querySelector('.am-head');
-    head.parentNode.insertBefore(note, head);
-    note.querySelector('#crane-show-materials').addEventListener('click', () => {
-      const shown = document.body.classList.toggle('crane-materials');
-      note.querySelector('#crane-show-materials').textContent = shown ? 'Hide the material list' : 'Show the material list';
-    });
-  }
-  if (note) note.classList.toggle('hidden', !crane);
+  if (crane) document.getElementById('custom-item-box').open = true;
 }
 
 function render() {
@@ -423,7 +404,9 @@ function renderLineItems() {
   sort.title = currentDetail.boqLinked ? `Linked: ${currentDetail.sourceBOQNumber} is sorted the same way` : 'How the items are listed and printed. Dragging a line switches to “As arranged”.';
 
   if (items.length === 0) {
-    container.innerHTML = `<div class="empty-state"><h2>No line items yet</h2><p>Add materials from the list on the left.</p></div>`;
+    container.innerHTML = currentDetail.jobType === 'Crane'
+      ? '<div class="empty-state"><h2>No items yet</h2><p>Describe the first one below — e.g. Provision of Tracked Telescopic Boom Lift, then its model and details.</p></div>'
+      : `<div class="empty-state"><h2>No line items yet</h2><p>Add materials from the list on the left.</p></div>`;
     return;
   }
 

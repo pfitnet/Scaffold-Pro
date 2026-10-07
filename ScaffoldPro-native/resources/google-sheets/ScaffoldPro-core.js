@@ -15,11 +15,11 @@
 
 // The tabs' layout. A sheet made with an older layout is rebuilt in this one.
 // (Also shown in ScaffoldPro as the sheet's version.)
-const LAYOUT = '3';
+const LAYOUT = '4';
 const TABS = { overview: 'Overview', activity: 'Activity', projects: 'Projects', sync: '_sync' };
 const ACTIVITY_HEAD = ['When', 'Who', 'Project', 'What', 'ID'];
 const PROJECT_HEAD = ['Ref', 'Project', 'Client · Site', 'Stage', 'BOQ', 'Quotation', 'Delivery Note', 'Invoice', 'Letters', 'Next Step', 'Last Update', 'Notes', 'ID'];
-const PROJECT_WIDTHS = [80, 330, 250, 105, 82, 92, 108, 88, 74, 210, 130, 220, 60];
+const PROJECT_WIDTHS = [80, 320, 240, 105, 118, 128, 128, 112, 112, 210, 130, 220, 60];
 // Short cells are centred; text reads from the left.
 const PROJECT_ALIGN = ['center', 'left', 'left', 'center', 'center', 'center', 'center', 'center', 'center', 'left', 'center', 'left', 'left'];
 // On a project's row these go back into ScaffoldPro.
@@ -96,6 +96,7 @@ function ensureTabs_() {
     try { act.setRowHeightsForced(2, rows, 24); } catch (e) { /* older API */ }
     props.setProperty('COLOURED', '');
     props.setProperty('LAYOUT', LAYOUT);
+    buildOverview_();
   }
 }
 
@@ -174,6 +175,7 @@ function buildOverview_() {
   sh.getRange('A1').setValue('ScaffoldPro — Overview').setFontSize(16).setFontWeight('bold');
   sh.getRange('A2').setValue('Last synced').setFontColor(SOFT);
   sh.getRange('B2').setHorizontalAlignment('left').setFontColor(SOFT);
+  sh.getRange('A3').setValue('Projects tab: each document by its number. Pale grey = draft · filled = sent or delivered · deeper = signed or paid · red = overdue. Hover a cell for its status.').setFontColor(SOFT).setFontStyle('italic');
   sh.getRange('A4').setValue('Who did what — last 7 days').setFontWeight('bold');
   sh.getRange('A5').setFormula('=IFERROR(QUERY(Activity!A2:D, "select B, count(D) where A >= date \'"&TEXT(TODAY()-7,"yyyy-mm-dd")&"\' and B <> \'\' group by B order by count(D) desc label B \'Who\', count(D) \'Things done\'", 0), "Nothing yet")');
   sh.getRange('D4').setValue('Projects by stage').setFontWeight('bold');
@@ -242,10 +244,14 @@ function step_(field, list) {
   const docs = (list || []).map(doc_).filter((d) => d.no);
   if (!docs.length) return { label: '', level: -1, note: '' };
   const looks = docs.map((d) => look_(field, d));
-  const best = looks.reduce((a, b) => (b.level > a.level || (b.level === a.level && b.bad) ? b : a));
+  let at = 0;
+  looks.forEach((l, i) => { const b = looks[at]; if (l.level > b.level || (l.level === b.level && l.bad && !b.bad)) at = i; });
+  const best = looks[at];
   const live = looks.filter((l) => l.level > 0).length;
+  // The document's own number (its colour says how far it has got; its
+  // status is in the note), and "+2" when there are more.
   return {
-    label: best.label + (live > 1 ? ' (' + live + ')' : ''), level: best.level, bad: !!best.bad,
+    label: docs[at].no + (live > 1 ? ' +' + (live - 1) : ''), level: best.level, bad: !!best.bad, status: best.label,
     note: docs.map((d) => d.no + ' — ' + [d.status, d.flag].filter(Boolean).join(', ')).join('\n'),
   };
 }
@@ -266,7 +272,7 @@ function next_(cells) {
   if (q.level === 3) return { text: 'Deliver' };
   if (q.level === 2) return { text: 'Waiting for the client', waiting: true };
   if (q.level === 1) return { text: 'Send the quotation' };
-  if (q.level === 0) return { text: 'Quotation ' + q.label.toLowerCase(), quiet: true, bad: q.bad };
+  if (q.level === 0) return { text: 'Quotation ' + String(q.status || 'cancelled').toLowerCase(), quiet: true, bad: q.bad };
   if (boq.level >= 2) return { text: 'Make the quotation' };
   return { text: 'Finish the BOQ' };
 }
