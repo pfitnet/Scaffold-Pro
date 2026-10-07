@@ -452,6 +452,10 @@ struct Announcement: Codable {
     var important: Bool
     /// Who has closed it (lower-cased names).
     var dismissedBy: [String]
+    /// A request to sign and chop it stands for: it goes when the request is
+    /// answered or withdrawn. Its page (Review) opens from the notice.
+    var signRequestId: String? = nil
+    var link: String? = nil
 }
 
 struct AnnouncementRow: Codable {
@@ -4330,9 +4334,17 @@ final class AppDatabase {
         if signRequestsStore.readAll().contains(where: { $0.documentId == q.id && $0.status == "Pending" }) {
             return "\(q.quotationNumber) is already waiting for a signature."
         }
-        signRequestsStore.insert(SignRequest(id: makeId("sign"), kind: "Quotation", documentId: q.id, number: q.quotationNumber,
+        let requestId = makeId("sign")
+        signRequestsStore.insert(SignRequest(id: requestId, kind: "Quotation", documentId: q.id, number: q.quotationNumber,
                                              projectNumber: project.projectNumber, projectName: project.name, requestedBy: me, signer: signer,
                                              note: nonBlank(note), status: "Pending", createdAt: nowISO()))
+        // A notice for the signer on every page, until they close it or answer.
+        var notice = Announcement(id: makeId("announcement"),
+                                  message: "\(me) asked you to sign and chop \(q.quotationNumber) — \(project.projectNumber) \(project.name)\(nonBlank(note).map { ": “\($0)”" } ?? ".")",
+                                  audience: "@" + signer.lowercased(), author: me, createdAt: nowISO(), showUntil: nil, important: true, dismissedBy: [])
+        notice.signRequestId = requestId
+        notice.link = "team.html?tab=signatures&review=\(requestId)"
+        announcementsStore.insert(notice)
         logActivity(projectId: project.id, "Sent to \(signer) to sign", reference: q.quotationNumber)
         return nil
     }
@@ -4349,6 +4361,7 @@ final class AppDatabase {
         all[i].reply = nonBlank(reply)
         signRequestsStore.writeAll(all)
         let r = all[i]
+        removeSignNotices(requestId: id)
         if signed, var q = getQuotation(id: r.documentId) {
             q.directorSignedPath = filePath
             q.directorSignedAt = nowISO()
@@ -4486,7 +4499,14 @@ final class AppDatabase {
         guard all[i].status == "Pending" else { return "It has already been \(all[i].status.lowercased())." }
         all.remove(at: i)
         signRequestsStore.writeAll(all)
+        removeSignNotices(requestId: id)
         return nil
+    }
+
+    private func removeSignNotices(requestId: String) {
+        let all = announcementsStore.readAll()
+        let left = all.filter { $0.signRequestId != requestId }
+        if left.count != all.count { announcementsStore.writeAll(left) }
     }
 
     private func announcementRunning(_ a: Announcement) -> Bool {

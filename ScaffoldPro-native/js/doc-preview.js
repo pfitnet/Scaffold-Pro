@@ -37,7 +37,7 @@
     return vendor;
   }
 
-  function sheet({ kind, title, fileName }) {
+  function sheet({ kind, title, fileName, actions, note }) {
     const el = document.createElement('div');
     el.className = 'dp-backdrop';
     el.innerHTML = `
@@ -57,10 +57,11 @@
           <div class="dp-pages"></div>
         </div>
         <footer class="dp-foot">
-          <span class="dp-note">Nothing is saved until you click Save.</span>
+          <span class="dp-note">${esc(note || 'Nothing is saved until you click Save.')}</span>
           <span class="dp-actions">
-            <button type="button" class="dp-cancel">Cancel</button>
-            <button type="button" class="primary dp-save" disabled>Save to Project Folder</button>
+            <button type="button" class="dp-cancel">${actions ? 'Close' : 'Cancel'}</button>
+            ${actions ? actions.map((a) => `<button type="button" class="dp-act${a.primary ? ' primary' : ''}${a.danger ? ' danger' : ''}" data-act="${esc(a.key)}" disabled>${a.html || esc(a.label)}</button>`).join('')
+              : '<button type="button" class="primary dp-save" disabled>Save to Project Folder</button>'}
           </span>
         </footer>
       </div>`;
@@ -71,9 +72,12 @@
 
   // The common part: zoom, keys, saving, closing. `ready()` draws the pages
   // (returns a note, if any); `save()` → { ok, error, path }; `discard()`.
-  function run({ kind, title, fileName, ready, save, discard }) {
+  // With `actions` ([{ key, label | html, primary, danger }]) the footer
+  // offers those instead of Save: choosing one closes the preview with
+  // { ok: true, saved: false, action: key }.
+  function run({ kind, title, fileName, ready, save, discard, actions, note }) {
     return new Promise((resolve) => {
-      const el = sheet({ kind, title, fileName });
+      const el = sheet({ kind, title, fileName, actions, note });
       const $ = (s) => el.querySelector(s);
       const pages = $('.dp-pages');
       let zoom = 1;
@@ -139,7 +143,7 @@
         if (document.querySelector('.app-dialog-backdrop')) return;
         const mod = e.metaKey || e.ctrlKey;
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(saved ? { ok: true, saved: true, path: saved.path } : { ok: true, saved: false }); }
-        else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); doSave(); }
+        else if (mod && e.key.toLowerCase() === 's' && !actions) { e.preventDefault(); e.stopPropagation(); doSave(); }
         else if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); fitted = false; setZoom(zoom + 0.1); }
         else if (mod && e.key === '-') { e.preventDefault(); fitted = false; setZoom(zoom - 0.1); }
         else if (mod && e.key === '0') { e.preventDefault(); fit(); }
@@ -149,7 +153,9 @@
       window.addEventListener('resize', onResize);
       $('.dp-close').addEventListener('click', () => close(saved ? { ok: true, saved: true, path: saved.path } : { ok: true, saved: false }));
       $('.dp-cancel').addEventListener('click', () => close({ ok: true, saved: false }));
-      $('.dp-save').addEventListener('click', doSave);
+      if (actions) {
+        for (const b of el.querySelectorAll('.dp-act')) b.addEventListener('click', () => close({ ok: true, saved: false, action: b.dataset.act }));
+      } else $('.dp-save').addEventListener('click', doSave);
       $('.dp-zoom').addEventListener('click', (e) => {
         const b = e.target.closest('button');
         if (!b) return;
@@ -174,8 +180,9 @@
         if (note) $('.dp-sub').textContent = note;
         fit();
         el.classList.add('ready');
-        $('.dp-save').disabled = false;
-        $('.dp-save').focus();
+        for (const b of el.querySelectorAll('.dp-save, .dp-act')) b.disabled = false;
+        const first = $('.dp-act.primary') || $('.dp-save');
+        if (first) first.focus();
       })();
     });
   }
@@ -186,6 +193,8 @@
       kind: 'pdf',
       title: opts.title,
       fileName: opts.fileName || '',
+      actions: opts.actions,
+      note: opts.note,
       ready: async (box) => {
         const r = await fetcher();
         if (!r || !r.ok) throw new Error((r && r.error) || 'The PDF couldn’t be prepared.');

@@ -228,8 +228,7 @@ function requestRow(r, opts = {}) {
       ${r.reply ? `<div class="sign-note reply">${esc(r.signer)}: “${esc(r.reply)}”</div>` : ''}
     </div>
     <div class="sign-actions">
-      ${opts.incoming ? `<a class="button-like" href="quotation-editor.html?id=${encodeURIComponent(r.documentId)}">Review</a>
-        <button class="sign-decline" data-no-icon>Decline…</button><button class="primary sign-go" data-no-icon>${PEN} Sign &amp; Chop</button>` : ''}
+      ${opts.incoming ? `<button class="primary sign-review" data-no-icon title="See the quotation, then sign and chop it or decline">${EYE} Review</button>` : ''}
       ${!opts.incoming && r.status === 'Pending' && opts.mine ? '<button class="sign-withdraw" data-no-icon>Withdraw</button>' : ''}
       ${r.status === 'Signed' && r.filePath ? '<button class="sign-open" data-no-icon>Open Signed PDF</button>' : ''}
     </div>
@@ -254,20 +253,55 @@ function renderSignatures() {
   for (const row of document.querySelectorAll('.sign-row')) {
     const r = s.recent.concat(s.incoming, s.outgoing).find((x) => x.id === row.dataset.id);
     const on = (sel, fn) => { const b = row.querySelector(sel); if (b) b.addEventListener('click', fn); };
-    on('.sign-go', async () => {
-      if (!await window.appConfirm(`Sign and chop ${r.number}?\n\nYour signature and the company chop go on its “For and on Behalf of” line. The signed PDF is saved in project ${r.projectNumber}’s Quotations folder, and ${r.requestedBy} is told.`, { ok: 'Sign & Chop' })) return;
-      const res = await window.api.signatures.sign(r.id);
-      if (!res || res.ok === false) { await window.appAlert((res && res.error) || 'It couldn’t be signed.'); return; }
-      await load();
-      if (await window.appConfirm(`${r.number} is signed and chopped.`, { ok: 'Open PDF', cancel: 'Done' })) window.api.signatures.openFile(res.path);
-    });
-    on('.sign-decline', async () => {
-      const reply = await window.appPrompt(`Why not sign ${r.number}? (${r.requestedBy} is told)`, '', { ok: 'Decline', placeholder: 'e.g. Please check the delivery charge first' });
-      if (reply === null) return;
-      const res = await window.api.signatures.decline(r.id, reply);
-      if (res && res.ok === false) { await window.appAlert(res.error); return; }
-      await load();
-    });
+    on('.sign-review', () => review(r));
+  }
+  wireOthers();
+  // From a notice elsewhere: open that quotation's review straight away.
+  const want = new URLSearchParams(location.search).get('review');
+  if (want && !renderSignatures.reviewed) {
+    const r = s.incoming.find((x) => x.id === want);
+    if (r) { renderSignatures.reviewed = true; showTab('signatures'); review(r); }
+  }
+}
+
+const EYE = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.8 10S5 4.5 10 4.5 18.2 10 18.2 10 15 15.5 10 15.5 1.8 10 1.8 10z"/><circle cx="10" cy="10" r="2.6"/></svg>';
+
+// Review: the quotation as it will be printed, in the preview; from there
+// the signer signs and chops it, or declines.
+async function review(r) {
+  const result = await window.docPreview.pdf(() => window.api.quotations.exportPDF(r.documentId, { preview: true }), {
+    title: `${r.number} — for your signature`,
+    note: `${r.requestedBy} asked you to sign and chop this${r.note ? `: “${r.note}”` : '.'}`,
+    actions: [
+      { key: 'decline', label: 'Decline…' },
+      { key: 'sign', primary: true, html: `${PEN} Sign &amp; Chop` },
+    ],
+  });
+  if (!result || result.ok === false) { if (result && result.error) await window.appAlert(result.error); return; }
+  if (result.action === 'sign') await signIt(r);
+  else if (result.action === 'decline') await declineIt(r);
+}
+
+async function signIt(r) {
+  if (!await window.appConfirm(`Sign and chop ${r.number}?\n\nYour signature and the company chop go on its “For and on Behalf of” line. The signed PDF is saved in project ${r.projectNumber}’s Quotations folder, and ${r.requestedBy} is told.`, { ok: 'Sign & Chop' })) return;
+  const res = await window.api.signatures.sign(r.id);
+  if (!res || res.ok === false) { await window.appAlert((res && res.error) || 'It couldn’t be signed.'); return; }
+  await load();
+  if (await window.appConfirm(`${r.number} is signed and chopped.`, { ok: 'Open PDF', cancel: 'Done' })) window.api.signatures.openFile(res.path);
+}
+
+async function declineIt(r) {
+  const reply = await window.appPrompt(`Why not sign ${r.number}? (${r.requestedBy} is told)`, '', { ok: 'Decline', placeholder: 'e.g. Please check the delivery charge first' });
+  if (reply === null) return;
+  const res = await window.api.signatures.decline(r.id, reply);
+  if (res && res.ok === false) { await window.appAlert(res.error); return; }
+  await load();
+}
+
+function wireOthers() {
+  for (const row of document.querySelectorAll('.sign-row')) {
+    const r = signing.recent.concat(signing.incoming, signing.outgoing).find((x) => x.id === row.dataset.id);
+    const on = (sel, fn) => { const b = row.querySelector(sel); if (b) b.addEventListener('click', fn); };
     on('.sign-withdraw', async () => {
       if (!await window.appConfirm(`Withdraw the request for ${r.signer} to sign ${r.number}?`, { ok: 'Withdraw' })) return;
       const res = await window.api.signatures.withdraw(r.id);
@@ -330,5 +364,5 @@ async function load() {
   document.getElementById('team-announce-btn').addEventListener('click', async () => { await window.announcements.compose(); renderAnnouncements(); });
   load();
   // Requests come in from the others' Macs.
-  setInterval(async () => { signing = await window.api.signatures.page(); renderSignatures(); }, 60000);
+  setInterval(async () => { signing = await window.api.signatures.page(); renderSignatures(); }, 15000);
 })();

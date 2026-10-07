@@ -39,7 +39,8 @@
   }
 
   function draw() {
-    const rows = (page && page.visible) || [];
+    // A notice for a quotation to sign is the "waiting" row below.
+    const rows = ((page && page.visible) || []).filter((r) => !r.announcement.signRequestId);
     barEl.classList.toggle('hidden', rows.length === 0 && waiting.length === 0);
     const sign = waiting.map((r) => `<div class="announce sign">
         <span class="announce-icon">${PEN}</span>
@@ -47,7 +48,7 @@
           <div class="announce-text"><b>${esc(r.number)}</b> is waiting for you to sign and chop${r.note ? ` — “${esc(r.note)}”` : ''}</div>
           <div class="announce-meta">${window.personTag ? window.personTag(r.requestedBy) : esc(r.requestedBy)} <span>asked ${when(r.createdAt)} · ${esc(r.projectNumber)} ${esc(r.projectName || '')}</span></div>
         </div>
-        <div class="announce-actions"><a class="button-like primary" href="team.html?tab=signatures">Review &amp; Sign</a></div>
+        <div class="announce-actions"><a class="button-like primary" href="team.html?tab=signatures&review=${encodeURIComponent(r.id)}">Review</a></div>
       </div>`).join('');
     barEl.innerHTML = sign + rows.map(({ announcement: a, mine }) => `
       <div class="announce${a.important ? ' important' : ''}" data-id="${esc(a.id)}">
@@ -176,7 +177,7 @@
       if (started) return;
       started = true;
       // New ones from the team turn up by themselves.
-      setInterval(refresh, 60000);
+      setInterval(refresh, 15000);
       window.addEventListener('focus', refresh);
     },
     refresh,
