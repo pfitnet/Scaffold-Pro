@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/boq-editor.js": {
-    "mtime": 1791049414.3516333,
-    "seen": 1791049865.3038654,
-    "ast_hash": "fd59f40dc6dbebc77890c706a850d514",
+    "mtime": 1791366256.3659358,
+    "seen": 1791366513.9264286,
+    "ast_hash": "3f2703023cf1857c5b687d90cc5a7bf3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
@@ -66,9 +66,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/delivery-note-editor.js": {
-    "mtime": 1791361299.1443741,
-    "seen": 1791361347.1622052,
-    "ast_hash": "7d60f24b235b3bafed7a11a842c1cf5c",
+    "mtime": 1791366256.3663824,
+    "seen": 1791366513.9264383,
+    "ast_hash": "4273422c5fc1b7642c96c6a8affe9c65",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/doc-select.js": {
@@ -102,9 +102,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/invoice-editor.js": {
-    "mtime": 1791361299.145264,
-    "seen": 1791361347.1622176,
-    "ast_hash": "5494188c3e0b05d22f4b5c3330af26cf",
+    "mtime": 1791366256.3667538,
+    "seen": 1791366513.9264557,
+    "ast_hash": "395d51754709ef5f1728d1b022d0b37f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/line-discount.js": {
@@ -138,15 +138,15 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/project-detail.js": {
-    "mtime": 1791361258.62966,
-    "seen": 1791361347.1622324,
-    "ast_hash": "21850c2e4e7773ec23fdedf715be6aa5",
+    "mtime": 1791366233.8007758,
+    "seen": 1791366513.926474,
+    "ast_hash": "ea53d1b44ada33b741579f988e43f8e7",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/projects.js": {
-    "mtime": 1791360376.1944304,
-    "seen": 1791360576.7558365,
-    "ast_hash": "af6e0fd0062784cae7b802721e1d1461",
+    "mtime": 1791366233.7998514,
+    "seen": 1791366513.9264758,
+    "ast_hash": "d5318db055748dd2ead42372176b1898",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/qty-tab.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791360466.7430923,
-    "seen": 1791360576.7558384,
-    "ast_hash": "d8e3b64f30365848ba641f43c7ab18ce",
+    "mtime": 1791366256.3673778,
+    "seen": 1791366513.926478,
+    "ast_hash": "7a185226db6da4c7bfd4995c2b33dea0",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791365695.115865,
-    "seen": 1791365781.4204926,
-    "ast_hash": "57e200166fbcca840a62947e659005d6",
+    "mtime": 1791366208.4829705,
+    "seen": 1791366513.9264898,
+    "ast_hash": "1b441788321391676fe05f95a3b7cbb9",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791365775.1280115,
-    "seen": 1791365781.4205031,
-    "ast_hash": "63a9a24d32b4c080081e44c65e7a4dc6",
+    "mtime": 1791366508.476846,
+    "seen": 1791366513.9265006,
+    "ast_hash": "353d736fff11a27ba1dfaad66b5e6159",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/boq-editor.html": {
-    "mtime": 1791049414.350122,
-    "seen": 1791049865.3039243,
-    "ast_hash": "e7a4fa456c7ce1540c0919a2beed753f",
+    "mtime": 1791366256.3634183,
+    "seen": 1791366513.9265027,
+    "ast_hash": "44f408f42eae00cc1776e710adbfbc4e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/clients.html": {
@@ -282,9 +282,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/delivery-note-editor.html": {
-    "mtime": 1791361299.1436238,
-    "seen": 1791361347.1622608,
-    "ast_hash": "91392395d44c7bd991a882f938e67c40",
+    "mtime": 1791366256.3653817,
+    "seen": 1791366513.9265058,
+    "ast_hash": "0ac0cb3e9d11186933d5cd8b5aeca5af",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/index.html": {
@@ -294,9 +294,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/invoice-editor.html": {
-    "mtime": 1791361299.1448643,
-    "seen": 1791361347.1622622,
-    "ast_hash": "cc300d0b6e2311a8089faf9796e9f5f1",
+    "mtime": 1791366256.365055,
+    "seen": 1791366513.9265072,
+    "ast_hash": "da7914dba98ba83b4bda661b4676be46",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/price-lists.html": {
@@ -306,21 +306,21 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/project-detail.html": {
-    "mtime": 1791360277.078367,
-    "seen": 1791360576.7558708,
-    "ast_hash": "7d3afb96041a8d9fb57b7122d6757779",
+    "mtime": 1791366233.7993042,
+    "seen": 1791366513.9265137,
+    "ast_hash": "fa157020e8eac41a4fd7de612d180940",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/projects.html": {
-    "mtime": 1791343196.0288172,
-    "seen": 1791343261.986649,
-    "ast_hash": "e36878d44fae75ce9fc068285564a6f0",
+    "mtime": 1791366233.7989824,
+    "seen": 1791366513.9265144,
+    "ast_hash": "973b23a023e037b707d45628a6b38a5c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/quotation-editor.html": {
-    "mtime": 1791049414.3511841,
-    "seen": 1791049865.303936,
-    "ast_hash": "ec1fe1d4cdd9a26f2cf7b1e9394dd39d",
+    "mtime": 1791366256.3642669,
+    "seen": 1791366513.926515,
+    "ast_hash": "d4f44fac5792bca4893713b25494f8eb",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
@@ -933,6 +933,12 @@
     "mtime": 1791365630.7936535,
     "seen": 1791365781.4204936,
     "ast_hash": "78349483155c929e6991becd286c56db",
+    "semantic_hash": ""
+  },
+  "ScaffoldPro-native/js/custom-item.js": {
+    "mtime": 1791366426.4511068,
+    "seen": 1791366513.9264364,
+    "ast_hash": "6c7845475c4dc9b43a97a9175630bc6d",
     "semantic_hash": ""
   }
 }

@@ -58,6 +58,13 @@
         </div>
       </div>
 
+      <div class="field job-field"><label id="f-job-label">Is this a scaffolding job or a crane job?</label>
+        <div class="job-switch" role="radiogroup" aria-labelledby="f-job-label">
+          <input type="radio" name="f-jobType" id="f-job-scaffolding" value="Scaffolding" checked /><label for="f-job-scaffolding"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 2.5v15M15 2.5v15M5 6.5h10M5 11h10M5 15.5h10M5 6.5l10 4.5"/></svg>Scaffolding</label>
+          <input type="radio" name="f-jobType" id="f-job-crane" value="Crane" /><label for="f-job-crane"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17.5V3.5M2.5 17.5h6M5 3.5h12.5M5 6.5l3-3M15 3.5v5"/><path d="M13.5 8.5h3l-.5 2h-2z"/></svg>Crane</label>
+          <span class="job-thumb" aria-hidden="true"></span>
+        </div>
+      </div>
       <div class="field"><label>Project Name</label><input type="text" id="f-name" /></div>
       <div class="form-grid">
         <div class="field"><label>Client</label><select id="f-client"></select></div>

@@ -123,7 +123,7 @@
           <details class="custom-item" id="custom-item-box">
             <summary>+ Add a custom item (not on a price list)</summary>
             <div class="custom-item-row">
-              <input type="text" id="ci-description" placeholder="Description, e.g. Transport to site" />
+              <textarea id="ci-description" rows="1" placeholder="Description, e.g. Transport to site  (Shift-Return for a new line)" title="Return adds the item · Shift-Return starts a new line in it"></textarea>
               <input type="text" id="ci-unit" value="lot" title="Unit" />
               <input type="number" id="ci-qty" min="1" step="1" value="1" title="Quantity" />
               <input type="number" id="ci-extra" min="0" step="0.01" placeholder="Weight per unit (kg)" />
@@ -184,6 +184,7 @@
   <script src="js/qty-tab.js"></script>
   <script src="js/keep-focus.js"></script>
   <script src="js/item-picker.js"></script>
+  <script src="js/custom-item.js"></script>
   <script src="js/doc-language.js"></script>
   <script src="js/document-actions.js"></script>
   <script src="js/line-discount.js"></script>
