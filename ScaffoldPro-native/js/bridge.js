@@ -103,6 +103,8 @@
       uploadDrawing: (projectNumber, link) => callNative('projects:uploadDrawing', Object.assign({ projectNumber: projectNumber }, link || {})),
       // What a project holds (asked before deleting), and deleting it.
       contents: (id) => callNative('projects:contents', { id: id }),
+      // Every project's documents and what each was made from (the Overview).
+      overview: () => callNative('projects:overview'),
       remove: (id, confirm) => callNative('projects:delete', { id: id, confirm: confirm || null }),
     },
     drawings: {
