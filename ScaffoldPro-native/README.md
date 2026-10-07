@@ -3798,3 +3798,13 @@ every cell. The Projects tab (layout 3) now reads left to right.
 - **To update the sheet:** Copy Script, paste it into Apps Script (keep
   the SHEET_URL line), run setup, then use Deploy › Manage deployments ›
   Edit › New version. The next sync rebuilds the Projects tab.
+
+## Batch 160 — Google Sheets: the sheet's link filled in
+
+- The script already has the company sheet in `SHEET_URL`
+  (…/d/10_6_7WG4p3pV7J1DIuqfQoqcGxNII6ZUUC9E_WZaKZ8/edit). A script made at
+  script.google.com works as soon as it's pasted, with no line to edit.
+- **Copy Script** (Settings › Google Sheets) fills in the link of the sheet
+  ScaffoldPro is connected to, so another sheet works the same way.
+- A script opened from the sheet (Extensions › Apps Script) still uses its
+  own sheet and ignores `SHEET_URL`.
