@@ -528,28 +528,28 @@
 
       <section class="mn-ch" id="stock">
         <h2>Stock</h2>
-        <p class="mn-lead">Every material we hold: what's <b>in the yard</b>, <b>on hire</b> (by project and site), <b>rented</b> by other companies, and <b>owned</b>. Record receipts, returns, rentals, counts and write-offs — many items at once. Open it with <kbd>⌘</kbd><kbd>5</kbd>.</p>
+        <p class="mn-lead">Every material we hold: what's <b>in the yard</b>, <b>on hire</b> (by project and site), <b>rented</b> from other companies, and <b>owned</b>. Record receipts, returns, rentals, counts and write-offs — many items at once. Open it with <kbd>⌘</kbd><kbd>5</kbd>.</p>
         <figure class="mn-shot" data-shot="stock" data-alt="Stock">
           <ol class="mn-legend">
-            <li><b>Totals</b>: items held, pieces in the yard, on hire and rented, the weight owned, and a bar of the three.</li>
-            <li><b>Record Stock</b>: Receive, Return, Rent Out, Rent Back, Count or Write Off — one sheet for as many items as you need (<kbd>N</kbd>).</li>
-            <li><b>Stock · Returns · On Hire · Rented · History</b>. Returns lists signed delivery notes with items still on site. On Hire is by site and project, each with <b>Return…</b>. Rented is by company, each with <b>Back…</b>. History is by day, with things recorded together in one card.</li>
+            <li><b>Totals</b>: items held, pieces in the yard and on hire, pieces rented from others, the weight owned, and a bar of yard against hire.</li>
+            <li><b>Record Stock</b>: Receive, Return, Rent In, Send Back, Count or Write Off — one sheet for as many items as you need (<kbd>N</kbd>).</li>
+            <li><b>Stock · Returns · On Hire · Rented · History</b>. Returns lists signed delivery notes with items still on site. On Hire is by site and project, each with <b>Return…</b>. Rented is what we rent from other companies, by company, each with <b>Send Back…</b>. History is by day, with things recorded together in one card.</li>
             <li><b>Search</b> (<kbd>/</kbd>), the material list (All, SP, SCAFOM, Other) and <b>Only items we hold</b>.</li>
             <li><b>Stocktake</b>: a Counted box on every row — type the counts (↑ ↓ or Return to move), then <b>Save Count</b> once.</li>
-            <li><b>Categories</b> fold away. Click an item for where it's on hire or rented, its recent history and Receive / Return / Rent Out / Count / Write Off.</li>
+            <li><b>Categories</b> fold away. Click an item for where it's on hire or rented, its recent history and Receive / Return / Rent In / Count / Write Off.</li>
             <li><b>Export</b> what's shown to Excel.</li>
           </ol>
         </figure>
         <div class="mn-flow">
           <div class="mn-flow-title">Recording many items at once</div>
-          <div data-chain="grey|Record Stock|Receive, Return, Rent Out, Rent Back, Count or Write Off > grey|Add items|Type a code or name, Return; or paste rows from Excel; or Quick fill > grey|Quantities|Return goes back for the next item > money|Save|One entry in History, one ⌘Z"></div>
+          <div data-chain="grey|Record Stock|Receive, Return, Rent In, Send Back, Count or Write Off > grey|Add items|Type a code or name, Return; or paste rows from Excel; or Quick fill > grey|Quantities|Return goes back for the next item > money|Save|One entry in History, one ⌘Z"></div>
         </div>
         <table class="mn-ref"><tbody>
           <tr><td>Typing items</td><td>Type a code or part of a name; ↑ ↓ choose, <b>Return</b> adds it and jumps to its quantity; <b>Return</b> there goes back for the next item. The same item twice is added together.</td></tr>
           <tr><td>Paste from Excel</td><td>Copy rows with a code or name and a quantity, and paste into "Add an item". Anything not on the material list is listed so you can fix it.</td></tr>
-          <tr><td>Quick fill</td><td>Return: everything on hire to the project (or still out on a delivery note), with its quantities. Rent Back: everything the company rents. Receive, Rent Out and Count: a whole category; Count also every item we hold.</td></tr>
+          <tr><td>Quick fill</td><td>Return: everything on hire to the project (or still out on a delivery note), with its quantities. Send Back: everything rented from that company. Receive, Rent In and Count: a whole category; Count also every item we hold.</td></tr>
           <tr><td>Returns</td><td>Once a delivery note's signed copy is uploaded, its items are out at the site. On the day set (the project's finish date, or 30 days later) the note shows as due, with a note above the tabs and on the Calendar: <span class="mn-btn primary">All Returned</span> books everything back today; <span class="mn-btn">Part Returned…</span> opens the sheet with what's still out, to change to what came back; <span class="mn-btn">Not Yet</span> asks again in two weeks. Change the day with its date box. Returns recorded the usual way count too, oldest delivery note first.</td></tr>
-          <tr><td>Rented</td><td>Our materials rented by another company: <b>Rent Out</b> with the company's name takes them out of the yard; <b>Rent Back</b> (or <b>Back…</b> on the Rented tab) puts them back. They still count as owned.</td></tr>
+          <tr><td>Rented</td><td>Materials we rent from another company: <b>Rent In</b> with the company's name puts them in the yard, ready to deliver like our own, but they <b>aren't counted as owned</b> (Owned = in the yard + on hire − rented in). <b>Send Back</b> (or <b>Send Back…</b> on the Rented tab) takes them out of the yard when they go back to their owner.</td></tr>
           <tr><td>Counts</td><td>Type what's in the yard; only the differences are saved, as one stock count.</td></tr>
           <tr><td>History</td><td>Remove a whole entry with one click (⌘Z puts it back). What delivery notes booked out changes with the delivery note.</td></tr>
         </tbody></table>

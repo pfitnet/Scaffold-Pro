@@ -11477,12 +11477,14 @@ final class PDFGenerator {
 //                        note once it's issued and its signed copy is in
 //   Sale                 out to a project for good (−), the same way, for a sale
 //   Return               back from a project (+), maybe against one delivery note
-//   RentOut / RentBack   rented by another company (−), and back from it (+)
+//   RentIn / RentReturn  rented from another company into the yard (+), and
+//                        sent back to it (−); not ours, so not owned
 //   WriteOff             lost, scrapped or damaged (−)
 //   Adjustment           a stock count's difference (±)
 // In the yard = the sum of all movements. On hire, per project = delivered
-// − returned. Rented, per company = rented out − back. Owned = in the yard
-// + on hire + rented.
+// − returned. Rented, per company = rented in − sent back. Owned = in the
+// yard + on hire − rented (rented pieces are in the yard or on site, but
+// aren't ours).
 // =====================================================================
 
 struct StockMovement: Codable {
@@ -11507,7 +11509,7 @@ struct StockMovement: Codable {
     var batchId: String? = nil
     /// A return answering one signed delivery note (Stock › Returns).
     var returnOfDeliveryNoteId: String? = nil
-    /// RentOut / RentBack: the company renting them.
+    /// RentIn / RentReturn: the company they're rented from.
     var company: String? = nil
 }
 
@@ -11557,7 +11559,8 @@ struct StockItemRow: Codable {
     var onHire: Double
     var owned: Double
     var onHireByProject: [StockProjectQuantity]
-    /// Rented by other companies, and by whom.
+    /// Rented from other companies (in the yard or on site, not owned), and
+    /// from whom.
     var rented: Double = 0
     var rentedByCompany: [StockCompanyQuantity] = []
 }
@@ -11575,7 +11578,8 @@ struct StockData: Codable {
     var projects: [ProjectRef]
     /// Signed delivery notes with items still on site (Stock › Returns).
     var returns: [DeliveryReturnRow] = []
-    /// Companies to suggest for renting: clients, and those renting already.
+    /// Companies to suggest for renting from: those already rented from,
+    /// suppliers (Expenses) and clients.
     var companies: [String] = []
 }
 
@@ -11840,8 +11844,8 @@ extension AppDatabase {
             if (m.kind == "Delivery" || m.kind == "Return"), let p = m.projectId {
                 hire[m.itemKey, default: [:]][p, default: 0] -= m.quantity
             }
-            if (m.kind == "RentOut" || m.kind == "RentBack"), let c = nonBlank(m.company) {
-                rent[m.itemKey, default: [:]][c, default: 0] -= m.quantity
+            if (m.kind == "RentIn" || m.kind == "RentReturn"), let c = nonBlank(m.company) {
+                rent[m.itemKey, default: [:]][c, default: 0] += m.quantity
             }
         }
         for (key, byProject) in hire {
@@ -11858,13 +11862,14 @@ extension AppDatabase {
             rows[key]!.rentedByCompany = list
             rows[key]!.rented = list.reduce(0) { $0 + $1.quantity }
         }
-        for key in order { rows[key]!.owned = rows[key]!.inYard + rows[key]!.onHire + rows[key]!.rented }
+        for key in order { rows[key]!.owned = rows[key]!.inYard + rows[key]!.onHire - rows[key]!.rented }
         let views = movements.sorted { ($0.date, $0.createdAt) > ($1.date, $1.createdAt) }.map {
             StockMovementView(movement: $0, projectNumber: $0.projectId.flatMap { projectById[$0]?.projectNumber },
                               automatic: $0.deliveryNoteId != nil)
         }
         var companies = Set(clientsStore.readAll().compactMap { nonBlank($0.companyName) })
         for m in movements { if let c = nonBlank(m.company) { companies.insert(c) } }
+        for e in expensesStore.readAll() { if let c = nonBlank(e.supplier) { companies.insert(c) } }
         return StockData(items: order.compactMap { rows[$0] }, movements: views, projects: projects,
                          returns: deliveryReturns(movements: movements),
                          companies: companies.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
@@ -11998,15 +12003,15 @@ extension AppDatabase {
     }
 
     /// Many lines at once from the Stock page: one kind ("Purchase",
-    /// "Return", "RentOut", "RentBack", "WriteOff", "Count", "Opening"), one
+    /// "Return", "RentIn", "RentReturn", "WriteOff", "Count", "Opening"), one
     /// date, reference, notes, (for a return) project and maybe the signed
-    /// delivery note it answers, (for renting) the company, and its lines
+    /// delivery note it answers, (for renting) the company rented from, and its lines
     /// [{ priceListItemId, itemCode, itemDescription, unit, quantity }].
     /// Saved together, as one batch (one step to undo); a count records only
     /// the differences.
     func addStockMovements(_ payload: [String: Any]) -> StockBatchResult {
         let kind = (payload["kind"] as? String) ?? ""
-        guard ["Opening", "Purchase", "Return", "RentOut", "RentBack", "WriteOff", "Count"].contains(kind) else {
+        guard ["Opening", "Purchase", "Return", "RentIn", "RentReturn", "WriteOff", "Count"].contains(kind) else {
             return StockBatchResult(ok: false, error: "Choose what kind of stock change this is.", saved: 0, skipped: [], batchId: nil)
         }
         let lines = (payload["lines"] as? [[String: Any]]) ?? []
@@ -12021,10 +12026,10 @@ extension AppDatabase {
                 return StockBatchResult(ok: false, error: "Choose the project the items came back from.", saved: 0, skipped: [], batchId: nil)
             }
         }
-        let renting = kind == "RentOut" || kind == "RentBack"
+        let renting = kind == "RentIn" || kind == "RentReturn"
         let company = renting ? nonBlank(payload["company"] as? String) : nil
         if renting && company == nil {
-            return StockBatchResult(ok: false, error: "Enter the company renting them.", saved: 0, skipped: [], batchId: nil)
+            return StockBatchResult(ok: false, error: "Enter the company they're rented from.", saved: 0, skipped: [], batchId: nil)
         }
         let date = validDay(payload["date"] as? String) ?? todayYMD()
         let reference = nonBlank(payload["reference"] as? String)
@@ -12053,7 +12058,7 @@ extension AppDatabase {
                 if seen.contains(key) { made.removeAll { $0.itemKey == key } }
                 quantity = value - (inYard[key] ?? 0)
                 guard abs(quantity) > 0.0001 else { skipped.append("\(name): count matches"); seen.insert(key); continue }
-            case "WriteOff", "RentOut":
+            case "WriteOff", "RentReturn":
                 guard value > 0 else { skipped.append("\(name): no quantity"); continue }
                 quantity = -value
             default:
@@ -12075,8 +12080,8 @@ extension AppDatabase {
         stockMovementsStore.writeAll(existing + made)
         // Part of a delivery note back: ask about the rest in two weeks.
         if let note = note, let next = addDays(todayYMD(), 14) { _ = setReturnCheckDate(deliveryNoteId: note.id, day: next) }
-        let label = ["Opening": "Opening stock", "Purchase": "Stock received", "Return": "Stock returned", "RentOut": "Stock rented out",
-                     "RentBack": "Stock back from rent", "WriteOff": "Stock written off", "Count": "Stock count"][kind] ?? "Stock"
+        let label = ["Opening": "Opening stock", "Purchase": "Stock received", "Return": "Stock returned", "RentIn": "Stock rented in",
+                     "RentReturn": "Rented stock sent back", "WriteOff": "Stock written off", "Count": "Stock count"][kind] ?? "Stock"
         let who = company.map { " (\($0))" } ?? ""
         logActivity(projectId: kind == "Return" ? projectId : nil, "\(label) — \(made.count) item\(made.count == 1 ? "" : "s")\(who)",
                     reference: reference ?? note?.deliveryNoteNumber)

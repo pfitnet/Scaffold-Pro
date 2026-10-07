@@ -4105,3 +4105,24 @@ The Stock page is rebuilt from the ground up: `stock.html`, `css/stock.css`,
     more terms · 1 paragraph".
 - **Manual:** the Stock chapter and its screenshot are redone, and the
   delivery note chapter says the signed copy books the stock out.
+
+## Batch 168 — "Rented" means rented from other companies
+
+Batch 167 read "rented" the wrong way round. It now means materials **we
+rent from other companies**.
+
+- Record Stock has **Rent In** (with the company they're rented from) and
+  **Send Back** (back to their owner), in place of Rent Out and Rent Back.
+  Suppliers from Expenses, clients and companies already rented from are
+  suggested.
+- Rent In puts the pieces in the yard, ready to deliver like our own; Send
+  Back takes them out. While we have them they **aren't counted as owned**:
+  Owned = in the yard + on hire − rented in. The weight owned leaves them
+  out too.
+- The list's column is **Rented in**; the totals say **Rented from others**.
+  The yard / hire bars no longer have a rented part; an item's bar notes
+  "60 rented" under it instead.
+- The **Rented** tab lists them by the company they're from, with **Send
+  Back…** to fill in everything from that company. An item's details say
+  who it's rented from, with Rent In… and Send Back….
+- Export, History ("Rented") and the manual follow.
