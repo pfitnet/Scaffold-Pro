@@ -3676,3 +3676,37 @@ Every form control is now drawn by the app instead of macOS, on every page
 - With neither (not attached, no SHEET_URL), setup says how to fix it.
 - **showSecret** also writes the secret to the Execution log, so it can be
   run from the editor.
+
+## Batch 156 — Google Sheets: sub-projects and a cleaner layout
+
+- **Projects tab: projects and their sub-projects.**
+  - Each project is a shaded, bold row.
+  - Under it is one row per sub-project: the number after the project code,
+    so BQ26212-001, Qt26212-001, Qt26212-001-s1, DN26212-001(-2) and
+    H26212-001 are all **26212-001**.
+  - A sub-project row lists its BOQ, quotations (subsidiaries included),
+    delivery notes and invoices, each with its status ("· client signed",
+    "· signed" where there's a signed copy).
+  - Its **Stage** says how far it has got: Draft, Quoted, Accepted,
+    Delivered, Invoiced, Paid (or Cancelled), each in its own soft colour.
+  - The sub-project rows are grouped under their project, so they fold
+    away with the − / + at the left.
+  - The project row has its letters and its Stage (the project status, with
+    the list of statuses).
+- **Fewer, clearer columns.**
+  - Projects: Ref, Name, Client · Site, Stage, BOQ, Quotations, Delivery
+    Notes, Invoices, Letters, Last Update ("7 Oct 2026 14:02 · William"),
+    Notes.
+  - Activity: When, Who, Project, What.
+  - The ID column ScaffoldPro needs is hidden. The heading row is dark,
+    with frozen headings and Ref.
+- **Two-way, as before.** A project's Stage or Notes changed in the sheet
+  goes back into ScaffoldPro. Notes typed on a sub-project row are kept in
+  the sheet (they aren't overwritten). Project Manager is no longer in the
+  sheet.
+- **Existing sheets** are moved to the new layout on the next sync, or by
+  running setup. Activity rows are kept, with Project + Project Name and
+  What + Reference combined; the Projects tab is written again in full.
+- Replace the script in Apps Script with the new one (Settings › Google
+  Sheets › Copy Script). Then use Deploy › Manage deployments › Edit ›
+  Version: New version › Deploy, so the Web app URL stays the same.
