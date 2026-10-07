@@ -59,7 +59,7 @@ function filtered() {
     if (person && (person === '—' ? !!t.assignee : (t.assignee || '') !== person)) return false;
     if (project && t.projectId !== project) return false;
     if (dayFilter && t.dueDate !== dayFilter) return false;
-    return !q || [t.title, t.notes, t.assignee, r.projectNumber, r.projectName].some((x) => String(x || '').toLowerCase().includes(q));
+    return !q || [t.title, t.notes, t.assignee, t.team, r.projectNumber, r.projectName].some((x) => String(x || '').toLowerCase().includes(q));
   });
 }
 
@@ -141,14 +141,14 @@ function cardHTML(r, i) {
       <div class="tk-body">
         <div class="tk-title">${t.priority === 'High' ? `<span class="tk-flag" title="High priority">${ICON.flag}</span>` : ''}<span class="tk-title-text">${esc(t.title)}</span></div>
         ${t.notes ? `<div class="tk-notes">${esc(t.notes)}</div>` : ''}
-        ${dueChip(r) || project ? `<div class="tk-meta">${dueChip(r)}${project}</div>` : ''}
+        ${dueChip(r) || project || t.team ? `<div class="tk-meta">${dueChip(r)}${project}${!t.assignee && t.team ? `<span class="tk-chip">${esc(t.team)} team</span>` : ''}</div>` : ''}
       </div>
       <div class="tk-side-right">
         ${t.done ? '' : `<div class="tk-actions">
           <button type="button" class="tk-act" data-act="snooze" data-no-icon title="Move to tomorrow">${ICON.snooze}</button>
           <button type="button" class="tk-act" data-act="edit" data-no-icon title="Edit">${ICON.edit}</button>
         </div>`}
-        ${avatar(t.assignee)}
+        ${!t.assignee && t.team ? `<span class="tk-avatar team" style="--pc:${window.personColor(t.team)}" title="For the ${esc(t.team)} team">${esc(initials(t.team))}</span>` : avatar(t.assignee)}
       </div>
     </article>`;
 }
@@ -352,7 +352,7 @@ async function toggleDone(card, row) {
 async function snooze(row) {
   const t = row.task;
   const r = await window.api.tasks.save({
-    id: t.id, title: t.title, assignee: t.assignee || '', dueDate: ymd(addDays(new Date(), 1)), dueTime: t.dueTime || '',
+    id: t.id, title: t.title, assignee: t.assignee || '', team: t.team || '', dueDate: ymd(addDays(new Date(), 1)), dueTime: t.dueTime || '',
     projectId: t.projectId || null, priority: t.priority || '', notes: t.notes || '',
   });
   if (r && r.ok === false) { await window.appAlert(r.error); return; }

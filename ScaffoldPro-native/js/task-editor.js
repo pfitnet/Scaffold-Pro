@@ -1,29 +1,59 @@
 'use strict';
 
-// The New / Edit Task sheet, shared by the Tasks page and each project's
-// Tasks tab. Builds its own modal.
+// The New / Edit Task sheet, shared by the Tasks page, each project's
+// Tasks tab and the Calendar. Builds its own modal. Kept short: what, when
+// and for whom — the project, priority and notes sit under "More".
+// A task is a to-do with a due day (and maybe a time); an event has a start
+// and an end (a meeting, a site visit) and shows as a block on the Calendar.
 //
-//   const saved = await window.editTask(task|null, { projectId, projects, people });
+//   const saved = await window.editTask(task|null, { projectId, projects, people,
+//     title, assignee, dueDate, dueTime, endTime, event: true });
 //   → true once saved (or deleted), false if cancelled.
 
 (function () {
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const pad = (n) => String(n).padStart(2, '0');
+  const plusHour = (t) => {
+    const [h, m] = String(t || '09:00').split(':').map(Number);
+    return h >= 23 ? '23:59' : `${pad(h + 1)}:${pad(m || 0)}`;
+  };
+  let teamsCache = null;
 
   function build() {
     const el = document.createElement('div');
     el.className = 'modal-backdrop hidden';
     el.id = 'task-modal';
     el.innerHTML = `
-      <div class="modal wide" role="dialog" aria-labelledby="tk-title">
-        <h2 id="tk-title">New Task</h2>
-        <div class="form-grid">
-          <div class="field span-2"><label for="tk-text">What needs doing</label><input type="text" id="tk-text" placeholder="e.g. Send revised BOQ to Mr. Law" /></div>
-          <div class="field"><label for="tk-assignee">For</label><input type="text" id="tk-assignee" list="tk-people" placeholder="Anyone" /><datalist id="tk-people"></datalist></div>
-          <div class="field"><label for="tk-due">Due</label><div class="due-row"><input type="date" id="tk-due" /><input type="time" id="tk-time" title="At a time (optional)" /></div></div>
-          <div class="field"><label for="tk-project">Project</label><select id="tk-project"></select></div>
-          <div class="field"><label for="tk-priority">Priority</label><select id="tk-priority"><option value="">Normal</option><option value="High">High</option></select></div>
-          <div class="field span-2"><label for="tk-notes">Notes</label><input type="text" id="tk-notes" /></div>
+      <div class="modal te-modal" role="dialog" aria-labelledby="te-heading">
+        <div class="te-head">
+          <h2 id="te-heading">New</h2>
+          <div class="segmented te-kind" role="tablist" aria-label="Kind">
+            <button type="button" data-kind="task" data-no-icon>Task</button>
+            <button type="button" data-kind="event" data-no-icon>Event</button>
+          </div>
         </div>
+        <input type="text" id="tk-text" class="te-title" placeholder="What needs doing?" aria-label="Title" />
+        <div class="te-row">
+          <span class="te-label">When</span>
+          <div class="te-when">
+            <input type="date" id="tk-due" aria-label="Day" />
+            <input type="time" id="tk-time" aria-label="Start" />
+            <span class="te-dash">–</span>
+            <input type="time" id="tk-end" aria-label="End" />
+          </div>
+        </div>
+        <div class="te-row">
+          <span class="te-label">For</span>
+          <div class="te-for" id="te-for" role="radiogroup" aria-label="For"></div>
+        </div>
+        <details class="te-more" id="te-more">
+          <summary data-no-icon>More — project, priority, notes</summary>
+          <div class="te-more-body">
+            <div class="te-row"><span class="te-label">Project</span><select id="tk-project" aria-label="Project"></select></div>
+            <div class="te-row te-task-only"><span class="te-label">Priority</span><label class="te-check"><input type="checkbox" id="tk-high" /> High</label></div>
+            <div class="te-row"><span class="te-label">Notes</span><input type="text" id="tk-notes" aria-label="Notes" /></div>
+          </div>
+        </details>
         <div class="error-text hidden" id="tk-error"></div>
         <div class="actions">
           <button id="tk-delete" class="left hidden" data-no-icon>Delete</button>
@@ -35,58 +65,129 @@
     return el;
   }
 
-  window.editTask = function editTask(task, opts = {}) {
+  window.editTask = async function editTask(task, opts = {}) {
     const modal = document.getElementById('task-modal') || build();
     const $ = (id) => modal.querySelector(`#${id}`);
+    if (!teamsCache) {
+      try { teamsCache = (await window.api.tasks.teams()) || null; } catch (e) { teamsCache = null; }
+      teamsCache = teamsCache || { me: '', teams: [] };
+    }
     return new Promise((resolve) => {
-      $('tk-title').textContent = task ? 'Edit Task' : 'New Task';
+      let kind = (task ? task.endTime : (opts.event || opts.endTime)) ? 'event' : 'task';
+      // Who it's for: { person } or { team } or {} for anyone.
+      let forWho = task
+        ? (task.assignee ? { person: task.assignee } : task.team ? { team: task.team } : {})
+        : (opts.assignee ? { person: opts.assignee } : opts.team ? { team: opts.team } : {});
+      const me = teamsCache.me || '';
+      const people = [...new Set([...(opts.people || []), forWho.person].filter(Boolean))];
+
+      const drawKind = () => {
+        for (const b of modal.querySelectorAll('.te-kind button')) b.classList.toggle('active', b.dataset.kind === kind);
+        modal.querySelector('.te-modal').classList.toggle('is-event', kind === 'event');
+        $('tk-text').placeholder = kind === 'event' ? 'What’s on? e.g. Site visit, Tsuen Wan' : 'What needs doing? e.g. Send revised BOQ to Mr. Law';
+        $('te-heading').textContent = `${task ? 'Edit' : 'New'} ${kind === 'event' ? 'Event' : 'Task'}`;
+        $('tk-time').title = kind === 'event' ? 'Starts' : 'At a time (optional)';
+        if (kind === 'event') {
+          if (!$('tk-due').value) { const n = new Date(); $('tk-due').value = `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`; }
+          if (!$('tk-time').value) $('tk-time').value = '09:00';
+          if (!$('tk-end').value || $('tk-end').value <= $('tk-time').value) $('tk-end').value = plusHour($('tk-time').value);
+        }
+      };
+      const drawFor = () => {
+        const chip = (label, sel, attrs, extra = '') => `<button type="button" class="te-chip${sel ? ' on' : ''}" ${attrs} role="radio" aria-checked="${sel}" data-no-icon>${extra}${esc(label)}</button>`;
+        const teamIcon = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="11.2" cy="6.8" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 13c.6-2.2 2.1-3.3 4-3.3s3.4 1.1 4 3.3M10 10c1.9-.3 3.4.7 4 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+        const others = people.filter((n) => n !== me);
+        const pickedOther = forWho.person && forWho.person !== me;
+        $('te-for').innerHTML = chip('Anyone', !forWho.person && !forWho.team, 'data-for=""')
+          + (me ? chip('Me', forWho.person === me, `data-for="p:${esc(me)}"`) : '')
+          + (teamsCache.teams || []).map((t) => chip(t, forWho.team === t, `data-for="t:${esc(t)}"`, teamIcon)).join('')
+          + (others.length ? `<select class="te-person${pickedOther ? ' on' : ''}" aria-label="Someone else"><option value="">${pickedOther ? 'Someone else' : 'Someone else…'}</option>${others.map((n) => `<option value="${esc(n)}"${forWho.person === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` : '');
+        for (const b of $('te-for').querySelectorAll('.te-chip')) {
+          b.addEventListener('click', () => {
+            const v = b.dataset.for;
+            forWho = v.startsWith('p:') ? { person: v.slice(2) } : v.startsWith('t:') ? { team: v.slice(2) } : {};
+            drawFor();
+          });
+        }
+        const sel = $('te-for').querySelector('.te-person');
+        if (sel) sel.addEventListener('change', () => { forWho = sel.value ? { person: sel.value } : {}; drawFor(); });
+      };
+
       $('tk-text').value = task ? task.title : (opts.title || '');
-      $('tk-assignee').value = task ? (task.assignee || '') : (opts.assignee || '');
       $('tk-due').value = task ? (task.dueDate || '') : (opts.dueDate || '');
       $('tk-time').value = task ? (task.dueTime || '') : (opts.dueTime || '');
-      $('tk-priority').value = (task ? task.priority : opts.priority) === 'High' ? 'High' : '';
+      $('tk-end').value = task ? (task.endTime || '') : (opts.endTime || '');
+      $('tk-high').checked = (task ? task.priority : opts.priority) === 'High';
       $('tk-notes').value = task ? (task.notes || '') : '';
-      $('tk-people').innerHTML = (opts.people || []).map((n) => `<option value="${esc(n)}"></option>`).join('');
       const projects = opts.projects || [];
       $('tk-project').innerHTML = '<option value="">No project</option>' +
         projects.map((p) => `<option value="${esc(p.id)}">${esc(p.projectNumber)} — ${esc(p.name)}</option>`).join('');
       $('tk-project').value = task ? (task.projectId || '') : (opts.projectId || '');
       $('tk-project').disabled = !!opts.lockProject;
+      $('te-more').open = !!($('tk-notes').value || $('tk-high').checked || ($('tk-project').value && !opts.lockProject));
       $('tk-delete').classList.toggle('hidden', !task);
       $('tk-error').classList.add('hidden');
+      drawKind();
+      drawFor();
       modal.classList.remove('hidden');
       $('tk-text').focus();
 
+      const kindButtons = [...modal.querySelectorAll('.te-kind button')];
+      const onKind = (e) => { kind = e.currentTarget.dataset.kind; drawKind(); };
+      // Moving the start keeps the event's length.
+      let lastStart = $('tk-time').value;
+      const onStart = () => {
+        const s = $('tk-time').value;
+        if (kind === 'event' && s && lastStart && $('tk-end').value) {
+          const mins = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+          const len = Math.max(15, mins($('tk-end').value) - mins(lastStart));
+          const end = Math.min(23 * 60 + 59, mins(s) + len);
+          $('tk-end').value = `${pad(Math.floor(end / 60))}:${pad(end % 60)}`;
+        }
+        lastStart = s;
+      };
       const close = (value) => {
         modal.classList.add('hidden');
         for (const [id, fn] of handlers) $(id).removeEventListener('click', fn);
+        for (const b of kindButtons) b.removeEventListener('click', onKind);
+        $('tk-time').removeEventListener('change', onStart);
         modal.removeEventListener('keydown', onKey);
         resolve(value);
       };
       const save = async () => {
+        const isEvent = kind === 'event';
+        if (isEvent && (!$('tk-due').value || !$('tk-time').value || !$('tk-end').value || $('tk-end').value <= $('tk-time').value)) {
+          $('tk-error').textContent = 'An event needs a day, and an end after its start.';
+          $('tk-error').classList.remove('hidden');
+          return;
+        }
         const r = await window.api.tasks.save({
-          id: task ? task.id : null, title: $('tk-text').value.trim(), assignee: $('tk-assignee').value.trim(),
-          dueDate: $('tk-due').value, dueTime: $('tk-time').value, projectId: $('tk-project').value || null, priority: $('tk-priority').value, notes: $('tk-notes').value.trim(),
+          id: task ? task.id : null, title: $('tk-text').value.trim(),
+          assignee: forWho.person || '', team: forWho.team || '',
+          dueDate: $('tk-due').value, dueTime: $('tk-time').value, endTime: isEvent ? $('tk-end').value : '',
+          projectId: $('tk-project').value || null, priority: !isEvent && $('tk-high').checked ? 'High' : '', notes: $('tk-notes').value.trim(),
         });
         if (!r || !r.ok) {
-          $('tk-error').textContent = (r && r.error) || 'The task couldn’t be saved.';
+          $('tk-error').textContent = (r && r.error) || 'It couldn’t be saved.';
           $('tk-error').classList.remove('hidden');
           return;
         }
         close(true);
       };
       const del = async () => {
-        if (!await window.appConfirm(`Delete the task “${task.title}”?`)) return;
+        if (!await window.appConfirm(`Delete “${task.title}”?`)) return;
         const r = await window.api.tasks.remove(task.id);
         if (r && r.ok === false) { alert(r.error); return; }
         close(true);
       };
       const onKey = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); close(false); }
-        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'date') { e.preventDefault(); save(); }
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'date' && e.target.type !== 'checkbox') { e.preventDefault(); save(); }
       };
       const handlers = [['tk-save', save], ['tk-cancel', () => close(false)], ['tk-delete', del]];
       for (const [id, fn] of handlers) $(id).addEventListener('click', fn);
+      for (const b of kindButtons) b.addEventListener('click', onKind);
+      $('tk-time').addEventListener('change', onStart);
       modal.addEventListener('keydown', onKey);
     });
   };
@@ -121,7 +222,7 @@
       <td><span class="task-title">${t.priority === 'High' ? '<span class="status-pill pill-danger task-high">High</span> ' : ''}${esc(t.title)}</span>
         ${t.notes ? `<div class="sub">${esc(t.notes)}</div>` : ''}
         ${!opts.hideProject && row.projectNumber ? `<div class="sub"><a href="project-detail.html?number=${encodeURIComponent(row.projectNumber)}&tab=tasks">${esc(row.projectNumber)} ${esc(row.projectName || '')}</a></div>` : ''}</td>
-      <td>${t.assignee ? window.personTag(t.assignee) : '<span class="muted">Anyone</span>'}</td>
+      <td>${t.assignee ? window.personTag(t.assignee) : t.team ? `<span class="muted">${esc(t.team)} team</span>` : '<span class="muted">Anyone</span>'}</td>
       <td class="nowrap ${row.overdue ? 'task-overdue' : 'muted'}">${t.done ? `Done${t.doneBy ? ` by ${esc(t.doneBy)}` : ''}` : due ? `${row.overdue ? 'Overdue · ' : ''}${due}${t.dueTime ? ` ${esc(t.dueTime)}` : ''}` : ''}</td>
     </tr>`;
   };

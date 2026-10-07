@@ -88,6 +88,105 @@ const BRAND_MARK = `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="tru
   <line x1="17.5" y1="46" x2="46.5" y2="18" stroke="#F4B400" stroke-width="6" stroke-linecap="round"/>
 </svg>`;
 
+// The order of the tabs can be changed: the pencil by the first heading
+// (Edit), then drag the tabs (and headings) into place, or ⌥↑ / ⌥↓.
+// Kept on this Mac; tabs added in an update join their usual group.
+const NAV_ORDER_KEY = 'sidebar.order';
+const navKey = (item) => (item.section ? `section:${item.section}` : item.page);
+function orderedNavItems() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(NAV_ORDER_KEY) || 'null'); } catch (e) { saved = null; }
+  if (!Array.isArray(saved) || !saved.length) return NAV_ITEMS;
+  const byKey = new Map(NAV_ITEMS.map((i) => [navKey(i), i]));
+  const out = [];
+  for (const k of saved) { const item = byKey.get(k); if (item && !out.includes(item)) out.push(item); }
+  NAV_ITEMS.forEach((item, i) => {
+    if (out.includes(item)) return;
+    const before = NAV_ITEMS.slice(0, i).reverse().find((x) => out.includes(x));
+    out.splice(before ? out.indexOf(before) + 1 : out.length, 0, item);
+  });
+  return out;
+}
+
+function setupNavEditing(sidebar) {
+  const head = sidebar.querySelector('.sidebar-section');
+  if (!head) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'nav-edit-btn';
+  btn.dataset.noIcon = '';
+  btn.title = 'Change the order of the tabs';
+  btn.setAttribute('aria-label', 'Change the order of the tabs');
+  btn.innerHTML = '<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.8 3.7l3.5 3.5-8.8 8.8-4 .5.5-4z"/></svg>';
+  head.appendChild(btn);
+  const bar = document.createElement('div');
+  bar.className = 'nav-edit-bar';
+  bar.innerHTML = '<span>Drag the tabs into order</span><button type="button" data-no-icon data-act="reset">Reset</button><button type="button" class="primary" data-no-icon data-act="done">Done</button>';
+  const items = () => [...sidebar.querySelectorAll('[data-nav]')];
+  const save = () => { try { localStorage.setItem(NAV_ORDER_KEY, JSON.stringify(items().map((el) => el.dataset.nav))); } catch (e) { /* not kept */ } };
+  let dragged = null;
+  const start = () => {
+    sidebar.classList.add('nav-editing');
+    head.before(bar);
+    for (const el of items()) { el.draggable = true; el.tabIndex = 0; }
+    items()[0].focus();
+  };
+  const stop = () => {
+    sidebar.classList.remove('nav-editing');
+    bar.remove();
+    for (const el of items()) { el.draggable = false; if (el.classList.contains('sidebar-section')) el.removeAttribute('tabindex'); }
+    save();
+    if (window.placeNavInk) window.placeNavInk();
+  };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); if (sidebar.classList.contains('nav-editing')) stop(); else start(); });
+  bar.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'reset') { try { localStorage.removeItem(NAV_ORDER_KEY); } catch (err) { /* ignore */ } location.reload(); }
+    else stop();
+  });
+  // While editing, a click doesn't open the tab.
+  sidebar.addEventListener('click', (e) => { if (sidebar.classList.contains('nav-editing') && e.target.closest('[data-nav]')) { e.preventDefault(); e.stopPropagation(); } }, true);
+  sidebar.addEventListener('dragstart', (e) => {
+    const el = e.target.closest && e.target.closest('[data-nav]');
+    if (!el || !sidebar.classList.contains('nav-editing')) return;
+    dragged = el;
+    el.classList.add('nav-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', el.dataset.nav); } catch (err) { /* ignore */ }
+  });
+  sidebar.addEventListener('dragover', (e) => {
+    if (!dragged) return;
+    const over = e.target.closest && e.target.closest('[data-nav]');
+    e.preventDefault();
+    if (!over || over === dragged) return;
+    const r = over.getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) over.before(dragged); else over.after(dragged);
+    if (window.placeNavInk) window.placeNavInk();
+  });
+  const end = () => { if (dragged) { dragged.classList.remove('nav-dragging'); dragged = null; save(); } };
+  sidebar.addEventListener('drop', (e) => { if (dragged) { e.preventDefault(); end(); } });
+  sidebar.addEventListener('dragend', end);
+  sidebar.addEventListener('keydown', (e) => {
+    if (!sidebar.classList.contains('nav-editing')) return;
+    const el = e.target.closest && e.target.closest('[data-nav]');
+    if (e.key === 'Escape' || (e.key === 'Enter' && !el)) { e.preventDefault(); stop(); return; }
+    if (!el || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    const list = items();
+    const i = list.indexOf(el);
+    if (e.altKey) {
+      if (e.key === 'ArrowUp' && i > 0) list[i - 1].before(el);
+      if (e.key === 'ArrowDown' && i < list.length - 1) list[i + 1].after(el);
+      el.focus();
+      save();
+    } else {
+      const next = list[i + (e.key === 'ArrowUp' ? -1 : 1)];
+      if (next) next.focus();
+    }
+  });
+}
+
 function renderSidebar(activePage) {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
@@ -106,16 +205,18 @@ function renderSidebar(activePage) {
   sidebar.appendChild(search);
 
 
-  for (const item of NAV_ITEMS) {
+  for (const item of orderedNavItems()) {
     // A group's heading ("OVERVIEW", "OPERATIONS"…).
     if (item.section) {
       const head = document.createElement('div');
       head.className = 'sidebar-section';
-      head.textContent = item.section;
+      head.dataset.nav = navKey(item);
+      head.innerHTML = `<span>${item.section}</span>`;
       sidebar.appendChild(head);
       continue;
     }
     const link = document.createElement('a');
+    link.dataset.nav = navKey(item);
     link.href = item.href;
     link.title = item.key ? `${item.label} (⌘${item.key})` : item.label;
     link.innerHTML = `${icon(item.page)}<span>${item.label}</span>`;
@@ -127,16 +228,17 @@ function renderSidebar(activePage) {
     sidebar.appendChild(link);
   }
   if (window.refreshChatBadge) window.refreshChatBadge();
+  setupNavEditing(sidebar);
   // Pinned to the bottom left: the sharing status, then the User tab.
   const foot = document.createElement('div');
   foot.className = 'sidebar-foot';
   sidebar.appendChild(foot);
   const user = document.createElement('a');
-  user.href = 'user.html';
+  user.href = 'settings.html#you';
   user.className = 'sidebar-user';
-  user.title = 'User — your name, colour and work (⌘0)';
+  user.title = 'You — your name, colour, theme and work (Settings › You, ⌘0)';
   user.innerHTML = `<span class="user-avatar">${icon('user')}</span><span class="user-label">User</span>`;
-  if (activePage === 'user') { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
+  if (activePage === 'user' || (activePage === 'settings' && location.hash === '#you')) { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
   foot.appendChild(user);
   renderUserTab(user);
   // ScaffoldPro Web: sign out of this browser.

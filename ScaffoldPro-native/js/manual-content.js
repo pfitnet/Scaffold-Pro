@@ -53,7 +53,8 @@ window.MANUAL_CONTENT = [
         ['sort', 'Sorting', 'Click a column: up, down, then back to normal.'],
         ['eye', 'Preview first', 'Every export opens a preview. {⌘S} saves it.'],
       ] },
-      { type: 'tip', icon: 'check', text: 'Everything saves by itself. There are no Save buttons to hunt for.' },
+      { type: 'tip', icon: 'check', text: 'Everything saves by itself — even what you were typing when you quit.' },
+      { type: 'tip', icon: 'drag', text: 'Put the sidebar in your own order: press the pencil by **Overview**, drag the tabs, then **Done**.' },
     ],
   },
   {
@@ -98,15 +99,16 @@ window.MANUAL_CONTENT = [
   },
   {
     id: 'calendar', title: 'Calendar', color: '#3a66f0', icon: 'calendar',
-    tag: 'Everything with a date: deliveries, inspections, tasks, payments due.',
+    tag: 'Everything with a date — and your schedule: meetings, site visits, deliveries, payments due.',
     blocks: [
       { type: 'shot', shot: 'calendar', points: [
         [1, '‹ Today ›', 'A week or month at a time'], [2, 'Week · Month', 'And which day weeks start'],
-        [3, 'Filters', '⌥-click shows only that kind'], [4, 'The week', 'Click an empty hour for a task'],
+        [3, 'Filters', '⌥-click shows only that kind'], [4, 'The week', 'Drag down an hour column for an event'],
         [5, 'Mini month', 'Dots mark busy days'], [6, 'The chosen day', 'Then the next 14 days'],
       ] },
-      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{W}  {M}', 'Week · Month'], ['{N}', 'New task']] },
-      { type: 'tip', icon: 'pointer', text: 'Rest on anything for its details. Click to open it.' },
+      { type: 'flow', title: 'Scheduling an event', chain: 'grey|Press at 10:00|On the day > grey|Drag to 12:30|Snaps to quarter hours > team|Name it|For a person, a team or anyone' },
+      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{W}  {M}', 'Week · Month'], ['{N}', 'New task'], ['{E}', 'New event']] },
+      { type: 'tip', icon: 'pointer', text: 'Rest on anything for its details. Click to open it — or, for an event, to change it.' },
     ],
   },
   {
@@ -120,6 +122,7 @@ window.MANUAL_CONTENT = [
         [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
         [4, 'The list', 'Tick to finish · ⟳ tomorrow'], [5, 'This week', 'Click a day to filter'], [6, 'Team load', 'Who has how much'],
       ] },
+      { type: 'tip', icon: 'people', text: 'A task can be **for a whole team** (e.g. Site) instead of one person: choose the team under **For**. Everyone in it sees it as theirs.' },
       { type: 'keys', keys: [['{N}', 'New task'], ['{/}', 'Search']] },
     ],
   },
@@ -260,6 +263,9 @@ window.MANUAL_CONTENT = [
       { type: 'flow', title: 'Linked to its BOQ', chain: 'boq|BOQ > qt|Quotation|Kept the same both ways',
         note: 'Click an item’s green link mark to unlink just that item.' },
       { type: 'flow', title: 'Split into subsidiaries', chain: 'qt|Qt26212-007 > qt|Split…|Tick lines > qt|Qt26212-007-s1|A new draft > grey|Revert|Puts it all back' },
+      { type: 'flow', title: 'Import an old quotation', chain: 'grey|Import…|PDF, scan, photo, Word > qt|Read on this Mac || team|Or the free AI|When it can’t make it out > qt|Check every row|A new draft, the original kept with it',
+        note: 'On the project’s **Quotations** tab. Set up the AI once in **Settings › AI Import**.' },
+      { type: 'tip', icon: 'stack', text: '**Duplicate…** copies a quotation — items, sections and delivery schedule — as a new draft, in this project or another.' },
     ],
   },
   {
@@ -299,6 +305,8 @@ window.MANUAL_CONTENT = [
         ['check', 'Record Payment', ''],
         ['flag', 'Status follows', 'Partly paid → Paid.'],
       ] },
+      { type: 'flow', title: 'Several quotations on one invoice', chain: 'dn|Two delivery notes|From Qt…-001 and Qt…-002 > inv|One invoice|A section for each quotation' },
+      { type: 'tip', icon: 'receipt', text: 'The last line spells the total out: **SAY HONG KONG DOLLARS … ONLY**.' },
       { type: 'states', invoice: true },
     ],
   },
@@ -374,6 +382,7 @@ window.MANUAL_CONTENT = [
         [1, 'Headline figures', 'Win rate and more'], [2, 'Tabs', ''], [5, 'Month chart', 'Click a month'], [6, '+ New Lead', ''],
       ] },
       { type: 'shot', title: 'Leads', shot: 'marketing-leads', view: [15.6, 28, 84.4, 32], points: [[1, 'The board', 'New → Won'], [2, 'A lead', '[Convert to Client]']] },
+      { type: 'tip', icon: 'check', text: 'An issued quotation counts as **won** only once the client has signed it (upload the signed copy) or you press **Client Agreed**.' },
       { type: 'shot', title: 'Client report', shot: 'marketing-report', points: [
         [1, 'Client', ''], [2, 'Period', ''], [3, 'Totals', 'Quoted vs accepted'], [5, 'Export Report…', 'A PDF on the letterhead'],
       ] },
@@ -393,17 +402,22 @@ window.MANUAL_CONTENT = [
   },
   {
     id: 'settings', title: 'Settings', color: '#c0627a', icon: 'gear', keys: '{⌘,}',
-    tag: 'Company-wide choices, one section at a time.',
+    tag: 'You, the company and this Mac — each in its own section.',
     blocks: [
       { type: 'shot', shot: 'settings', points: [
         [1, 'Search', '{⌘F}'], [2, 'Sections', '{↑} {↓}'], [3, 'The value', ''], [4, 'The pencil', 'Changes just that one'], [5, 'Switches', 'Work at once'],
+      ] },
+      { type: 'cards', title: 'Three groups', cards: [
+        ['user', 'You', 'Your name, team, colour and work.'],
+        ['building', 'Company', 'Letterhead, numbering, pricing, terms for rental and for sale.'],
+        ['monitor', 'This Mac & data', 'Sharing, backups, updates, AI Import.'],
       ] },
       { type: 'tip', icon: 'check', text: 'Every change saves itself. Look for **Saved** in the corner.' },
     ],
   },
   {
     id: 'user', title: 'You', color: '#c0627a', icon: 'user', keys: '{⌘0}',
-    tag: 'Who you are to the rest of the team.',
+    tag: 'Who you are to the rest of the team. The first section of Settings.',
     blocks: [
       { type: 'shot', shot: 'user', points: [[1, 'Your name', 'On everything you do'], [2, 'Your team', ''], [3, 'Your colour', 'On every Mac'], [4, 'Your work', '']] },
     ],
@@ -448,14 +462,14 @@ window.MANUAL_CONTENT = [
     tag: 'Nothing lost, always up to date.',
     blocks: [
       { type: 'cards', cards: [
-        ['clock', 'Automatic', 'Twice a day. Kept a week.'],
+        ['clock', 'Automatic', 'Twice a day. Kept 3 days.'],
         ['shield', 'Create Backup', '{⇧⌘B} · kept until you delete it.'],
         ['rotate', 'Restore', 'A safety backup is made first.'],
         ['cloud', 'iCloud copy', 'Every 15 minutes. 30 days kept.'],
         ['download', 'Updates', '[*Update Now] backs up, builds, reopens.'],
         ['bolt', 'Install', 'Double-click **Install ScaffoldPro**.'],
       ] },
-      { type: 'tip', icon: 'check', text: 'Closing the window quits ScaffoldPro. What you were typing is saved first.' },
+      { type: 'tip', icon: 'shield', text: 'Backups you make are kept until you delete them. Automatic ones go after 3 days.' },
     ],
   },
 

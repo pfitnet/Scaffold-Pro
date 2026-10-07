@@ -169,7 +169,7 @@ function renderLineItems() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num row-no">${index + 1}</td>
-      <td>${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${zhName(item)}</td>
+      <td>${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${zhName(item)}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
@@ -348,3 +348,7 @@ async function init() {
 }
 
 init();
+
+
+// Custom items: the pencil opens them for editing (js/custom-item.js).
+if (window.wireCustomItemEdit) window.wireCustomItemEdit('deliveryNote', (id) => (currentDetail ? currentDetail.lineItems.find((x) => x.id === id) : null), () => loadDetail());

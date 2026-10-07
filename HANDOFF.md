@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 169.
+"## Batch N" section per change, newest at the bottom, up to Batch 170.
 
 ---
 
@@ -50,6 +50,8 @@ business:
 | Stock page | `stock.html`, `css/stock.css`, `js/stock.js`; Swift `stockData`, `addStockMovements`, `deleteStockBatch`, `syncDeliveryStock` (signed DN → stock), `deliveryReturns` (Returns tab) |
 | Google Sheets | `resources/google-sheets/ScaffoldPro.gs` (loader, pasted once) + `ScaffoldPro-core.js` (fetched from GitHub main by the sheet); Swift `GoogleSheetsSync`, `sheetsPayload` |
 | User manual | content in `js/manual-content.js` (short blocks per chapter), drawn by `js/manual.js`, styled by `css/manual.css`; marker positions `js/manual-shots.js`; pictures `resources/manual/*.jpg` |
+| Calendar and the task / event box | `js/calendar.js` (drag to schedule), `js/task-editor.js`; Swift `calendarEvents`, `saveTask` (`endTime`, `team`) |
+| Quotation import / duplicate | `js/quotation-import.js`, `js/settings-ai.js`; Swift `QuotationImportReader`, `QuotationAI`, `createImportedQuotation`, `duplicateQuotation` |
 | Knowledge graph | `graphify-out/` (see `CLAUDE.md`: `graphify query "…"`, run `graphify update .` after code changes) |
 
 ---
@@ -63,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **170**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **171**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -162,7 +164,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–169, newest last)
+## 5. Recent work (Batches 147–170, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -204,6 +206,19 @@ only by reading the code. Ask the user to check one PDF after updating.
   colours, big cropped screenshots with spotlight pins, flows, steps,
   cards and keycaps instead of paragraphs. Edit the words in
   `js/manual-content.js`; keep them short.
+- **170:**
+  - quotations: **Duplicate…**; **Import…** from a file (read on the Mac with
+    PDFKit / Vision OCR, else a free cloud AI — Gemini free tier or
+    OpenRouter `openrouter/free`, key in the Keychain, Settings › AI Import);
+    the original kept as a project document linked to the quotation;
+    currency for crane jobs; Client Agreed (Marketing counts agreed or signed only);
+  - invoices: total in words ("SAY … ONLY"); delivery notes from several
+    quotations in sections;
+  - Settings merged with You and regrouped (You / Company / This Mac & data);
+    rental and sale terms; backups kept 3 days; quitting saves open typing;
+  - Calendar events (`TeamTask.endTime`), drag to schedule, Sunday first,
+    tasks for a team (`TeamTask.team`), new task/event box;
+  - sidebar order editable; editable custom items; manual fixes.
 
 ---
 
@@ -222,6 +237,10 @@ only by reading the code. Ask the user to check one PDF after updating.
   - the Stock batch save (`stock:addMovements`) against real data;
   - Batch 167: stock booked on signed-copy upload, the one-time clean-up of
     unsigned notes, Returns, and Rent In / Send Back (Batch 168) against real data.
+  - Batch 170 (never compiled here): `import Vision` and the OCR of scans;
+    the Keychain key; real calls to Gemini / OpenRouter; the invoice's
+    "SAY … ONLY" row and its sections in the PDF; save-on-quit
+    (`applicationShouldTerminate`).
 - **Ideas offered but not asked for:** job type on the Google Sheet; a
   crane-only filter on Projects; a free local AI agent (needs the Mac's chip
   and RAM); AutoCAD / DXF (needs templates).

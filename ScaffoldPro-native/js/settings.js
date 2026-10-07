@@ -7,7 +7,7 @@ const SETTINGS_FIELDS = [
 ];
 
 const NUMBER_FIELDS = ['numberFormatBOQ', 'numberFormatQuotation', 'numberFormatInvoice', 'numberFormatDeliveryNote', 'numberFormatLetter'];
-const QUOTE_TEXT_FIELDS = ['signatoryName', 'signatoryTitle', 'termsURL', 'quotationTerms', 'quotationAcceptance'];
+const QUOTE_TEXT_FIELDS = ['signatoryName', 'signatoryTitle', 'termsURL', 'quotationTerms', 'quotationTermsSale', 'quotationAcceptance'];
 const START_KEYS = ['BOQ', 'QT', 'INV', 'DN', 'LT'];
 // As on the company's quotations; Settings can change them.
 const DEFAULT_MANPOWER_RATES = [
@@ -554,7 +554,7 @@ window.onSharedDataChanged = async (change) => {
       document.getElementById('settings-changed-elsewhere').classList.remove('hidden');
     } else {
       await loadSettings();
-      for (const id of ['defaultPaymentTerms-input', 'quotationTerms-input']) window.refreshParagraphPreview(document.getElementById(id));
+      for (const id of ['defaultPaymentTerms-input', 'quotationTerms-input', 'quotationTermsSale-input']) window.refreshParagraphPreview(document.getElementById(id));
     }
   }
 };
@@ -586,7 +586,7 @@ function setupSections() {
 }
 
 async function init() {
-  const formatted = ['defaultPaymentTerms-input', 'quotationTerms-input'].map((id) => document.getElementById(id));
+  const formatted = ['defaultPaymentTerms-input', 'quotationTerms-input', 'quotationTermsSale-input'].map((id) => document.getElementById(id));
   for (const ta of formatted) window.attachParagraphFormatting(ta);
   await loadSettings();
   for (const ta of formatted) window.refreshParagraphPreview(ta);
@@ -601,7 +601,7 @@ async function init() {
     setSettingsDirty(true);
   });
   // Typing in the form (not the sharing or backup controls further down).
-  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access, #google-sheets')) setSettingsDirty(true); };
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access, #google-sheets, #ai-import')) setSettingsDirty(true); };
   document.getElementById('content').addEventListener('input', markDirty);
   document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {

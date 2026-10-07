@@ -176,7 +176,7 @@ async function refreshQuotationList() {
       <td>${q.itemCount}</td>
       <td class="num">${q.pricingMode === 'Sale' || !split(q).monthly ? '<span class="muted">—</span>' : money(split(q).monthly)}</td>
       <td class="num">${money(split(q).oneTime)}${recurringNote(split(q).recurring)}</td>`;
-    tr.appendChild(window.documentRowActions('Quotation', { id: q.id, number: q.quotationNumber, status: q.status }, refreshQuotationList));
+    tr.appendChild(window.documentRowActions('Quotation', { id: q.id, number: q.quotationNumber, status: q.status, projectId: currentProject.id }, refreshQuotationList));
     if (q.fromCombined) tr.classList.add('combined-row');
     (q.fromCombined ? combinedBody : tbody).appendChild(tr);
   }
@@ -637,7 +637,13 @@ function updateInvoiceSummary() {
   const picked = chosenNotes();
   const parts = invoiceFromQuotation
     ? [`${q.lineItems.filter((i) => i.section !== 'Delivery' && !i.blockId).length} item(s) from ${q.quotationNumber}`]
-    : [`What ${picked.length} delivery note${picked.length === 1 ? '' : 's'} delivered, at ${q.quotationNumber}’s prices`];
+    : (() => {
+      // Notes for several quotations: one invoice, a section for each quotation.
+      const quotes = [...new Set(picked.map((p) => p.quotationId))];
+      return [quotes.length > 1
+        ? `What ${picked.length} delivery notes delivered, in ${quotes.length} sections — one per quotation, at each one’s prices`
+        : `What ${picked.length} delivery note${picked.length === 1 ? '' : 's'} delivered, at ${q.quotationNumber}’s prices`];
+    })();
   if (months) parts.push(`${months} month${months === 1 ? '' : 's'} of rent`);
   if (delivery) parts.push(`delivery charges ${money(q.deliveryTotal)}`);
   if (other) parts.push(`other charges ${money(q.otherChargesTotal)}`);
@@ -1128,6 +1134,7 @@ async function init() {
 
   document.getElementById('new-boq-btn').addEventListener('click', createNewBOQ);
   document.getElementById('new-quotation-btn').addEventListener('click', createNewQuotation);
+  document.getElementById('import-quotation-btn').addEventListener('click', () => window.importQuotation(currentProject));
   document.getElementById('new-invoice-btn').addEventListener('click', createNewInvoice);
   document.getElementById('new-delivery-note-btn').addEventListener('click', createNewDeliveryNote);
   document.getElementById('new-letter-btn').addEventListener('click', createNewLetter);

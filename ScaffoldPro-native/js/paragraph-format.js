@@ -46,6 +46,8 @@
       const rest = line.slice(tab + 1).trim();
       if (marker) {
         if (marker.endsWith(':')) return { marker: marker.slice(0, -1).trim(), text: rest, style: 'label' };
+        // "Model<Tab>: ZT14JC": Tab used to line the colons up.
+        if (rest.startsWith(':')) return { marker, text: rest.slice(1).trim(), style: 'label' };
         return { marker, text: rest, style: 'marker' };
       }
     }

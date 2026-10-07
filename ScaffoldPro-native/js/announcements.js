@@ -93,7 +93,7 @@
           <button type="button" data-audience="Everyone" class="active" data-no-icon>Everyone</button>
           <button type="button" data-audience="Team" data-no-icon id="an-team-btn">My team</button>
         </div>
-        <div class="field-hint hidden" id="an-team-hint" style="margin:-8px 0 12px;">Set your team on the <a href="user.html">User page</a> to announce to your team only.</div>
+        <div class="field-hint hidden" id="an-team-hint" style="margin:-8px 0 12px;">Set your team in <a href="settings.html#you">Settings › You</a> to announce to your team only.</div>
         <div class="field"><label for="an-message">Message</label>
           <textarea id="an-message" rows="4" placeholder="e.g. The yard is closed on Saturday for the stock take."></textarea></div>
         <div class="form-row cols-2">

@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 import CoreGraphics
 import CoreText
 import PDFKit
+import Vision
+import Security
 import Network
 import CryptoKit
 
@@ -171,6 +173,11 @@ struct TeamTask: Codable {
     var dueDate: String?
     /// HH:mm, if it's at a time (shown in the Calendar's week).
     var dueTime: String? = nil
+    /// HH:mm: when it ends. With a start time, it's a scheduled event
+    /// (a meeting, a site visit) — a block on the Calendar, not a to-do.
+    var endTime: String? = nil
+    /// For a whole team (e.g. "Site") instead of one person.
+    var team: String? = nil
     /// "High" or nil (normal).
     var priority: String?
     var done: Bool
@@ -179,6 +186,13 @@ struct TeamTask: Codable {
     var createdBy: String?
     var createdAt: String
     var updatedAt: String
+}
+
+/// Who a task or event can be for, beyond the people: this Mac's user and
+/// the teams.
+struct TaskForOptions: Codable {
+    var me: String
+    var teams: [String]
 }
 
 struct TaskRow: Codable {
@@ -204,6 +218,9 @@ struct CalendarEvent: Codable {
     var overdue: Bool = false
     /// HH:mm — at a time of day (else all day).
     var time: String? = nil
+    /// HH:mm — when it ends (a scheduled event); and its id, to change it.
+    var endTime: String? = nil
+    var id: String? = nil
 }
 
 /// A possible customer being worked on (Marketing › Leads) — not a
@@ -252,7 +269,7 @@ struct MarketingQuote: Codable {
     var projectName: String?
     var subject: String?
     var value: Double
-    /// Invoiced or signed and chopped by the client.
+    /// Signed by the client, or marked "Client agreed".
     var won: Bool
 }
 
@@ -1549,6 +1566,71 @@ struct Quotation: Codable {
     /// Split off another quotation (`splitQuotation`): listed under it as
     /// its subsidiary. Not linked — each is changed on its own.
     var parentQuotationId: String? = nil
+    /// The currency it's priced in (crane jobs can be quoted in another):
+    /// an ISO code such as "USD"; nil = Settings' currency.
+    var currency: String? = nil
+    /// The client has agreed to it (said so by email, phone…), recorded
+    /// by hand when no signed copy comes back. Counts as won.
+    var clientAgreedAt: String? = nil
+    /// Imported from a file (an old quotation, a scan): that file, kept
+    /// with the project's documents.
+    var importedFromDocumentId: String? = nil
+}
+
+/// An amount written out as on a cheque, in capitals: "SAY HONG KONG
+/// DOLLARS ONE HUNDRED AND FIFTEEN THOUSAND NINE HUNDRED AND SIXTY AND
+/// CENTS TWENTY-FOUR ONLY".
+func amountInWords(_ amount: Double, currency: String) -> String {
+    let ones = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN", "ELEVEN", "TWELVE",
+                "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN"]
+    let tens = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"]
+    func underHundred(_ n: Int) -> String {
+        if n < 20 { return ones[n] }
+        return tens[n / 10] + (n % 10 > 0 ? "-" + ones[n % 10] : "")
+    }
+    func underThousand(_ n: Int) -> String {
+        let h = n / 100, r = n % 100
+        var parts: [String] = []
+        if h > 0 { parts.append(ones[h] + " HUNDRED") }
+        if r > 0 { parts.append((h > 0 ? "AND " : "") + underHundred(r)) }
+        return parts.joined(separator: " ")
+    }
+    func words(_ value: Int) -> String {
+        if value == 0 { return "ZERO" }
+        let scales: [(Int, String)] = [(1_000_000_000, "BILLION"), (1_000_000, "MILLION"), (1_000, "THOUSAND"), (1, "")]
+        var n = value
+        var parts: [String] = []
+        for (size, name) in scales where n >= size {
+            let chunk = n / size
+            n %= size
+            // "ONE THOUSAND AND FIVE": AND before a last part under a hundred.
+            let text = size == 1 && !parts.isEmpty && chunk < 100 ? "AND " + underHundred(chunk) : underThousand(chunk)
+            parts.append(name.isEmpty ? text : text + " " + name)
+        }
+        return parts.joined(separator: " ")
+    }
+    let cents = Int((abs(amount) * 100).rounded())
+    let whole = cents / 100, part = cents % 100
+    let names = ["HKD": "HONG KONG DOLLARS", "USD": "US DOLLARS", "CNY": "RENMINBI", "RMB": "RENMINBI", "MOP": "MACAU PATACAS",
+                 "EUR": "EUROS", "GBP": "POUNDS STERLING", "SGD": "SINGAPORE DOLLARS", "JPY": "JAPANESE YEN", "AUD": "AUSTRALIAN DOLLARS"]
+    let name = names[currency.uppercased()] ?? currency.uppercased()
+    var text = "SAY \(name) \(words(whole))"
+    if part > 0 { text += " AND CENTS \(underHundred(part))" }
+    return text + " ONLY"
+}
+
+/// How a currency is written on documents: HK$, US$, RMB, or its code.
+func currencyDisplay(_ code: String) -> String {
+    switch code.uppercased() {
+    case "HKD": return "HK$"
+    case "USD": return "US$"
+    case "CNY", "RMB": return "RMB"
+    case "MOP": return "MOP$"
+    case "SGD": return "S$"
+    case "EUR": return "EUR"
+    case "GBP": return "GBP"
+    default: return code.uppercased()
+    }
 }
 
 struct QuotationLineItem: Codable {
@@ -1923,6 +2005,12 @@ struct QuotationDetail: Codable {
     var signedCopyAt: String? = nil
     var signedCopyExists = false
     var signedCopyNotNeeded = false
+    /// Its own currency (nil = Settings'), and when the client agreed by hand.
+    var currency: String? = nil
+    var clientAgreedAt: String? = nil
+    /// Imported from a file: that file, kept with the project's documents.
+    var importedDocumentId: String? = nil
+    var importedFileName: String? = nil
     /// Signed and chopped by a director, and a request still waiting.
     var directorSignedBy: String? = nil
     var directorSignedAt: String? = nil
@@ -2016,6 +2104,10 @@ struct InvoiceLineItem: Codable {
     /// sections: its title (e.g. "Design Fees") and row prefix ("A").
     var chargeGroup: String? = nil
     var chargePrefix: String? = nil
+    /// Materials delivered for another of the project's quotations, on the
+    /// same invoice: that quotation (its number and subject), printed as a
+    /// section of its own. nil = the invoice's own quotation.
+    var materialGroup: String? = nil
 }
 
 struct InvoiceSummary: Codable {
@@ -2252,8 +2344,11 @@ struct CompanySettings: Codable {
     var signatoryTitle: String?
     /// e.g. "www.pfitnet.com/TC"
     var termsURL: String?
-    /// The numbered terms: payment, delivery, modification…
+    /// The numbered terms: payment, delivery, modification… (for rental
+    /// quotations, and for sale ones when they have none of their own).
     var quotationTerms: String?
+    /// The standard key terms of a sale quotation; nil = the ones above.
+    var quotationTermsSale: String? = nil
     /// "Order shall be confirmed … valid for 7 business days …"
     var quotationAcceptance: String?
     /// Per truck per trip; what "+ Delivery Charge" used before the
@@ -2678,6 +2773,10 @@ func hangingItem(_ raw: String) -> (marker: String, text: String, style: Hanging
         if !marker.isEmpty {
             if marker.hasSuffix(":") {
                 return (String(marker.dropLast()).trimmingCharacters(in: .whitespaces), rest, .label)
+            }
+            // "Model<Tab>: ZT14JC": Tab used to line the colons up.
+            if rest.hasPrefix(":") {
+                return (marker, String(rest.dropFirst()).trimmingCharacters(in: .whitespaces), .label)
             }
             return (marker, rest, .marker)
         }
@@ -3930,7 +4029,7 @@ final class AppDatabase {
         let quotations = Dictionary(quotationsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let unsigned = rows.filter { r in
             guard r.kind == "Quotation", r.status == "Issued", r.mine, let q = quotations[r.id] else { return false }
-            return q.signedCopyNotNeeded != true && !(q.signedCopyPath.map { fileIsPresent($0) } ?? false)
+            return q.signedCopyNotNeeded != true && q.clientAgreedAt == nil && !(q.signedCopyPath.map { fileIsPresent($0) } ?? false)
         }.map { r -> DocRow in
             var row = r
             if invoicedQuotationIds.contains(r.id) { row.status = "Invoiced" }
@@ -4046,15 +4145,26 @@ final class AppDatabase {
         return String(format: "%02d:%02d", h, m)
     }
 
+    /// An end time only if it's after the start.
+    func laterTime(_ end: String?, than start: String?) -> String? {
+        guard let e = end, let s = start, e > s else { return nil }
+        return e
+    }
+
     func isForMe(_ t: TeamTask) -> Bool {
         if let a = nonBlank(t.assignee) { return a.lowercased() == TeamSync.memberName.lowercased() }
+        if let team = nonBlank(t.team) {
+            return teamOf(TeamSync.memberName)?.lowercased() == team.lowercased() || (t.createdBy ?? "").lowercased() == TeamSync.memberName.lowercased()
+        }
         return (t.createdBy ?? "").lowercased() == TeamSync.memberName.lowercased()
     }
 
-    func listTasks(projectId: String? = nil) -> [TaskRow] {
+    /// Tasks (to-dos). Scheduled events (with an end time) live on the
+    /// Calendar, so they're left out unless `includeEvents`.
+    func listTasks(projectId: String? = nil, includeEvents: Bool = false) -> [TaskRow] {
         let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let today = todayYMD()
-        return tasksStore.readAll().filter { projectId == nil || $0.projectId == projectId }
+        return tasksStore.readAll().filter { (projectId == nil || $0.projectId == projectId) && (includeEvents || $0.endTime == nil) }
             .map { t in
                 let p = t.projectId.flatMap { projects[$0] }
                 return TaskRow(task: t, projectNumber: p?.projectNumber, projectName: p?.name, mine: isForMe(t),
@@ -4084,6 +4194,8 @@ final class AppDatabase {
             all[i].assignee = text(payload, "assignee")
             all[i].dueDate = validDay(due)
             all[i].dueTime = validDay(due) == nil ? nil : validTime(text(payload, "dueTime"))
+            all[i].endTime = all[i].dueTime == nil ? nil : laterTime(validTime(text(payload, "endTime")), than: all[i].dueTime)
+            all[i].team = all[i].assignee == nil ? text(payload, "team") : nil
             all[i].priority = priority
             all[i].updatedAt = nowISO()
             tasksStore.writeAll(all)
@@ -4094,6 +4206,8 @@ final class AppDatabase {
                          createdBy: TeamSync.memberName, createdAt: nowISO(), updatedAt: nowISO())
         var task = t
         task.dueTime = validDay(due) == nil ? nil : validTime(text(payload, "dueTime"))
+        task.endTime = task.dueTime == nil ? nil : laterTime(validTime(text(payload, "endTime")), than: task.dueTime)
+        task.team = task.assignee == nil ? text(payload, "team") : nil
         tasksStore.insert(task)
         return LeadSaveResult(ok: true, error: nil, id: t.id)
     }
@@ -4180,10 +4294,19 @@ final class AppDatabase {
                                         detail: "\(due.projectNumber) \(due.projectName)\(due.daysLeft < 0 ? " · overdue since \(due.nextDue)" : "")",
                                         url: due.url, overdue: due.daysLeft < 0))
         }
-        for row in listTasks() {
+        for row in listTasks(includeEvents: true) {
             guard let day = inRange(row.task.dueDate) else { continue }
-            events.append(CalendarEvent(date: day, kind: "Task", title: row.task.title, detail: row.projectNumber.map { "\($0) \(row.projectName ?? "")" },
-                                        url: "tasks.html?task=\(row.task.id)", done: row.task.done, person: row.task.assignee, overdue: row.overdue, time: row.task.dueTime))
+            // A scheduled event (with an end time) is a block on the week,
+            // never "overdue"; a task is a to-do.
+            let isEvent = row.task.endTime != nil
+            var event = CalendarEvent(date: day, kind: isEvent ? "Event" : "Task", title: row.task.title,
+                                      detail: [row.projectNumber.map { "\($0) \(row.projectName ?? "")" }, row.task.team.map { "\($0) team" }].compactMap { $0 }.joined(separator: " · "),
+                                      url: isEvent ? "calendar.html?day=\(day)&event=\(row.task.id)" : "tasks.html?task=\(row.task.id)", done: isEvent ? false : row.task.done, person: row.task.assignee,
+                                      overdue: isEvent ? false : row.overdue, time: row.task.dueTime)
+            event.endTime = row.task.endTime
+            event.id = row.task.id
+            if event.detail?.isEmpty ?? false { event.detail = nil }
+            events.append(event)
         }
         for r in documentRows(withAuthors: false) {
             if r.kind == "Quotation", r.status == "Issued", let day = inRange(r.dueDate) {
@@ -4304,7 +4427,8 @@ final class AppDatabase {
             let day = String(q.quotationDate.prefix(10))
             guard day >= from, day <= to else { continue }
             let value = quotationMoney(q, lineItems: qLines[q.id] ?? []).total
-            let won = invoiced.contains(q.id) || (q.signedCopyPath.map { fileIsPresent($0) } ?? false)
+            // Accepted only when the client signed it, or agreed (recorded by hand).
+            let won = q.clientAgreedAt != nil || (q.signedCopyPath.map { fileIsPresent($0) } ?? false)
             rows.append(ClientQuoteRow(id: q.id, number: q.quotationNumber, date: day, status: q.status, projectNumber: project.projectNumber,
                                        projectName: project.name, subject: nonBlank(q.subject), pricingMode: q.pricingMode, value: value, won: won))
             total += decimalOf(value)
@@ -4396,7 +4520,9 @@ final class AppDatabase {
         let sent = quotationsStore.readAll().filter { q in
             q.status != "Draft" && q.status != "Cancelled" && !(q.sourceBOQId.flatMap { boqById[$0] }.map { combinedSources($0) != nil } ?? false)
         }
-        func isWon(_ q: Quotation) -> Bool { invoicedQuotations.contains(q.id) || (q.signedCopyPath.map { fileIsPresent($0) } ?? false) }
+        // Won only when the client signed it or agreed (recorded by hand);
+        // being issued, or even invoiced, isn't enough.
+        func isWon(_ q: Quotation) -> Bool { q.clientAgreedAt != nil || (q.signedCopyPath.map { fileIsPresent($0) } ?? false) }
         func value(_ q: Quotation) -> Double { quotationMoney(q, lineItems: qLines[q.id] ?? []).total }
         let calendar = Calendar(identifier: .gregorian)
         let monthFormat = DateFormatter()
@@ -4997,6 +5123,17 @@ final class AppDatabase {
         return (inv.sourceDeliveryNoteIds ?? []).compactMap { nid in notes.first { $0.id == nid } }
             .sorted { $0.deliveryNoteNumber.localizedStandardCompare($1.deliveryNoteNumber) == .orderedAscending }
             .compactMap { $0.signedCopyPath }.filter { fileIsPresent($0) }.map { URL(fileURLWithPath: $0) }
+    }
+
+    /// The client agreed without a signed copy (by email, phone…): counts
+    /// as won, and comes off the Dashboard's list. false takes it back.
+    func setQuotationClientAgreed(id: String, agreed: Bool) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+        qs[i].clientAgreedAt = agreed ? nowISO() : nil
+        quotationsStore.writeAll(qs)
+        logActivity(projectId: qs[i].projectId, agreed ? "Client agreed to the quotation" : "Client's agreement taken back", reference: qs[i].quotationNumber)
+        return nil
     }
 
     func setQuotationSignedCopyNotNeeded(id: String, notNeeded: Bool) -> String? {
@@ -7154,6 +7291,141 @@ final class AppDatabase {
         for id in boqIds { refreshQuotationSubjects(boqId: id) }
     }
 
+    /// A copy of a quotation as a new draft — in its own project or another
+    /// — with its items, sections and delivery schedule. Not linked to a BOQ,
+    /// not signed or agreed; numbered as the next in the project.
+    func duplicateQuotation(id: String, toProjectId: String?) -> Result<Quotation, WorkerError> {
+        guard let source = getQuotation(id: id) else { return .failure(WorkerError(message: "Quotation not found.")) }
+        let projectId = nonBlank(toProjectId) ?? source.projectId
+        guard let project = getProject(id: projectId) else { return .failure(WorkerError(message: "Project not found.")) }
+        var copy = source
+        copy.id = makeId("quotation")
+        copy.projectId = project.id
+        copy.quotationNumber = nextQuotationNumber(projectNumber: project.projectNumber, projectId: project.id)
+        copy.status = "Draft"
+        copy.quotationDate = nowISO()
+        copy.createdAt = nowISO()
+        copy.updatedAt = nowISO()
+        copy.validUntil = nil
+        copy.sourceBOQId = nil
+        copy.boqLinked = nil
+        copy.parentQuotationId = nil
+        copy.pdfPath = nil
+        copy.signedCopyPath = nil
+        copy.signedCopyAt = nil
+        copy.signedCopyNotNeeded = nil
+        copy.directorSignedPath = nil
+        copy.directorSignedAt = nil
+        copy.directorSignedBy = nil
+        copy.clientAgreedAt = nil
+        copy.importedFromDocumentId = nil
+        if project.id != source.projectId {
+            let site = sitesStore.readAll().first { $0.id == project.siteId }
+            copy.siteRef = site?.siteReference ?? site?.name ?? copy.siteRef
+        }
+        quotationsStore.insert(copy)
+        var blockIds: [String: String] = [:]
+        for b in quotationBlocks(for: source.id) {
+            var nb = b
+            nb.id = makeId("qblock")
+            nb.quotationId = copy.id
+            blockIds[b.id] = nb.id
+            quotationBlocksStore.insert(nb)
+        }
+        var lineIds: [String: String] = [:]
+        var lines: [QuotationLineItem] = []
+        for l in quotationLineItems(for: source.id) {
+            var nl = l
+            nl.id = makeId("qitem")
+            nl.quotationId = copy.id
+            nl.blockId = l.blockId.flatMap { blockIds[$0] }
+            nl.boqLineId = nil
+            nl.boqDetached = nil
+            lineIds[l.id] = nl.id
+            lines.append(nl)
+        }
+        quotationLineItemsStore.writeAll(quotationLineItemsStore.readAll() + lines)
+        // The delivery schedule, as planned (each day's quantities moved to
+        // the copies' lines).
+        let days = quotationDeliveriesStore.readAll().filter { $0.quotationId == source.id }.map { d -> QuotationDeliveryDay in
+            var nd = d
+            nd.id = makeId("qday")
+            nd.quotationId = copy.id
+            nd.sent = nil
+            nd.quantities = Dictionary(d.quantities.compactMap { k, v in lineIds[k].map { ($0, v) } }, uniquingKeysWith: { a, _ in a })
+            nd.createdAt = nowISO()
+            nd.updatedAt = nowISO()
+            return nd
+        }
+        if !days.isEmpty { quotationDeliveriesStore.writeAll(quotationDeliveriesStore.readAll() + days) }
+        logActivity(projectId: project.id, "Quotation duplicated from \(source.quotationNumber)", reference: copy.quotationNumber)
+        return .success(copy)
+    }
+
+    /// A new draft quotation from an imported file's items (read from the
+    /// file, or by the AI, and checked by the person). Materials whose code
+    /// is in the material list are linked to it but keep the price on the
+    /// file; delivery charges go under Delivery; anything else into a
+    /// priced section named as on the file.
+    func createImportedQuotation(projectId: String, projectNumber: String, pricingMode: String, subject: String?, clientRef: String?,
+                                 currency: String?, lines: [ImportedQuotationLine]) -> Quotation {
+        var q = createQuotation(projectId: projectId, projectNumber: projectNumber, sourceBOQId: nil, pricingMode: pricingMode == "Sale" ? "Sale" : "Rental")
+        var all = quotationsStore.readAll()
+        if let i = all.firstIndex(where: { $0.id == q.id }) {
+            if let s = nonBlank(subject) { all[i].subject = s }
+            if let r = nonBlank(clientRef) { all[i].clientRef = r }
+            if let c = nonBlank(currency)?.uppercased(), c != getCompanySettings().currency.uppercased() { all[i].currency = c }
+            // The prices are the file's: no extra markup on top.
+            all[i].markupPercent = nil
+            quotationsStore.writeAll(all)
+            q = all[i]
+        }
+        let priceItems = priceListItemsStore.readAll().filter { !$0.isArchived }
+        let byCode = Dictionary(priceItems.map { ($0.itemCode.uppercased(), $0) }, uniquingKeysWith: { a, _ in a })
+        var blocks: [String: String] = [:]
+        var order = 0
+        var newLines: [QuotationLineItem] = []
+        for l in lines {
+            let description = l.description.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !description.isEmpty else { continue }
+            let kind = l.kind ?? "Material"
+            let price = doubleOf(roundToCents(decimalOf(max(0, l.unitPrice))))
+            var line = QuotationLineItem(id: makeId("qitem"), quotationId: q.id, sourceKey: nil, priceListItemId: nil,
+                                         itemCode: l.itemCode ?? "", itemDescription: description, unit: nonBlank(l.unit) ?? "pc",
+                                         quantity: max(1, l.quantity.rounded()), appliedUnitPrice: price, section: nil, sortOrder: order)
+            order += 1
+            if kind == "Delivery" {
+                line.section = "Delivery"
+            } else if kind == "Other" {
+                let title = nonBlank(l.section) ?? "Other Charges"
+                if blocks[title] == nil, case .success(let block) = addQuotationBlock(quotationId: q.id, kind: "Priced") {
+                    block.title = title
+                    var bs = quotationBlocksStore.readAll()
+                    if let bi = bs.firstIndex(where: { $0.id == block.id }) { bs[bi].title = title; quotationBlocksStore.writeAll(bs) }
+                    blocks[title] = block.id
+                }
+                line.blockId = blocks[title]
+            } else if let code = nonBlank(l.itemCode)?.uppercased(), let pl = byCode[code] {
+                line.priceListItemId = pl.id
+                line.sourceKey = pl.sourceKey
+                line.itemCode = pl.itemCode
+                line.section = pl.category
+                line.priceListUnitPrice = basePrice(pl, mode: q.pricingMode, rates: conversionRates())
+            }
+            newLines.append(line)
+        }
+        quotationLineItemsStore.writeAll(quotationLineItemsStore.readAll() + newLines)
+        touchQuotation(q.id)
+        return getQuotation(id: q.id) ?? q
+    }
+
+    func setQuotationImportedFile(quotationId: String, documentId: String) {
+        var all = quotationsStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == quotationId }) else { return }
+        all[i].importedFromDocumentId = documentId
+        quotationsStore.writeAll(all)
+    }
+
     func createQuotation(projectId: String, projectNumber: String, sourceBOQId: String?, pricingMode: String) -> Quotation {
         // A quotation built from a BOQ inherits that BOQ's pricing mode
         // (the line items it copies already reflect that mode's prices),
@@ -7692,6 +7964,14 @@ final class AppDatabase {
         return settings.quotationTerms ?? defaultQuotationTerms
     }
 
+    /// A quotation's standard key terms: a sale's own if set in Settings,
+    /// else the rental ones (or the built-in ones).
+    func standardKeyTerms(pricingMode: String) -> String {
+        let settings = getCompanySettings()
+        if pricingMode == "Sale", let sale = nonBlank(settings.quotationTermsSale) { return sale }
+        return settings.quotationTerms ?? defaultQuotationTerms
+    }
+
     func isLegacyBOQTerms(_ text: String) -> Bool {
         let squash = { (t: String) in t.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ") }
         return squash(text) == squash(legacyBOQTerms)
@@ -7739,12 +8019,18 @@ final class AppDatabase {
             effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
             lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a }),
             blocks: quotationBlocks(for: q.id), otherChargesTotal: totals.otherTotal,
-            keyTerms: q.keyTerms, standardKeyTerms: getCompanySettings().quotationTerms ?? defaultQuotationTerms
+            keyTerms: q.keyTerms, standardKeyTerms: standardKeyTerms(pricingMode: q.pricingMode)
         )
         detail.signedCopyName = q.signedCopyPath.map { URL(fileURLWithPath: $0).lastPathComponent }
         detail.signedCopyAt = q.signedCopyAt
         detail.signedCopyExists = q.signedCopyPath.map { fileIsPresent($0) } ?? false
         detail.signedCopyNotNeeded = q.signedCopyNotNeeded ?? false
+        detail.currency = q.currency
+        detail.clientAgreedAt = q.clientAgreedAt
+        if let docId = q.importedFromDocumentId, let doc = getDocument(id: docId) {
+            detail.importedDocumentId = doc.id
+            detail.importedFileName = doc.originalName
+        }
         detail.directorSignedBy = q.directorSignedBy
         detail.directorSignedAt = q.directorSignedAt
         detail.directorSignedExists = q.directorSignedPath.map { fileIsPresent($0) } ?? false
@@ -7942,6 +8228,7 @@ final class AppDatabase {
         if payload.keys.contains("siteRef") { qs[i].siteRef = text(payload, "siteRef") }
         if payload.keys.contains("deliveryMethod") { qs[i].deliveryMethod = text(payload, "deliveryMethod") }
         if payload.keys.contains("keyTerms") { qs[i].keyTerms = text(payload, "keyTerms") }
+        if payload.keys.contains("currency") { qs[i].currency = text(payload, "currency").map { $0.uppercased() } }
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
         if let enabled = payload["minimumHireEnabled"] as? Bool { qs[i].minimumHireEnabled = enabled }
         if let enabled = payload["minimumMonthlyChargeEnabled"] as? Bool { qs[i].minimumMonthlyChargeEnabled = enabled ? true : nil }
@@ -8707,13 +8994,63 @@ final class AppDatabase {
             return .failure(WorkerError(message: "\(cancelled.deliveryNoteNumber) is cancelled."))
         }
         let sources = Set(notes.map { $0.sourceQuotationId ?? "" })
-        guard sources.count == 1, let quotationId = sources.first, !quotationId.isEmpty else {
-            return .failure(WorkerError(message: sources.contains("")
-                ? "A delivery note that isn't based on a quotation has no prices. Make it from a quotation (or import one into it) first."
-                : "Those delivery notes come from different quotations. Invoice each quotation's deliveries separately."))
+        guard !sources.contains("") else {
+            return .failure(WorkerError(message: "A delivery note that isn't based on a quotation has no prices. Make it from a quotation (or import one into it) first."))
         }
-        return createInvoice(projectId: projectId, projectNumber: projectNumber, sourceQuotationId: quotationId, rentalMonths: rentalMonths,
-                             includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges, deliveryNotes: notes)
+        // Notes from several quotations: one invoice, each quotation's
+        // deliveries a section of their own (the first quotation's first).
+        let quotations = sources.compactMap { getQuotation(id: $0) }
+            .sorted { $0.quotationNumber.localizedStandardCompare($1.quotationNumber) == .orderedAscending }
+        guard let primary = quotations.first, quotations.count == sources.count else {
+            return .failure(WorkerError(message: "A quotation those delivery notes were made from can't be found."))
+        }
+        if Set(quotations.map { $0.pricingMode }).count > 1 {
+            return .failure(WorkerError(message: "Those delivery notes are for a rental quotation and a sale quotation. Invoice the rental and the sale separately."))
+        }
+        let result = createInvoice(projectId: projectId, projectNumber: projectNumber, sourceQuotationId: primary.id, rentalMonths: rentalMonths,
+                                   includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges,
+                                   deliveryNotes: notes.filter { $0.sourceQuotationId == primary.id })
+        guard case .success(var invoice) = result, quotations.count > 1 else { return result }
+        var lines: [InvoiceLineItem] = []
+        var order = invoiceLineItems(for: invoice.id).count
+        for q in quotations.dropFirst() {
+            let group = q.quotationNumber + (nonBlank(q.subject).map { " — \($0)" } ?? "")
+            let qLines = quotationLineItems(for: q.id)
+            let delivered = deliveredLines(notes.filter { $0.sourceQuotationId == q.id }, quotation: q, quotationLines: qLines)
+            var picked = delivered.map { (line: $0, block: QuotationBlock?.none) }
+            if includeDelivery { picked += qLines.filter { isDeliveryLine($0) }.map { (line: $0, block: QuotationBlock?.none) } }
+            if includeOtherCharges {
+                for block in quotationBlocks(for: q.id) where block.kind == "Priced" {
+                    picked += qLines.filter { $0.blockId == block.id }.sorted { $0.sortOrder < $1.sortOrder }.map { (line: $0, block: Optional(block)) }
+                }
+            }
+            for source in picked {
+                let item = source.line
+                var copy = InvoiceLineItem(
+                    id: makeId("iitem"), invoiceId: invoice.id, sourceKey: item.sourceKey,
+                    priceListItemId: item.priceListItemId, itemCode: item.itemCode,
+                    itemDescription: item.itemDescription, unit: item.unit, quantity: item.quantity.rounded(),
+                    appliedUnitPrice: effectiveUnitPrice(item, q), section: item.section, sortOrder: order,
+                    discountType: item.discountType, discountValue: item.discountValue)
+                if let block = source.block {
+                    copy.chargeGroup = "\(nonBlank(block.title) ?? "Other Charges") (\(q.quotationNumber))"
+                    copy.chargePrefix = block.prefix
+                } else if !isDeliveryLine(item) {
+                    copy.materialGroup = group
+                }
+                order += 1
+                lines.append(copy)
+            }
+        }
+        invoiceLineItemsStore.insertMany(lines)
+        var all = invoicesStore.readAll()
+        if let i = all.firstIndex(where: { $0.id == invoice.id }) {
+            all[i].sourceDeliveryNoteIds = notes.map { $0.id }
+            invoicesStore.writeAll(all)
+            invoice = all[i]
+        }
+        logActivity(projectId: projectId, "Invoice also bills \(quotations.dropFirst().map { $0.quotationNumber }.joined(separator: ", "))", reference: invoice.invoiceNumber)
+        return .success(invoice)
     }
 
     func createInvoice(projectId: String, projectNumber: String, sourceQuotationId: String, rentalMonths: Int?, includeDelivery: Bool, includeOtherCharges: Bool = true, deliveryNotes: [DeliveryNote] = []) -> Result<Invoice, WorkerError> {
@@ -9288,6 +9625,49 @@ final class AppDatabase {
         return nil
     }
 
+    /// A custom item (not from a material list) changed after it was added:
+    /// its description (formatting kept) and unit, on a draft BOQ,
+    /// quotation, delivery note or invoice.
+    func editCustomLine(kind: String, id: String, description: String, unit: String?) -> String? {
+        let text = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return "Enter a description." }
+        let newUnit = unit.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
+        switch kind {
+        case "quotation":
+            return updateQuotationLineItem(id: id, quantity: nil, appliedUnitPrice: nil, description: text, unit: newUnit)
+        case "boq":
+            var items = boqLineItemsStore.readAll()
+            guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+            guard let boq = getBOQ(id: items[i].boqId), boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+            items[i].itemDescription = text
+            if let u = newUnit { items[i].unit = u }
+            boqLineItemsStore.writeAll(items)
+            touchBOQ(boq.id)
+            syncLinkedQuotations(boqId: boq.id)
+            return nil
+        case "invoice":
+            var items = invoiceLineItemsStore.readAll()
+            guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+            guard let inv = getInvoice(id: items[i].invoiceId), inv.status == "Draft" else { return "This invoice is issued and can no longer be edited." }
+            items[i].itemDescription = text
+            if let u = newUnit { items[i].unit = u }
+            invoiceLineItemsStore.writeAll(items)
+            touchInvoice(inv.id)
+            return nil
+        case "deliveryNote":
+            var items = deliveryNoteLineItemsStore.readAll()
+            guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+            guard let dn = getDeliveryNote(id: items[i].deliveryNoteId), dn.status == "Draft" else { return "This delivery note is issued and can no longer be edited." }
+            items[i].itemDescription = text
+            if let u = newUnit { items[i].unit = u }
+            deliveryNoteLineItemsStore.writeAll(items)
+            touchDeliveryNote(dn.id)
+            return nil
+        default:
+            return "Unknown document."
+        }
+    }
+
     func updateDeliveryNoteLineItem(id: String, quantity: Double?, quantityFormula: String? = nil) -> String? {
         var items = deliveryNoteLineItemsStore.readAll()
         guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
@@ -9558,6 +9938,7 @@ final class AppDatabase {
         if let v = optionalText("signatoryName") { settings.signatoryName = v }
         if let v = optionalText("signatoryTitle") { settings.signatoryTitle = v }
         if let v = optionalText("termsURL") { settings.termsURL = v }
+        if payload.keys.contains("quotationTermsSale") { settings.quotationTermsSale = (payload["quotationTermsSale"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } }
         if payload.keys.contains("quotationTerms") { settings.quotationTerms = (payload["quotationTerms"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 } }
         if let v = optionalText("quotationAcceptance") { settings.quotationAcceptance = v }
         if payload.keys.contains("standardDeliveryCharge") { settings.standardDeliveryCharge = payload["standardDeliveryCharge"] as? Double }
@@ -10829,6 +11210,13 @@ final class PDFGenerator {
         return wrap(value, font, available)
     }
 
+    /// A summary row's label, wrapped to the columns before the last.
+    private func summaryLabelLines(_ label: String, emphasized: Bool, doc: LetterDocument) -> [String] {
+        let width = doc.columns.dropLast().reduce(CGFloat(0)) { $0 + $1.width } - 12
+        let lines = wrap(label, body(emphasized ? 12 : 11, bold: true), max(60, width))
+        return lines.isEmpty ? [label] : lines
+    }
+
     private func height(of row: LetterTableRow, in doc: LetterDocument) -> CGFloat {
         switch row {
         case .item(let cells):
@@ -10841,8 +11229,10 @@ final class PDFGenerator {
             return rowHeight + CGFloat(lines - 1) * 14.9
         case .section:
             return 37.5
-        case .summary(_, _, let emphasized):
-            return emphasized ? 37.5 : 29.25
+        case .summary(let label, _, let emphasized):
+            // A long label (an invoice's total in words) runs over lines.
+            let lines = summaryLabelLines(label, emphasized: emphasized, doc: doc).count
+            return (emphasized ? 37.5 : 29.25) + CGFloat(max(1, lines) - 1) * cellPitch
         case .partial(let cells, _):
             return height(of: .item(cells), in: doc)
         case .note(let note):
@@ -10946,7 +11336,10 @@ final class PDFGenerator {
                 vRule(edges[last - 1], top, h)
                 vRule(edges[last], top, h)
                 let font = body(emphasized ? 12 : 11, bold: true)
-                text(label, x: edges[last - 1] - 4.25, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: font, align: .right)
+                let labelLines = summaryLabelLines(label, emphasized: emphasized, doc: doc)
+                for (i, line) in labelLines.enumerated() {
+                    text(line, x: edges[last - 1] - 4.25, baseline: cellBaseline(top: top, height: h, lines: labelLines.count, line: i), font: font, align: .right)
+                }
                 drawCell([value], column: doc.columns[last - 1], left: edges[last - 1], right: edges[last], top: top, height: h, font: font, currency: doc.currencySymbol)
             case .partial(let cells, let tail):
                 let count = min(cells.count, doc.columns.count - 1)
@@ -14449,6 +14842,392 @@ final class GoogleSheetsSync {
     }
 }
 
+// ---- Importing a quotation from a file (an old quotation, a scan) ----
+
+/// A line read off an imported quotation. kind: "Material" (an item; a
+/// code in the material list links it), "Delivery" (a delivery or
+/// transport charge) or "Other" (another charge, in a section named
+/// `section`, e.g. "Design Fees").
+struct ImportedQuotationLine: Codable {
+    var kind: String? = "Material"
+    var section: String? = nil
+    var itemCode: String? = nil
+    var description: String
+    var unit: String
+    var quantity: Double
+    var unitPrice: Double
+    /// Found in the material list by its code.
+    var matched: Bool? = nil
+}
+
+/// What was read from an imported file, for the person to check before a
+/// quotation is made from it.
+struct QuotationImportDraft: Codable {
+    var ok: Bool
+    var error: String? = nil
+    /// Names the file kept for this import (`quotations:importCreate`).
+    var token: String = ""
+    var fileName: String = ""
+    /// How it was read: "text" (the file's own text), "ocr" (read off a
+    /// scan on this Mac) or "ai".
+    var source: String = "text"
+    var subject: String? = nil
+    var clientRef: String? = nil
+    /// The number on the file (e.g. an old Qt26101-002), for reference.
+    var oldNumber: String? = nil
+    var pricingMode: String = "Rental"
+    var currency: String? = nil
+    var items: [ImportedQuotationLine] = []
+    /// The start of the text read, so the person can see what was read.
+    var textPreview: String = ""
+    /// An AI is set up (Settings › AI Import).
+    var aiReady: Bool = false
+    /// Few or no items could be made out: worth asking the AI.
+    var unsure: Bool = false
+}
+
+enum QuotationImportReader {
+    static let imageTypes = ["png", "jpg", "jpeg", "heic", "tif", "tiff", "gif", "bmp", "webp"]
+
+    /// The file's text, and whether it had to be read off images (a scan).
+    static func text(of url: URL) -> (text: String, ocr: Bool) {
+        let ext = url.pathExtension.lowercased()
+        if ext == "pdf", let pdf = PDFDocument(url: url) {
+            let own = pdf.string ?? ""
+            let pages = max(1, pdf.pageCount)
+            // Plenty of text: a PDF made by a program. Little: a scan.
+            if own.trimmingCharacters(in: .whitespacesAndNewlines).count >= 60 * pages { return (own, false) }
+            var read: [String] = []
+            for i in 0..<min(pdf.pageCount, 15) {
+                guard let page = pdf.page(at: i), let image = render(page) else { continue }
+                read.append(ocr(image))
+            }
+            let joined = read.joined(separator: "\n")
+            return joined.count > own.count ? (joined, true) : (own, false)
+        }
+        if imageTypes.contains(ext) {
+            guard let image = NSImage(contentsOf: url), let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return ("", true) }
+            return (ocr(cg), true)
+        }
+        if ["csv", "tsv", "txt"].contains(ext) {
+            return ((try? String(contentsOf: url, encoding: .utf8)) ?? (try? String(contentsOf: url, encoding: .isoLatin1)) ?? "", false)
+        }
+        // Word, RTF, web pages: what macOS can open as text.
+        if let attributed = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) { return (attributed.string, false) }
+        return ("", false)
+    }
+
+    /// A PDF page as a picture, about 200 dpi, on white.
+    static func render(_ page: PDFPage) -> CGImage? {
+        let box = page.bounds(for: .mediaBox)
+        guard box.width > 0, box.height > 0 else { return nil }
+        let scale = min(2.8, 2200 / max(box.width, box.height))
+        let w = Int(box.width * scale), h = Int(box.height * scale)
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.scaleBy(x: scale, y: scale)
+        page.draw(with: .mediaBox, to: ctx)
+        return ctx.makeImage()
+    }
+
+    /// The words in a picture (Apple's text recognition, on this Mac), put
+    /// back into lines, the columns of a line two spaces apart.
+    static func ocr(_ image: CGImage) -> String {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        let wanted = ["en-US", "zh-Hant", "zh-Hans"]
+        if let supported = try? request.supportedRecognitionLanguages() {
+            let langs = wanted.filter { supported.contains($0) }
+            if !langs.isEmpty { request.recognitionLanguages = langs }
+        }
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
+        try? handler.perform([request])
+        let observations = (request.results ?? []).compactMap { obs -> (box: CGRect, text: String)? in
+            guard let top = obs.topCandidates(1).first else { return nil }
+            return (obs.boundingBox, top.string)
+        }
+        // Top to bottom; pieces whose middles are level make one line.
+        var rows: [[(box: CGRect, text: String)]] = []
+        for o in observations.sorted(by: { $0.box.midY > $1.box.midY }) {
+            if let last = rows.last, let first = last.first, abs(first.box.midY - o.box.midY) < max(first.box.height, o.box.height) * 0.5 {
+                rows[rows.count - 1].append(o)
+            } else {
+                rows.append([o])
+            }
+        }
+        return rows.map { $0.sorted { $0.box.minX < $1.box.minX }.map { $0.text }.joined(separator: "  ") }.joined(separator: "\n")
+    }
+
+    static let units: Set<String> = ["pc", "pcs", "pce", "no", "no.", "nos", "nos.", "set", "sets", "m", "m2", "m²", "m3", "m³", "lm", "lot", "lots",
+                                     "kg", "ton", "tons", "tonne", "item", "items", "ea", "each", "day", "days", "week", "weeks", "month", "months",
+                                     "mth", "mths", "trip", "trips", "ls", "l.s.", "l/s", "sum", "unit", "units", "nr", "length", "lengths", "load", "loads",
+                                     "支", "件", "套", "個", "个", "米", "次", "車", "车", "條", "条", "塊", "块"]
+
+    /// A number as printed: "1,250", "HK$12.50", "$3.00", "@12.5".
+    static func number(_ token: String) -> Double? {
+        var t = token
+        for p in ["HK$", "US$", "S$", "MOP$", "RMB", "$", "@", "¥", "£", "€"] where t.uppercased().hasPrefix(p) { t = String(t.dropFirst(p.count)) }
+        t = t.replacingOccurrences(of: ",", with: "")
+        guard !t.isEmpty, t.range(of: #"^[0-9]+(\.[0-9]+)?$"#, options: .regularExpression) != nil else { return nil }
+        return Double(t)
+    }
+
+    /// Reads the items from the text: a line ending in a quantity, a unit
+    /// price and an amount that agree (quantity × price ≈ amount), with a
+    /// unit word before or between them. Also the "Re:" line, "Your Ref.",
+    /// the old number and whether it's for rental or sale.
+    static func parse(_ text: String, priceItems: [PriceListItem]) -> QuotationImportDraft {
+        var draft = QuotationImportDraft(ok: true)
+        let codes = Set(priceItems.map { $0.itemCode.uppercased() })
+        var rentalWords = 0, saleWords = 0
+        var section: String? = nil
+        for raw in text.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty else { continue }
+            let lower = line.lowercased()
+            rentalWords += ["rental", "hire", "per month", "/month", "monthly"].filter { lower.contains($0) }.count
+            saleWords += ["sale", "purchase", "sell"].filter { lower.contains($0) }.count
+            if draft.subject == nil, let r = line.range(of: #"^(re|subject)\s*[:：]\s*"#, options: [.regularExpression, .caseInsensitive]) {
+                draft.subject = String(line[r.upperBound...]).trimmingCharacters(in: .whitespaces)
+                continue
+            }
+            if draft.clientRef == nil, let r = line.range(of: #"your\s*ref(erence)?(\.|\s)*(no\.?)?\s*[:：]\s*"#, options: [.regularExpression, .caseInsensitive]) {
+                let rest = String(line[r.upperBound...]).components(separatedBy: "  ").first ?? ""
+                if !rest.trimmingCharacters(in: .whitespaces).isEmpty { draft.clientRef = rest.trimmingCharacters(in: .whitespaces) }
+            }
+            if draft.oldNumber == nil, let r = line.range(of: #"\bQ[Tt][-\s]?\d{4,6}(-\d{1,3})?\b"#, options: .regularExpression) {
+                draft.oldNumber = String(line[r])
+            }
+            if draft.currency == nil {
+                if line.contains("US$") || line.contains("USD") { draft.currency = "USD" } else if line.contains("HK$") || line.contains("HKD") { draft.currency = "HKD" }
+            }
+            var tokens = line.split(whereSeparator: { $0 == " " || $0 == "\t" }).map(String.init)
+            // Numbers at the end: amount, price and quantity (a unit may sit
+            // between the quantity and the price, or before the quantity).
+            var nums: [Double] = []
+            var unit: String? = nil
+            while let last = tokens.last, nums.count < 3 {
+                if let n = number(last) { nums.insert(n, at: 0); tokens.removeLast(); continue }
+                if unit == nil, units.contains(last.lowercased()), !nums.isEmpty, nums.count < 3 { unit = last; tokens.removeLast(); continue }
+                break
+            }
+            if unit == nil, let last = tokens.last, units.contains(last.lowercased()) { unit = last; tokens.removeLast() }
+            var item: (q: Double, p: Double)? = nil
+            if nums.count == 3, abs(nums[0] * nums[1] - nums[2]) <= max(0.015 * nums[2], 0.6), nums[0] > 0 { item = (nums[0], nums[1]) }
+            else if nums.count >= 2, unit != nil, nums[nums.count - 2] > 0 { item = (nums[nums.count - 2], nums[nums.count - 1]) }
+            guard let found = item else {
+                // A short line with no numbers, in capitals or ending in a
+                // colon, between items: a section heading.
+                if nums.isEmpty, line.count < 60, line.rangeOfCharacter(from: .letters) != nil,
+                   line == line.uppercased() || line.hasSuffix(":") { section = line.trimmingCharacters(in: CharacterSet(charactersIn: ": ")) }
+                continue
+            }
+            // A row label first ("A1", "1.", "(3)"), then perhaps a code.
+            if let first = tokens.first, first.range(of: #"^\(?[A-Za-z]?\d{1,3}[.)]?$"#, options: .regularExpression) != nil, tokens.count > 1 { tokens.removeFirst() }
+            var code: String? = nil
+            if let first = tokens.first, codes.contains(first.uppercased()) || first.range(of: #"^[A-Z]{0,3}\d{4,}[A-Z0-9-]*$"#, options: .regularExpression) != nil, tokens.count > 1 {
+                code = first
+                tokens.removeFirst()
+            }
+            let description = tokens.joined(separator: " ").trimmingCharacters(in: CharacterSet(charactersIn: " -–:|"))
+            let dl = description.lowercased()
+            guard description.rangeOfCharacter(from: .letters) != nil,
+                  !["total", "subtotal", "sub-total", "discount", "deposit", "balance", "amount due"].contains(where: { dl.hasPrefix($0) || dl == $0 }) else { continue }
+            var kind = "Material"
+            if ["delivery", "transport", "collection", "lorry", "truck", "運輸", "运输", "送貨"].contains(where: { dl.contains($0) }) { kind = "Delivery" }
+            else if let s = section?.lowercased(), code == nil,
+                    ["fee", "labour", "labor", "manpower", "erect", "dismantl", "design", "engineer", "inspection", "insurance", "other", "人工", "設計", "设计", "搭", "拆"].contains(where: { s.contains($0) }) { kind = "Other" }
+            draft.items.append(ImportedQuotationLine(kind: kind, section: kind == "Other" ? section : nil, itemCode: code, description: description,
+                                                     unit: unit ?? "pc", quantity: found.q, unitPrice: found.p,
+                                                     matched: code.map { codes.contains($0.uppercased()) } ?? false))
+        }
+        draft.pricingMode = saleWords > rentalWords ? "Sale" : "Rental"
+        return draft
+    }
+
+    /// Turns the AI's JSON answer into a draft.
+    static func draft(fromAI json: [String: Any], priceItems: [PriceListItem]) -> QuotationImportDraft {
+        var draft = QuotationImportDraft(ok: true)
+        let codes = Set(priceItems.map { $0.itemCode.uppercased() })
+        let str: (Any?) -> String? = { v in (v as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) } }
+        let num: (Any?) -> Double? = { v in
+            if let d = v as? Double { return d }
+            if let i = v as? Int { return Double(i) }
+            if let s = v as? String { return number(s.trimmingCharacters(in: .whitespaces)) }
+            return nil
+        }
+        draft.subject = str(json["subject"])
+        draft.clientRef = str(json["clientRef"])
+        draft.oldNumber = str(json["quotationNumber"])
+        draft.pricingMode = str(json["pricingMode"])?.lowercased() == "sale" ? "Sale" : "Rental"
+        draft.currency = str(json["currency"])?.uppercased()
+        for case let row as [String: Any] in (json["items"] as? [Any]) ?? [] {
+            guard let description = str(row["description"]) else { continue }
+            let kind = ["Material", "Delivery", "Other"].first { $0.lowercased() == (str(row["kind"]) ?? "").lowercased() } ?? "Material"
+            let code = str(row["itemCode"])
+            draft.items.append(ImportedQuotationLine(kind: kind, section: kind == "Other" ? str(row["section"]) : nil, itemCode: code,
+                                                     description: description, unit: str(row["unit"]) ?? "pc",
+                                                     quantity: max(1, num(row["quantity"]) ?? 1), unitPrice: max(0, num(row["unitPrice"]) ?? 0),
+                                                     matched: code.map { codes.contains($0.uppercased()) } ?? false))
+        }
+        return draft
+    }
+}
+
+/// Reading a quotation the app can't make out on its own (a scan, an odd
+/// layout) with a free cloud AI: Google's Gemini (free tier, reads PDFs and
+/// pictures itself) or OpenRouter's free models (sent the text read on this
+/// Mac). The key is kept in this Mac's Keychain; nothing is sent until a
+/// key is set and the person imports a file.
+final class QuotationAI {
+    static let shared = QuotationAI()
+    private let defaults = UserDefaults.standard
+    private enum Key {
+        static let provider = "ai.provider"
+        static let model = "ai.model"
+    }
+    static let providers = ["gemini": "Google Gemini (free tier)", "openrouter": "OpenRouter (free models)"]
+    static let defaultModels = ["gemini": "gemini-2.5-flash", "openrouter": "openrouter/free"]
+
+    var provider: String { defaults.string(forKey: Key.provider) ?? "gemini" }
+    var model: String { nonBlank(defaults.string(forKey: Key.model)) ?? QuotationAI.defaultModels[provider] ?? "" }
+    var ready: Bool { key(for: provider) != nil }
+
+    struct Status: Codable {
+        var provider: String
+        var model: String
+        var defaultModel: String
+        var hasKey: Bool
+    }
+    func status() -> Status {
+        Status(provider: provider, model: nonBlank(defaults.string(forKey: Key.model)) ?? "", defaultModel: QuotationAI.defaultModels[provider] ?? "", hasKey: ready)
+    }
+
+    /// Saves the choice; a blank key leaves the saved one, `removeKey` removes it.
+    func configure(provider: String, model: String?, key: String?, removeKey: Bool) {
+        let p = QuotationAI.providers[provider] == nil ? "gemini" : provider
+        defaults.set(p, forKey: Key.provider)
+        if let m = nonBlank(model) { defaults.set(m, forKey: Key.model) } else { defaults.removeObject(forKey: Key.model) }
+        if removeKey { setKey(nil, for: p) } else if let k = nonBlank(key) { setKey(k, for: p) }
+    }
+
+    // ---- Keychain ----
+    private func query(_ provider: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "ScaffoldPro AI", kSecAttrAccount as String: provider]
+    }
+    private func key(for provider: String) -> String? {
+        var q = query(provider)
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        return nonBlank(String(data: data, encoding: .utf8))
+    }
+    private func setKey(_ key: String?, for provider: String) {
+        _ = SecItemDelete(query(provider) as CFDictionary)
+        guard let key = key, let data = key.data(using: .utf8) else { return }
+        var q = query(provider)
+        q[kSecValueData as String] = data
+        _ = SecItemAdd(q as CFDictionary, nil)
+    }
+
+    static let prompt = """
+    You read construction (scaffolding) quotations and return their contents as JSON for a program. \
+    Read the attached quotation (it may be a scan, a photo or an old template) and answer with ONLY a JSON object, no other text:
+    {"subject": the "Re:" line or title, or null,
+     "clientRef": the client's "Your Ref." or null,
+     "quotationNumber": the quotation's own number or null,
+     "pricingMode": "Rental" if items are hired per month, else "Sale",
+     "currency": ISO code such as "HKD" or "USD",
+     "items": [{"kind": "Material" for a material or item, "Delivery" for a delivery/transport/collection charge, "Other" for anything else charged (labour, design fees, erection…),
+                "section": the heading it is under (for "Other"), or null,
+                "itemCode": the item's code if printed, or null,
+                "description": the item's description as printed (English, and Chinese if printed),
+                "unit": e.g. "pc", "set", "m", "trip",
+                "quantity": number,
+                "unitPrice": number (the price for one unit, per month for rental; no currency signs or commas)}]}
+    Rules: one entry per priced row, in order. Leave out totals, subtotals, discounts, deposits and terms. \
+    Do not invent rows or prices; if a quantity is not printed use 1. Numbers must be plain JSON numbers.
+    """
+
+    /// Reads the file (or its text) → the JSON answer, or why not (main thread).
+    func read(fileURL: URL, text: String, completion: @escaping ([String: Any]?, String?) -> Void) {
+        guard let key = key(for: provider) else { completion(nil, "No AI is set up. Add a free key in Settings › AI Import."); return }
+        let ext = fileURL.pathExtension.lowercased()
+        let mime: String? = ext == "pdf" ? "application/pdf" : ext == "png" ? "image/png" : ["jpg", "jpeg"].contains(ext) ? "image/jpeg"
+            : ext == "webp" ? "image/webp" : ["heic"].contains(ext) ? "image/heic" : nil
+        let fileData = mime != nil ? (try? Data(contentsOf: fileURL)).flatMap { $0.count <= 15_000_000 ? $0 : nil } : nil
+        let clipped = String(text.prefix(60_000))
+        var request: URLRequest
+        if provider == "openrouter" {
+            request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/chat/completions")!, timeoutInterval: 150)
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            request.setValue("ScaffoldPro", forHTTPHeaderField: "X-Title")
+            let read = clipped.isEmpty ? "(no text could be read — see the picture)" : clipped
+            var content: [[String: Any]] = [["type": "text", "text": "The quotation's text, as read:\n\n" + read]]
+            if let data = fileData, let mime = mime, mime.hasPrefix("image/") {
+                let image: [String: Any] = ["url": "data:\(mime);base64,\(data.base64EncodedString())"]
+                content.append(["type": "image_url", "image_url": image])
+            }
+            let messages: [[String: Any]] = [["role": "system", "content": QuotationAI.prompt], ["role": "user", "content": content]]
+            let body: [String: Any] = ["model": model, "temperature": 0, "messages": messages]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        } else {
+            let name = model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "gemini-2.5-flash"
+            request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(name):generateContent")!, timeoutInterval: 150)
+            request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+            var parts: [[String: Any]] = [["text": QuotationAI.prompt]]
+            if let data = fileData, let mime = mime {
+                let inline: [String: Any] = ["mime_type": mime, "data": data.base64EncodedString()]
+                parts.append(["inline_data": inline])
+            } else {
+                parts.append(["text": "The quotation's text:\n\n" + clipped])
+            }
+            let contents: [[String: Any]] = [["role": "user", "parts": parts]]
+            let config: [String: Any] = ["temperature": 0, "responseMimeType": "application/json"]
+            let body: [String: Any] = ["contents": contents, "generationConfig": config]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let isGemini = provider != "openrouter"
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            var result: ([String: Any]?, String?) = (nil, nil)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let obj = data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+            if let error = error {
+                result = (nil, "The AI couldn’t be reached (\(error.localizedDescription)).")
+            } else if code == 401 || code == 403 || (code == 400 && "\(obj ?? [:])".contains("API_KEY")) {
+                result = (nil, "The AI didn’t accept the key. Check it in Settings › AI Import.")
+            } else if code == 429 {
+                result = (nil, "The free allowance is used up for the moment. Try again in a minute.")
+            } else if code >= 400 || obj == nil {
+                let message = ((obj?["error"] as? [String: Any])?["message"] as? String) ?? "it answered with an error (\(code))"
+                result = (nil, "The AI couldn’t read it: \(message).")
+            } else {
+                var answer = ""
+                if isGemini {
+                    let parts = (((obj?["candidates"] as? [[String: Any]])?.first?["content"] as? [String: Any])?["parts"] as? [[String: Any]]) ?? []
+                    answer = parts.compactMap { $0["text"] as? String }.joined()
+                } else {
+                    answer = ((((obj?["choices"] as? [[String: Any]])?.first)?["message"] as? [String: Any])?["content"] as? String) ?? ""
+                }
+                // Just the JSON, even if it came in a code fence.
+                if let start = answer.firstIndex(of: "{"), let end = answer.lastIndex(of: "}"), start < end,
+                   let json = (try? JSONSerialization.jsonObject(with: Data(answer[start...end].utf8))) as? [String: Any] {
+                    result = (json, nil)
+                } else {
+                    result = (nil, "The AI’s answer couldn’t be understood. Try again, or add the items by hand.")
+                }
+            }
+            DispatchQueue.main.async { completion(result.0, result.1) }
+        }.resume()
+    }
+}
+
 final class CloudBackupManager {
     /// Posted by every database save.
     static let dataSaved = Notification.Name("ScaffoldPro.dataSaved")
@@ -16218,6 +16997,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// token, so the person can review it before anything changes.
     private var pendingPriceImport: (token: String, sourceKey: String, rows: [ParsedPriceRow])?
     private var pendingPartyImport: (token: String, kind: String, rows: [(row: [String: String], matchId: String?)])?
+    /// Quotation files being imported, by token: the file (in a temporary
+    /// folder) and the text read from it.
+    private var pendingQuotationImports: [String: (url: URL, text: String)] = [:]
 
     init(db: AppDatabase, storage: FileStorage) {
         self.db = db
@@ -16585,6 +17367,28 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.listQuotationSummaries(projectId: projectId))
         case "quotations:create":
             handleCreateQuotation(id: id, payload: payload)
+        case "quotations:duplicate":
+            switch db.duplicateQuotation(id: (payload["id"] as? String) ?? "", toProjectId: payload["projectId"] as? String) {
+            case .success(let q): respond(id: id, encodable: LeadSaveResult(ok: true, error: nil, id: q.id))
+            case .failure(let e): respond(id: id, encodable: LeadSaveResult(ok: false, error: e.message))
+            }
+        case "quotations:importRead":
+            handleImportQuotationRead(id: id, payload: payload)
+        case "quotations:importAI":
+            handleImportQuotationAI(id: id, payload: payload)
+        case "quotations:importCreate":
+            handleImportQuotationCreate(id: id, payload: payload)
+        case "ai:openKeyPage":
+            // Where to get a free key, in the browser.
+            let page = (payload["provider"] as? String) == "openrouter" ? "https://openrouter.ai/settings/keys" : "https://aistudio.google.com/apikey"
+            if let url = URL(string: page) { NSWorkspace.shared.open(url) }
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+        case "ai:status":
+            respond(id: id, encodable: QuotationAI.shared.status())
+        case "ai:configure":
+            QuotationAI.shared.configure(provider: (payload["provider"] as? String) ?? "gemini", model: payload["model"] as? String,
+                                         key: payload["key"] as? String, removeKey: (payload["removeKey"] as? Bool) ?? false)
+            respond(id: id, encodable: QuotationAI.shared.status())
         case "quotations:get":
             let qid = (payload["id"] as? String) ?? ""
             if let detail = db.getQuotationDetail(id: qid) {
@@ -16778,6 +17582,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             } else {
                 respond(id: id, encodable: DeliveryNoteActionResult(ok: true, error: nil))
             }
+        case "lines:editCustom":
+            let error = db.editCustomLine(kind: (payload["kind"] as? String) ?? "", id: (payload["id"] as? String) ?? "",
+                                          description: (payload["description"] as? String) ?? "", unit: payload["unit"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "lines:setQuantities":
             var quantities: [String: Double] = [:]
             for (lineId, value) in (payload["quantities"] as? [String: Any]) ?? [:] {
@@ -16999,6 +17807,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "tasks:people":
             respond(id: id, encodable: db.teamNames())
+        case "tasks:teams":
+            respond(id: id, encodable: TaskForOptions(me: TeamSync.memberName, teams: db.allTeams()))
+        case "tasks:get":
+            let task = db.tasksStore.readAll().first { $0.id == ((payload["id"] as? String) ?? "") }
+            respond(id: id, encodable: task.map { [$0] } ?? [])
         case "calendar:events":
             respond(id: id, encodable: db.calendarEvents(from: (payload["from"] as? String) ?? "", to: (payload["to"] as? String) ?? ""))
         case "marketing:summary":
@@ -17211,6 +18024,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
         case "deliveryNotes:signedCopy":
             handleDeliveryNoteSignedAction(id: id, noteId: (payload["id"] as? String) ?? "", action: (payload["action"] as? String) ?? "")
+        case "quotations:setClientAgreed":
+            let error = db.setQuotationClientAgreed(id: (payload["id"] as? String) ?? "", agreed: (payload["agreed"] as? Bool) ?? true)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:setSignedNotNeeded":
             let error = db.setQuotationSignedCopyNotNeeded(id: (payload["id"] as? String) ?? "", notNeeded: (payload["notNeeded"] as? Bool) ?? true)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -17220,10 +18036,21 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: (payload["id"] as? String) ?? "", mode: .print)
 
         case "settings:get":
-            respond(id: id, encodable: db.getCompanySettings())
+            // Light / Dark is each person's own (this Mac's), not the company's.
+            var current = db.getCompanySettings()
+            current.appearance = NativeBridge.ownAppearance ?? current.appearance
+            respond(id: id, encodable: current)
         case "settings:update":
-            let updated = db.updateCompanySettings(payload)
-            applyAppearance(updated.appearance)
+            if let look = payload["appearance"] as? String, ["System", "Light", "Dark"].contains(look) {
+                NativeBridge.ownAppearance = look
+                applyAppearance(look)
+                var current = db.getCompanySettings()
+                current.appearance = look
+                respond(id: id, encodable: current)
+                return
+            }
+            var updated = db.updateCompanySettings(payload)
+            updated.appearance = NativeBridge.ownAppearance ?? updated.appearance
             respond(id: id, encodable: updated)
         case "settings:chooseLogo":
             handleChooseLogo(id: id)
@@ -17610,6 +18437,107 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         let quotation = db.createQuotation(projectId: projectId, projectNumber: projectNumber, sourceBOQId: sourceBOQId, pricingMode: pricingMode)
         respond(id: id, encodable: quotation)
+    }
+
+    // ---- Importing a quotation from a file ----
+
+    /// Reads the chosen file on this Mac (its text, or the words off a
+    /// scan) and makes out what it can; the file waits in a temporary
+    /// folder, under the draft's token, until the quotation is made.
+    private func handleImportQuotationRead(id: String, payload: [String: Any]) {
+        let name = ((payload["name"] as? String) ?? "").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        guard !name.isEmpty, let base64 = payload["base64"] as? String, let data = Data(base64Encoded: base64) else {
+            respond(id: id, encodable: QuotationImportDraft(ok: false, error: "The file couldn’t be read."))
+            return
+        }
+        let token = UUID().uuidString
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-import-\(token)", isDirectory: true)
+        let url = folder.appendingPathComponent(name)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try data.write(to: url)
+        } catch {
+            respond(id: id, encodable: QuotationImportDraft(ok: false, error: "The file couldn’t be saved for reading (\(error.localizedDescription))."))
+            return
+        }
+        let priceItems = db.priceListItemsStore.readAll().filter { !$0.isArchived }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let (text, ocr) = QuotationImportReader.text(of: url)
+            let parsed = QuotationImportReader.parse(text, priceItems: priceItems)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                var draft = parsed
+                self.pendingQuotationImports[token] = (url, text)
+                draft.token = token
+                draft.fileName = name
+                draft.source = ocr ? "ocr" : "text"
+                draft.textPreview = String(text.prefix(3000))
+                draft.aiReady = QuotationAI.shared.ready
+                draft.unsure = draft.items.count < 2 || (ocr && draft.items.count < 4)
+                if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !QuotationAI.shared.ready {
+                    draft.error = "No text could be read from this file. Set up the AI in Settings › AI Import to read it, or add the items by hand."
+                }
+                self.respond(id: id, encodable: draft)
+            }
+        }
+    }
+
+    /// The same file read by the AI instead.
+    private func handleImportQuotationAI(id: String, payload: [String: Any]) {
+        let token = (payload["token"] as? String) ?? ""
+        guard let pending = pendingQuotationImports[token] else {
+            respond(id: id, encodable: QuotationImportDraft(ok: false, error: "Choose the file again."))
+            return
+        }
+        let priceItems = db.priceListItemsStore.readAll().filter { !$0.isArchived }
+        QuotationAI.shared.read(fileURL: pending.url, text: pending.text) { [weak self] json, error in
+            guard let self = self else { return }
+            guard let json = json else {
+                self.respond(id: id, encodable: QuotationImportDraft(ok: false, error: error ?? "The AI couldn’t read it."))
+                return
+            }
+            var draft = QuotationImportReader.draft(fromAI: json, priceItems: priceItems)
+            draft.token = token
+            draft.fileName = pending.url.lastPathComponent
+            draft.source = "ai"
+            draft.textPreview = String(pending.text.prefix(3000))
+            draft.aiReady = true
+            self.respond(id: id, encodable: draft)
+        }
+    }
+
+    /// Makes the quotation from the checked items, and keeps the file with
+    /// the project's documents, filed with the new quotation.
+    private func handleImportQuotationCreate(id: String, payload: [String: Any]) {
+        let token = (payload["token"] as? String) ?? ""
+        guard let project = db.getProjectByNumber((payload["projectNumber"] as? String) ?? "") else {
+            respond(id: id, encodable: LeadSaveResult(ok: false, error: "Project not found."))
+            return
+        }
+        var lines: [ImportedQuotationLine] = []
+        if let raw = payload["items"], let data = try? JSONSerialization.data(withJSONObject: raw) {
+            lines = (try? JSONDecoder().decode([ImportedQuotationLine].self, from: data)) ?? []
+        }
+        let q = db.createImportedQuotation(projectId: project.id, projectNumber: project.projectNumber,
+                                           pricingMode: (payload["pricingMode"] as? String) ?? "Rental",
+                                           subject: payload["subject"] as? String, clientRef: payload["clientRef"] as? String,
+                                           currency: payload["currency"] as? String, lines: lines)
+        var note: String? = nil
+        if let pending = pendingQuotationImports[token] {
+            do {
+                let doc = try addDocumentFile(pending.url, project: project, category: "Correspondence")
+                let old = nonBlank(payload["oldNumber"] as? String)
+                _ = db.updateDocumentDescription(id: doc.id, description: "The original of \(q.quotationNumber), imported\(old.map { " (was \($0))" } ?? "")")
+                _ = db.setDocumentLink(id: doc.id, kind: "Quotation", linkedId: q.id)
+                db.setQuotationImportedFile(quotationId: q.id, documentId: doc.id)
+            } catch {
+                note = "The quotation was made, but the original file couldn’t be kept (\(error.localizedDescription))."
+            }
+            try? FileManager.default.removeItem(at: pending.url.deletingLastPathComponent())
+            pendingQuotationImports[token] = nil
+        }
+        db.logActivity(projectId: project.id, "Quotation imported from a file", reference: q.quotationNumber)
+        respond(id: id, encodable: LeadSaveResult(ok: true, error: note, id: q.id))
     }
 
     private func handleAddQuotationLineItem(id: String, payload: [String: Any]) {
@@ -18168,7 +19096,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// "HK$" for Hong Kong dollars (as on the original), otherwise the code.
     private func currencySymbol(_ company: CompanySettings) -> String {
-        company.currency == "HKD" ? "HK$" : company.currency
+        currencyDisplay(company.currency)
     }
 
     /// "22 Sep 2026", as on the original.
@@ -18815,6 +19743,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// A quotation laid out on the letterhead (as Qt26193).
     private func quotationLetter(_ detail: QuotationDetail, company: CompanySettings) -> LetterDocument {
+        // A quotation in another currency (a crane job's, say) prints in it.
+        var company = company
+        if let code = nonBlank(detail.currency) { company.currency = code }
         let isRental = detail.pricingMode == "Rental"
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
 
@@ -18989,12 +19920,29 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let isRental = detail.pricingMode == "Rental"
         let quotation = detail.sourceQuotationId.flatMap { db.getQuotation(id: $0) }
 
-        let priced = pricedRows(detail.lineItems.filter { $0.chargeGroup == nil }.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
-                                                         price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
-                                                         discountType: $0.discountType, discountValue: $0.discountValue) },
-                                currency: currencySymbol(company),
-                                rateSuffix: { unit in isRental ? " /Month" : (unit.isEmpty || unit == "pc" ? "" : " /\(unit)") })
+        func rowsFor(_ lines: [InvoiceLineItem]) -> (materials: [LetterTableRow], delivery: [LetterTableRow]) {
+            pricedRows(lines.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
+                                    price: $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
+                                    discountType: $0.discountType, discountValue: $0.discountValue) },
+                       currency: currencySymbol(company),
+                       rateSuffix: { unit in isRental ? " /Month" : (unit.isEmpty || unit == "pc" ? "" : " /\(unit)") })
+        }
+        let ownLines = detail.lineItems.filter { $0.chargeGroup == nil }
+        let priced = rowsFor(ownLines.filter { $0.materialGroup == nil })
         var rows = priced.materials
+        // Deliveries for other quotations on the same invoice: a section each,
+        // the invoice's own quotation first under its number.
+        var materialGroups: [String] = []
+        for line in ownLines { if let g = line.materialGroup, !materialGroups.contains(g) { materialGroups.append(g) } }
+        if !materialGroups.isEmpty {
+            if !rows.isEmpty, let q = quotation {
+                rows.insert(.section(q.quotationNumber + (nonBlank(q.subject).map { " — \($0)" } ?? "")), at: 0)
+            }
+            for group in materialGroups {
+                rows.append(.section(group))
+                rows += rowsFor(ownLines.filter { $0.materialGroup == group && $0.section != "Delivery" }).materials
+            }
+        }
         if isRental && !priced.materials.isEmpty {
             // As on the quotation: the monthly charge, then the months charged.
             let period = nonBlank(detail.rentalPeriod).map { " (\($0))" } ?? ""
@@ -19035,7 +19983,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let label = (company.pricesIncludeTax ?? false) ? "Tax / VAT included:" : "Tax / VAT (\(formatMoney(detail.taxRatePercent))%):"
             rows.append(.summary(label: label, value: formatMoney(detail.taxAmount), emphasized: false))
         }
-        rows.append(.summary(label: "Total Amount:", value: formatMoney(detail.total), emphasized: true))
+        // The total in words: "SAY HONG KONG DOLLARS … ONLY".
+        rows.append(.summary(label: amountInWords(detail.total, currency: company.currency), value: formatMoney(detail.total), emphasized: true))
         if detail.amountPaid > 0 {
             rows.append(.summary(label: "Less Amount Paid:", value: "-\(formatMoney(detail.amountPaid))", emphasized: false))
             rows.append(.summary(label: "Balance Due:", value: formatMoney(detail.balanceDue), emphasized: true))
@@ -19790,6 +20739,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Section 5/57: Follow System (default), or force Light / Dark. The
     /// web view's prefers-color-scheme follows the app's appearance, so
     /// the pages switch instantly.
+    /// This Mac's Light / Dark choice (Settings › You › Theme).
+    static var ownAppearance: String? {
+        get { UserDefaults.standard.string(forKey: "ScaffoldPro.appearance") }
+        set { UserDefaults.standard.set(newValue, forKey: "ScaffoldPro.appearance") }
+    }
+
     func applyAppearance(_ value: String?) {
         switch value {
         case "Light": NSApp.appearance = NSAppearance(named: .aqua)
@@ -20157,7 +21112,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     // Checked every minute (and soon after opening): if the latest 12:00
     // that has passed has no scheduled backup yet — e.g. the Mac was asleep
     // or ScaffoldPro was closed then — one is made now. Afterwards the
-    // scheduled backups older than a week are deleted. On APFS the copies
+    // scheduled backups older than 3 days are deleted. On APFS the copies
     // are clones, so unchanged files take no extra disk space.
 
     private var scheduleTimer: Timer?
@@ -20194,7 +21149,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             do { _ = try self.backups.createBackup(kind: "Scheduled") } catch {
                 failure = (error as? BackupError)?.message ?? error.localizedDescription
             }
-            if failure == nil { self.backups.deleteOldScheduledBackups(olderThanDays: 7) }
+            if failure == nil { self.backups.deleteOldScheduledBackups(olderThanDays: 3) }
             DispatchQueue.main.async {
                 self.backupInProgress = false
                 let defaults = UserDefaults.standard
@@ -21559,7 +22514,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             self?.bridge.sharedDataChanged(stores: ["projects.json", "activity.json"], names: ["Google Sheets"])
         }
         bridge.sheets.start()
-        // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept a week).
+        // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept 3 days).
         bridge.startScheduledBackups()
         // If the last update couldn't be put in place, say why.
         Updater.reportPreviousFailure(in: window)
@@ -21679,6 +22634,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    /// Quitting (⌘Q or the menu) first saves what's being typed: the box
+    /// in use is left, as if clicked away from, so its change is saved.
+    /// Nothing else (no backup) happens on the way out.
+    private var savedBeforeQuit = false
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !savedBeforeQuit, let web = webView else { return .terminateNow }
+        savedBeforeQuit = true
+        let script = "try { var a = document.activeElement; if (a && a.blur) { a.dispatchEvent(new Event('change', { bubbles: true })); a.blur(); } window.dispatchEvent(new Event('beforeunload')); } catch (e) {} true"
+        web.evaluateJavaScript(script) { _, _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { sender.reply(toApplicationShouldTerminate: true) }
+        }
+        // Never held up: leave after 3 seconds whatever happens.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { sender.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
     }
 
     /// EB Garamond — the documents' body font (as on the company's
@@ -21874,7 +22845,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             webView.loadFileURL(indexURL, allowingReadAccessTo: resourceURL)
         }
 
-        bridge.applyAppearance(db.getCompanySettings().appearance)
+        bridge.applyAppearance(NativeBridge.ownAppearance ?? db.getCompanySettings().appearance)
         setupMenuBar()
 
         window.makeKeyAndOrderFront(nil)
@@ -22034,7 +23005,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
             go.addItem(extra)
         }
         // The user's own page, pinned at the foot of the sidebar.
-        let user = item("User", #selector(goToPage(_:)), "0", page: "user.html")
+        let user = item("You (Settings)", #selector(goToPage(_:)), "0", page: "settings.html#you")
         user.target = self
         go.addItem(user)
         go.addItem(.separator())
