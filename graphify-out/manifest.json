@@ -952,5 +952,11 @@
     "seen": 1791381349.489473,
     "ast_hash": "aa314dc7d8d4a590c57f5831754ba48b",
     "semantic_hash": ""
+  },
+  "HANDOFF.md": {
+    "mtime": 1791382130.6987822,
+    "seen": 1791382140.288779,
+    "ast_hash": "6aa0e8f904f9488ca5e5d93caa245a3b",
+    "semantic_hash": ""
   }
 }
