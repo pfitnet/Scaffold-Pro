@@ -87,6 +87,37 @@ async function loadDetail() {
   window.deliverySchedule.refresh(currentDetail);
 }
 
+// A crane job's quotation is the letter with its items written out (e.g.
+// "Provision of Tracked Telescopic Boom Lift" with Model : ZT14JC…): no
+// BQ sheet, and the custom item box in front instead of the scaffolding
+// material list (which can still be shown).
+function craneSetup(d) {
+  const crane = d.jobType === 'Crane';
+  document.body.classList.toggle('crane-job', crane);
+  const page = document.getElementById('orientation-select').closest('.tb-pick');
+  if (page) page.classList.toggle('hidden', crane);
+  const box = document.getElementById('custom-item-box');
+  const summary = box.querySelector('summary');
+  if (!summary.dataset.plain) summary.dataset.plain = summary.textContent;
+  summary.textContent = crane ? '+ Add an item' : summary.dataset.plain;
+  if (crane && !craneSetup.opened) { box.open = true; craneSetup.opened = true; }
+  let note = document.getElementById('crane-materials-note');
+  if (crane && !note) {
+    note = document.createElement('div');
+    note.id = 'crane-materials-note';
+    note.className = 'crane-note';
+    note.innerHTML = `<b>Crane job</b><span>Write each item in “+ Add an item”: a line such as “Provision of Tracked Telescopic Boom Lift”, a blank line, then its details with Hanging Indent (Model : ZT14JC, Manufacturer : ZOOMLION…). It prints as a letter quotation.</span>
+      <button type="button" class="link-btn" data-no-icon id="crane-show-materials">Show the material list</button>`;
+    const head = document.querySelector('.am-head');
+    head.parentNode.insertBefore(note, head);
+    note.querySelector('#crane-show-materials').addEventListener('click', () => {
+      const shown = document.body.classList.toggle('crane-materials');
+      note.querySelector('#crane-show-materials').textContent = shown ? 'Hide the material list' : 'Show the material list';
+    });
+  }
+  if (note) note.classList.toggle('hidden', !crane);
+}
+
 function render() {
   const d = currentDetail;
   document.title = `${d.quotationNumber} — ScaffoldPro`;
@@ -99,6 +130,7 @@ function render() {
   document.getElementById('status-select').value = d.status;
   lockStatusOptions(document.getElementById('status-select'), d.status, false);
   document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
+  craneSetup(d);
 
   const isLocked = d.status !== 'Draft';
 
@@ -499,7 +531,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
   tr.innerHTML = `
     <td class="drag-col">${isLocked || !draggable ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
     <td class="num row-no">${rowNo}</td>
-    <td class="line-desc"><span class="line-desc-text">${item.itemDescription}</span>${linkChip(item, isLocked)}</td>
+    <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${linkChip(item, isLocked)}</td>
     <td>${item.unit}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
     <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>

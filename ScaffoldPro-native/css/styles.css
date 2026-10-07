@@ -744,7 +744,8 @@ table.history td { vertical-align: top; }
 .custom-item summary { font-size: 12px; color: var(--accent); padding: 4px 0; }
 .custom-item-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .custom-item-row { align-items: flex-start; }
-.custom-item-row #ci-description { flex: 1; min-width: 200px; resize: none; overflow: hidden; min-height: 32px; line-height: 1.4; font: inherit; }
+.custom-item-row .ci-desc-wrap { flex: 1; min-width: 260px; display: flex; flex-direction: column; }
+.custom-item-row #ci-description { width: 100%; resize: none; overflow: hidden; min-height: 32px; line-height: 1.4; font: inherit; }
 /* A description written over several lines shows them. */
 .line-desc-text { white-space: pre-line; }
 .custom-item-row #ci-unit { width: 64px; }
@@ -2390,5 +2391,33 @@ th:hover .mp-prov-tools { opacity: 1; }
 .job-tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; }
 .job-tag.scaffolding { color: #4a72c4; background: color-mix(in srgb, #4a72c4 12%, transparent); }
 .job-tag.crane { color: #a06d0c; background: color-mix(in srgb, #c98a14 15%, transparent); }
-.pj-num + .job-tag, .pj-num .job-tag { margin-left: 6px; }
 .pd-eyebrow .job-tag { margin: 0 4px; }
+
+/* Projects list: one table per creator, columns a set width (aligned from
+   group to group), inside the group's rounded box. */
+.pj-group > .pj-fold > .pj-fold-inner > .pj-table { width: calc(100% - 28px); margin: 2px 14px 14px; table-layout: fixed; }
+.pj-group > .pj-fold > .pj-fold-inner > .pj-grid { margin: 2px 14px 14px; padding-top: 4px; }
+.pj-group > .pj-fold > .pj-fold-inner > .ov-list { margin: 2px 14px 14px; }
+.pj-table col.c-num { width: 104px; }
+.pj-table col.c-client { width: 17%; }
+.pj-table col.c-site { width: 13%; }
+.pj-table col.c-docs { width: 168px; }
+.pj-table col.c-status { width: 116px; }
+.pj-table col.c-when { width: 104px; }
+.pj-table col.c-by { width: 124px; }
+.pj-table th { line-height: 1.35; }
+.pj-table td { overflow-wrap: anywhere; }
+.pj-table td.pj-num { white-space: nowrap; }
+.pj-table td.pj-num > span:first-child { display: block; }
+.pj-table td.pj-co { color: var(--text-secondary); }
+.pj-table .pj-docs { flex-wrap: wrap; }
+/* The Crane tag under the number, with room around it, in the page's own type. */
+.pj-table td.pj-num .job-tag { margin: 7px 0 0; font: 600 10.5px/17px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; letter-spacing: .02em; }
+.pj-top .job-tag { margin-left: 10px; margin-right: auto; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; letter-spacing: .02em; }
+
+/* A crane job's quotation: the material list steps aside for "+ Add an item". */
+body.crane-job:not(.crane-materials) .am-head, body.crane-job:not(.crane-materials) #picker-results { display: none; }
+.crane-note { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; margin-bottom: 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.45;
+  background: color-mix(in srgb, #c98a14 9%, var(--panel)); border: 1px solid color-mix(in srgb, #c98a14 28%, var(--border)); color: var(--text-secondary); }
+.crane-note b { color: #a06d0c; font-size: 13px; }
+.crane-note .link-btn { align-self: flex-start; }

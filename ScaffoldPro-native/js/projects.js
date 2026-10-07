@@ -85,12 +85,16 @@ function card(p, i) {
   </a>`;
 }
 
+// One table per creator: every column a set width, so the columns line
+// up from one group to the next.
 function listView(projects) {
-  return `<table class="pj-table"><thead><tr><th>Number</th><th>Project</th><th>Site</th><th>Documents</th><th>Status</th><th>Last worked on</th><th>Created By</th></tr></thead><tbody>${
+  return `<table class="pj-table"><colgroup><col class="c-num"><col class="c-name"><col class="c-client"><col class="c-site"><col class="c-docs"><col class="c-status"><col class="c-when"><col class="c-by"></colgroup>
+    <thead><tr><th>Number</th><th>Project</th><th>Company</th><th>Site</th><th>Documents</th><th>Status</th><th>Last Worked On</th><th>Created By</th></tr></thead><tbody>${
     projects.map((p, i) => `<tr class="pj-row ${statusClass(p.status)}" data-number="${esc(p.projectNumber)}" tabindex="0" style="--i:${Math.min(i, 14)}">
-      <td class="pj-num">${esc(p.projectNumber)}${jobTag(p)}</td>
-      <td><div class="pj-row-name">${esc(p.name)}</div><div class="sub">${esc(p.clientName || '—')}</div></td>
-      <td>${esc(p.siteName || '—')}</td>
+      <td class="pj-num"><span>${esc(p.projectNumber)}</span>${jobTag(p)}</td>
+      <td><div class="pj-row-name">${esc(p.name)}</div></td>
+      <td class="pj-co">${esc(p.clientName || '—')}</td>
+      <td class="pj-site">${esc(p.siteName || '—')}</td>
       <td><div class="pj-docs">${docChips(p)}</div></td>
       <td><span class="pj-status"><i></i>${esc(p.status)}</span></td>
       <td class="muted">${esc(ago(lastTouched(p)))}</td>
@@ -225,7 +229,8 @@ try { closed = new Set(JSON.parse(localStorage.getItem('projects.closed') || '[]
 const keepClosed = () => { try { localStorage.setItem('projects.closed', JSON.stringify([...closed])); } catch (e) { /* ignore */ } };
 const CHEV = '<svg class="pj-chev" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-// The projects in folding groups: who made them, then each client.
+// The projects in folding groups, one for each person who made them; the
+// company is a column (list) or on each card.
 function grouped(list, searching) {
   const byWho = new Map();
   for (const p of list) {
@@ -237,34 +242,21 @@ function grouped(list, searching) {
   let i = 0;
   return whos.map((who) => {
     const mine = byWho.get(who);
-    const byClient = new Map();
-    for (const p of mine) {
-      const c = p.clientName || 'No client';
-      if (!byClient.has(c)) byClient.set(c, []);
-      byClient.get(c).push(p);
-    }
-    const clients = [...byClient.keys()].sort((a, b) => a.localeCompare(b));
+    const clients = new Set(mine.map((p) => p.clientName || 'No client')).size;
     const whoOpen = searching || !closed.has(who);
+    const body = state.view === 'list' ? listView(mine)
+      : state.view === 'overview' ? `<div class="ov-list">${mine.map((p) => bracket(p, i++)).join('')}</div>`
+      : `<div class="pj-grid">${mine.map((p) => card(p, i++)).join('')}</div>`;
     return `<section class="pj-group${whoOpen ? ' open' : ''}" data-fold="${esc(who)}">
       <button type="button" class="pj-group-head" aria-expanded="${whoOpen}" data-no-icon>${CHEV}
         <span class="pj-group-who">${who === 'Not recorded' ? '<span class="muted">Creator not recorded</span>' : window.personTag(who)}</span>
-        <span class="pj-group-count">${mine.length} project${mine.length === 1 ? '' : 's'} · ${clients.length} client${clients.length === 1 ? '' : 's'}</span></button>
-      <div class="pj-fold"><div class="pj-fold-inner">${clients.map((c) => {
-        const key = `${who}|${c}`;
-        const open = searching || !closed.has(key);
-        const items = byClient.get(c);
-        const body = state.view === 'list' ? listView(items)
-          : state.view === 'overview' ? `<div class="ov-list">${items.map((p) => bracket(p, i++)).join('')}</div>`
-          : `<div class="pj-grid">${items.map((p) => card(p, i++)).join('')}</div>`;
-        return `<div class="pj-sub${open ? ' open' : ''}" data-fold="${esc(key)}">
-          <button type="button" class="pj-sub-head" aria-expanded="${open}" data-no-icon>${CHEV}${ICON.client}<span class="pj-sub-name">${esc(c)}</span><span class="pj-group-count">${items.length}</span></button>
-          <div class="pj-fold"><div class="pj-fold-inner">${body}</div></div></div>`;
-      }).join('')}</div></div></section>`;
+        <span class="pj-group-count">${mine.length} project${mine.length === 1 ? '' : 's'} · ${clients} client${clients === 1 ? '' : 's'}</span></button>
+      <div class="pj-fold"><div class="pj-fold-inner">${body}</div></div></section>`;
   }).join('');
 }
 
 document.getElementById('list-container').addEventListener('click', (e) => {
-  const head = e.target.closest('.pj-group-head, .pj-sub-head');
+  const head = e.target.closest('.pj-group-head');
   if (!head) return;
   const box = head.parentElement;
   const open = !box.classList.contains('open');

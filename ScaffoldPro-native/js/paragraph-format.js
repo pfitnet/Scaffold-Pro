@@ -94,7 +94,10 @@
     return result;
   }
 
-  function previewHTML(text) {
+  // fit: labels in a run share one colon column just past the longest
+  // (as in a line item's description); otherwise a fixed column, as the terms.
+  function previewHTML(text, fit) {
+    if (fit) return fittedHTML(text);
     return parse(text).map((p) => {
       const body = p.lines.map(esc).join('<br>');
       if (p.kind === 'text') return `<p class="pf-text">${body}</p>`;
@@ -103,6 +106,39 @@
       return `<div class="pf-hang ${cls}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${esc(p.marker)}${p.style === 'label' ? '<span class="pf-colon">:</span>' : ''}</span><span class="pf-t">${body}</span></div>`;
     }).join('');
   }
+
+  // A description as a line item prints it: blank lines kept, labels lined up.
+  function fittedHTML(text) {
+    const blocks = String(text || '').replace(/\r\n/g, '\n').split(/\n[ \t]*\n/);
+    return blocks.filter((b) => b.trim()).map((block) => {
+      let html = '';
+      let labels = '';
+      const endLabels = () => { if (labels) { html += `<div class="pf-labels">${labels}</div>`; labels = ''; } };
+      for (const p of parse(block)) {
+        const body = p.lines.map(esc).join('<br>');
+        if (p.kind === 'hanging' && p.style === 'label') {
+          labels += `<span class="pf-m" style="margin-left:${Math.round(p.left * 1.27)}px">${esc(p.marker)}</span><span class="pf-colon">:</span><span class="pf-t">${body}</span>`;
+          continue;
+        }
+        endLabels();
+        if (p.kind === 'text') html += `<p class="pf-text">${body}</p>`;
+        else html += `<div class="pf-hang ${p.style === 'bullet' ? 'pf-bullet' : 'pf-marker'}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${esc(p.marker)}</span><span class="pf-t">${body}</span></div>`;
+      }
+      endLabels();
+      return `<div class="pf-block">${html}</div>`;
+    }).join('');
+  }
+
+  // A line item's description in an editor's list: laid out as printed when
+  // it's written with bullets, numbering or labels over several lines
+  // (the rule in main.swift: isFormattedDescription); else as typed.
+  window.descriptionHTML = function descriptionHTML(text) {
+    const t = String(text ?? '');
+    const formatted = /[\n\t]/.test(t) && t.split('\n').some((l) => hangingItem(l));
+    if (!formatted) return `<span class="line-desc-text">${t}</span>`;
+    addStyles();
+    return `<div class="pf-desc">${fittedHTML(t)}</div>`;
+  };
 
   let styled = false;
   function addStyles() {
@@ -123,7 +159,12 @@
       .pf-hang.pf-marker { grid-template-columns: minmax(24px, max-content) 1fr; }
       .pf-hang .pf-m { display: flex; justify-content: space-between; white-space: nowrap; }
       .pf-hang .pf-colon { padding-left: 4px; }
-      .pf-preview-label { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }`;
+      .pf-preview-label { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+      .pf-labels { display: grid; grid-template-columns: max-content max-content 1fr; column-gap: 4px; margin: 0 0 2px; }
+      .pf-labels .pf-colon { padding: 0; }
+      .pf-block + .pf-block { margin-top: 0.9em; }
+      .pf-desc { line-height: 1.4; }
+      .pf-desc .pf-text { margin: 0; }`;
     document.head.appendChild(style);
   }
 
@@ -155,11 +196,19 @@
     return line.trim();
   }
 
-  // Hanging indent: "Label : text" — the label is selected, ready to type over.
+  // Hanging indent: "Label : text" — the label is selected, ready to type
+  // over; a short line on its own ("Model") becomes the label.
   function hangingIndent(ta) {
     const sel = selectedLines(ta);
     const first = sel.lines[0];
     if (labelSplit(first.trim())) { ta.focus(); return; }
+    // A short label already typed ("Model"): "Model : ", ready for its value.
+    const words = first.trim().split(/ +/).filter(Boolean);
+    if (words.length && words.length <= 4 && first.trim().length <= 40) {
+      sel.lines[0] = `${first.trim()} : `;
+      replaceLines(ta, sel, sel.lines, sel.lines[0].length, sel.lines[0].length);
+      return;
+    }
     sel.lines[0] = `Label : ${first.trim()}`;
     replaceLines(ta, sel, sel.lines, 0, 5);
   }
@@ -196,7 +245,7 @@
     const preview = ta.pfPreview;
     if (!preview) return;
     const fallback = !ta.value.trim() && ta.pfFallback ? ta.pfFallback() : '';
-    preview.innerHTML = previewHTML(ta.value.trim() ? ta.value : fallback);
+    preview.innerHTML = previewHTML(ta.value.trim() ? ta.value : fallback, ta.pfFit);
     ta.pfPreviewLabel.textContent = fallback ? 'As printed (standard terms from Settings):' : 'As printed:';
   };
 
@@ -212,7 +261,7 @@
       <button type="button" data-pf="roman" title="Numbered (i) (ii) (iii)">(i) Numbering</button>
       <button type="button" data-pf="indent" title="Put the lines under the item above, lined up with its text">Indent →</button>
       <button type="button" data-pf="outdent" title="Back to the margin">← Outdent</button>
-      <span class="pf-help">Tab after a label or number also makes a hanging indent. Lines below it line up under the text; a blank line ends it.</span>`;
+      <span class="pf-help">${options && options.help ? esc(options.help) : 'Tab after a label or number also makes a hanging indent. Lines below it line up under the text; a blank line ends it.'}</span>`;
     ta.parentNode.insertBefore(bar, ta);
     const label = document.createElement('div');
     label.className = 'pf-preview-label';
@@ -223,6 +272,7 @@
     ta.pfPreview = preview;
     ta.pfPreviewLabel = label;
     ta.pfFallback = options && options.fallback;
+    ta.pfFit = !!(options && options.fit);
 
     bar.addEventListener('mousedown', (e) => e.preventDefault()); // keep the selection in the text box
     bar.addEventListener('click', (e) => {

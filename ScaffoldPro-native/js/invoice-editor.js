@@ -176,7 +176,7 @@ function renderLineItems() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num row-no">${index + 1}</td>
-      <td>${item.chargeGroup ? `<span class="line-tag">${esc(item.chargeGroup)}</span>` : (item.section === 'Delivery' ? '<span class="line-tag">Delivery</span>' : '')}<span class="line-desc-text">${item.itemDescription}</span></td>
+      <td>${item.chargeGroup ? `<span class="line-tag">${esc(item.chargeGroup)}</span>` : (item.section === 'Delivery' ? '<span class="line-tag">Delivery</span>' : '')}${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} /></td>

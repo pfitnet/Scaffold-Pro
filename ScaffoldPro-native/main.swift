@@ -1937,6 +1937,9 @@ struct QuotationDetail: Codable {
     var defaultLanguage = "English"
     /// "Portrait" (the letterhead) or "Landscape" (the BQ sheet).
     var orientation = "Portrait"
+    /// The project's kind of job: a crane job's quotation is always the
+    /// letter (portrait) with items written out, not the BQ sheet.
+    var jobType = "Scaffolding"
     /// Kept in step with the BOQ above, both ways; and that BOQ's status
     /// (an issued one isn't changed).
     var boqLinked = false
@@ -2761,6 +2764,104 @@ func keyTermsText(_ standard: String, withPaymentTerms paymentTerms: String) -> 
         end += 1
     }
     return (Array(lines[..<first]) + block + Array(lines[end...])).joined(separator: "\n")
+}
+
+/// One line of a description laid out in a table cell: `text` at
+/// `textX` points from the cell's text edge, and on an item's first line
+/// its `marker` ("•", "1.", "Transport") at `markerX`, with a colon just
+/// before the text when `colon`.
+struct CellTextLine {
+    var marker: String?
+    var markerX: Double
+    var text: String
+    var textX: Double
+    var colon: Bool
+}
+
+/// Whether a line item's description is laid out like the terms (bullets,
+/// numbering, "Label : text" hanging indents): it runs over more than one
+/// line (or has a Tab) and at least one line is such an item. One-line
+/// descriptions print as typed.
+func isFormattedDescription(_ text: String) -> Bool {
+    guard text.contains("\n") || text.contains("\t") else { return false }
+    return text.components(separatedBy: "\n").contains { hangingItem($0) != nil }
+}
+
+/// A formatted description (isFormattedDescription) in a cell `width`
+/// points wide, by the terms' rules (formattedParagraphs): plain lines at
+/// the edge; an item's marker at its place and its text, and every line
+/// under it, set in to one column (never so far that less than 60% of the
+/// cell is left for the text).
+func formattedCellLines(_ text: String, width: Double, measure: (String) -> Double, wrap: (String, Double) -> [String]) -> [CellTextLine] {
+    // Labels ("Model", "Manufacturer"…) at the same place share one colon
+    // column, just past the longest of them, as in a typed spec list.
+    var labelText: [Double: Double] = [:]
+    for paragraph in formattedParagraphs(text) {
+        if case .hanging(let marker, _, let l, _, true) = paragraph, !marker.isEmpty {
+            let left = min(Double(l), width * 0.4)
+            labelText[left] = max(labelText[left] ?? 0, left + measure(marker) + 7.5)
+        }
+    }
+    var lines: [CellTextLine] = []
+    // A blank line in the text leaves a blank line in the cell.
+    let blocks = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+        .split(omittingEmptySubsequences: false) { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+        .map { $0.joined(separator: "\n") }.filter { !$0.isEmpty }
+    for (b, block) in blocks.enumerated() {
+        if b > 0 { lines.append(CellTextLine(marker: nil, markerX: 0, text: "", textX: 0, colon: false)) }
+        for paragraph in formattedParagraphs(block) {
+            switch paragraph {
+            case .text(let string, _):
+                for line in string.components(separatedBy: "\n").flatMap({ wrap($0, width) }) {
+                    lines.append(CellTextLine(marker: nil, markerX: 0, text: line, textX: 0, colon: false))
+                }
+            case .hanging(let marker, let texts, let l, let indent, let colon):
+                let left = min(Double(l), width * 0.4)
+                let markerWidth = marker.isEmpty ? 0 : measure(marker)
+                var textX: Double
+                if colon, !marker.isEmpty {
+                    textX = labelText[left] ?? (left + markerWidth + 7.5)
+                } else if marker.isEmpty {
+                    textX = indent.map { min(Double($0), width * 0.4) } ?? left
+                } else {
+                    textX = left + max(12, markerWidth + 5)
+                }
+                textX = min(textX, width * 0.55)
+                let pieces = texts.flatMap { wrap($0, width - textX) }
+                for (i, piece) in (pieces.isEmpty ? [""] : pieces).enumerated() {
+                    lines.append(CellTextLine(marker: i == 0 && !marker.isEmpty ? marker : nil, markerX: left, text: piece, textX: textX, colon: i == 0 && colon))
+                }
+            case .term(let label, let texts):
+                for (i, piece) in texts.flatMap({ wrap($0, width * 0.6) }).enumerated() {
+                    lines.append(CellTextLine(marker: i == 0 ? label : nil, markerX: 0, text: piece, textX: width * 0.4, colon: i == 0 && label != nil))
+                }
+            }
+        }
+    }
+    return lines
+}
+
+/// A laid-out line in a portrait table cell, carried as text: a private
+/// prefix gives the marker's and the text's places (drawCell reads it).
+func encodeCellLine(_ l: CellTextLine) -> String {
+    "\u{E000}\(l.markerX)\u{E001}\(l.textX)\u{E001}\(l.colon ? 1 : 0)\u{E001}\(l.marker ?? "")\u{E002}\(l.text)"
+}
+
+func decodeCellLine(_ s: String) -> CellTextLine? {
+    guard s.hasPrefix("\u{E000}"), let split = s.firstIndex(of: "\u{E002}") else { return nil }
+    let head = s[s.index(after: s.startIndex)..<split].components(separatedBy: "\u{E001}")
+    guard head.count == 4 else { return nil }
+    return CellTextLine(marker: head[3].isEmpty ? nil : head[3], markerX: Double(head[0]) ?? 0,
+                        text: String(s[s.index(after: split)...]), textX: Double(head[1]) ?? 0, colon: head[2] == "1")
+}
+
+/// The same line as plain text for Word: set in with spaces, the marker
+/// before the text.
+func plainCellLine(_ s: String) -> String {
+    guard let l = decodeCellLine(s) else { return s }
+    let pad = { (x: Double) in String(repeating: " ", count: max(0, Int((x / 2.8).rounded()))) }
+    if let marker = l.marker { return pad(l.markerX) + marker + (l.colon ? " : " : "  ") + l.text }
+    return pad(l.textX) + l.text
 }
 
 /// A quotation's or invoice's own payment terms under a "Payment" label:
@@ -7639,7 +7740,8 @@ final class AppDatabase {
         detail.monthlyRental = totals.monthlyRental
         detail.charges = totals.charges
         detail.language = q.language
-        detail.orientation = q.orientation == "Landscape" ? "Landscape" : "Portrait"
+        detail.jobType = normalJobType(project.jobType)
+        detail.orientation = q.orientation == "Landscape" && detail.jobType != "Crane" ? "Landscape" : "Portrait"
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
         detail.boqLinked = q.boqLinked == true && sourceBOQ != nil
@@ -10692,6 +10794,11 @@ final class PDFGenerator {
     private func cellLines(_ value: String, column: LetterColumn, font: NSFont, currencyWidth: CGFloat) -> [String] {
         let available = column.width - 10.5 - (column.kind == .money ? currencyWidth + 4 : 0)
             - (column.kind == .weight ? weightSuffixRoom(font) : 0)
+        // A description written with bullets, numbering or hanging indents.
+        if column.kind == .left && isFormattedDescription(value) {
+            let measure = { (s: String) -> Double in Double(NSAttributedString(string: s, attributes: [.font: font]).size().width) }
+            return formattedCellLines(value, width: Double(available), measure: measure, wrap: { self.wrap($0, font, CGFloat($1)) }).map(encodeCellLine)
+        }
         return wrap(value, font, available)
     }
 
@@ -10730,7 +10837,14 @@ final class PDFGenerator {
             let baseline = cellBaseline(top: top, height: height, lines: count, line: j)
             switch column.kind {
             case .center: text(line, x: (left + right + rule) / 2, baseline: baseline, font: font, align: .center)
-            case .left: text(line, x: left + 5.0, baseline: baseline, font: font)
+            case .left:
+                if let l = decodeCellLine(line) {
+                    if let marker = l.marker { text(marker, x: left + 5.0 + CGFloat(l.markerX), baseline: baseline, font: font) }
+                    if l.colon { text(":", x: left + 5.0 + CGFloat(l.textX) - 3.75, baseline: baseline, font: font) }
+                    text(l.text, x: left + 5.0 + CGFloat(l.textX), baseline: baseline, font: font)
+                } else {
+                    text(line, x: left + 5.0, baseline: baseline, font: font)
+                }
             case .right, .money: text(line, x: right - 3.4, baseline: baseline, font: font, align: .right)
             case .weight:
                 guard !line.isEmpty else { continue }
@@ -11138,7 +11252,7 @@ final class PDFGenerator {
         let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
         func lines(_ cells: [String]) -> [[String]] {
             cells.enumerated().filter { $0.offset < doc.columns.count }.map {
-                cellLines($0.element, column: doc.columns[$0.offset], font: font, currencyWidth: currencyWidth)
+                cellLines($0.element, column: doc.columns[$0.offset], font: font, currencyWidth: currencyWidth).map(plainCellLine)
             }
         }
         let rows: [WordRow] = doc.rows.map { row in
@@ -12164,9 +12278,39 @@ enum BQSheet {
                 texts.append((formatMoney(doubleOf(lineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice))), "money"))
             }
             texts.append((totalWeight, "right"))
-            rows.append(SheetRow(kind: "item", height: 18, fill: nil,
-                                 cells: texts.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element.0, 12, $0.element.1, 4.875) },
-                                 repeats: false))
+            // A description over several lines (or with bullets, numbering,
+            // hanging indents): its first line in the item's row, the rest
+            // in rows joined under it, 14.25pt apart.
+            let pad = 2.625
+            let nameLines: [CellTextLine] = {
+                guard line.itemDescription.contains("\n") || line.itemDescription.contains("\t") else { return [] }
+                let font = bodyFont(12)
+                let room = edges[2] - edges[1] - 2 * pad
+                if isFormattedDescription(line.itemDescription) {
+                    return formattedCellLines(line.itemDescription, width: room, measure: { Double(($0 as NSString).size(withAttributes: [.font: font]).width) },
+                                              wrap: { wrap($0, width: $1, size: 12) })
+                }
+                return wrap(line.itemDescription, width: room, size: 12).map { CellTextLine(marker: nil, markerX: 0, text: $0, textX: 0, colon: false) }
+            }()
+            func nameCell(_ l: CellTextLine, up: Double) -> SheetCell {
+                var c = cell(edges[1], edges[2], l.text, 12, "left", up)
+                if l.textX > 0 || l.marker != nil {
+                    c.textX = edges[1] + pad + l.textX
+                    c.marker = l.marker
+                    c.markerX = edges[1] + pad + l.markerX
+                    c.colon = l.colon
+                }
+                return c
+            }
+            var first = texts.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element.0, 12, $0.element.1, 4.875) }
+            if let l = nameLines.first { first[1] = nameCell(l, up: 4.875) }
+            rows.append(SheetRow(kind: "item", height: 18, fill: nil, cells: first, repeats: false, joinNext: nameLines.count > 1))
+            for (k, l) in nameLines.enumerated().dropFirst() {
+                let last = k == nameLines.count - 1
+                var more = texts.indices.map { cell(edges[$0], edges[$0 + 1], "", 12, "left", 4.875) }
+                more[1] = nameCell(l, up: last ? 8.625 : 4.875)
+                rows.append(SheetRow(kind: "item", height: last ? 18 : 14.25, fill: nil, cells: more, repeats: false, joinNext: !last))
+            }
         }
         // "Total Amount :" across the columns before the totals.
         let n = widths.count
@@ -18328,7 +18472,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// schedule, the BOQ it follows (not after a landscape quotation, which
     /// is the BQ sheet itself), then its image and PDF drawings.
     private func quotationAttachments(_ detail: QuotationDetail, withSubsidiaries: Bool = false, only: [String]? = nil) -> [URL] {
-        let boq = detail.orientation == "Landscape" ? nil : followedBOQFile(detail)
+        let boq = detail.orientation == "Landscape" || detail.jobType == "Crane" ? nil : followedBOQFile(detail)
         return (withSubsidiaries ? subsidiaryFiles(detail, only: only) : [])
             + [deliveryScheduleFile(kind: "Quotation", id: detail.id), boq].compactMap { $0 }
             + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)

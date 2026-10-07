@@ -1,7 +1,7 @@
 'use strict';
 
 // The custom item box (BOQ, quotation, delivery note and invoice editors):
-// the description can run over several lines. Return adds the item;
+// the description can run over several lines, formatted like the terms. Return adds the item;
 // Shift-Return starts a new line in the same item. The box grows with
 // what's typed and shrinks back once the item is added.
 
@@ -21,8 +21,14 @@
   Object.defineProperty(box, 'value', {
     configurable: true,
     get() { return own.get.call(this); },
-    set(v) { own.set.call(this, v); fit(); },
+    set(v) { own.set.call(this, v); fit(); if (window.refreshParagraphPreview) window.refreshParagraphPreview(this); },
   });
+
+  // The same formatting as the terms: Hanging Indent ("Model : ZT14JC"),
+  // bullets, numbering, indent, with the description as it will print.
+  if (window.attachParagraphFormatting) {
+    window.attachParagraphFormatting(box, { fit: true, help: 'Shift-Return for a new line, a blank line for a gap. Labels in a run line up their colons.' });
+  }
 
   const submit = (e) => {
     if (e.key !== 'Enter' || e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return;
