@@ -189,6 +189,7 @@ async function loadSettings() {
   await renderDefaultItems();
   setAppearanceButtons(settings.appearance || 'System');
   for (const f of NUMBER_FIELDS) updateNumberExample(f);
+  if (window.settingsUI) window.settingsUI.refresh();
 }
 
 async function saveSettings() {
@@ -434,6 +435,7 @@ async function updateNumberExample(field) {
   example.textContent = input.value.trim() && !input.value.includes('{SEQ}')
     ? 'Needs {SEQ}'
     : `e.g. ${r.example}`;
+  if (window.settingsUI) window.settingsUI.refresh();
 }
 
 function setAppearanceButtons(value) {

@@ -3952,3 +3952,43 @@ every cell. The Projects tab (layout 3) now reads left to right.
     note box.
   - The empty list says "No items yet — describe the first one below".
   - The project page has no BOQ tab, no BOQ tile and no New BOQ.
+
+## Batch 165 — Settings redesigned; tasks centred
+
+- **Settings, from the ground up** (`settings.html`, `css/settings.css`,
+  `js/settings-ui.js`).
+  - **Layout.** The sections are in a list on the left: General,
+    Documents & Numbering, BOQ Defaults, Quotations, Invoices, Share with
+    Other Macs, Backup & Restore, Updates, Web Access, Google Sheets and
+    Data Location, each with its icon. One section shows at a time. ↑ / ↓
+    move through the list, and the last one open is remembered.
+  - **Search.** "Search settings" (⌘F or /) finds a setting in any section
+    and dims the sections without it.
+  - **Settings show as text.** A section is cards of rows: what the setting
+    is (with a line explaining it), what it's set to, and a small pencil at
+    the end. The pencil (or a click on the value) opens just that setting
+    with Save and Cancel. Return saves and Esc cancels, putting it back.
+  - **What each row shows:**
+    - document numbers as their format and an example (`Qt{YY}{SEQ}` →
+      Qt26001);
+    - terms as tags of their labels;
+    - delivery charges as their bands;
+    - starting materials as names and quantities;
+    - passwords and tokens as set or not set;
+    - blank settings as "Not set" in grey.
+  - **No pencil on switches, lists or button sets:** on/off settings are
+    sliding switches, and they, the lists and the Theme buttons work
+    straight away.
+  - **Saving.** Every change is saved by itself, with a small "Saved" in
+    the corner. The Save Settings bar and "unsaved changes" are gone. A
+    number format without {SEQ} keeps its row open and says why.
+  - Sharing, backups, Google Sheets and Web Access keep their own buttons,
+    in the same cards. Your name, the office password, the port and the
+    GitHub token became pencil rows too.
+  - **Small animations:** sections fade in, the selected section's marker
+    slides in, an opened row unfolds, the pencil tilts on hover, switches
+    spring across and "Saved" rises in. All of them are off with Reduce
+    Motion.
+- **Tasks.** A task with nothing under its title (no due date, project or
+  notes) has its title, tick and avatar centred in the card. The empty
+  details line no longer takes up space.

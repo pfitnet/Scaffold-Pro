@@ -297,3 +297,12 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
   .tk-empty-art .tick { stroke-dashoffset: 0; }
   .tk-empty-art .spark { opacity: .6; }
 }
+
+/* A task with nothing under its title (no due date, project or notes):
+   its title, tick and avatar centred in the card. */
+.tk-card { align-items: center; }
+.tk-card .tk-check { align-self: center; }
+.tk-card:has(.tk-notes), .tk-card:has(.tk-meta) { align-items: start; }
+.tk-card:has(.tk-notes) .tk-check, .tk-card:has(.tk-meta) .tk-check { align-self: start; }
+.tk-card .tk-side-right { align-self: center; }
+.tk-card:not(:has(.tk-notes)):not(:has(.tk-meta)) .tk-check { margin-top: 0; }
