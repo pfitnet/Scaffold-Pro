@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 168.
+"## Batch N" section per change, newest at the bottom, up to Batch 169.
 
 ---
 
@@ -49,7 +49,7 @@ business:
 | Settings page | `settings.html` (generated layout), `css/settings.css`, `js/settings-ui.js` (rows, pencils, autosave), `js/settings.js` (load/save logic, unchanged ids) |
 | Stock page | `stock.html`, `css/stock.css`, `js/stock.js`; Swift `stockData`, `addStockMovements`, `deleteStockBatch`, `syncDeliveryStock` (signed DN → stock), `deliveryReturns` (Returns tab) |
 | Google Sheets | `resources/google-sheets/ScaffoldPro.gs` (loader, pasted once) + `ScaffoldPro-core.js` (fetched from GitHub main by the sheet); Swift `GoogleSheetsSync`, `sheetsPayload` |
-| User manual | `manual.html`, `css/manual.css`, `js/manual.js`, `js/manual-shots.js`, `resources/manual/*.jpg` |
+| User manual | content in `js/manual-content.js` (short blocks per chapter), drawn by `js/manual.js`, styled by `css/manual.css`; marker positions `js/manual-shots.js`; pictures `resources/manual/*.jpg` |
 | Knowledge graph | `graphify-out/` (see `CLAUDE.md`: `graphify query "…"`, run `graphify update .` after code changes) |
 
 ---
@@ -63,7 +63,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **169**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **170**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -150,8 +150,9 @@ The container is Linux, so **swiftc isn't available.** What the previous chat us
    PropertiesService, UrlFetchApp and so on, then assert on the cells.
 4. **Manual screenshots** were made with a Playwright script that loads each
    page with mock data and records where the marked controls are into
-   `js/manual-shots.js`. If a page's layout changes, retake its shot and fix
-   its legend in `manual.html`.
+   `js/manual-shots.js` (mark numbers are 1-based in
+   `js/manual-content.js`'s `points`). If a page's layout changes, retake
+   its shot and check its points (and `view` crop) in `js/manual-content.js`.
 
 The test scripts lived in the old chat's scratchpad and are gone. Recreate
 them as needed from the patterns above.
@@ -161,7 +162,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–168, newest last)
+## 5. Recent work (Batches 147–169, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -199,6 +200,10 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **168:** "Rented" = materials **we rent from other companies** (Rent In /
   Send Back, kinds `RentIn` / `RentReturn`). They're in the yard or on site
   but not owned: Owned = in the yard + on hire − rented in.
+- **169:** the User Manual redesigned: presentation-style brevity, chapter
+  colours, big cropped screenshots with spotlight pins, flows, steps,
+  cards and keycaps instead of paragraphs. Edit the words in
+  `js/manual-content.js`; keep them short.
 
 ---
 

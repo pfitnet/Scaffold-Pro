@@ -4126,3 +4126,43 @@ rent from other companies**.
   Back…** to fill in everything from that company. An item's details say
   who it's rented from, with Rent In… and Send Back….
 - Export, History ("Rented") and the manual follow.
+
+## Batch 169 — The User Manual, redesigned
+
+The manual is rebuilt from the ground up to read like a good presentation:
+one idea at a time, few words, and pictures that carry the meaning.
+
+- **Content apart from layout.** Every chapter is written as short blocks in
+  `js/manual-content.js`; `js/manual.js` draws them and `css/manual.css`
+  styles them. About 3,000 words where there were nearly 10,000.
+- **Cover.** "Everything you need. Nothing you don’t.", a big search box, and
+  a tile for each part (Getting started, Overview, Team, Operations,
+  Company, Working together, Reference) listing its chapters.
+- **Chapters.** Each has its own colour, a large number and icon, a
+  one-line summary and its shortcut. The contents rail on the left marks the
+  chapter you're in and hides on narrow windows.
+- **Screenshots.**
+  - Shown large, in a window frame, cut to the part that matters.
+  - Numbered pins in the chapter's colour, with a short label and hint for
+    each under the picture.
+  - Hovering a label or pin dims the rest of the picture and outlines that
+    control.
+  - Click to enlarge.
+- **Visual blocks instead of paragraphs:**
+  - flows (steps joined by arrows, coloured by document kind);
+  - numbered steps;
+  - icon cards;
+  - large keycaps for shortcuts;
+  - one-line tips;
+  - a document's statuses;
+  - a document number taken apart (Qt · 26 · 212 · -001 · -s1);
+  - a quick-add task with its parts picked out;
+  - colour swatches;
+  - the folder path a file is saved to;
+  - questions and answers.
+- **Search** (`/`) filters the chapters as you type, from the cover or the
+  rail.
+- **Motion:** blocks rise in as you scroll, and tiles lift on hover. All of
+  it is off with Reduce Motion.
+- **Light and dark** both designed, and **Print or save as PDF** puts each
+  chapter on its own page.
