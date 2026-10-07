@@ -3710,3 +3710,32 @@ Every form control is now drawn by the app instead of macOS, on every page
 - Replace the script in Apps Script with the new one (Settings › Google
   Sheets › Copy Script). Then use Deploy › Manage deployments › Edit ›
   Version: New version › Deploy, so the Web app URL stays the same.
+
+## Batch 157 — Google Sheets: colour-coded
+
+The sheet uses ScaffoldPro's own colours.
+
+- **Documents.**
+  - The BOQ, Quotations, Delivery Notes, Invoices and Letters headings are
+    in their document colours: teal, dusty blue, ochre, sage green and
+    lavender.
+  - On a sub-project's row, each document cell has a soft tint of its
+    colour, with the numbers in it.
+- **Stages.**
+  - A project's Stage is in its status colour: Planning violet, Quotation
+    amber, Active green, On Hold orange, Completed blue, Archived grey.
+  - A sub-project's stage keeps its colours (Draft grey, Quoted purple,
+    Accepted blue, Delivered amber, Invoiced indigo, Paid green, Cancelled
+    red).
+- **People.**
+  - Each person's name is in their colour: the one chosen on their User
+    page, else the one ScaffoldPro works out from the name.
+  - In Activity it's a bold, softly tinted Who cell. In Projects, the
+    "· William" in Last Update is in his colour.
+  - ScaffoldPro sends the colours with each sync
+    (`sheetsPeopleColours`). The rules are set again when anyone's colour
+    changes.
+- **Activity rows** about a document are tinted in its colour: Qt… blue,
+  BQ… teal, DN… ochre, H… green, L… / PL… lavender.
+- Copy the new script into Apps Script, then use Deploy › Manage
+  deployments › Edit › New version. The colours arrive with the next sync.

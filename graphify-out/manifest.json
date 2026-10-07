@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791362918.9097474,
-    "seen": 1791362991.8212545,
-    "ast_hash": "407d3c2c3c4c287bcbaf2d9040134f1d",
+    "mtime": 1791363119.4953074,
+    "seen": 1791363144.268961,
+    "ast_hash": "1da996201c055360e7fd3a882d75da14",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791362985.4186625,
-    "seen": 1791362991.821265,
-    "ast_hash": "b70b729e974c789aadae72d45f1f3723",
+    "mtime": 1791363137.0937376,
+    "seen": 1791363144.268971,
+    "ast_hash": "338a13b3009319b06a21da3a68843666",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -726,9 +726,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/manual.html": {
-    "mtime": 1791362985.4186625,
-    "seen": 1791362991.8212807,
-    "ast_hash": "2b54b979eddd5ccf2d637b73812c5274",
+    "mtime": 1791363137.0933344,
+    "seen": 1791363144.2689812,
+    "ast_hash": "d2500069b61cdf5492007836ada674d6",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/manual/accounting.jpg": {

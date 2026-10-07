@@ -54,6 +54,11 @@ const STAGE_COLOURS = {
   Draft: ['#f1f3f4', '#5f6368'], Quoted: ['#ede7f6', '#5e35b1'], Accepted: ['#e3f2fd', '#1565c0'],
   Delivered: ['#fff3e0', '#b26a00'], Invoiced: ['#e8eaf6', '#3949ab'], Paid: ['#e6f4ea', '#1e7e34'], Cancelled: ['#fce8e6', '#c5221f'],
 };
+// ScaffoldPro's own colours: each kind of document, and project statuses.
+const DOC_COLOURS = { 'BOQ': '#3f938b', 'Quotations': '#5374b8', 'Delivery Notes': '#b0843f', 'Invoices': '#5d9150', 'Letters': '#8a6cb0' };
+const STATUS_COLOURS = { Planning: '#8b6cf0', Quotation: '#c98a14', Active: '#2a8a4a', 'On Hold': '#e0793a', Completed: '#3a66f0', Archived: '#9196a3' };
+// In Activity, a line about a document is tinted in that document's colour.
+const ACTIVITY_KINDS = [['\\bQt\\d', '#5374b8'], ['\\bBQ\\d', '#3f938b'], ['\\bDN\\d', '#b0843f'], ['\\bH\\d{4}', '#5d9150'], ['\\bP?L\\d', '#8a6cb0']];
 const KEEP_ACTIVITY_ROWS = 20000;
 const DATE_FORMAT = 'd mmm yyyy h:mm';
 const HEAD_BG = '#1f2a44', HEAD_FG = '#ffffff', PROJECT_BG = '#eef2fb', LINE = '#dfe3ea';
@@ -78,6 +83,7 @@ function setup() {
   ss_();
   const secret = secret_();
   ensureTabs_();
+  colours_(JSON.parse(PropertiesService.getScriptProperties().getProperty('PEOPLE') || '{}'));
   buildOverview_();
   const message = 'ScaffoldPro is set up in this sheet.\n\nConnection secret:\n' + secret +
     '\n\nNext: Deploy › New deployment › Web app (Execute as: Me, Who has access: Anyone), ' +
@@ -146,9 +152,13 @@ function ensureTabs_() {
   prj.getRange('A2:K').setVerticalAlignment('top').setWrap(true);
   try { prj.setRowGroupControlPosition(SpreadsheetApp.GroupControlTogglePosition.BEFORE); } catch (e) { /* older API */ }
   if (fresh) {
-    stageColours_(prj);
+    props.setProperty('COLOURED', '');
     props.setProperty('LAYOUT', LAYOUT);
   }
+  // The document columns' headings in their colours.
+  Object.keys(DOC_COLOURS).forEach((h) => {
+    prj.getRange(1, PROJECT_HEAD.indexOf(h) + 1).setBackground(DOC_COLOURS[h]).setFontColor('#ffffff');
+  });
 }
 
 // The old Activity layout (When, Who, Project, Project Name, What,
@@ -171,11 +181,46 @@ function migrateActivity_(sh) {
 }
 
 // Each sub-project's stage in its colour.
-function stageColours_(sh) {
+function stageColours_(sh, people) {
   const range = sh.getRange('D2:D');
-  const rules = Object.keys(STAGE_COLOURS).map((stage) => SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo(stage).setBackground(STAGE_COLOURS[stage][0]).setFontColor(STAGE_COLOURS[stage][1]).setRanges([range]).build());
+  const rule = (text, bg, fg) => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(text).setBackground(bg).setFontColor(fg).setRanges([range]).build();
+  const rules = Object.keys(STAGE_COLOURS).map((stage) => rule(stage, STAGE_COLOURS[stage][0], STAGE_COLOURS[stage][1]))
+    .concat(Object.keys(STATUS_COLOURS).map((st) => rule(st, tint_(STATUS_COLOURS[st], 0.8), STATUS_COLOURS[st])));
+  // Who last worked on it, in their colour.
+  const last = sh.getRange('J2:J');
+  Object.keys(people || {}).forEach((name) => {
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextContains('· ' + name).setFontColor(people[name]).setRanges([last]).build());
+  });
   sh.setConditionalFormatRules(rules);
+}
+
+// Activity: each person's name in their colour; a line about a document
+// tinted in that document's colour.
+function activityColours_(sh, people) {
+  const rules = [];
+  const who = sh.getRange('B2:B');
+  Object.keys(people || {}).forEach((name) => {
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(name).setFontColor(people[name]).setBackground(tint_(people[name], 0.86))
+      .setBold(true).setRanges([who]).build());
+  });
+  const rows = sh.getRange('A2:D');
+  ACTIVITY_KINDS.forEach(([pattern, colour]) => {
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=REGEXMATCH($D2, "' + pattern + '")')
+      .setBackground(tint_(colour, 0.9)).setRanges([rows]).build());
+  });
+  sh.setConditionalFormatRules(rules);
+}
+
+// The colour rules, set again whenever someone's colour changes.
+function colours_(people) {
+  const ss = ss_();
+  const props = PropertiesService.getScriptProperties();
+  const key = JSON.stringify(people || {});
+  if (props.getProperty('PEOPLE') === key && props.getProperty('COLOURED') === LAYOUT) return;
+  stageColours_(ss.getSheetByName(TABS.projects), people);
+  activityColours_(ss.getSheetByName(TABS.activity), people);
+  props.setProperty('PEOPLE', key);
+  props.setProperty('COLOURED', LAYOUT);
 }
 
 function buildOverview_() {
@@ -214,6 +259,7 @@ function doPost(e) {
   if (!lock.tryLock(25000)) return out_({ ok: false, error: 'The sheet is busy — trying again shortly.' });
   try {
     ensureTabs_();
+    colours_(req.people || {});
     const changes = syncProjects_(req.projects || []);
     const activity = syncActivity_(req.activity || []);
     const ov = ss.getSheetByName(TABS.overview);
@@ -238,6 +284,12 @@ const when_ = (iso, who, tz) => {
   return Utilities.formatDate(d, tz || 'Asia/Hong_Kong', 'd MMM yyyy HH:mm') + (who ? ' · ' + who : '');
 };
 const lines_ = (list) => (list || []).join('\n');
+// A colour mixed with white: amount 0 (the colour) … 1 (white).
+const tint_ = (hex, amount) => {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  const mix = (c) => Math.round(c + (255 - c) * amount).toString(16).padStart(2, '0');
+  return '#' + mix((n >> 16) & 255) + mix((n >> 8) & 255) + mix(n & 255);
+};
 
 // Projects: a row per project and, under it, a row per sub-project. What
 // was changed on a project's row since the last sync goes back to
@@ -338,7 +390,17 @@ function lookOf_(sh, kinds, width) {
   const bg = kinds.map((k) => new Array(width).fill(k === 'p' ? PROJECT_BG : null));
   const weight = kinds.map((k) => new Array(width).fill(k === 'p' ? 'bold' : 'normal'));
   const colour = kinds.map((k) => new Array(width).fill(k === 'p' ? '#1f2a44' : '#3c4043'));
+  // Each document in its kind's colour (a soft tint behind, the colour in the text).
   const body = sh.getRange(2, 1, n, width);
+  const values = body.getValues();
+  Object.keys(DOC_COLOURS).forEach((h) => {
+    const c = PROJECT_HEAD.indexOf(h);
+    for (let r = 0; r < n; r++) {
+      if (!str_(values[r][c])) continue;
+      if (kinds[r] === 's') bg[r][c] = tint_(DOC_COLOURS[h], 0.88);
+      colour[r][c] = DOC_COLOURS[h];
+    }
+  });
   body.setBackgrounds(bg).setFontWeights(weight).setFontColors(colour);
   body.setBorder(null, null, null, null, null, true, LINE, SpreadsheetApp.BorderStyle.SOLID);
   const rule = SpreadsheetApp.newDataValidation().requireValueInList(STATUSES, true).setAllowInvalid(true).build();
