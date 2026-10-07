@@ -13692,19 +13692,18 @@ final class GoogleSheetsSync {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         URLSession.shared.dataTask(with: request) { data, response, error in
-            var reply: [String: Any]?
-            var message: String?
+            let outcome: ([String: Any]?, String?)
             if let error = error {
-                message = "Google Sheets couldn’t be reached (\(error.localizedDescription))."
+                outcome = (nil, "Google Sheets couldn’t be reached (\(error.localizedDescription)).")
             } else if let data = data, let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
-                if obj["ok"] as? Bool == true { reply = obj } else { message = (obj["error"] as? String) ?? "Google Sheets didn’t accept it." }
+                outcome = obj["ok"] as? Bool == true ? (obj, nil) : (nil, (obj["error"] as? String) ?? "Google Sheets didn’t accept it.")
             } else {
                 let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-                message = code == 404
+                outcome = (nil, code == 404
                     ? "That Web app wasn’t found — copy the URL again from Deploy › Manage deployments."
-                    : "Google Sheets didn’t answer as expected. Check the deployment is a Web app with “Who has access” set to Anyone."
+                    : "Google Sheets didn’t answer as expected. Check the deployment is a Web app with “Who has access” set to Anyone.")
             }
-            DispatchQueue.main.async { completion(reply, message) }
+            DispatchQueue.main.async { completion(outcome.0, outcome.1) }
         }.resume()
     }
 
@@ -17440,10 +17439,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         return (c.companyName, lines)
     }
 
-    /// "Unit Rates" for a client: chosen items from the material lists
-    /// (either or both), laid out like a quotation, with each item's unit
-    /// weight and monthly rental (with the markup chosen) and no list
-    /// names. Saved in the company folder's "Unit Rates" folder and opened.
     /// Marketing › Client Report as a PDF on the letterhead.
     private func handleClientReportPDF(id: String, payload: [String: Any]) {
         let clientId = nonBlank(payload["clientId"] as? String)
@@ -17452,7 +17447,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let company = db.getCompanySettings()
         let client = clientId.flatMap { db.getClient(id: $0) }
         let block = client.map { clientBlock($0) } ?? (name: report.clientName, lines: [])
-        let day: (String) -> String = { letterDate(isoFromDay($0) ?? $0) }
+        func day(_ ymd: String) -> String { letterDate(isoFromDay(ymd) ?? ymd) }
         let period = "\(day(from)) – \(day(to))"
         var rows: [LetterTableRow] = report.rows.enumerated().map { i, r in
             let what = [r.projectNumber.map { "\($0) \(r.projectName ?? "")" }, r.subject].compactMap { $0 }.joined(separator: "\n")
@@ -17491,6 +17486,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                                                        docTypeTag: "Marketing Report", fileName: name, folder: folder))
     }
 
+    /// "Unit Rates" for a client: chosen items from the material lists
+    /// (either or both), laid out like a quotation, with each item's unit
+    /// weight and monthly rental (with the markup chosen) and no list
+    /// names. Saved in the company folder's "Unit Rates" folder and opened.
     private func handleExportUnitRates(id: String, payload: [String: Any]) {
         let ids = (payload["itemIds"] as? [String]) ?? []
         let markup = payload["markupPercent"] as? Double

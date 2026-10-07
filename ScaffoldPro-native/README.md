@@ -3527,3 +3527,13 @@ Every form control is now drawn by the app instead of macOS, on every page
   changes taken in from the sheet, or what went wrong. It also has
   **Open Sheet**, **Sync Now** and **Disconnect…**.
 - The script is bundled at `resources/google-sheets/ScaffoldPro.gs`.
+
+## Batch 150 — Build fix: the client report's date helper
+
+- Batch 148's Client Report PDF stored a closure that called a method
+  without `self.`, which Swift refuses ("call to method 'letterDate' in
+  closure requires explicit use of 'self'"). It's now a nested function
+  (`handleClientReportPDF`).
+- The Google Sheets request now passes its result on as constants rather
+  than captured variables, so it's also safe in Swift 6 mode.
+- The Unit Rates comment is back above its own function.
