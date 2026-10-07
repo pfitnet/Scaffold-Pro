@@ -16936,7 +16936,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "sheets:syncNow":
             sheets.syncNow { [weak self] status in self?.respond(id: id, encodable: status) }
         case "sheets:copyScript":
-            if let script = GoogleSheetsSync.script() {
+            if var script = GoogleSheetsSync.script() {
+                // The connected sheet's link filled in, for a script made at script.google.com.
+                if let link = sheets.status().sheetURL, link.hasPrefix("https://docs.google.com/"),
+                   let r = script.range(of: #"const SHEET_URL = '[^'\n]*';"#, options: .regularExpression) {
+                    script.replaceSubrange(r, with: "const SHEET_URL = '\(link.replacingOccurrences(of: "'", with: ""))';")
+                }
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(script, forType: .string)
                 respond(id: id, encodable: SimpleResult(ok: true, error: nil))

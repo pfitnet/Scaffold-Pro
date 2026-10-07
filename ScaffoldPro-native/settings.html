@@ -378,7 +378,7 @@
           <div class="gs-setup" id="gs-setup">
             <ol class="gs-steps">
               <li><span class="gs-n">1</span><div><b>Make a Google Sheet</b> (sheets.new) and name it, e.g. “ScaffoldPro Overview”. Share it with whoever should see it.</div></li>
-              <li><span class="gs-n">2</span><div>In the sheet: <b>Extensions › Apps Script</b>. Delete what's there and paste ScaffoldPro's script, then save. (If that menu won't open, make the project at script.google.com instead and paste the sheet's link into <code>SHEET_URL</code> at the top of the script.)
+              <li><span class="gs-n">2</span><div>In the sheet: <b>Extensions › Apps Script</b>. Delete what's there and paste ScaffoldPro's script, then save. (If that menu won't open, make the project at script.google.com instead: the sheet's link is already filled in at the top of the script, in <code>SHEET_URL</code>.)
                 <div class="gs-inline"><button id="gs-copy" data-no-icon>Copy Script</button><span class="small-note" id="gs-copied"></span></div></div></li>
               <li><span class="gs-n">3</span><div>In the list next to Run / Debug, choose <b>setup</b> (not onOpen), then press <b>Run</b> and allow it to use the sheet. If Google says the app isn't verified, choose Advanced › Go to … (it's your own script). It makes the tabs and shows a <b>connection secret</b> (also in the Execution log).</div></li>
               <li><span class="gs-n">4</span><div><b>Deploy › New deployment</b> › type <b>Web app</b>. Execute as: <b>Me</b>; Who has access: <b>Anyone</b>. Deploy and copy the <b>Web app URL</b>.</div></li>

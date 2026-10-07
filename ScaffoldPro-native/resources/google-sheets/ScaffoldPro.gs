@@ -29,8 +29,8 @@
  *      secret, then Connect. It syncs about every minute while ScaffoldPro is open.
  *
  * Made at script.google.com instead (not from the sheet's Extensions menu)?
- * Paste the sheet's link into SHEET_URL just below, save, then carry on from
- * step 2. The script then opens that sheet itself.
+ * SHEET_URL just below already has the company's sheet in it (Copy Script
+ * fills in the connected one), so paste, save and carry on from step 2.
  *
  * The secret can be shown again from the sheet: ScaffoldPro › Connection secret
  * (or run "showSecret" and look in the Execution log).
@@ -38,10 +38,11 @@
  * (and run "setup" once more if the tabs' layout changed).
  */
 
-// Only for a script made at script.google.com: the sheet's link, e.g.
-// 'https://docs.google.com/spreadsheets/d/1AbC…/edit'. Leave it '' when the
-// script was opened from the sheet (Extensions › Apps Script).
-const SHEET_URL = '';
+// The sheet, for a script made at script.google.com (a script opened from
+// the sheet, Extensions › Apps Script, uses its own sheet and ignores this).
+// ScaffoldPro › Settings › Google Sheets › Copy Script fills in the
+// connected sheet's link; for another sheet, paste its link here.
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/10_6_7WG4p3pV7J1DIuqfQoqcGxNII6ZUUC9E_WZaKZ8/edit';
 
 // The tabs' layout. A sheet made with an older layout is rebuilt in this one.
 const LAYOUT = '3';
