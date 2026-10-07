@@ -13821,6 +13821,9 @@ struct GoogleSheetsStatus: Codable {
     /// Changes from the sheet taken in at the last sync that had any.
     var lastTakenIn: Int?
     var lastTakenInAt: String?
+    /// The layout the sheet's script reports (from its code on GitHub);
+    /// nil while the sheet runs a script pasted before it updated itself.
+    var sheetLayout: String?
     var running: Bool
 }
 
@@ -13836,6 +13839,7 @@ final class GoogleSheetsSync {
         static let lastError = "googleSheets.lastError"
         static let takenIn = "googleSheets.takenIn"
         static let takenInAt = "googleSheets.takenInAt"
+        static let layout = "googleSheets.layout"
         /// The first sync sends months of history; later ones a few days.
         static let primed = "googleSheets.primed"
     }
@@ -13856,7 +13860,7 @@ final class GoogleSheetsSync {
         return GoogleSheetsStatus(linked: isLinked, url: defaults.string(forKey: Key.url), sheetName: defaults.string(forKey: Key.name),
                                   sheetURL: defaults.string(forKey: Key.sheetURL), lastSyncAt: iso(Key.lastSync),
                                   lastError: defaults.string(forKey: Key.lastError), lastTakenIn: defaults.object(forKey: Key.takenIn) as? Int,
-                                  lastTakenInAt: iso(Key.takenInAt), running: running)
+                                  lastTakenInAt: iso(Key.takenInAt), sheetLayout: defaults.string(forKey: Key.layout), running: running)
     }
 
     /// Starts syncing (main thread): every minute, and 20 seconds after a save.
@@ -13895,25 +13899,27 @@ final class GoogleSheetsSync {
             self.defaults.removeObject(forKey: Key.primed)
             self.defaults.removeObject(forKey: Key.lastError)
             completion(SimpleResult(ok: true, error: nil))
-            self.syncNow()
+            self.syncNow(refreshScript: true)
         }
     }
 
     func unlink() {
         pending?.cancel()
-        for key in [Key.url, Key.secret, Key.name, Key.sheetURL, Key.lastSync, Key.lastError, Key.takenIn, Key.takenInAt, Key.primed] {
+        for key in [Key.url, Key.secret, Key.name, Key.sheetURL, Key.lastSync, Key.lastError, Key.takenIn, Key.takenInAt, Key.primed, Key.layout] {
             defaults.removeObject(forKey: key)
         }
     }
 
     /// Sends this Mac's history and projects, and takes in the sheet's changes (main thread).
-    func syncNow(completion: ((GoogleSheetsStatus) -> Void)? = nil) {
+    /// refreshScript: the sheet fetches its newest code from GitHub first
+    /// (Sync Now, and connecting), instead of only every 10 minutes.
+    func syncNow(refreshScript: Bool = false, completion: ((GoogleSheetsStatus) -> Void)? = nil) {
         guard !running, let secret = defaults.string(forKey: Key.secret),
               let url = defaults.string(forKey: Key.url).flatMap({ URL(string: $0) }) else { completion?(status()); return }
         running = true
         let payload = db.sheetsPayload(days: defaults.bool(forKey: Key.primed) ? 3 : 120)
         post(to: url, body: ["secret": secret, "action": "sync", "activity": payload.activity, "projects": payload.projects,
-                             "people": db.sheetsPeopleColours()]) { [weak self] json, error in
+                             "people": db.sheetsPeopleColours(), "refresh": refreshScript]) { [weak self] json, error in
             guard let self = self else { return }
             self.running = false
             if let json = json {
@@ -13924,6 +13930,7 @@ final class GoogleSheetsSync {
                 self.defaults.removeObject(forKey: Key.lastError)
                 if let name = json["name"] as? String { self.defaults.set(name, forKey: Key.name) }
                 if let link = json["url"] as? String { self.defaults.set(link, forKey: Key.sheetURL) }
+                self.defaults.set(json["layout"] as? String, forKey: Key.layout)
                 if taken > 0 {
                     self.defaults.set(taken, forKey: Key.takenIn)
                     self.defaults.set(now, forKey: Key.takenInAt)
@@ -16934,7 +16941,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             sheets.unlink()
             respond(id: id, encodable: sheets.status())
         case "sheets:syncNow":
-            sheets.syncNow { [weak self] status in self?.respond(id: id, encodable: status) }
+            sheets.syncNow(refreshScript: true) { [weak self] status in self?.respond(id: id, encodable: status) }
         case "sheets:copyScript":
             if var script = GoogleSheetsSync.script() {
                 // The connected sheet's link filled in, for a script made at script.google.com.

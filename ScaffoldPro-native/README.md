@@ -3808,3 +3808,37 @@ every cell. The Projects tab (layout 3) now reads left to right.
   ScaffoldPro is connected to, so another sheet works the same way.
 - A script opened from the sheet (Extensions › Apps Script) still uses its
   own sheet and ignores `SHEET_URL`.
+
+## Batch 161 — Google Sheets: the sheet updates its own code
+
+- **The script is split in two.**
+  - `ScaffoldPro.gs` is the **loader**: setup, the secret, the menu and
+    the Web app. It's the only part pasted into Apps Script, and it's
+    pasted once.
+  - `ScaffoldPro-core.js` lays out and fills the tabs. The loader fetches
+    it from the repository on GitHub (raw.githubusercontent.com, main
+    branch).
+- **When it's fetched again.**
+  - Every 10 minutes.
+  - At once when **Sync Now** is pressed, or when ScaffoldPro connects
+    (`syncNow(refreshScript:)` sends `refresh: true`).
+  - From the sheet's ScaffoldPro › Update the layout now menu item.
+- **No more redeploying.** A layout change merged into main reaches the
+  sheet without pasting or deploying again. The deployment runs the loader,
+  which doesn't change.
+- **Safe when things go wrong.**
+  - The fetched code is kept in the script's properties, in 2,500-character
+    pieces.
+  - If GitHub can't be reached, the kept copy is used.
+  - A newer copy that fails to load is ignored, and the one before is kept.
+  - The code comes only from this repository's main branch, the same place
+    ScaffoldPro's own updates come from.
+- **Settings › Google Sheets.**
+  - The sheet reports its layout with each sync (`sheetLayout` in the
+    status).
+  - While the sheet still runs an older pasted script, a note asks for one
+    last paste, with its own **Copy Script** button.
+  - Sync Now's hover text says it also fetches the newest layout.
+- **The core uses only** SpreadsheetApp, PropertiesService and Utilities. A
+  feature needing another Google permission would go in the loader, and
+  that would need one more paste.
