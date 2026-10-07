@@ -2061,6 +2061,17 @@ struct InvoiceDetail: Codable {
     /// (it hasn't been given terms of its own); the Settings text.
     var paymentTermsFromSettings: Bool? = nil
     var defaultPaymentTerms: String? = nil
+    /// The delivery notes it bills, and whether each has a signed copy
+    /// (attached after the invoice's own pages).
+    var deliveryNotes: [InvoiceNoteRef] = []
+}
+
+struct InvoiceNoteRef: Codable {
+    var id: String
+    var number: String
+    var status: String
+    var signedCopyName: String?
+    var signedCopyExists: Bool
 }
 
 struct InvoiceActionResult: Codable {
@@ -2093,6 +2104,10 @@ struct DeliveryNote: Codable {
     var contactPerson: String? = nil
     /// Item names on the PDF: "English" or "Chinese"; nil = Settings' choice.
     var language: String? = nil
+    /// The copy signed on site ("<DN no.> - Signed.pdf" in the project's
+    /// Delivery Notes folder). It's added after the invoice that bills it.
+    var signedCopyPath: String? = nil
+    var signedCopyAt: String? = nil
 }
 
 /// No pricing fields on purpose — section 23 lists delivery notes as
@@ -2128,6 +2143,8 @@ struct DeliveryNoteSummary: Codable {
     var sourceQuotationId: String? = nil
     var quotationNumber: String? = nil
     var invoiceNumbers: [String] = []
+    /// The copy signed on site is in the project folder.
+    var signed = false
     var totalQuantity: Double = 0
 }
 
@@ -2156,6 +2173,12 @@ struct DeliveryNoteDetail: Codable {
     /// Item names on the PDF: the note's own choice (nil = Settings'), and Settings'.
     var language: String? = nil
     var defaultLanguage = "English"
+    /// The signed copy: its file name, when it was added, whether it's
+    /// still in the folder, and the invoices it's attached to.
+    var signedCopyName: String? = nil
+    var signedCopyAt: String? = nil
+    var signedCopyExists = false
+    var invoiceNumbers: [String] = []
 }
 
 struct DeliveryNoteActionResult: Codable {
@@ -4817,6 +4840,30 @@ final class AppDatabase {
         logActivity(projectId: qs[i].projectId, path == nil ? "Signed copy removed from quotation" : "Signed quotation received",
                     reference: qs[i].quotationNumber)
         return nil
+    }
+
+    /// The delivery note signed on site (already copied into the project
+    /// folder), or nil to forget it (the file stays in the folder).
+    func setDeliveryNoteSignedCopy(id: String, path: String?) -> String? {
+        var notes = deliveryNotesStore.readAll()
+        guard let i = notes.firstIndex(where: { $0.id == id }) else { return "Delivery note not found." }
+        notes[i].signedCopyPath = path
+        notes[i].signedCopyAt = path == nil ? nil : nowISO()
+        notes[i].updatedAt = nowISO()
+        deliveryNotesStore.writeAll(notes)
+        logActivity(projectId: notes[i].projectId, path == nil ? "Signed copy removed from delivery note" : "Signed delivery note received",
+                    reference: notes[i].deliveryNoteNumber)
+        return nil
+    }
+
+    /// The signed copies of the delivery notes an invoice bills, in their
+    /// order, that are still in the folder.
+    func signedDeliveryNoteFiles(invoiceId: String) -> [URL] {
+        guard let inv = getInvoice(id: invoiceId) else { return [] }
+        let notes = deliveryNotesStore.readAll()
+        return (inv.sourceDeliveryNoteIds ?? []).compactMap { nid in notes.first { $0.id == nid } }
+            .sorted { $0.deliveryNoteNumber.localizedStandardCompare($1.deliveryNoteNumber) == .orderedAscending }
+            .compactMap { $0.signedCopyPath }.filter { fileIsPresent($0) }.map { URL(fileURLWithPath: $0) }
     }
 
     func setQuotationSignedCopyNotNeeded(id: String, notNeeded: Bool) -> String? {
@@ -8575,6 +8622,12 @@ final class AppDatabase {
         )
         detail.paymentTermsFromSettings = inv.paymentTerms == nil && inv.status == "Draft"
         detail.defaultPaymentTerms = settingsTerms
+        let notes = deliveryNotesStore.readAll()
+        detail.deliveryNotes = (inv.sourceDeliveryNoteIds ?? []).compactMap { nid in notes.first { $0.id == nid } }.map { n in
+            InvoiceNoteRef(id: n.id, number: n.deliveryNoteNumber, status: n.status,
+                           signedCopyName: n.signedCopyPath.map { URL(fileURLWithPath: $0).lastPathComponent },
+                           signedCopyExists: n.signedCopyPath.map { fileIsPresent($0) } ?? false)
+        }
         return detail
     }
 
@@ -8766,6 +8819,7 @@ final class AppDatabase {
                 summary.sourceQuotationId = dn.sourceQuotationId
                 summary.quotationNumber = dn.sourceQuotationId.flatMap { quotationNumbers[$0] }
                 summary.invoiceNumbers = invoices.filter { ($0.sourceDeliveryNoteIds ?? []).contains(dn.id) }.map { $0.invoiceNumber }.sorted()
+                summary.signed = dn.signedCopyPath.map { fileIsPresent($0) } ?? false
                 summary.totalQuantity = items.reduce(0) { $0 + $1.quantity }
                 summary.createdBy = names[dn.id]?.createdBy
                 summary.lastEditedBy = names[dn.id]?.lastEditedBy
@@ -8942,7 +8996,10 @@ final class AppDatabase {
             clientName: client?.companyName, siteName: site?.name, lineItems: items,
             contactPerson: dn.contactPerson, projectId: dn.projectId, sourceQuotationId: dn.sourceQuotationId,
             chineseNames: chineseNames(for: items, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }),
-            language: dn.language, defaultLanguage: getCompanySettings().documentLanguage ?? "English"
+            language: dn.language, defaultLanguage: getCompanySettings().documentLanguage ?? "English",
+            signedCopyName: dn.signedCopyPath.map { URL(fileURLWithPath: $0).lastPathComponent }, signedCopyAt: dn.signedCopyAt,
+            signedCopyExists: dn.signedCopyPath.map { fileIsPresent($0) } ?? false,
+            invoiceNumbers: invoicesStore.readAll().filter { $0.status != "Cancelled" && ($0.sourceDeliveryNoteIds ?? []).contains(dn.id) }.map { $0.invoiceNumber }.sorted()
         )
     }
 
@@ -15599,7 +15656,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// joining a shared folder, backups, updates): not from a browser.
     static func macOnly(_ action: String) -> Bool {
         let exact: Set<String> = ["priceLists:importPreview", "parties:exportXLSX", "parties:importPreview", "priceLists:exportCSV",
-                                  "projects:uploadDrawing", "signatures:chooseImage", "chat:attach", "quotations:uploadSigned",
+                                  "projects:uploadDrawing", "signatures:chooseImage", "chat:attach", "quotations:uploadSigned", "deliveryNotes:uploadSigned",
                                   "settings:chooseLogo", "drawings:relink", "drawings:replace", "documents:replace", "documents:upload",
                                   "documents:relink", "workerDocuments:upload", "workerDocuments:relink", "adminDocuments:upload",
                                   "adminDocuments:relink", "users:setName", "team:start", "team:join", "team:leave", "team:setName", "team:reveal",
@@ -16534,6 +16591,19 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleSaveSignedQuotationData(id: id, payload: payload)
         case "quotations:signedCopy":
             handleSignedCopyAction(id: id, quotationId: (payload["id"] as? String) ?? "", action: (payload["action"] as? String) ?? "")
+        case "deliveryNotes:uploadSigned":
+            handleUploadSignedDeliveryNote(id: id, noteId: (payload["id"] as? String) ?? "")
+        case "deliveryNotes:saveSignedFile":
+            let fileName = (payload["fileName"] as? String) ?? ""
+            if let base64 = payload["base64"] as? String, let data = Data(base64Encoded: base64), !data.isEmpty {
+                respond(id: id, encodable: storeSignedCopy(kind: "deliveryNote", documentId: (payload["id"] as? String) ?? "", fileName: fileName) {
+                    try data.write(to: $0, options: .atomic)
+                })
+            } else {
+                respond(id: id, encodable: SimpleResult(ok: false, error: "That file couldn't be read."))
+            }
+        case "deliveryNotes:signedCopy":
+            handleDeliveryNoteSignedAction(id: id, noteId: (payload["id"] as? String) ?? "", action: (payload["action"] as? String) ?? "")
         case "quotations:setSignedNotNeeded":
             let error = db.setQuotationSignedCopyNotNeeded(id: (payload["id"] as? String) ?? "", notNeeded: (payload["notNeeded"] as? Bool) ?? true)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -18233,7 +18303,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 parts.append((detail.boqNumber, detail.projectNumber, data))
             } else if kind == "Invoice" {
                 guard let detail = db.getInvoiceDetail(id: docId), let generator = PDFGenerator(paperSize: paper) else { continue }
-                parts.append((detail.invoiceNumber, detail.projectNumber, generator.generate(invoiceLetter(detail, company: company))))
+                let data = PDFAttachments.append(db.signedDeliveryNoteFiles(invoiceId: detail.id), to: generator.generate(invoiceLetter(detail, company: company)), paperSize: paperSize)
+                parts.append((detail.invoiceNumber, detail.projectNumber, data))
             } else if kind == "DeliveryNote" {
                 guard let detail = db.getDeliveryNoteDetail(id: docId), let note = db.getDeliveryNote(id: docId),
                       let generator = PDFGenerator(paperSize: paper) else { continue }
@@ -18294,8 +18365,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         let company = db.getCompanySettings()
+        // The signed delivery notes it bills follow its own pages.
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Invoices",
-                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice", letter: invoiceLetter(detail, company: company))
+                           documentNumber: detail.invoiceNumber, docTypeTag: "Invoice", letter: invoiceLetter(detail, company: company),
+                           attachments: mode == .word ? [] : db.signedDeliveryNoteFiles(invoiceId: detail.id))
     }
 
     /// An invoice laid out on the letterhead.
@@ -19788,23 +19861,73 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// the project's Quotations folder and records it on the quotation.
     /// `write` puts the file at the URL it's given.
     private func storeSignedQuotation(quotationId: String, fileName: String, write: (URL) throws -> Void) -> SimpleResult {
-        guard let q = db.getQuotation(id: quotationId), let project = db.getProject(id: q.projectId) else {
-            return SimpleResult(ok: false, error: "Quotation not found.")
+        storeSignedCopy(kind: "quotation", documentId: quotationId, fileName: fileName, write: write)
+    }
+
+    /// The signed copy of a quotation (from the client) or a delivery note
+    /// (signed on site): "<number> - Signed.<ext>" in the project's
+    /// Quotations or Delivery Notes folder, recorded on the document.
+    private func storeSignedCopy(kind: String, documentId: String, fileName: String, write: (URL) throws -> Void) -> SimpleResult {
+        let found: (number: String, projectId: String, folder: String, noun: String)?
+        if kind == "deliveryNote" {
+            found = db.getDeliveryNote(id: documentId).map { (number: $0.deliveryNoteNumber, projectId: $0.projectId, folder: "Delivery Notes", noun: "delivery note") }
+        } else {
+            found = db.getQuotation(id: documentId).map { (number: $0.quotationNumber, projectId: $0.projectId, folder: "Quotations", noun: "quotation") }
+        }
+        guard let doc = found, let project = db.getProject(id: doc.projectId) else {
+            return SimpleResult(ok: false, error: kind == "deliveryNote" ? "Delivery note not found." : "Quotation not found.")
         }
         let ext = URL(fileURLWithPath: fileName).pathExtension.lowercased()
         guard let type = UTType(filenameExtension: ext), NativeBridge.signedCopyTypes.contains(where: { type.conforms(to: $0) }) else {
-            return SimpleResult(ok: false, error: "Use a PDF, or a photo or scan (JPEG, PNG, HEIC or TIFF), of the signed quotation.")
+            return SimpleResult(ok: false, error: "Use a PDF, or a photo or scan (JPEG, PNG, HEIC or TIFF), of the signed \(doc.noun).")
         }
-        let folder = storage.projectFolder(project.projectNumber).appendingPathComponent("Quotations", isDirectory: true)
+        let folder = storage.projectFolder(project.projectNumber).appendingPathComponent(doc.folder, isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let safe = q.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+            let safe = doc.number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
             let destination = storage.uniqueDestination(folder.appendingPathComponent("\(safe) - Signed.\(ext)"))
             try write(destination)
-            if let error = db.setQuotationSignedCopy(id: q.id, path: destination.path) { return SimpleResult(ok: false, error: error) }
+            let error = kind == "deliveryNote" ? db.setDeliveryNoteSignedCopy(id: documentId, path: destination.path)
+                                               : db.setQuotationSignedCopy(id: documentId, path: destination.path)
+            if let error = error { return SimpleResult(ok: false, error: error) }
             return SimpleResult(ok: true, error: nil)
         } catch {
             return SimpleResult(ok: false, error: "The signed copy couldn't be saved in the project folder: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleUploadSignedDeliveryNote(id: String, noteId: String) {
+        guard let window = window else { respondNull(id: id); return }
+        guard let n = db.getDeliveryNote(id: noteId) else { respondError(id: id, message: "Delivery note not found."); return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = NativeBridge.signedCopyTypes
+        panel.message = "Choose the signed copy of \(n.deliveryNoteNumber) (a PDF, or a photo or scan). A copy is kept in the project's Delivery Notes folder and added after the invoice that bills it."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, let source = panel.url else { self.respondNull(id: id); return }
+            self.respond(id: id, encodable: self.storeSignedCopy(kind: "deliveryNote", documentId: noteId, fileName: source.lastPathComponent) {
+                try FileManager.default.copyItem(at: source, to: $0)
+            })
+        }
+    }
+
+    /// "open" | "reveal" | "remove" for a delivery note's signed copy.
+    private func handleDeliveryNoteSignedAction(id: String, noteId: String, action: String) {
+        guard let n = db.getDeliveryNote(id: noteId) else { respondError(id: id, message: "Delivery note not found."); return }
+        switch action {
+        case "remove":
+            let error = db.setDeliveryNoteSignedCopy(id: noteId, path: nil)
+            respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
+        case "open", "reveal":
+            guard let path = n.signedCopyPath else {
+                respond(id: id, encodable: FileActionResult(ok: false, error: "No signed copy has been added to \(n.deliveryNoteNumber) yet."))
+                return
+            }
+            if action == "open" { handleOpenFile(id: id, path: path) } else { handleRevealFile(id: id, path: path) }
+        default:
+            respondError(id: id, message: "Unknown action.")
         }
     }
 

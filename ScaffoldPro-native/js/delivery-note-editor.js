@@ -62,6 +62,8 @@ async function loadDetail() {
   document.getElementById('dn-body').classList.remove('hidden');
   render();
   window.docLanguage.show(currentDetail);
+  // The copy signed on site; it goes after the invoice that bills it.
+  if (window.dnSigned) window.dnSigned.bar(document.getElementById('dn-signed-bar'), currentDetail, loadDetail);
 }
 
 function render() {

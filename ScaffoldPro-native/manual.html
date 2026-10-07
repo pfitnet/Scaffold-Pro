@@ -444,6 +444,12 @@
           </ol>
         </figure>
         <div class="mn-warn"><b>Issuing a delivery note books its items out of the yard</b> (Stock): on hire to the project, or sold for a Sale quotation. Setting it back to Draft, or deleting it, books them in again.</div>
+        <h3>The signed copy, and its invoice</h3>
+        <p>Once a note is issued, a bar under its toolbar asks for the <b>copy signed on site</b>: <span class="mn-btn primary">Upload Signed Copy…</span>, or drop the PDF or photo onto the bar. It's kept as "DN… - Signed.pdf" in the project's Delivery Notes folder, the note shows a green <b>Signed</b> tag in the project's list, and it's <b>added after the pages of the invoice that bills it</b> whenever that invoice is exported, printed or combined. Open, Locate File, Replace… and Remove are on the bar.</p>
+        <div class="mn-flow">
+          <div class="mn-flow-title">Signed delivery notes</div>
+          <div data-chain="dn|Issue the delivery note > client|Signed on site|Received By, Date, Name > dn|Upload Signed Copy|On the note, or from its invoice > inv|Invoice from the notes|The signed copies follow its pages"></div>
+        </div>
         <p>On paper: Our Ref. / Site Ref. / Date, BY HAND ONLY, the details, the table (No | Item Description | Unit Weight | Qty | Total Weight) and the receipt lines (Received By, Date, Full Name, Contact No.). A note that only just spills onto a second page is squeezed onto one.</p>
       </section>
 
@@ -460,6 +466,7 @@
             <li>Print / Export.</li>
           </ol>
         </figure>
+        <div class="mn-tip">An invoice made from delivery notes lists them at the top under <b>Signed delivery notes</b>: each one's signed copy (Open), or <span class="mn-btn primary">Upload Signed Copy…</span> for one not signed yet (or drop the file on its row). Every signed copy is added after the invoice's own pages when it's exported, printed or combined.</div>
         <h3>Recording a payment</h3>
         <ol class="mn-steps">
           <li>Issue the invoice (payments can't be recorded on a draft or a cancelled one).</li>

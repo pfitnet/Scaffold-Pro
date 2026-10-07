@@ -80,6 +80,8 @@ async function loadDetail() {
   }
   document.getElementById('invoice-body').classList.remove('hidden');
   render();
+  // The signed delivery notes it bills, added after its pages.
+  if (window.dnSigned) window.dnSigned.list(document.getElementById('inv-signed-notes'), currentDetail, loadDetail);
 }
 
 function render() {

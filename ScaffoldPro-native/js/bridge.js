@@ -297,6 +297,12 @@
       setQuantities: (kind, documentId, quantities) => callNative('lines:setQuantities', { kind: kind, documentId: documentId, quantities: quantities }),
     },
     deliveryNotes: {
+      // The copy signed on site (a PDF, or a photo or scan): chosen in a panel, or a dropped file.
+      // It's kept in the project's Delivery Notes folder and added after the invoice that bills it.
+      uploadSigned: (id) => callNative('deliveryNotes:uploadSigned', { id: id }),
+      saveSignedFile: (id, fileName, base64) => callNative('deliveryNotes:saveSignedFile', { id: id, fileName: fileName, base64: base64 }),
+      // 'open' | 'reveal' | 'remove'
+      signedCopy: (id, action) => callNative('deliveryNotes:signedCopy', { id: id, action: action }),
       // Item names on the PDF in 'English' or 'Chinese' (null = Settings' choice).
       setLanguage: (id, language) => callNative('deliveryNotes:setLanguage', { id: id, language: language || null }),
       // Several delivery notes added together into one new Draft note → { ok, error, id }.
