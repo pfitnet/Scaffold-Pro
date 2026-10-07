@@ -3333,3 +3333,23 @@ Every form control is now drawn by the app instead of macOS, on every page
   the Client and Site lists open a small sheet for the essentials (name,
   contact, phone, address). The new client or site is chosen straight
   away.
+
+## Batch 142 — Projects Overview: every project's documents, linked
+
+- The Projects page has a third view, **Overview** (the button beside
+  Cards and List). Each project gets its own bracket:
+  - Column 1 is the project: its number (large), name, site and status.
+  - Then BOQ · Quotations · Delivery Notes · Invoices, each document a
+    small tile with its status, centred in its own column.
+- **Lines** join each document to what it was made from: a BOQ to its
+  quotation, a quotation to its subsidiaries (a loop at the side), a
+  quotation to its delivery notes, and a delivery note (or a quotation) to
+  its invoice.
+  - The line is **bright green** while the two are linked (kept in step).
+  - It is a grey dashed line when a quotation was made from a BOQ but has
+    since been unlinked.
+- Hover a document to light up its whole chain; the rest fades back.
+  Click any tile to open that document, or the project tile to open the
+  project.
+- The Overview keeps the creator and client groups, the status filter and
+  the search.

@@ -114,6 +114,89 @@ function sorted(list) {
   return list.slice().sort(by);
 }
 
+// ---- Overview: a bracket per project, its documents in columns, and a
+// line from each document to what it was made from — bright green while
+// the two are linked (kept in step), grey dashed once unlinked.
+let overview = null;   // projectId → { boqs, quotations, deliveryNotes, invoices }
+const OV_COLS = [['boqs', 'BOQ', 'boq-editor.html', 'dk-boq'], ['quotations', 'Quotations', 'quotation-editor.html', 'dk-quotation'],
+  ['deliveryNotes', 'Delivery Notes', 'delivery-note-editor.html', 'dk-delivery'], ['invoices', 'Invoices', 'invoice-editor.html', 'dk-invoice']];
+
+function bracket(p, i) {
+  const o = (overview && overview[p.id]) || {};
+  const cols = OV_COLS.map(([key, title, page, colour]) => {
+    const docs = o[key] || [];
+    return `<div class="ov-col ${colour}"><div class="ov-col-title">${title}</div><div class="ov-stack">${docs.length
+      ? docs.map((d) => `<a class="ov-doc ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-from="${esc(JSON.stringify(d.from || []))}">
+          <b>${esc(d.number)}</b><span class="ov-st">${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}</span></a>`).join('')
+      : '<span class="ov-empty">—</span>'}</div></div>`;
+  }).join('');
+  return `<section class="ov-bracket ${statusClass(p.status)}" data-number="${esc(p.projectNumber)}" style="--i:${Math.min(i, 14)}">
+    <a class="ov-project" href="project-detail.html?number=${encodeURIComponent(p.projectNumber)}">
+      <span class="ov-num">${esc(p.projectNumber)}</span><span class="ov-name">${esc(p.name)}</span>
+      <span class="ov-site">${ICON.site}${esc(p.siteName || 'No site')}</span>
+      <span class="pj-status"><i></i>${esc(p.status)}</span></a>
+    ${cols}
+    <svg class="ov-lines" aria-hidden="true"></svg></section>`;
+}
+
+// The lines, drawn once the brackets are laid out (and again on resize).
+function drawOverviewLines() {
+  for (const box of document.querySelectorAll('.ov-bracket')) {
+    const svg = box.querySelector('.ov-lines');
+    const b = box.getBoundingClientRect();
+    if (!b.width) continue;
+    svg.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
+    svg.setAttribute('width', b.width);
+    svg.setAttribute('height', b.height);
+    let paths = '';
+    for (const el of box.querySelectorAll('.ov-doc')) {
+      let from = [];
+      try { from = JSON.parse(el.dataset.from || '[]'); } catch (e) { /* none */ }
+      const to = el.getBoundingClientRect();
+      for (const f of from) {
+        const src = box.querySelector(`.ov-doc[data-doc="${CSS.escape(f.id)}"]`);
+        if (!src) continue;
+        const s = src.getBoundingClientRect();
+        const sameCol = Math.abs(s.left - to.left) < 4;
+        let d;
+        if (sameCol) {
+          // A subsidiary under its main quotation: a loop down the left side.
+          const x = s.left - b.left - 2, y1 = s.top + s.height / 2 - b.top, y2 = to.top + to.height / 2 - b.top;
+          d = `M ${x} ${y1} C ${x - 22} ${y1}, ${x - 22} ${y2}, ${x} ${y2}`;
+        } else {
+          const x1 = s.right - b.left, y1 = s.top + s.height / 2 - b.top;
+          const x2 = to.left - b.left, y2 = to.top + to.height / 2 - b.top;
+          const dx = Math.max(16, (x2 - x1) * 0.5);
+          d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+        }
+        paths += `<path class="ov-line${f.linked ? ' linked' : ''}" d="${d}" data-a="${esc(f.id)}" data-b="${esc(el.dataset.doc)}"/>`;
+      }
+    }
+    svg.innerHTML = paths;
+  }
+}
+
+// Hovering a document lights its chain.
+document.getElementById('list-container').addEventListener('pointerover', (e) => {
+  const doc = e.target.closest && e.target.closest('.ov-doc');
+  const box = e.target.closest && e.target.closest('.ov-bracket');
+  for (const x of document.querySelectorAll('.ov-bracket.tracing')) if (x !== box || !doc) x.classList.remove('tracing');
+  if (!doc || !box) return;
+  box.classList.add('tracing');
+  const chain = new Set([doc.dataset.doc]);
+  const lines = [...box.querySelectorAll('.ov-line')];
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const l of lines) {
+      if (chain.has(l.dataset.a) !== chain.has(l.dataset.b)) { chain.add(l.dataset.a); chain.add(l.dataset.b); grew = true; }
+    }
+  }
+  for (const d of box.querySelectorAll('.ov-doc')) d.classList.toggle('lit', chain.has(d.dataset.doc));
+  for (const l of lines) l.classList.toggle('lit', chain.has(l.dataset.a) && chain.has(l.dataset.b));
+});
+window.addEventListener('resize', () => { if (state.view === 'overview') drawOverviewLines(); });
+
 // Folded away (remembered on this Mac): "who" or "who|client" keys.
 let closed = new Set();
 try { closed = new Set(JSON.parse(localStorage.getItem('projects.closed') || '[]')); } catch (e) { /* ignore */ }
@@ -148,7 +231,9 @@ function grouped(list, searching) {
         const key = `${who}|${c}`;
         const open = searching || !closed.has(key);
         const items = byClient.get(c);
-        const body = state.view === 'list' ? listView(items) : `<div class="pj-grid">${items.map((p) => card(p, i++)).join('')}</div>`;
+        const body = state.view === 'list' ? listView(items)
+          : state.view === 'overview' ? `<div class="ov-list">${items.map((p) => bracket(p, i++)).join('')}</div>`
+          : `<div class="pj-grid">${items.map((p) => card(p, i++)).join('')}</div>`;
         return `<div class="pj-sub${open ? ' open' : ''}" data-fold="${esc(key)}">
           <button type="button" class="pj-sub-head" aria-expanded="${open}" data-no-icon>${CHEV}${ICON.client}<span class="pj-sub-name">${esc(c)}</span><span class="pj-group-count">${items.length}</span></button>
           <div class="pj-fold"><div class="pj-fold-inner">${body}</div></div></div>`;
@@ -165,6 +250,7 @@ document.getElementById('list-container').addEventListener('click', (e) => {
   head.setAttribute('aria-expanded', String(open));
   if (open) closed.delete(box.dataset.fold); else closed.add(box.dataset.fold);
   keepClosed();
+  if (open && state.view === 'overview') setTimeout(drawOverviewLines, 380);
 });
 
 function renderProjects() {
@@ -191,7 +277,14 @@ function renderProjects() {
     });
     return;
   }
+  if (state.view === 'overview' && !overview) {
+    window.api.projects.overview().then((list) => {
+      overview = Object.fromEntries((list || []).map((o) => [o.projectId, o]));
+      renderProjects();
+    });
+  }
   container.innerHTML = grouped(shown, !!q);
+  if (state.view === 'overview') requestAnimationFrame(drawOverviewLines);
   if (!calm) {
     container.classList.remove('pj-enter');
     void container.offsetWidth;
@@ -225,6 +318,7 @@ document.getElementById('list-container').addEventListener('pointermove', (e) =>
 window.appRefresh = () => refresh();
 
 async function refresh() {
+  overview = null;
   allProjects = await window.api.projects.list();
   renderFilters();
   renderProjects();

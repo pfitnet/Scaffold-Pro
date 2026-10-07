@@ -2234,3 +2234,38 @@ a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
 a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); }
 .pj-table td.pj-num { font-size: 15px; }
 .qa-backdrop { z-index: 10070; } .qa-sheet { max-width: 520px; }
+
+/* Projects › Overview: a bracket per project, its documents in columns
+   (each centred in its column), lines from each to what it came from. */
+.ov-list { display: flex; flex-direction: column; gap: 12px; margin: 2px 12px 14px; }
+.ov-bracket { --st: var(--accent); position: relative; display: grid; grid-template-columns: minmax(180px, 1.1fr) repeat(4, minmax(120px, 1fr)); column-gap: 34px;
+  align-items: stretch; padding: 14px 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
+  box-shadow: var(--shadow-card); animation: page-rise .45s var(--ease) both; animation-delay: calc(var(--i) * 30ms); }
+.ov-bracket::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--st); }
+.ov-project { display: flex; flex-direction: column; justify-content: center; gap: 3px; color: var(--text); text-decoration: none; min-width: 0; }
+.ov-project:hover { text-decoration: none; }
+.ov-num { font: 800 20px/1.1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .02em; }
+.ov-project:hover .ov-num { color: var(--st); }
+.ov-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-site { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-tertiary); }
+.ov-project .pj-status { align-self: flex-start; margin-top: 4px; }
+.ov-col { display: flex; flex-direction: column; min-width: 0; position: relative; z-index: 1; }
+.ov-col-title { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; text-align: center; }
+.ov-stack { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px; }
+.ov-empty { text-align: center; color: var(--text-tertiary); opacity: .5; }
+.ov-doc { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 8px; border-radius: 10px; text-decoration: none; color: var(--text);
+  background: color-mix(in srgb, var(--dk, var(--accent)) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--dk, var(--accent)) 30%, var(--border));
+  transition: transform .2s var(--spring), box-shadow .2s, opacity .2s, border-color .2s; }
+.ov-doc:hover { text-decoration: none; transform: translateY(-1px); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--dk, var(--accent)) 70%, transparent); }
+.ov-doc b { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ov-st { font-size: 10.5px; color: var(--text-secondary); }
+.ov-doc.st-cancelled { opacity: .5; }
+.ov-doc.st-cancelled b { text-decoration: line-through; }
+.ov-lines { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 0; }
+.ov-line { fill: none; stroke: color-mix(in srgb, var(--text-tertiary) 60%, transparent); stroke-width: 1.6; stroke-dasharray: 4 4; transition: opacity .2s, stroke-width .2s; }
+.ov-line.linked { stroke: #22d36b; stroke-dasharray: none; stroke-width: 2.2; filter: drop-shadow(0 0 3px rgba(34, 211, 107, .45)); }
+.ov-bracket.tracing .ov-line:not(.lit) { opacity: .15; }
+.ov-bracket.tracing .ov-doc:not(.lit) { opacity: .45; }
+.ov-bracket.tracing .ov-line.lit { stroke-width: 3; }
+.ov-doc.lit { border-color: #22d36b; }
+@media (max-width: 1180px) { .ov-bracket { column-gap: 22px; grid-template-columns: minmax(150px, 1fr) repeat(4, minmax(100px, 1fr)); } }

@@ -4864,6 +4864,56 @@ final class AppDatabase {
         projectsStore.readAll().first { $0.id == id }
     }
 
+    /// The Projects page's Overview: each project's documents by kind, and
+    /// what each was made from (`linked`: still kept in step with it).
+    struct OverviewLink: Codable { var id: String; var linked: Bool }
+    struct OverviewDoc: Codable { var id: String; var number: String; var status: String; var from: [OverviewLink] }
+    struct ProjectOverview: Codable {
+        var projectId: String
+        var boqs: [OverviewDoc] = []
+        var quotations: [OverviewDoc] = []
+        var deliveryNotes: [OverviewDoc] = []
+        var invoices: [OverviewDoc] = []
+    }
+
+    func projectsOverview() -> [ProjectOverview] {
+        var out: [String: ProjectOverview] = [:]
+        func get(_ id: String) -> ProjectOverview { out[id] ?? ProjectOverview(projectId: id) }
+        for b in boqsStore.readAll() {
+            var o = get(b.projectId)
+            o.boqs.append(OverviewDoc(id: b.id, number: b.boqNumber, status: b.status, from: []))
+            out[b.projectId] = o
+        }
+        let quotations = quotationsStore.readAll()
+        for q in quotations {
+            var o = get(q.projectId)
+            var from: [OverviewLink] = []
+            if let bid = q.sourceBOQId { from.append(OverviewLink(id: bid, linked: q.boqLinked == true)) }
+            if let parent = parentQuotation(of: q, in: quotations) { from.append(OverviewLink(id: parent.id, linked: true)) }
+            o.quotations.append(OverviewDoc(id: q.id, number: q.quotationNumber, status: q.status, from: from))
+            out[q.projectId] = o
+        }
+        for d in deliveryNotesStore.readAll() {
+            var o = get(d.projectId)
+            o.deliveryNotes.append(OverviewDoc(id: d.id, number: d.deliveryNoteNumber, status: d.status,
+                                               from: d.sourceQuotationId.map { [OverviewLink(id: $0, linked: true)] } ?? []))
+            out[d.projectId] = o
+        }
+        for i in invoicesStore.readAll() {
+            var o = get(i.projectId)
+            var from = (i.sourceDeliveryNoteIds ?? []).map { OverviewLink(id: $0, linked: true) }
+            if from.isEmpty, let qid = i.sourceQuotationId { from.append(OverviewLink(id: qid, linked: true)) }
+            o.invoices.append(OverviewDoc(id: i.id, number: i.invoiceNumber, status: i.status, from: from))
+            out[i.projectId] = o
+        }
+        let byNumber: (OverviewDoc, OverviewDoc) -> Bool = { $0.number.localizedStandardCompare($1.number) == .orderedAscending }
+        return out.values.map { o in
+            var o = o
+            o.boqs.sort(by: byNumber); o.quotations.sort(by: byNumber); o.deliveryNotes.sort(by: byNumber); o.invoices.sort(by: byNumber)
+            return o
+        }
+    }
+
     /// What a project holds — asked before it's deleted.
     struct ProjectContents: Codable {
         var ok = true
@@ -14933,6 +14983,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "projects:update":
             let error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "projects:overview":
+            respond(id: id, encodable: db.projectsOverview())
         case "projects:contents":
             respond(id: id, encodable: db.projectContents(id: (payload["id"] as? String) ?? ""))
         case "projects:delete":
