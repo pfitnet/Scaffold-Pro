@@ -3992,3 +3992,60 @@ every cell. The Projects tab (layout 3) now reads left to right.
 - **Tasks.** A task with nothing under its title (no due date, project or
   notes) has its title, tick and avatar centred in the card. The empty
   details line no longer takes up space.
+
+## Batch 166 — Stock, rebuilt
+
+The Stock page is rebuilt from the ground up: `stock.html`, `css/stock.css`,
+`js/stock.js`, and `addStockMovements` / `deleteStockBatch` in main.swift.
+
+- **Many items at once: Record Stock.** One sheet for Receive, Return,
+  Count or Write Off (a sliding switch at the top, ← → to change it), with
+  one date, reference and notes, and as many items as needed.
+  - **Typing:** a code or part of a name shows suggestions (matches
+    highlighted, with what's in the yard). ↑ ↓ choose, and **Return** adds
+    the item and jumps to its quantity. **Return** there goes back to the
+    search for the next item, and ↑ ↓ move between quantities. Adding an
+    item twice goes to the line already there.
+  - **Pasting from Excel:** rows with a code or name and a quantity, pasted
+    into "Add an item" (or anywhere in the sheet). Items not on the
+    material list are listed.
+  - **Quick fill:** for a return, everything on hire to the project, with
+    its quantities. For a receipt or count, a whole category. For a count,
+    every item we hold.
+  - **Counts** show the change against the yard as you type. Only the
+    differences are saved.
+  - **Saving:** "Save 12 Items", or ⌘Return. The batch is saved together:
+    one entry in History, removed together, one ⌘Z.
+- **Stocktake.** "Stocktake" puts a **Counted** box on every row of the
+  list. Type the counts, moving with ↑ ↓ or Return. A bar at the bottom
+  shows how many are counted, more or fewer. **Save Count** records them
+  all as one stock count.
+- **Stock tab.**
+  - Items are grouped by category. Each category folds away, its header
+    has its totals, and folded ones are remembered.
+  - Each row shows in the yard, on hire and owned, a small yard/hire bar
+    with the % on hire, and the weight owned.
+  - Click an item (or Return on it) and it unfolds to show where it's on
+    hire, its recent history, and Receive / Return / Count / Write Off. Its
+    return quantity is filled in from the project it's at.
+  - Filters: search (/), All / SP / SCAFOM / Other, and "Only items we
+    hold".
+- **On Hire.** By site, then project, the items as chips with their
+  quantities, and a **Return…** that fills in everything on hire there.
+- **History.** By day. Things recorded together are one card (kind
+  colour and icon, reference, project, net total), and they unfold to
+  their lines. Filters: All, Received, Returned, Counts, Written off,
+  Delivered. Manual entries can be removed (⌘Z puts them back);
+  delivery-note ones change with the delivery note.
+- **Totals:**
+  - items held, pieces in the yard, pieces on hire and the weight owned;
+  - they count up when they change;
+  - with a bar of yard against hire.
+- **Small animations:** cards rise in, the tab underline and the kind switch
+  slide, lines slide in and out, items and categories unfold, the
+  stocktake bar springs up, and "Saved" rises in. All of them are off with
+  Reduce Motion.
+- **Shortcuts:** N to Record Stock, / to search.
+- **Export:** what's shown to Excel (the list, on hire, or history).
+- **Manual:** the Stock chapter and the Settings figure are redone with
+  new screenshots.

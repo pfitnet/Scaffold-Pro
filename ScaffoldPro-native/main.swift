@@ -11472,6 +11472,19 @@ struct StockMovement: Codable {
     var reference: String?
     var notes: String?
     var createdAt: String
+    /// Lines recorded together on the Stock page (one receipt, one return,
+    /// one stock count) share an id, so they're shown and removed together.
+    var batchId: String? = nil
+}
+
+/// What a batch from the Stock page came to.
+struct StockBatchResult: Codable {
+    var ok: Bool
+    var error: String?
+    /// Lines saved, and lines left out (a count that matched; an unknown item).
+    var saved: Int
+    var skipped: [String]
+    var batchId: String?
 }
 
 struct ProjectRef: Codable {
@@ -11803,6 +11816,85 @@ extension AppDatabase {
             itemKey: key, priceListItemId: plId, itemCode: code, itemDescription: name, unit: unit.isEmpty ? "pc" : unit,
             quantity: quantity, projectId: kind == "Return" ? projectId : nil, deliveryNoteId: nil,
             reference: nonBlank(payload["reference"] as? String), notes: nonBlank(payload["notes"] as? String), createdAt: nowISO()))
+        return nil
+    }
+
+    /// Many lines at once from the Stock page: one kind ("Purchase",
+    /// "Return", "WriteOff", "Count", "Opening"), one date, reference, notes
+    /// and (for a return) project, and its lines [{ priceListItemId,
+    /// itemCode, itemDescription, unit, quantity }]. Saved together, as one
+    /// batch (one step to undo); a count records only the differences.
+    func addStockMovements(_ payload: [String: Any]) -> StockBatchResult {
+        let kind = (payload["kind"] as? String) ?? ""
+        guard ["Opening", "Purchase", "Return", "WriteOff", "Count"].contains(kind) else {
+            return StockBatchResult(ok: false, error: "Choose what kind of stock change this is.", saved: 0, skipped: [], batchId: nil)
+        }
+        let lines = (payload["lines"] as? [[String: Any]]) ?? []
+        guard !lines.isEmpty else { return StockBatchResult(ok: false, error: "Add at least one item.", saved: 0, skipped: [], batchId: nil) }
+        let projectId = nonBlank(payload["projectId"] as? String)
+        if kind == "Return" {
+            guard let p = projectId, projectsStore.readAll().contains(where: { $0.id == p }) else {
+                return StockBatchResult(ok: false, error: "Choose the project the items came back from.", saved: 0, skipped: [], batchId: nil)
+            }
+        }
+        let date = validDay(payload["date"] as? String) ?? todayYMD()
+        let reference = nonBlank(payload["reference"] as? String)
+        let notes = nonBlank(payload["notes"] as? String)
+        let existing = stockMovementsStore.readAll()
+        var inYard: [String: Double] = [:]
+        for m in existing { inYard[m.itemKey, default: 0] += m.quantity }
+        let batchId = makeId("batch")
+        var made: [StockMovement] = []
+        var skipped: [String] = []
+        var seen = Set<String>()
+        for line in lines {
+            let plId = nonBlank(line["priceListItemId"] as? String)
+            var code = ((line["itemCode"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            var name = ((line["itemDescription"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            var unit = ((line["unit"] as? String) ?? "pc").trimmingCharacters(in: .whitespaces)
+            if let plId = plId, let pl = priceListItem(id: plId) { code = pl.itemCode; name = pl.itemName; unit = pl.unit }
+            guard !name.isEmpty else { skipped.append("A line without an item"); continue }
+            let key = AppDatabase.stockKey(priceListItemId: plId, itemCode: code, description: name)
+            // The same item twice in one batch: added together (a count keeps the last).
+            let value = ((line["quantity"] as? Double) ?? Double((line["quantity"] as? Int) ?? -1)).rounded()
+            var quantity: Double
+            switch kind {
+            case "Count":
+                guard value >= 0 else { skipped.append("\(name): no count"); continue }
+                if seen.contains(key) { made.removeAll { $0.itemKey == key } }
+                quantity = value - (inYard[key] ?? 0)
+                guard abs(quantity) > 0.0001 else { skipped.append("\(name): count matches"); seen.insert(key); continue }
+            case "WriteOff":
+                guard value > 0 else { skipped.append("\(name): no quantity"); continue }
+                quantity = -value
+            default:
+                guard value > 0 else { skipped.append("\(name): no quantity"); continue }
+                quantity = value
+            }
+            seen.insert(key)
+            made.append(StockMovement(
+                id: makeId("stock"), date: date, kind: kind == "Count" ? "Adjustment" : kind,
+                itemKey: key, priceListItemId: plId, itemCode: code, itemDescription: name, unit: unit.isEmpty ? "pc" : unit,
+                quantity: quantity, projectId: kind == "Return" ? projectId : nil, deliveryNoteId: nil,
+                reference: reference, notes: notes, createdAt: nowISO(), batchId: batchId))
+        }
+        guard !made.isEmpty else {
+            return StockBatchResult(ok: false, error: kind == "Count" ? "Every count matches the stock already — nothing to change." : "Enter a quantity for at least one item.",
+                                    saved: 0, skipped: skipped, batchId: nil)
+        }
+        stockMovementsStore.writeAll(existing + made)
+        let label = ["Opening": "Opening stock", "Purchase": "Stock received", "Return": "Stock returned", "WriteOff": "Stock written off", "Count": "Stock count"][kind] ?? "Stock"
+        logActivity(projectId: kind == "Return" ? projectId : nil, "\(label) — \(made.count) item\(made.count == 1 ? "" : "s")", reference: reference)
+        return StockBatchResult(ok: true, error: nil, saved: made.count, skipped: skipped, batchId: batchId)
+    }
+
+    /// A batch's lines removed together (not ones from delivery notes).
+    func deleteStockBatch(batchId: String) -> String? {
+        var all = stockMovementsStore.readAll()
+        let before = all.count
+        all.removeAll { $0.batchId == batchId && $0.deliveryNoteId == nil }
+        guard all.count != before else { return "Stock entry not found." }
+        stockMovementsStore.writeAll(all)
         return nil
     }
 
@@ -16503,6 +16595,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.stockData())
         case "stock:addMovement":
             let error = db.addStockMovement(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "stock:addMovements":
+            respond(id: id, encodable: db.addStockMovements(payload))
+        case "stock:deleteBatch":
+            let error = db.deleteStockBatch(batchId: (payload["batchId"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "stock:deleteMovement":
             let error = db.deleteStockMovement(id: (payload["id"] as? String) ?? "")
