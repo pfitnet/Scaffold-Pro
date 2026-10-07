@@ -223,15 +223,23 @@
       if (!rows.length) return none(ta.id === 'boqTerms-input' ? 'Not set — the quotations’ key terms are used' : 'Not set');
       const terms = rows.filter((r) => r.kind === 'term');
       const paras = rows.length - terms.length;
-      return terms.slice(0, 5).map((r) => `<span class="tag">${esc(r.label)}</span>`).join('')
-        + (terms.length > 5 ? `<span class="none">+${terms.length - 5} more</span>` : '')
-        + (paras ? ` <span class="none">${terms.length ? '· ' : ''}${plural(paras, 'paragraph')}</span>` : '');
+      // A short preview, as the terms print: the first few labels beside
+      // their wording (one line each), then how many more there are.
+      const first = (t) => String(t || '').split('\n')[0].trim();
+      const shown = terms.length > 4 ? 3 : terms.length;
+      const rest = [terms.length > shown ? plural(terms.length - shown, 'more term') : '', paras ? plural(paras, 'paragraph') : ''].filter(Boolean);
+      const lead = !terms.length ? rows.filter((r) => r.kind === 'para').slice(0, 1).map((r) => `<span class="st-para">${esc(first(r.text))}</span>`).join('') : '';
+      return `<span class="st-terms">${terms.slice(0, shown).map((r) => `<span class="st-term"><b>${esc(r.label)}</b><span>${esc(first(r.value)) || '—'}</span></span>`).join('')}${lead}${
+        rest.length ? `<span class="st-more">${terms.length ? '+ ' : ''}${rest.join(' · ')}</span>` : ''}</span>`;
     },
     rates() {
       const r = window.readDeliveryRates && document.getElementById('dr-kg-0') ? window.readDeliveryRates() : [];
       if (!r.length) return none('Not set');
-      return r.slice(0, 3).map((x) => `up to ${Number(x.upToKg).toLocaleString('en-US')} kg <b>HK$ ${Number(x.price).toLocaleString('en-US')}</b>`).join('<span class="arrow">·</span>')
-        + (r.length > 3 ? ` <span class="none">+${r.length - 3} more</span>` : '');
+      // A small rate table: the weights along the top, the price under each
+      // (a two-column list when the window is narrow; css/settings.css).
+      const shown = r.length > 6 ? 5 : r.length;
+      return `<span class="st-rates"><span class="st-rh">Up to</span><span class="st-rh">HK$</span>${r.slice(0, shown).map((x) => `<span class="st-rk">${Number(x.upToKg).toLocaleString('en-US')} kg</span><b>${Number(x.price).toLocaleString('en-US')}</b>`).join('')}${
+        r.length > shown ? `<span class="st-rk">…</span><span class="st-rmore">+${r.length - shown} more</span>` : ''}</span>`;
     },
     items() {
       const names = $$('#default-items-list tbody tr').map((tr) => {

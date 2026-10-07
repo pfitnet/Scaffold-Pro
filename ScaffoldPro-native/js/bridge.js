@@ -359,8 +359,11 @@
     stock: {
       data: () => callNative('stock:data'),
       addMovement: (movement) => callNative('stock:addMovement', movement),
-      // Many lines at once: { kind, date, reference, notes, projectId, lines: [{ priceListItemId, itemCode, itemDescription, unit, quantity }] }
+      // Many lines at once: { kind, date, reference, notes, projectId, deliveryNoteId (a return answering a signed
+      // delivery note), company (RentOut / RentBack), lines: [{ priceListItemId, itemCode, itemDescription, unit, quantity }] }
       addMovements: (batch) => callNative('stock:addMovements', batch),
+      // A signed delivery note's items still out: when to ask whether they're back.
+      returnCheck: (deliveryNoteId, date) => callNative('stock:returnCheck', { deliveryNoteId: deliveryNoteId, date: date }),
       deleteBatch: (batchId) => callNative('stock:deleteBatch', { batchId: batchId }),
       deleteMovement: (id) => callNative('stock:deleteMovement', { id: id }),
     },

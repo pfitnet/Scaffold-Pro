@@ -66,7 +66,7 @@
 
     /** Forgets the signed copy; the file itself stays in the folder. */
     async remove(id, number) {
-      const after = kind === 'deliveryNote' ? `it's no longer added after its invoice` : `${number} goes back on the Dashboard’s list of quotations waiting for a signed copy`;
+      const after = kind === 'deliveryNote' ? `it's no longer added after its invoice, and its items go back into the yard` : `${number} goes back on the Dashboard’s list of quotations waiting for a signed copy`;
       if (!await appConfirm(`Remove the signed copy from ${number}?\n\nThe file stays in the project’s ${folder} folder; ${after}.`)) return false;
       return report(await api().signedCopy(id, 'remove'));
     },
