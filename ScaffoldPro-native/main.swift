@@ -4987,6 +4987,27 @@ final class AppDatabase {
         return (activity, rows)
     }
 
+    /// Everyone's name colour for the sheet ("#RRGGBB"): the one chosen on
+    /// their User page, else the one the app works out from the name
+    /// (the same as js/sidebar.js personColor).
+    func sheetsPeopleColours() -> [String: String] {
+        let palette = ["#5B7DB1", "#B07A5E", "#5E8C6A", "#8E72A8", "#A8677C", "#4F8A8F", "#9A8458", "#6D6BA6", "#4E8472", "#A66A6A", "#6B7078", "#4F6F96"]
+        var chosen: [String: String] = [:]
+        for p in userProfilesStore.readAll() { chosen[p.name.lowercased()] = p.color }
+        var names = Set(teamNames())
+        for e in activityStore.readAll().suffix(2000) { if let by = nonBlank(e.by) { names.insert(by) } }
+        var out: [String: String] = [:]
+        for name in names {
+            let key = name.trimmingCharacters(in: .whitespaces).lowercased()
+            guard !key.isEmpty else { continue }
+            if let c = chosen[key], c.hasPrefix("#"), c.count == 7 { out[name] = c; continue }
+            var h: UInt32 = 0
+            for u in key.unicodeScalars { h = h &* 31 &+ u.value }
+            out[name] = palette[Int(h % UInt32(palette.count))]
+        }
+        return out
+    }
+
     /// A project's sub-projects for the sheet: its documents grouped by the
     /// number after the project code (BQ26212-001, Qt26212-001-s1,
     /// DN26212-001-2 and H26212-001 are all 26212-001), each with how far
@@ -13886,7 +13907,8 @@ final class GoogleSheetsSync {
               let url = defaults.string(forKey: Key.url).flatMap({ URL(string: $0) }) else { completion?(status()); return }
         running = true
         let payload = db.sheetsPayload(days: defaults.bool(forKey: Key.primed) ? 3 : 120)
-        post(to: url, body: ["secret": secret, "action": "sync", "activity": payload.activity, "projects": payload.projects]) { [weak self] json, error in
+        post(to: url, body: ["secret": secret, "action": "sync", "activity": payload.activity, "projects": payload.projects,
+                             "people": db.sheetsPeopleColours()]) { [weak self] json, error in
             guard let self = self else { return }
             self.running = false
             if let json = json {
