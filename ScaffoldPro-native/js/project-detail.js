@@ -253,7 +253,7 @@ async function refreshDeliveryNoteList() {
     tr.innerHTML = `${selections.delivery.cell(dn.id)}
       <td>${esc(dn.deliveryNoteNumber)}${dn.quotationNumber ? `<div class="sub">For ${esc(dn.quotationNumber)}</div>` : ''}${dn.invoiceNumbers && dn.invoiceNumbers.length
         ? `<div class="sub">Invoiced in ${esc(dn.invoiceNumbers.join(', '))}</div>` : ''}</td>
-      <td><span class="status-pill">${dn.status}</span></td>
+      <td><span class="status-pill">${dn.status}</span>${dn.signed ? ' <span class="status-pill pill-success" title="The copy signed on site is in the project’s Delivery Notes folder, and goes with its invoice">Signed</span>' : ''}</td>
       ${window.createdByCell(dn)}
       <td>${window.appDay(dn.deliveryDate)}</td>
       <td>${dn.itemCount}</td>`;

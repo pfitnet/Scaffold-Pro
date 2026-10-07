@@ -3626,3 +3626,30 @@ Every form control is now drawn by the app instead of macOS, on every page
   `js/manual-shots.js`, made together with the screenshots.
 - `install.sh` now copies `manual.html` into the app. The Go menu's
   "Material List" is now "Costs".
+
+## Batch 153 — Signed delivery notes, attached to their invoice
+
+- **Upload the signed delivery note.** Once a delivery note is issued, a
+  bar under its toolbar asks for the copy signed on site.
+  - **Upload Signed Copy…** takes a PDF, or a JPEG, PNG, HEIC or TIFF photo
+    or scan. A file can also be dropped onto the bar.
+  - The copy is kept as "DN26212-001 - Signed.pdf" in the project's
+    Delivery Notes folder.
+  - The bar then has Open, Locate File, Replace… and Remove (Remove
+    forgets it; the file stays in the folder).
+  - The project's Delivery Notes list shows a green **Signed** tag.
+- **Attached to its invoice.** The signed copies of the delivery notes an
+  invoice bills are added after the invoice's own pages. This happens in
+  Export PDF (and its preview), Print, and Select › Export PDF. The Word
+  copy stays the invoice alone.
+- **In the invoice editor**, an invoice made from delivery notes lists them
+  under **Signed delivery notes**:
+  - each one's signed copy, with Open;
+  - for one not signed yet, Upload Signed Copy…, or drop the file on its
+    row;
+  - how many are attached.
+- Quotations and delivery notes share the same upload code now
+  (`storeSignedCopy`, `window.signedCopyFor(kind)`). Routes:
+  `deliveryNotes:uploadSigned`, `saveSignedFile`, `signedCopy`. The data is
+  `DeliveryNote.signedCopyPath` / `signedCopyAt`.
+- The User Manual's Delivery notes and Invoices chapters cover it.

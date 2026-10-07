@@ -28,40 +28,47 @@
     return true;
   }
 
-  window.signedCopy = {
+  // The same for a quotation (the client's signed copy) or a delivery note
+  // (signed on site): window.signedCopy is the quotations' one.
+  function make(kind) {
+  const api = () => (kind === 'deliveryNote' ? window.api.deliveryNotes : window.api.quotations);
+  const noun = kind === 'deliveryNote' ? 'delivery note' : 'quotation';
+  const folder = kind === 'deliveryNote' ? 'Delivery Notes' : 'Quotations';
+  return {
     /** Choose the file in a panel. Resolves to true once it's saved. */
     async upload(id) {
-      return report(await window.api.quotations.uploadSigned(id));
+      return report(await api().uploadSigned(id));
     },
 
     /** A file dropped onto the page. */
     async fromFile(id, file) {
       const ext = (file.name.split('.').pop() || '').toLowerCase();
       if (!EXTENSIONS.includes(ext)) {
-        alert('Use a PDF, or a photo or scan (JPEG, PNG, HEIC or TIFF), of the signed quotation.');
+        alert(`Use a PDF, or a photo or scan (JPEG, PNG, HEIC or TIFF), of the signed ${noun}.`);
         return false;
       }
       if (file.size > MAX_BYTES) {
         alert('That file is very large. Use “Upload Signed Copy…” to choose it instead.');
         return false;
       }
-      return report(await window.api.quotations.saveSignedFile(id, file.name, await base64Of(file)));
+      return report(await api().saveSignedFile(id, file.name, await base64Of(file)));
     },
 
     async open(id) {
-      const r = await window.api.quotations.signedCopy(id, 'open');
+      const r = await api().signedCopy(id, 'open');
       if (r && !r.ok) alert(r.error);
     },
 
     async reveal(id) {
-      const r = await window.api.quotations.signedCopy(id, 'reveal');
+      const r = await api().signedCopy(id, 'reveal');
       if (r && !r.ok) alert(r.error);
     },
 
     /** Forgets the signed copy; the file itself stays in the folder. */
     async remove(id, number) {
-      if (!await appConfirm(`Remove the signed copy from ${number}?\n\nThe file stays in the project’s Quotations folder; ${number} goes back on the Dashboard’s list of quotations waiting for a signed copy.`)) return false;
-      return report(await window.api.quotations.signedCopy(id, 'remove'));
+      const after = kind === 'deliveryNote' ? `it's no longer added after its invoice` : `${number} goes back on the Dashboard’s list of quotations waiting for a signed copy`;
+      if (!await appConfirm(`Remove the signed copy from ${number}?\n\nThe file stays in the project’s ${folder} folder; ${after}.`)) return false;
+      return report(await api().signedCopy(id, 'remove'));
     },
 
     /** Takes it off (or puts it back on) the Dashboard's reminder. */
@@ -95,12 +102,15 @@
         const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
         if (!file) return;
         el.classList.add('drop-saving');
-        const ok = await window.signedCopy.fromFile(id, file);
+        const ok = await this.fromFile(id, file);
         el.classList.remove('drop-saving');
         if (ok && done) await done();
       });
     },
   };
+  }
+  window.signedCopy = make('quotation');
+  window.signedCopyFor = make;
 
   // A file dropped anywhere else would open in place of the app's page.
   window.addEventListener('dragover', (e) => e.preventDefault());

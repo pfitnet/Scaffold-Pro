@@ -565,6 +565,17 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 }
 .signed-bar.signed-done { border-style: solid; }
 .signed-bar .signed-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+/* An invoice's delivery notes and their signed copies (js/dn-signed.js). */
+.dn-signed-list { border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); background: var(--panel); padding: 10px 14px; margin: 0 0 14px; }
+.dn-signed-list .dns-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 6px; }
+.dn-signed-list .dns-head b { font-size: 13px; }
+.dns-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; border: 1px dashed transparent; transition: background .15s, border-color .15s; }
+.dns-row + .dns-row { border-top: 1px solid var(--hairline); }
+.dns-row a { text-decoration: none; color: var(--text); min-width: 120px; }
+.dns-row .dns-file { flex: 1; min-width: 0; font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dns-row .dns-actions { display: flex; gap: 6px; }
+.dns-row.drop-over { border-color: var(--accent); background: var(--accent-soft); }
+.dns-row.drop-saving { opacity: .6; }
 .drop-over { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-soft, rgba(0, 122, 255, 0.08)) !important; }
 .drop-saving { opacity: 0.6; pointer-events: none; }
 .muted { color: var(--text-secondary); }
