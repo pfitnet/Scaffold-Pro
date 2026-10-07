@@ -599,7 +599,7 @@ async function init() {
     setSettingsDirty(true);
   });
   // Typing in the form (not the sharing or backup controls further down).
-  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access')) setSettingsDirty(true); };
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access, #google-sheets')) setSettingsDirty(true); };
   document.getElementById('content').addEventListener('input', markDirty);
   document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {

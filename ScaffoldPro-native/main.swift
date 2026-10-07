@@ -4881,6 +4881,82 @@ final class AppDatabase {
             }
     }
 
+    // ---- Google Sheets (Settings › Google Sheets; GoogleSheetsSync) ----
+
+    /// What the sheet is sent: the history of the last `days` days (the
+    /// sheet skips what it already has) and every project as a row.
+    func sheetsPayload(days: Int) -> (activity: [[String: Any]], projects: [[String: Any]]) {
+        let projects = projectsStore.readAll()
+        let byId = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
+        let sites = Dictionary(sitesStore.readAll().map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        let cutoff = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-Double(days) * 86400))
+        let all = activityStore.readAll()
+        var last: [String: ActivityEntry] = [:]
+        for e in all {
+            guard let pid = e.projectId else { continue }
+            if (last[pid]?.createdAt ?? "") < e.createdAt { last[pid] = e }
+        }
+        let recent = all.filter { $0.createdAt >= cutoff }.sorted { $0.createdAt > $1.createdAt }.prefix(3000)
+        let activity: [[String: Any]] = recent.map { e in
+            let p = e.projectId.flatMap { byId[$0] }
+            return ["id": e.id, "when": e.createdAt, "who": e.by ?? "", "project": p?.projectNumber ?? "", "projectName": p?.name ?? "",
+                    "what": e.action, "reference": e.reference ?? "", "from": e.device == "google-sheets" ? "Google Sheets" : "ScaffoldPro"]
+        }
+        let rows: [[String: Any]] = projects.map { p in
+            ["id": p.id, "number": p.projectNumber, "name": p.name, "client": clients[p.clientId] ?? "", "site": sites[p.siteId] ?? "",
+             "status": p.status, "projectManager": p.projectManager ?? "", "internalNotes": p.internalNotes ?? "",
+             "lastActivity": last[p.id]?.createdAt ?? "", "lastBy": last[p.id]?.by ?? ""]
+        }
+        return (activity, rows)
+    }
+
+    /// What was changed in the sheet: a project's status, manager or notes,
+    /// and lines typed into its Activity tab. Noted in the history as done
+    /// in Google Sheets. → how many were taken in.
+    func applySheetChanges(_ changes: [[String: Any]], activity: [[String: Any]]) -> Int {
+        var projects = projectsStore.readAll()
+        var notes: [(String, String)] = []
+        for c in changes {
+            guard let pid = c["projectId"] as? String, let field = c["field"] as? String,
+                  let i = projects.firstIndex(where: { $0.id == pid }) else { continue }
+            let value = ((c["value"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            switch field {
+            case "status":
+                guard !value.isEmpty, value != projects[i].status else { continue }
+                notes.append((pid, "Status changed to \(value)"))
+                projects[i].status = value
+            case "projectManager":
+                guard value != (projects[i].projectManager ?? "") else { continue }
+                projects[i].projectManager = nonBlank(value)
+                notes.append((pid, value.isEmpty ? "Project manager cleared" : "Project manager set to \(value)"))
+            case "internalNotes":
+                guard value != (projects[i].internalNotes ?? "") else { continue }
+                projects[i].internalNotes = nonBlank(value)
+                notes.append((pid, "Notes edited"))
+            default:
+                continue
+            }
+        }
+        if !notes.isEmpty { projectsStore.writeAll(projects) }
+        for (pid, what) in notes {
+            activityStore.insert(ActivityEntry(id: makeId("act"), projectId: pid, action: what, reference: "in Google Sheets", createdAt: nowISO(),
+                                               by: "Google Sheets", device: "google-sheets"))
+        }
+        var typed = 0
+        let known = Set(activityStore.readAll().map { $0.id })
+        for a in activity {
+            guard let id = a["id"] as? String, !known.contains(id), let what = nonBlank(a["what"] as? String) else { continue }
+            let number = nonBlank(a["project"] as? String)
+            let pid = number.flatMap { n in projects.first { $0.projectNumber == n }?.id }
+            activityStore.insert(ActivityEntry(id: id, projectId: pid, action: what, reference: nonBlank(a["reference"] as? String),
+                                               createdAt: nonBlank(a["when"] as? String) ?? nowISO(),
+                                               by: nonBlank(a["who"] as? String) ?? "Google Sheets", device: "google-sheets"))
+            typed += 1
+        }
+        return notes.count + typed
+    }
+
     private func text(_ payload: [String: Any], _ key: String) -> String? {
         guard let v = (payload[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !v.isEmpty else { return nil }
         return v
@@ -13476,6 +13552,169 @@ struct CloudBackupStatus: Codable {
     var running: Bool
 }
 
+/// Settings › Google Sheets: a Google Sheet kept as an overview of who did
+/// what, and when — its Activity and Projects tabs — through the Apps
+/// Script in resources/google-sheets/ScaffoldPro.gs. About every minute
+/// (and soon after anything is saved) this Mac sends the last few days'
+/// history and every project, and takes back what was changed in the
+/// sheet: a project's status, manager or notes, and lines typed into
+/// Activity. It's set up on one Mac (kept in that Mac's settings), so the
+/// sheet is kept up to date from one place.
+struct GoogleSheetsStatus: Codable {
+    var linked: Bool
+    var url: String?
+    var sheetName: String?
+    var sheetURL: String?
+    var lastSyncAt: String?
+    var lastError: String?
+    /// Changes from the sheet taken in at the last sync that had any.
+    var lastTakenIn: Int?
+    var lastTakenInAt: String?
+    var running: Bool
+}
+
+final class GoogleSheetsSync {
+    private let db: AppDatabase
+    private let defaults = UserDefaults.standard
+    private enum Key {
+        static let url = "googleSheets.url"
+        static let secret = "googleSheets.secret"
+        static let name = "googleSheets.name"
+        static let sheetURL = "googleSheets.sheetURL"
+        static let lastSync = "googleSheets.lastSync"
+        static let lastError = "googleSheets.lastError"
+        static let takenIn = "googleSheets.takenIn"
+        static let takenInAt = "googleSheets.takenInAt"
+        /// The first sync sends months of history; later ones a few days.
+        static let primed = "googleSheets.primed"
+    }
+    private var timer: Timer?
+    private var pending: DispatchWorkItem?
+    private var running = false
+    /// After the sheet's changes are taken in (the page shows them).
+    var onChangesTakenIn: (() -> Void)?
+
+    init(db: AppDatabase) { self.db = db }
+
+    var isLinked: Bool { defaults.string(forKey: Key.url) != nil && defaults.string(forKey: Key.secret) != nil }
+
+    func status() -> GoogleSheetsStatus {
+        let iso: (String) -> String? = { key in
+            (self.defaults.object(forKey: key) as? Double).map { ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: $0)) }
+        }
+        return GoogleSheetsStatus(linked: isLinked, url: defaults.string(forKey: Key.url), sheetName: defaults.string(forKey: Key.name),
+                                  sheetURL: defaults.string(forKey: Key.sheetURL), lastSyncAt: iso(Key.lastSync),
+                                  lastError: defaults.string(forKey: Key.lastError), lastTakenIn: defaults.object(forKey: Key.takenIn) as? Int,
+                                  lastTakenInAt: iso(Key.takenInAt), running: running)
+    }
+
+    /// Starts syncing (main thread): every minute, and 20 seconds after a save.
+    func start() {
+        NotificationCenter.default.addObserver(forName: CloudBackupManager.dataSaved, object: nil, queue: .main) { [weak self] _ in
+            self?.schedule(after: 20)
+        }
+        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.syncNow() }
+        schedule(after: 15)
+    }
+
+    func schedule(after seconds: TimeInterval) {
+        guard isLinked else { return }
+        pending?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.syncNow() }
+        pending = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
+    /// Checks the Web app URL and secret with the sheet, then keeps them.
+    func link(url rawURL: String, secret rawSecret: String, completion: @escaping (SimpleResult) -> Void) {
+        let text = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secret = rawSecret.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: text), url.scheme == "https", url.host == "script.google.com" else {
+            completion(SimpleResult(ok: false, error: "Paste the Web app URL from the sheet’s Deploy › New deployment — it starts with https://script.google.com/."))
+            return
+        }
+        guard !secret.isEmpty else { completion(SimpleResult(ok: false, error: "Paste the connection secret too (in the sheet: ScaffoldPro › Connection secret).")); return }
+        post(to: url, body: ["secret": secret, "action": "ping"]) { [weak self] json, error in
+            guard let self = self else { return }
+            guard let json = json else { completion(SimpleResult(ok: false, error: error)); return }
+            self.defaults.set(text, forKey: Key.url)
+            self.defaults.set(secret, forKey: Key.secret)
+            self.defaults.set(json["name"] as? String, forKey: Key.name)
+            self.defaults.set(json["url"] as? String, forKey: Key.sheetURL)
+            self.defaults.removeObject(forKey: Key.primed)
+            self.defaults.removeObject(forKey: Key.lastError)
+            completion(SimpleResult(ok: true, error: nil))
+            self.syncNow()
+        }
+    }
+
+    func unlink() {
+        pending?.cancel()
+        for key in [Key.url, Key.secret, Key.name, Key.sheetURL, Key.lastSync, Key.lastError, Key.takenIn, Key.takenInAt, Key.primed] {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    /// Sends this Mac's history and projects, and takes in the sheet's changes (main thread).
+    func syncNow(completion: ((GoogleSheetsStatus) -> Void)? = nil) {
+        guard !running, let secret = defaults.string(forKey: Key.secret),
+              let url = defaults.string(forKey: Key.url).flatMap({ URL(string: $0) }) else { completion?(status()); return }
+        running = true
+        let payload = db.sheetsPayload(days: defaults.bool(forKey: Key.primed) ? 3 : 120)
+        post(to: url, body: ["secret": secret, "action": "sync", "activity": payload.activity, "projects": payload.projects]) { [weak self] json, error in
+            guard let self = self else { return }
+            self.running = false
+            if let json = json {
+                let taken = self.db.applySheetChanges((json["changes"] as? [[String: Any]]) ?? [], activity: (json["activity"] as? [[String: Any]]) ?? [])
+                let now = Date().timeIntervalSince1970
+                self.defaults.set(now, forKey: Key.lastSync)
+                self.defaults.set(true, forKey: Key.primed)
+                self.defaults.removeObject(forKey: Key.lastError)
+                if let name = json["name"] as? String { self.defaults.set(name, forKey: Key.name) }
+                if let link = json["url"] as? String { self.defaults.set(link, forKey: Key.sheetURL) }
+                if taken > 0 {
+                    self.defaults.set(taken, forKey: Key.takenIn)
+                    self.defaults.set(now, forKey: Key.takenInAt)
+                    self.onChangesTakenIn?()
+                }
+            } else {
+                self.defaults.set(error, forKey: Key.lastError)
+            }
+            completion?(self.status())
+        }
+    }
+
+    /// POSTs JSON to the Web app (Google answers through a redirect, which
+    /// is followed) → its reply when it says ok, or why not (main thread).
+    private func post(to url: URL, body: [String: Any], completion: @escaping ([String: Any]?, String?) -> Void) {
+        var request = URLRequest(url: url, timeoutInterval: 90)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            var reply: [String: Any]?
+            var message: String?
+            if let error = error {
+                message = "Google Sheets couldn’t be reached (\(error.localizedDescription))."
+            } else if let data = data, let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                if obj["ok"] as? Bool == true { reply = obj } else { message = (obj["error"] as? String) ?? "Google Sheets didn’t accept it." }
+            } else {
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                message = code == 404
+                    ? "That Web app wasn’t found — copy the URL again from Deploy › Manage deployments."
+                    : "Google Sheets didn’t answer as expected. Check the deployment is a Web app with “Who has access” set to Anyone."
+            }
+            DispatchQueue.main.async { completion(reply, message) }
+        }.resume()
+    }
+
+    /// The Apps Script to paste into the sheet (bundled with the app).
+    static func script() -> String? {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("resources/google-sheets/ScaffoldPro.gs") else { return nil }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }
+}
+
 final class CloudBackupManager {
     /// Posted by every database save.
     static let dataSaved = Notification.Name("ScaffoldPro.dataSaved")
@@ -15237,6 +15476,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     let cloudBackup: CloudBackupManager
     /// While the files are in a shared folder: Documents › ScaffoldPro kept as a local copy.
     let localCopy: LocalCopyManager
+    /// Settings › Google Sheets: the overview sheet kept in step.
+    let sheets: GoogleSheetsSync
     /// Only one backup or restore may run at a time.
     private var backupInProgress = false
     /// A parsed-but-not-yet-applied price import, keyed by the preview's
@@ -15250,6 +15491,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         self.backups = BackupManager(db: db, storage: storage)
         self.cloudBackup = CloudBackupManager(db: db, storage: storage)
         self.localCopy = LocalCopyManager(db: db, storage: storage)
+        self.sheets = GoogleSheetsSync(db: db)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -15285,7 +15527,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                                   "adminDocuments:relink", "users:setName", "team:start", "team:join", "team:leave", "team:setName", "team:reveal",
                                   "projects:revealFolder", "letters:addAttachmentFiles"]
         if exact.contains(action) { return true }
-        return ["backup:", "cloudBackup:", "app:", "web:"].contains { action.hasPrefix($0) }
+        return ["backup:", "cloudBackup:", "app:", "web:", "sheets:"].contains { action.hasPrefix($0) }
     }
 
     /// Handles a browser's request as `person`.
@@ -16398,6 +16640,28 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 backupsFolder: storage.backupsRoot.path,
                 databaseFolder: db.dataDir.path
             ))
+        case "sheets:status":
+            respond(id: id, encodable: sheets.status())
+        case "sheets:link":
+            sheets.link(url: (payload["url"] as? String) ?? "", secret: (payload["secret"] as? String) ?? "") { [weak self] result in
+                self?.respond(id: id, encodable: result)
+            }
+        case "sheets:unlink":
+            sheets.unlink()
+            respond(id: id, encodable: sheets.status())
+        case "sheets:syncNow":
+            sheets.syncNow { [weak self] status in self?.respond(id: id, encodable: status) }
+        case "sheets:copyScript":
+            if let script = GoogleSheetsSync.script() {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(script, forType: .string)
+                respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+            } else {
+                respond(id: id, encodable: SimpleResult(ok: false, error: "The script wasn’t found in ScaffoldPro’s files."))
+            }
+        case "sheets:openSheet":
+            if let link = sheets.status().sheetURL, let url = URL(string: link) { NSWorkspace.shared.open(url) }
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
         case "cloudBackup:status":
             respond(id: id, encodable: cloudBackup.status())
         case "cloudBackup:setEnabled":
@@ -20453,6 +20717,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         bridge.cloudBackup.start()
         // Sharing a folder: Documents › ScaffoldPro kept up to date as a local copy.
         bridge.localCopy.start()
+        // Settings › Google Sheets: the overview sheet kept in step, both ways.
+        bridge.sheets.onChangesTakenIn = { [weak self] in
+            self?.bridge.sharedDataChanged(stores: ["projects.json", "activity.json"], names: ["Google Sheets"])
+        }
+        bridge.sheets.start()
         // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept a week).
         bridge.startScheduledBackups()
         // If the last update couldn't be put in place, say why.

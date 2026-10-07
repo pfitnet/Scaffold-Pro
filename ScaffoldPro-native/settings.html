@@ -93,6 +93,24 @@
     .settings-section .settings-grid { max-width: none; }
     .settings-section .team-box, .settings-section .cloud-backup { background: var(--content, var(--bg)); }
     .settings-sections > .save-row { margin-top: 4px; }
+    /* Google Sheets (js/google-sheets.js) */
+    .gs-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin: 12px 0 4px; max-width: 780px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+    .gs-mark { width: 40px; height: 40px; flex: none; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: rgba(30, 142, 62, 0.1); }
+    .gs-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .gs-info b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gs-info span { font-size: 12.5px; color: var(--text-secondary); }
+    .gs-info span.bad { color: var(--danger); }
+    .gs-info span .gs-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--success); margin-right: 6px; vertical-align: 1px; }
+    .gs-info span.syncing .gs-dot { background: var(--accent); animation: gs-pulse 1s ease-in-out infinite; }
+    @keyframes gs-pulse { 50% { opacity: .3; } }
+    .gs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .gs-steps { list-style: none; padding: 0; margin: 14px 0 6px; max-width: 780px; display: flex; flex-direction: column; gap: 12px; }
+    .gs-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; line-height: 1.5; }
+    .gs-n { width: 22px; height: 22px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); margin-top: 1px; }
+    .gs-steps li > div { flex: 1; min-width: 0; }
+    .gs-inline { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .gs-form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px 12px; margin-top: 8px; max-width: 720px; }
+    .gs-form input { width: 100%; }
   </style>
 </head>
 <body data-page="settings">
@@ -343,6 +361,40 @@
         </div>
       </details>
 
+      <details class="settings-section" id="google-sheets">
+        <summary><span class="section-title">Google Sheets</span><span class="section-desc">An overview of who did what, and when — kept in step with ScaffoldPro both ways</span></summary>
+        <div class="section-body gs-body">
+          <p class="small-note" style="max-width:780px;">A Google Sheet with three tabs: <b>Overview</b> (who has done how much this week, projects by status, the latest work), <b>Activity</b> (everything done in ScaffoldPro, newest first) and <b>Projects</b>. Change a project's <b>Status</b>, <b>Project Manager</b> or <b>Notes</b> in the sheet and ScaffoldPro is updated; change them here and the sheet is. A line typed into Activity (e.g. “Site visit — checked ties”) is added to ScaffoldPro's history. It syncs about every minute while ScaffoldPro is open on this Mac.</p>
+          <div class="gs-linked hidden" id="gs-linked">
+            <div class="gs-card">
+              <div class="gs-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="2.5" width="16" height="19" rx="2.5" fill="#1e8e3e"/><path d="M8 9h8M8 12.5h8M8 16h8M11.5 9v7" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+              <div class="gs-info"><b id="gs-name">Google Sheet</b><span id="gs-state">—</span></div>
+              <div class="gs-actions">
+                <button id="gs-open" data-no-icon>Open Sheet</button>
+                <button id="gs-sync" data-no-icon>Sync Now</button>
+                <button id="gs-unlink" class="danger-btn" data-no-icon>Disconnect…</button>
+              </div>
+            </div>
+          </div>
+          <div class="gs-setup" id="gs-setup">
+            <ol class="gs-steps">
+              <li><span class="gs-n">1</span><div><b>Make a Google Sheet</b> (sheets.new) and name it, e.g. “ScaffoldPro Overview”. Share it with whoever should see it.</div></li>
+              <li><span class="gs-n">2</span><div>In the sheet: <b>Extensions › Apps Script</b>. Delete what's there and paste ScaffoldPro's script, then save.
+                <div class="gs-inline"><button id="gs-copy" data-no-icon>Copy Script</button><span class="small-note" id="gs-copied"></span></div></div></li>
+              <li><span class="gs-n">3</span><div>Choose <b>setup</b> at the top and press <b>Run</b> (allow it to use the sheet). It makes the tabs and shows a <b>connection secret</b>.</div></li>
+              <li><span class="gs-n">4</span><div><b>Deploy › New deployment</b> › type <b>Web app</b>. Execute as: <b>Me</b>; Who has access: <b>Anyone</b>. Deploy and copy the <b>Web app URL</b>.</div></li>
+              <li><span class="gs-n">5</span><div>Paste both here and press Connect.
+                <div class="gs-form">
+                  <div class="field"><label for="gs-url">Web app URL</label><input type="text" id="gs-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false" /></div>
+                  <div class="field"><label for="gs-secret">Connection secret</label><input type="password" id="gs-secret" autocomplete="off" spellcheck="false" /></div>
+                </div>
+                <div class="gs-inline"><button class="primary" id="gs-connect" data-no-icon>Connect</button><span class="error-text hidden" id="gs-error"></span></div></div></li>
+            </ol>
+            <p class="small-note" style="max-width:780px;">Set it up on one Mac — the office Mac that's usually open — and that Mac keeps the sheet up to date for everyone. The URL and secret are kept on this Mac only.</p>
+          </div>
+        </div>
+      </details>
+
       <details class="settings-section" id="data-location">
         <summary><span class="section-title">Data Location</span><span class="section-desc">Where the files and database are kept</span></summary>
         <div class="section-body">
@@ -366,5 +418,6 @@
   <script src="js/paragraph-format.js"></script>
   <script src="js/delivery-rates.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/google-sheets.js"></script>
 </body>
 </html>
