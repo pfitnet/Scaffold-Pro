@@ -14,7 +14,8 @@
  * Setting it up (once):
  *   1. In the Google Sheet: Extensions › Apps Script. Replace everything there
  *      with this file and save.
- *   2. Choose "setup" at the top and press Run (allow it to use the sheet).
+ *   2. In the list next to Run / Debug, choose "setup" (not onOpen), then press
+ *      Run and allow it to use the sheet ("unverified app": Advanced › Go to …).
  *      It makes the tabs and shows the connection secret.
  *   3. Deploy › New deployment › Select type: Web app.
  *      Execute as: Me.   Who has access: Anyone.   Deploy, and copy the Web app URL.
@@ -36,14 +37,24 @@ const DATE_FORMAT = 'd mmm yyyy h:mm';
 
 // ---------------------------------------------------------------- setup
 
+// Runs by itself when the sheet is opened (adds the ScaffoldPro menu).
+// Run from the editor it has no sheet window to add to, so it does nothing:
+// choose "setup" in the list at the top instead.
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('ScaffoldPro')
-    .addItem('Connection secret', 'showSecret')
-    .addItem('Rebuild Overview tab', 'buildOverview_')
-    .addToUi();
+  try {
+    SpreadsheetApp.getUi().createMenu('ScaffoldPro')
+      .addItem('Connection secret', 'showSecret')
+      .addItem('Rebuild Overview tab', 'buildOverview_')
+      .addToUi();
+  } catch (e) {
+    Logger.log('onOpen runs by itself when the sheet opens. To set things up, choose "setup" in the list at the top and press Run.');
+  }
 }
 
 function setup() {
+  if (!SpreadsheetApp.getActive()) {
+    throw new Error('This script isn\'t attached to a Google Sheet. Open the sheet, choose Extensions › Apps Script there, and paste the script into that project.');
+  }
   const secret = secret_();
   ensureTabs_();
   buildOverview_();

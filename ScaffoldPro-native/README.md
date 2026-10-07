@@ -3653,3 +3653,15 @@ Every form control is now drawn by the app instead of macOS, on every page
   `deliveryNotes:uploadSigned`, `saveSignedFile`, `signedCopy`. The data is
   `DeliveryNote.signedCopyPath` / `signedCopyAt`.
 - The User Manual's Delivery notes and Invoices chapters cover it.
+
+## Batch 154 — Google Sheets script: clearer first run
+
+- Running **onOpen** from the Apps Script editor no longer stops with
+  "Cannot call SpreadsheetApp.getUi() from this context". onOpen runs by
+  itself when the sheet opens. From the editor it now just logs that
+  **setup** is the one to run.
+- **setup** says plainly when the script isn't attached to a sheet (made at
+  script.google.com instead of the sheet's Extensions › Apps Script).
+- The steps in the script and in Settings › Google Sheets now say to choose
+  "setup" (not onOpen) in the list next to Run. They also cover Google's
+  "unverified app" screen (Advanced › Go to …).
