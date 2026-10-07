@@ -34,5 +34,7 @@
     <string>public.app-category.business</string>
     <key>NSHumanReadableCopyright</key>
     <string>Local business application. Not distributed.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>ScaffoldPro sends your changes straight to the other Macs in your office sharing the same folder, so they see them in a second, and serves ScaffoldPro Web to browsers.</string>
 </dict>
 </plist>
