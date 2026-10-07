@@ -3752,3 +3752,49 @@ Checked against the live sheet, which was syncing on the first layout with
   sheet moves to the new layout, these lines are dropped from its Activity
   tab too.
 - The empty **Sheet1** tab a new spreadsheet comes with is removed.
+
+## Batch 159 — Google Sheets: the Projects tab at a glance
+
+The second layout was hard to read: wrapped three-line rows, every
+sub-project repeating its project's name, and "BQ26212-002 · Draft" in
+every cell. The Projects tab (layout 3) now reads left to right.
+
+- **One line per row.** Nothing wraps. A sub-project shows only its own
+  part of the name ("Rental - GL-18 …", not "Batch 3 of Materials -
+  Rental - GL-18 …"). A name too long for its cell shows in full on hover.
+  The Ref column shows "-001" under "26212".
+- **Progress cells: BOQ › Quotation › Delivery Note › Invoice.**
+  - Each cell shows the furthest any of its documents has got: Draft,
+    Issued / Sent, Signed or Accepted, Delivered, Paid, Overdue.
+    "(3)" means there are three, e.g. a quotation and its subsidiaries.
+  - A cell fills in with its document colour once the document has gone
+    out, and gets deeper once it's signed or paid. A draft is pale grey
+    text with no fill, and Overdue is red.
+  - Hover over a cell to see its document numbers and statuses.
+  - On a project's own line, each cell counts its sub-projects: "2 of 3"
+    quotations sent.
+- **Next Step**, in plain words: Finish the BOQ, Make the quotation, Send
+  the quotation, Waiting for the client, Deliver, Invoice it, Issue the
+  invoice, Waiting for payment, Chase payment (overdue), Done.
+  - On a project's line it's the most common next steps ("Send the
+    quotation ×3"). Hover lists them all.
+  - Waiting steps are grey italic, Done is green and overdue is red.
+- **Alignment.** Short cells (Ref, Stage, the progress cells, Letters,
+  Last Update) are centred. Every row is vertically centred and 26 px
+  high, and each project has a line above it. Last Update is short:
+  "7 Oct · William", with the year only for an earlier year.
+- **Letters** has one cell on the project's line. The sub-project lines
+  no longer repeat a Stage. The project's own Stage is still the editable
+  list.
+- **Folding.** A project whose sub-projects you fold away stays folded
+  through syncs. ScaffoldPro › Fold all projects / Unfold all projects.
+- **Activity** gets the same treatment: one line a row, When and Who
+  centred, the time in grey.
+- **Overview**: headings underlined, and numbers, times and names centred.
+- **Older ScaffoldPro versions.** The script itself now drops backups and
+  undo / redo lines. Moving to layout 3 also clears them out of an
+  existing Activity tab, even when the Mac sending them is still on an
+  older version. Sheet1 is removed only if it has nothing in it.
+- **To update the sheet:** Copy Script, paste it into Apps Script (keep
+  the SHEET_URL line), run setup, then use Deploy › Manage deployments ›
+  Edit › New version. The next sync rebuilds the Projects tab.
