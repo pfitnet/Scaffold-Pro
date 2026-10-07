@@ -2325,3 +2325,25 @@ th:hover .mp-prov-tools { opacity: 1; }
 .mp-saved { margin-left: 12px; font-size: 12px; color: var(--success, #2f9e5b); opacity: 0; transition: opacity .3s; }
 .mp-saved.on { opacity: 1; }
 #costs-tabs { margin-bottom: 16px; }
+
+/* A letter's attachments (js/letter-attachments.js). */
+.annex-panel { max-width: 860px; margin: 22px auto 40px; padding: 18px 20px; border-radius: var(--radius-lg); background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow-card); }
+.annex-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.annex-head h2 { margin: 0 0 2px; font-size: 16px; }
+.annex-head .small-note { margin: 0; max-width: 520px; }
+.annex-prefix { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.annex-prefix input { width: 120px; --control-h: 28px; font-weight: 600; }
+.annex-row { display: grid; grid-template-columns: auto 132px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px; border: 1px solid var(--hairline); border-radius: 12px; margin-bottom: 8px; animation: page-rise .3s var(--ease) both; }
+.annex-order { display: flex; flex-direction: column; gap: 2px; }
+.annex-order button { width: 22px; height: 18px; min-width: 0; padding: 0; font-size: 11px; border: none; box-shadow: none; background: none; color: var(--text-tertiary); border-radius: 5px; }
+.annex-order button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+.annex-label { font-weight: 800; font-size: 13px; letter-spacing: .02em; padding-top: 6px; font-variant-numeric: tabular-nums; }
+.annex-desc { width: 100%; }
+.annex-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.annex-file { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; background: var(--content, var(--bg)); overflow: hidden; }
+.annex-open { display: inline-flex; align-items: center; gap: 5px; height: 24px; min-width: 0; padding: 0 8px 0 9px; border: none; box-shadow: none; background: none; font-size: 12px; }
+.annex-file-x { width: 22px; height: 24px; min-width: 0; padding: 0; border: none; box-shadow: none; background: none; color: var(--text-tertiary); }
+.annex-file-x:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); box-shadow: none; }
+.annex-more { height: 24px; padding: 0 10px; font-size: 12px; border-radius: 999px; }
+.annex-nofiles, .annex-none { font-size: 12px; color: var(--text-tertiary); }
+.annex-add { margin-top: 6px; }

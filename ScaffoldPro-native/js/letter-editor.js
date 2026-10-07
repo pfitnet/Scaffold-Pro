@@ -39,6 +39,7 @@ async function loadDetail() {
   }
   document.getElementById('letter-page').classList.remove('hidden');
   render();
+  if (window.letterAttachments) window.letterAttachments.render(detail.letter);
 }
 
 function render() {

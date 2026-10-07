@@ -3447,3 +3447,26 @@ Every form control is now drawn by the app instead of macOS, on every page
   - Everything saves as it's typed.
 - Settings › Quotations now points to Costs › Manpower Rates instead of
   holding the table. The rates already set are kept.
+
+## Batch 147 — Letters: attachments with annexure cover pages
+
+- **Attachments** panel under a letter in its editor:
+  - **+ Add Attachment…** picks PDFs or pictures. Copies are kept with the
+    letter in the project's Letters folder (or Administration › Letters),
+    under "<letter number> Attachments".
+  - Each attachment is numbered in order (**ANNEXURE P.01, P.02…**), with
+    a line for what it is (e.g. "a detailed list of items for 1 unit of
+    Kroll K1400"). Its files show as chips: click to open, × to take one
+    off, + Files… to add more.
+  - ↑ / ↓ reorder the attachments, and the numbers follow.
+  - The numbering can be changed ("Numbered ANNEXURE P." → e.g. "ANNEX ").
+- **In the PDF:**
+  - Under the letter, an **Attachments:** list is printed:
+    "**ANNEXURE P.01 :** a detailed list of items…", lined up, with a long
+    description wrapping under itself.
+  - After the letter's pages, each annexure has a **cover page**: the
+    letterhead, who it's to (name, address, Attn.), Your Ref. and Date
+    (not Our Ref.), and the annexure's name large between two rules in
+    the middle of the page. Its files follow the cover.
+  - Page numbers carry on through the covers.
+- Export PDF on a letter shows the preview first (since Batch 145).
