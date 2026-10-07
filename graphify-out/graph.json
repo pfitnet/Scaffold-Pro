@@ -8372,7 +8372,7 @@
       "file_type": "code",
       "norm_label": "search()",
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L117"
+      "source_location": "L119"
     },
     {
       "id": "scaffoldpro_native_js_manual_toc",
@@ -8384,7 +8384,7 @@
       "file_type": "code",
       "norm_label": "toc()",
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L85"
+      "source_location": "L87"
     },
     {
       "id": "scaffoldpro_native_js_manual_zoom",
@@ -8396,7 +8396,7 @@
       "file_type": "code",
       "norm_label": "zoom()",
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L73"
+      "source_location": "L75"
     },
     {
       "id": "scaffoldpro_native_js_quotation_split_open",
@@ -13626,13 +13626,13 @@
             "callee": "addItem",
             "receiver_type": "NSMenu",
             "lang": "swift",
-            "line": "L21331"
+            "line": "L21339"
           }
         ]
       },
       "norm_label": ".addsubmenu()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21328"
+      "source_location": "L21336"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_afterlaunchanimation",
@@ -13696,7 +13696,7 @@
       "file_type": "code",
       "norm_label": ".appredo()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21349"
+      "source_location": "L21357"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_appundo",
@@ -13708,7 +13708,7 @@
       "file_type": "code",
       "norm_label": ".appundo()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21345"
+      "source_location": "L21353"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_askinpage",
@@ -13778,7 +13778,7 @@
       "file_type": "code",
       "norm_label": ".exportpdf()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21357"
+      "source_location": "L21365"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_goback",
@@ -13790,7 +13790,7 @@
       "file_type": "code",
       "norm_label": ".goback()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21365"
+      "source_location": "L21373"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_goforward",
@@ -13802,7 +13802,7 @@
       "file_type": "code",
       "norm_label": ".goforward()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21370"
+      "source_location": "L21378"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_gotopage",
@@ -13814,7 +13814,7 @@
       "file_type": "code",
       "norm_label": ".gotopage()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21339"
+      "source_location": "L21347"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_item",
@@ -13884,7 +13884,7 @@
       "file_type": "code",
       "norm_label": ".opensearch()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21353"
+      "source_location": "L21361"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_printdocument",
@@ -13896,7 +13896,7 @@
       "file_type": "code",
       "norm_label": ".printdocument()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21361"
+      "source_location": "L21369"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_registerbundledfonts",
@@ -13924,19 +13924,19 @@
             "callee": "makeKeyAndOrderFront",
             "receiver_type": "NSWindow",
             "lang": "swift",
-            "line": "L21335"
+            "line": "L21343"
           },
           {
             "callee": "evaluateJavaScript",
             "receiver_type": "WKWebView",
             "lang": "swift",
-            "line": "L21336"
+            "line": "L21344"
           }
         ]
       },
       "norm_label": ".runjs()",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21334"
+      "source_location": "L21342"
     },
     {
       "id": "scaffoldpro_native_main_appdelegate_setupmenubar",
@@ -45346,7 +45346,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L69",
+      "source_location": "L71",
       "weight": 1.0
     },
     {
@@ -78946,7 +78946,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21350",
+      "source_location": "L21358",
       "weight": 1.0
     },
     {
@@ -78958,7 +78958,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21346",
+      "source_location": "L21354",
       "weight": 1.0
     },
     {
@@ -79054,7 +79054,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21358",
+      "source_location": "L21366",
       "weight": 1.0
     },
     {
@@ -79162,7 +79162,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21367",
+      "source_location": "L21375",
       "weight": 1.0
     },
     {
@@ -79174,7 +79174,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21372",
+      "source_location": "L21380",
       "weight": 1.0
     },
     {
@@ -79186,7 +79186,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21342",
+      "source_location": "L21350",
       "weight": 1.0
     },
     {
@@ -79366,7 +79366,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21354",
+      "source_location": "L21362",
       "weight": 1.0
     },
     {
@@ -79378,7 +79378,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21362",
+      "source_location": "L21370",
       "weight": 1.0
     },
     {
@@ -101602,7 +101602,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L117",
+      "source_location": "L119",
       "weight": 1.0
     },
     {
@@ -101638,7 +101638,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L85",
+      "source_location": "L87",
       "weight": 1.0
     },
     {
@@ -114874,7 +114874,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21328",
+      "source_location": "L21336",
       "weight": 1.0
     },
     {
@@ -114886,7 +114886,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21328",
+      "source_location": "L21336",
       "weight": 1.0
     },
     {
@@ -114934,7 +114934,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21349",
+      "source_location": "L21357",
       "weight": 1.0
     },
     {
@@ -114946,7 +114946,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21345",
+      "source_location": "L21353",
       "weight": 1.0
     },
     {
@@ -115018,7 +115018,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21357",
+      "source_location": "L21365",
       "weight": 1.0
     },
     {
@@ -115030,7 +115030,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21365",
+      "source_location": "L21373",
       "weight": 1.0
     },
     {
@@ -115042,7 +115042,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21370",
+      "source_location": "L21378",
       "weight": 1.0
     },
     {
@@ -115054,7 +115054,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21339",
+      "source_location": "L21347",
       "weight": 1.0
     },
     {
@@ -115186,7 +115186,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21353",
+      "source_location": "L21361",
       "weight": 1.0
     },
     {
@@ -115198,7 +115198,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21361",
+      "source_location": "L21369",
       "weight": 1.0
     },
     {
@@ -115210,7 +115210,7 @@
       "confidence_score": 1.0,
       "context": "parameter_type",
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21334",
+      "source_location": "L21342",
       "weight": 1.0
     },
     {
@@ -133153,7 +133153,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/manual.js",
-      "source_location": "L73",
+      "source_location": "L75",
       "weight": 1.0
     },
     {
@@ -151094,7 +151094,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21328",
+      "source_location": "L21336",
       "weight": 1.0
     },
     {
@@ -151105,7 +151105,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21334",
+      "source_location": "L21342",
       "weight": 1.0
     },
     {
@@ -151116,7 +151116,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21339",
+      "source_location": "L21347",
       "weight": 1.0
     },
     {
@@ -151127,7 +151127,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21345",
+      "source_location": "L21353",
       "weight": 1.0
     },
     {
@@ -151138,7 +151138,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21349",
+      "source_location": "L21357",
       "weight": 1.0
     },
     {
@@ -151149,7 +151149,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21353",
+      "source_location": "L21361",
       "weight": 1.0
     },
     {
@@ -151160,7 +151160,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21357",
+      "source_location": "L21365",
       "weight": 1.0
     },
     {
@@ -151171,7 +151171,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21361",
+      "source_location": "L21369",
       "weight": 1.0
     },
     {
@@ -151182,7 +151182,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21365",
+      "source_location": "L21373",
       "weight": 1.0
     },
     {
@@ -151193,7 +151193,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/main.swift",
-      "source_location": "L21370",
+      "source_location": "L21378",
       "weight": 1.0
     },
     {
@@ -164676,5 +164676,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "c62a43e98f51812e1645c020c979fbc03c17866b"
+  "built_at_commit": "f34c7bc562aa59938c1ad5b4d6beaa9b374a5b0e"
 }
