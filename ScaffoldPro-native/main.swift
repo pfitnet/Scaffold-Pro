@@ -309,6 +309,66 @@ struct MarketingSummary: Codable {
     var references: [ProjectReference]
 }
 
+/// Marketing › Client Report: the quotations a client was sent in a period.
+struct ClientQuoteRow: Codable {
+    var id: String
+    var number: String
+    var date: String
+    var status: String
+    var projectNumber: String?
+    var projectName: String?
+    var subject: String?
+    var pricingMode: String?
+    var value: Double
+    var won: Bool
+}
+
+struct ClientQuoteReport: Codable {
+    var clientId: String?
+    var clientName: String
+    var from: String
+    var to: String
+    var currency: String
+    var rows: [ClientQuoteRow]
+    var total: Double
+    var wonCount: Int
+    var wonValue: Double
+}
+
+/// Marketing › Promotions: a campaign to win new work — who it's aimed at,
+/// the letter sent them, and how each answered.
+struct Promotion: Codable {
+    var id: String
+    var name: String
+    /// "Letter", "Email", "Visit", "Call" or "Event".
+    var channel: String
+    /// "Planning", "Running" or "Done".
+    var status: String
+    var goal: String?
+    /// The promotional letter: its "Re:" line and its body ({Company},
+    /// {Contact} are filled in for each one it's written for).
+    var subject: String?
+    var bodyHTML: String?
+    var targets: [PromoTarget]
+    var createdAt: String
+    var updatedAt: String
+}
+
+struct PromoTarget: Codable {
+    var id: String
+    /// "Lead", "Client" or "Other".
+    var kind: String
+    var refId: String?
+    var name: String
+    var contact: String?
+    var address: String?
+    /// "To Contact", "Sent", "Replied", "Meeting", "Won" or "Not Interested".
+    var status: String
+    var letterId: String?
+    var lastAt: String?
+    var note: String?
+}
+
 struct LeadSaveResult: Codable {
     var ok: Bool
     var error: String?
@@ -3405,6 +3465,7 @@ final class AppDatabase {
     let announcementsStore: JSONStore<Announcement>
     let signRequestsStore: JSONStore<SignRequest>
     let chatStore: JSONStore<ChatMessage>
+    let promotionsStore: JSONStore<Promotion>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -3445,6 +3506,7 @@ final class AppDatabase {
         announcementsStore = JSONStore(fileURL: dataDir.appendingPathComponent("announcements.json"))
         signRequestsStore = JSONStore(fileURL: dataDir.appendingPathComponent("sign_requests.json"))
         chatStore = JSONStore(fileURL: dataDir.appendingPathComponent("chat_messages.json"))
+        promotionsStore = JSONStore(fileURL: dataDir.appendingPathComponent("promotions.json"))
     }
 
     // ---- Document rows (client/site pages, Dashboard, search) ----
@@ -4070,6 +4132,96 @@ final class AppDatabase {
         leadsStore.writeAll(all)
         logActivity(projectId: nil, "Lead became a client", reference: l.company)
         return LeadSaveResult(ok: true, error: nil, id: client.id)
+    }
+
+    /// The quotations sent to a client (or everyone) between two days
+    /// (yyyy-MM-dd, both included): not drafts, cancelled ones or combined counts.
+    func clientQuoteReport(clientId: String?, from: String, to: String) -> ClientQuoteReport {
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let boqById = Dictionary(boqsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let invoiced = Set(invoicesStore.readAll().filter { $0.status != "Cancelled" && $0.status != "Draft" }.compactMap { $0.sourceQuotationId })
+        let qLines = Dictionary(grouping: quotationLineItemsStore.readAll(), by: { $0.quotationId })
+        var rows: [ClientQuoteRow] = []
+        var total = Decimal(0), wonValue = Decimal(0), wonCount = 0
+        for q in quotationsStore.readAll() where q.status != "Draft" && q.status != "Cancelled" {
+            if q.sourceBOQId.flatMap({ boqById[$0] }).map({ combinedSources($0) != nil }) ?? false { continue }
+            guard let project = projects[q.projectId] else { continue }
+            if let cid = clientId, project.clientId != cid { continue }
+            let day = String(q.quotationDate.prefix(10))
+            guard day >= from, day <= to else { continue }
+            let value = quotationMoney(q, lineItems: qLines[q.id] ?? []).total
+            let won = invoiced.contains(q.id) || (q.signedCopyPath.map { fileIsPresent($0) } ?? false)
+            rows.append(ClientQuoteRow(id: q.id, number: q.quotationNumber, date: day, status: q.status, projectNumber: project.projectNumber,
+                                       projectName: project.name, subject: nonBlank(q.subject), pricingMode: q.pricingMode, value: value, won: won))
+            total += decimalOf(value)
+            if won { wonCount += 1; wonValue += decimalOf(value) }
+        }
+        rows.sort { ($0.date, $0.number) < ($1.date, $1.number) }
+        let name = clientId.flatMap { cid in clientsStore.readAll().first { $0.id == cid }?.companyName } ?? "All clients"
+        return ClientQuoteReport(clientId: clientId, clientName: name, from: from, to: to, currency: getCompanySettings().currency,
+                                 rows: rows, total: doubleOf(total), wonCount: wonCount, wonValue: doubleOf(wonValue))
+    }
+
+    // ---- Promotions ----
+
+    func listPromotions() -> [Promotion] {
+        promotionsStore.readAll().sorted { ($0.status == "Done" ? 1 : 0, $1.updatedAt) < ($1.status == "Done" ? 1 : 0, $0.updatedAt) }
+    }
+
+    func savePromotion(_ payload: [String: Any]) -> Result<Promotion, WorkerError> {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload), var promo = try? JSONDecoder().decode(Promotion.self, from: data) else {
+            return .failure(WorkerError(message: "The campaign couldn’t be read."))
+        }
+        promo.name = promo.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !promo.name.isEmpty else { return .failure(WorkerError(message: "Give the campaign a name.")) }
+        var all = promotionsStore.readAll()
+        promo.updatedAt = nowISO()
+        if let i = all.firstIndex(where: { $0.id == promo.id }) {
+            all[i] = promo
+        } else {
+            if promo.id.isEmpty { promo.id = makeId("promo") }
+            promo.createdAt = nowISO()
+            all.append(promo)
+        }
+        promotionsStore.writeAll(all)
+        return .success(promo)
+    }
+
+    func deletePromotion(id: String) -> String? {
+        var all = promotionsStore.readAll()
+        all.removeAll { $0.id == id }
+        promotionsStore.writeAll(all)
+        return nil
+    }
+
+    /// A promotional letter for each chosen target that hasn't one yet:
+    /// numbered PL26-001… (no project), addressed to them, the campaign's
+    /// letter with {Company} and {Contact} filled in.
+    func writePromotionLetters(promotionId: String, targetIds: [String]) -> Result<Promotion, WorkerError> {
+        var all = promotionsStore.readAll()
+        guard let pi = all.firstIndex(where: { $0.id == promotionId }) else { return .failure(WorkerError(message: "Campaign not found.")) }
+        let esc: (String) -> String = { $0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;") }
+        let template = nonBlank(all[pi].bodyHTML) ?? "<p>Dear Sirs,</p><p><br></p>"
+        var made = 0
+        for ti in all[pi].targets.indices where targetIds.contains(all[pi].targets[ti].id) && all[pi].targets[ti].letterId == nil {
+            let t = all[pi].targets[ti]
+            let body = template.replacingOccurrences(of: "{Company}", with: esc(t.name))
+                .replacingOccurrences(of: "{Contact}", with: esc(nonBlank(t.contact) ?? "Sir / Madam"))
+            let number = nextDocumentNumber(template: "PL{YY}-{SEQ}", projectNumber: "", existing: lettersStore.readAll().map { $0.letterNumber })
+            let letter = Letter(id: makeId("letter"), letterNumber: number, projectId: nil, clientId: t.kind == "Client" ? t.refId : nil,
+                                status: "Draft", letterDate: nowISO(), recipientName: t.name, recipientAddress: nonBlank(t.address),
+                                attention: nonBlank(t.contact), yourRef: nil, subject: nonBlank(all[pi].subject), bodyHTML: body,
+                                pdfPath: nil, createdAt: nowISO(), updatedAt: nowISO())
+            lettersStore.insert(letter)
+            all[pi].targets[ti].letterId = letter.id
+            all[pi].targets[ti].lastAt = nowISO()
+            made += 1
+        }
+        guard made > 0 else { return .failure(WorkerError(message: "Everyone chosen already has a letter.")) }
+        all[pi].updatedAt = nowISO()
+        promotionsStore.writeAll(all)
+        logActivity(projectId: nil, "\(made) promotional letter\(made == 1 ? "" : "s") written", reference: all[pi].name)
+        return .success(all[pi])
     }
 
     func marketingSummary() -> MarketingSummary {
@@ -15864,6 +16016,30 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.calendarEvents(from: (payload["from"] as? String) ?? "", to: (payload["to"] as? String) ?? ""))
         case "marketing:summary":
             respond(id: id, encodable: db.marketingSummary())
+        case "marketing:clientReport":
+            respond(id: id, encodable: db.clientQuoteReport(clientId: nonBlank(payload["clientId"] as? String),
+                                                            from: (payload["from"] as? String) ?? "0000-00-00", to: (payload["to"] as? String) ?? "9999-99-99"))
+        case "marketing:clientReportPDF":
+            handleClientReportPDF(id: id, payload: payload)
+        case "promotions:list":
+            respond(id: id, encodable: db.listPromotions())
+        case "promotions:save":
+            switch db.savePromotion((payload["promotion"] as? [String: Any]) ?? [:]) {
+            case .success(let promo):
+                struct PromoResult: Encodable { var ok: Bool; var promotion: Promotion }
+                respond(id: id, encodable: PromoResult(ok: true, promotion: promo))
+            case .failure(let e): respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
+            }
+        case "promotions:delete":
+            let error = db.deletePromotion(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "promotions:writeLetters":
+            switch db.writePromotionLetters(promotionId: (payload["id"] as? String) ?? "", targetIds: (payload["targetIds"] as? [String]) ?? []) {
+            case .success(let promo):
+                struct PromoResult: Encodable { var ok: Bool; var promotion: Promotion }
+                respond(id: id, encodable: PromoResult(ok: true, promotion: promo))
+            case .failure(let e): respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
+            }
         case "marketing:leads":
             respond(id: id, encodable: db.listLeads())
         case "marketing:saveLead":
@@ -17004,6 +17180,53 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// (either or both), laid out like a quotation, with each item's unit
     /// weight and monthly rental (with the markup chosen) and no list
     /// names. Saved in the company folder's "Unit Rates" folder and opened.
+    /// Marketing › Client Report as a PDF on the letterhead.
+    private func handleClientReportPDF(id: String, payload: [String: Any]) {
+        let clientId = nonBlank(payload["clientId"] as? String)
+        let from = (payload["from"] as? String) ?? "0000-00-00", to = (payload["to"] as? String) ?? "9999-99-99"
+        let report = db.clientQuoteReport(clientId: clientId, from: from, to: to)
+        let company = db.getCompanySettings()
+        let client = clientId.flatMap { db.getClient(id: $0) }
+        let block = client.map { clientBlock($0) } ?? (name: report.clientName, lines: [])
+        let day: (String) -> String = { letterDate(isoFromDay($0) ?? $0) }
+        let period = "\(day(from)) – \(day(to))"
+        var rows: [LetterTableRow] = report.rows.enumerated().map { i, r in
+            let what = [r.projectNumber.map { "\($0) \(r.projectName ?? "")" }, r.subject].compactMap { $0 }.joined(separator: "\n")
+            return .item(["\(i + 1)", r.number + (r.won ? "\n(Accepted)" : ""), day(r.date), what, formatMoney(r.value)])
+        }
+        if rows.isEmpty { rows.append(.partial(["", "—"], tail: "No quotations were issued in this period.")) }
+        rows.append(.summary(label: "Total of \(report.rows.count) quotation\(report.rows.count == 1 ? "" : "s"):", value: formatMoney(report.total), emphasized: true))
+        if report.wonCount > 0 {
+            rows.append(.summary(label: "Of which accepted (\(report.wonCount)):", value: formatMoney(report.wonValue), emphasized: false))
+        }
+        let columns = [
+            LetterColumn(title: "No.", width: 29.25, kind: .center),
+            LetterColumn(title: "Quotation No.", width: 100.0, kind: .left),
+            LetterColumn(title: "Date", width: 76.0, kind: .center),
+            LetterColumn(title: "Project / Subject", width: 192.75, kind: .left),
+            LetterColumn(title: "Amount", width: 109.0, kind: .money),
+        ]
+        let letter = LetterDocument(
+            number: "Quotation Report", status: "Issued", title: "QUOTATIONS ISSUED",
+            clientName: block.name, clientLines: block.lines,
+            refRows: [("Period", period), ("Date", letterDate(nowISO()))],
+            deliveryMethod: nil, salutation: nil, subject: nil,
+            intro: "Quotations issued to \(report.clientName) from \(day(from)) to \(day(to)).",
+            currencySymbol: currencySymbol(company), columns: columns, rows: rows,
+            sections: [], signatures: [], closingLine: nil
+        )
+        guard let generator = PDFGenerator(paperSize: company.paperSize ?? "A4") else {
+            respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the report.", path: nil))
+            return
+        }
+        let data = generator.generate(letter)
+        let folder = storage.administrationCategoryFolder("Marketing Reports")
+        let safe = report.clientName.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let name = "Quotations Issued - \(safe) - \(from) to \(to).pdf"
+        showPreview(id: id, data: data, PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: "", subfolder: "", documentNumber: name,
+                                                       docTypeTag: "Marketing Report", fileName: name, folder: folder))
+    }
+
     private func handleExportUnitRates(id: String, payload: [String: Any]) {
         let ids = (payload["itemIds"] as? [String]) ?? []
         let markup = payload["markupPercent"] as? Double

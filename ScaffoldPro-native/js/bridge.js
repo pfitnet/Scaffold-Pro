@@ -421,6 +421,18 @@
       deleteLead: (id) => callNative('marketing:deleteLead', { id: id }),
       // Makes a client from the lead → { ok, error, id: the client's id }
       convertLead: (id) => callNative('marketing:convertLead', { id: id }),
+      // Quotations issued to a client (null: everyone) from–to (yyyy-MM-dd) → { rows, total, wonCount, wonValue, … }
+      clientReport: (clientId, from, to) => callNative('marketing:clientReport', { clientId: clientId || null, from: from, to: to }),
+      // The same as a PDF on the letterhead — shown in the preview first.
+      clientReportPDF: (clientId, from, to) => callNative('marketing:clientReportPDF', { clientId: clientId || null, from: from, to: to, preview: true }),
+    },
+    // Marketing › Promotions: campaigns, their targets, and their letters.
+    promotions: {
+      list: () => callNative('promotions:list'),
+      save: (promotion) => callNative('promotions:save', { promotion: promotion }),
+      remove: (id) => callNative('promotions:delete', { id: id }),
+      // A draft letter for each target given that hasn't one → { ok, promotion }
+      writeLetters: (id, targetIds) => callNative('promotions:writeLetters', { id: id, targetIds: targetIds }),
     },
     // This Mac's user: their page, and everyone's name colours.
     users: {
