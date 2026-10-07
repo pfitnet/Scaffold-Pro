@@ -221,6 +221,7 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
   background: linear-gradient(135deg, color-mix(in srgb, var(--pc) 85%, #fff), var(--pc));
   box-shadow: 0 0 0 2px var(--tk-card), 0 1px 3px rgba(0, 0, 0, .15); }
 .tk-avatar.anyone { color: var(--text-tertiary); background: none; border: 1.5px dashed color-mix(in srgb, var(--text-tertiary) 60%, transparent); box-shadow: none; font-size: 14px; }
+.tk-avatar.team { border-radius: 9px; }
 .tk-avatar.sm { width: 24px; height: 24px; font-size: 10px; }
 
 /* ---------- Day filter chip ---------- */

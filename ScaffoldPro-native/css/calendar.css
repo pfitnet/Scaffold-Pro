@@ -17,7 +17,8 @@
 .cs-chip b { font-weight: 700; font-variant-numeric: tabular-nums; }
 .cs-chip.overdue { --k: var(--danger); color: var(--danger); }
 @keyframes cs-pop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
-.cal-new { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; }
+.cal-hero-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: flex-end; }
+.cal-new, .cal-new-event { display: inline-flex; align-items: center; gap: 7px; }
 
 /* ---------- Toolbar ---------- */
 .cal-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -155,6 +156,17 @@
 .week-ev.done { opacity: .5; }
 .week-ev.done .we-title { text-decoration: line-through; }
 .week-ev.overdue { --k: var(--danger); }
+/* Events: a block from start to end, filled a little more than a to-do. */
+.week-ev.is-event .we-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.week-ev.short { padding: 2px 7px; flex-direction: row; gap: 6px; align-items: center; }
+.week-ev.short .we-top { flex: none; }
+.week-ev.short .we-top svg, .week-ev.short .we-sub { display: none; }
+/* Dragging out a new event. */
+.week-ghost { position: absolute; left: 3px; right: 3px; z-index: 4; border-radius: 9px; pointer-events: none; box-sizing: border-box;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); border: 1.5px dashed color-mix(in srgb, var(--accent) 65%, transparent);
+  padding: 4px 8px; font-size: 11px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.week-ghost.dragging { box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--accent) 70%, transparent); }
+.week-col { touch-action: none; user-select: none; }
 
 /* Now: faint across the week, strong (with the time) on today. */
 .now-rule { position: absolute; left: 58px; right: 0; height: 0; z-index: 4; pointer-events: none; border-top: 1px dashed color-mix(in srgb, var(--danger) 35%, transparent); }
@@ -205,6 +217,7 @@
 @keyframes ev-row-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .ev-item:hover { text-decoration: none; background: color-mix(in srgb, var(--k) 9%, transparent); transform: translateX(2px); }
 .ev-when { flex: none; width: 44px; padding-top: 4px; font-size: 11px; font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ev-when small { display: block; font-weight: 500; color: var(--text-tertiary); }
 .ev-icon { flex: none; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
   color: color-mix(in srgb, var(--k) 80%, var(--text)); background: color-mix(in srgb, var(--k) 15%, transparent); }
 .ev-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }

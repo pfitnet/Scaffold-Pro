@@ -26,14 +26,24 @@
     globe: '<circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2 2.2 2.8 4.5 2.8 7S12 14.8 10 17c-2-2.2-2.8-4.5-2.8-7S8 5.2 10 3z"/>',
     sheet: '<rect x="4" y="2.5" width="12" height="15" rx="1.8"/><path d="M7 7h6M7 10.5h6M7 14h6M10 7v7"/>',
     folder: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1v8.2a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>',
+    user: '<circle cx="10" cy="7" r="3.2"/><path d="M3.8 17c.8-3.2 3.2-5 6.2-5s5.4 1.8 6.2 5"/>',
+    tag: '<path d="M3 10V3.5h6.5L17 11l-6.5 6.5z"/><circle cx="6.8" cy="7" r="1.2"/>',
+    spark: '<path d="M10 2.5l1.6 4.4 4.4 1.6-4.4 1.6L10 14.5l-1.6-4.4L4 8.5l4.4-1.6zM15.5 13l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
   };
   const panes = $$('.st-pane');
   const navList = $('#st-nav-list');
   const KEY = 'scaffoldpro.settings.section';
 
   // ---- the section list ----
-  navList.innerHTML = panes.map((p) => `<button type="button" class="st-nav-item" data-for="${p.id}" data-no-icon>
-    <span class="st-ico">${svg(ICONS[p.dataset.icon] || ICONS.doc)}</span><span>${esc(p.dataset.title)}</span></button>`).join('');
+  // The sections, under their groups (You · Company · This Mac & data).
+  let lastGroup = null;
+  navList.innerHTML = panes.map((p) => {
+    const group = p.dataset.group || '';
+    const head = group && group !== lastGroup ? `<div class="st-nav-group">${group}</div>` : '';
+    lastGroup = group;
+    return `${head}<button type="button" class="st-nav-item" data-for="${p.id}" data-no-icon>
+    <span class="st-ico">${svg(ICONS[p.dataset.icon] || ICONS.doc)}</span><span>${esc(p.dataset.title)}</span></button>`;
+  }).join('');
   let current = null;
   function select(id, focus) {
     const pane = panes.find((p) => p.id === id) || panes[0];
@@ -67,7 +77,7 @@
   });
   let saved = null;
   try { saved = localStorage.getItem(KEY); } catch (e) { saved = null; }
-  select(location.hash.slice(1) || saved || 'general');
+  select(location.hash.slice(1) || saved || 'you');
   window.addEventListener('hashchange', () => { if (location.hash.slice(1) !== current) select(location.hash.slice(1)); });
 
   // ---- saving ----
@@ -112,6 +122,10 @@
   let snapshot = null;
   const fieldsOf = (row) => $$('.st-editor input, .st-editor textarea, .st-editor select', row).filter((el) => !el.closest('.tt'));
   for (const row of $$('.st-row.edit')) {
+    // One box (a name, a number…): it opens in place of its value, on the
+    // same line, so nothing below moves.
+    const boxes = $$('.st-editor input:not([type=hidden]), .st-editor textarea, .st-editor select, .st-editor table', row);
+    if (boxes.length === 1 && boxes[0].tagName === 'INPUT' && !$('.number-example, .token-row', row)) row.classList.add('inline');
     const title = $('.st-label b', row).textContent;
     const pen = document.createElement('button');
     pen.type = 'button';
@@ -220,7 +234,7 @@
     terms(row) {
       const ta = $('.st-editor textarea', row);
       const rows = window.termsTableParse ? window.termsTableParse(ta.value) : [];
-      if (!rows.length) return none(ta.id === 'boqTerms-input' ? 'Not set — the quotations’ key terms are used' : 'Not set');
+      if (!rows.length) return none(ta.id === 'boqTerms-input' ? 'Not set — the quotations’ key terms are used' : ta.id === 'quotationTermsSale-input' ? 'Not set — the rental terms are used' : 'Not set');
       const terms = rows.filter((r) => r.kind === 'term');
       const paras = rows.length - terms.length;
       // A short preview, as the terms print: the first few labels beside

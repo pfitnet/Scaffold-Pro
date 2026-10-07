@@ -72,6 +72,11 @@
     },
 
     /** Takes it off (or puts it back on) the Dashboard's reminder. */
+    /** The client agreed without signing (by email, phone…): won in Marketing. */
+    async setAgreed(id, agreed) {
+      return report(await window.api.quotations.setClientAgreed(id, agreed));
+    },
+
     async setNotNeeded(id, notNeeded) {
       return report(await window.api.quotations.setSignedNotNeeded(id, notNeeded));
     },

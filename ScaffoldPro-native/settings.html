@@ -6,6 +6,17 @@
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/settings.css" />
   <style>
+    /* AI Import (js/settings-ai.js) */
+    .ai-state { display: flex; align-items: center; gap: 10px; max-width: 780px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); font-size: 13px; }
+    .ai-state .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-tertiary); flex: none; }
+    .ai-state.on .dot { background: var(--success, #2f9e5b); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success, #2f9e5b) 18%, transparent); }
+    .ai-providers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .ai-provider { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--panel); }
+    .ai-provider:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+    .ai-provider input { margin-top: 3px; }
+    .ai-provider span { display: flex; flex-direction: column; gap: 2px; }
+    .ai-provider small { color: var(--text-secondary); font-size: 12px; line-height: 1.4; }
+    @media (max-width: 760px) { .ai-providers { grid-template-columns: 1fr; } }
     /* Google Sheets (js/google-sheets.js) */
     .gs-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin: 12px 0 4px; max-width: 780px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
     .gs-old { display: flex; align-items: center; gap: 14px; max-width: 780px; margin: 8px 0 4px; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, #c98a14 9%, var(--panel)); border: 1px solid color-mix(in srgb, #c98a14 28%, var(--border)); font-size: 12.5px; line-height: 1.45; }
@@ -44,8 +55,49 @@
           <button id="settings-reload-btn" data-no-icon>Show Theirs</button>
         </div>
         <p class="st-none hidden" id="st-none">No settings match.</p>
-    <section class="st-pane" id="general" data-title="General" data-icon="building" hidden>
-      <header class="st-pane-head"><h2>General</h2><p>Company details and appearance</p></header>
+    <!-- You: this person's own name, team, colour and look (was the User page). -->
+    <section class="st-pane" id="you" data-title="You" data-icon="user" data-group="You" hidden>
+      <header class="st-pane-head st-you-head"><span class="st-you-avatar" id="you-avatar"></span><div><h2 id="you-name">You</h2><p id="you-sub">Your name, team, colour and look</p></div></header>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Profile</h3><p>Shown on everything you make or change, on every Mac.</p></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="text" data-save="click:you-name-save">
+          <div class="st-label"><b>Your name</b><span>“Created by…”, “Last worked on by…”, History</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="you-name-input" autocomplete="off" spellcheck="false" /><button type="button" class="hidden" id="you-name-save" data-no-icon></button></div>
+        </div>
+        <div class="st-row edit" data-show="text" data-save="click:you-team-save">
+          <div class="st-label"><b>Your team</b><span>Team announcements, team chat and team tasks</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="you-team-input" list="you-team-names" autocomplete="off" placeholder="e.g. Office" /><datalist id="you-team-names"></datalist><button type="button" class="hidden" id="you-team-save" data-no-icon></button></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Your colour</b><span>Your name’s colour everywhere</span></div>
+          <div class="st-control"><div class="you-swatches" id="you-swatches"></div></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Theme</b><span>On this Mac</span></div>
+          <div class="st-control"><div class="segmented" id="appearance-control">
+            <button data-value="System">System</button>
+            <button data-value="Light">Light</button>
+            <button data-value="Dark">Dark</button>
+          </div></div>
+        </div>
+        </div>
+      </div>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Your work</h3></div>
+        <div class="you-stats" id="you-stats"></div>
+        <div class="you-lists">
+          <div class="st-card you-list"><h4>My projects</h4><div id="you-projects"></div></div>
+          <div class="st-card you-list"><h4>Documents I last worked on</h4><div id="you-documents"></div></div>
+          <div class="st-card you-list"><h4>My activity</h4><div id="you-activity"></div></div>
+          <div class="st-card you-list"><h4>The team</h4><div id="you-team-list"></div></div>
+        </div>
+      </div>
+    </section>
+    <section class="st-pane" id="general" data-title="Company" data-icon="building" data-group="Company" hidden>
+      <header class="st-pane-head"><h2>Company</h2><p>The company’s details, on every document</p></header>
       <div class="st-group">
         <div class="st-group-head"><h3>Company</h3><p>Printed on the letterhead and footer of every BOQ, quotation, invoice and delivery note.</p></div>
         <div class="st-card">
@@ -91,21 +143,8 @@
         </div>
         </div>
       </div>
-      <div class="st-group">
-        <div class="st-group-head"><h3>Appearance</h3></div>
-        <div class="st-card">
-        <div class="st-row choice">
-          <div class="st-label"><b>Theme</b></div>
-          <div class="st-control"><div class="segmented" id="appearance-control">
-            <button data-value="System">System</button>
-            <button data-value="Light">Light</button>
-            <button data-value="Dark">Dark</button>
-          </div></div>
-        </div>
-        </div>
-      </div>
     </section>
-    <section class="st-pane" id="documents" data-title="Documents &amp; Numbering" data-icon="doc" hidden>
+    <section class="st-pane" id="documents" data-title="Documents &amp; Numbering" data-icon="doc" data-group="Company" hidden>
       <header class="st-pane-head"><h2>Documents & Numbering</h2><p>Paper size, default notes, document numbers</p></header>
       <div class="st-group">
         <div class="st-group-head"><h3>Paper & notes</h3></div>
@@ -166,7 +205,7 @@
         </div>
       </div>
     </section>
-    <section class="st-pane" id="boq-defaults" data-title="BOQ Defaults" data-icon="grid" hidden>
+    <section class="st-pane" id="boq-defaults" data-title="BOQ Defaults" data-icon="grid" data-group="Company" hidden>
       <header class="st-pane-head"><h2>BOQ Defaults</h2><p>What new BOQs start with</p></header>
       <div class="st-group">
         <div class="st-group-head"><h3>New BOQs</h3></div>
@@ -197,23 +236,8 @@
         </div>
       </div>
     </section>
-    <section class="st-pane" id="quotations" data-title="Quotations" data-icon="quote" hidden>
-      <header class="st-pane-head"><h2>Quotations</h2><p>Signatory, pricing, delivery charges, terms</p></header>
-      <div class="st-group">
-        <div class="st-group-head"><h3>Signatory</h3></div>
-        <div class="st-card">
-        <div class="st-row edit" data-show="text">
-          <div class="st-label"><b>Signed by</b></div>
-          <div class="st-value"></div>
-          <div class="st-editor"><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
-        </div>
-        <div class="st-row edit" data-show="text">
-          <div class="st-label"><b>Title</b></div>
-          <div class="st-value"></div>
-          <div class="st-editor"><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
-        </div>
-        </div>
-      </div>
+    <section class="st-pane" id="pricing" data-title="Pricing &amp; Delivery" data-icon="tag" data-group="Company" hidden>
+      <header class="st-pane-head"><h2>Pricing &amp; Delivery</h2><p>Minimum charges, markups, exchange rates and delivery charges</p></header>
       <div class="st-group">
         <div class="st-group-head"><h3>Pricing</h3></div>
         <div class="st-card">
@@ -254,6 +278,24 @@
         </div>
         </div>
       </div>
+    </section>
+    <section class="st-pane" id="quotations" data-title="Quotations" data-icon="quote" data-group="Company" hidden>
+      <header class="st-pane-head"><h2>Quotations</h2><p>Who signs, and the standard terms for sale and rental</p></header>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Signatory</h3></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Signed by</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Title</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
+        </div>
+        </div>
+      </div>
       <div class="st-group">
         <div class="st-group-head"><h3>Terms</h3></div>
         <div class="st-card">
@@ -270,9 +312,14 @@
           </select></div>
         </div>
         <div class="st-row edit" data-show="terms">
-          <div class="st-label"><b>Standard key terms</b><span>On quotations without key terms of their own</span></div>
+          <div class="st-label"><b>Standard rental terms</b><span>Key terms of a rental quotation without its own</span></div>
           <div class="st-value"></div>
           <div class="st-editor"><textarea id="quotationTerms-input" rows="6"></textarea></div>
+        </div>
+        <div class="st-row edit" data-show="terms">
+          <div class="st-label"><b>Standard sale terms</b><span>Key terms of a sale quotation without its own. Blank: the rental terms</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><textarea id="quotationTermsSale-input" rows="6"></textarea></div>
         </div>
         <div class="st-row edit" data-show="long">
           <div class="st-label"><b>Acceptance &amp; validity paragraph</b></div>
@@ -282,7 +329,7 @@
         </div>
       </div>
     </section>
-    <section class="st-pane" id="invoices" data-title="Invoices" data-icon="invoice" hidden>
+    <section class="st-pane" id="invoices" data-title="Invoices" data-icon="invoice" data-group="Company" hidden>
       <header class="st-pane-head"><h2>Invoices</h2><p>Due date and the standard terms</p></header>
       <div class="st-group">
         
@@ -300,7 +347,7 @@
         </div>
       </div>
     </section>
-    <section class="st-pane" id="team" data-title="Share with Other Macs" data-icon="people" hidden>
+    <section class="st-pane" id="team" data-title="Share with Other Macs" data-icon="people" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Share with Other Macs</h2><p>Work on the same data from several Macs</p></header>
       <p class="st-intro">Several people work on the same projects and documents, each on their own Mac, through a folder shared in iCloud Drive. A change made on one Mac appears on the others by itself, usually within seconds.</p>
         <div class="team-box" id="team-box">
@@ -322,13 +369,7 @@
             <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="team-folder">—</span></div>
             <div class="cloud-row"><span class="cloud-label">Status</span><span id="team-status">—</span></div>
             <div class="team-members" id="team-members"></div>
-            <div class="st-card st-inline-card">
-        <div class="st-row edit" data-show="text" data-save="change:team-name-input">
-          <div class="st-label"><b>Your name</b><span>Shown to the others, and in each project’s history</span></div>
-          <div class="st-value"></div>
-          <div class="st-editor"><input type="text" id="team-name-input" /></div>
-        </div>
-            </div>
+            <p class="small-note">You appear to the others under your name in <a href="#you">Settings › You</a>.<input type="hidden" id="team-name-input" /></p>
             <p class="small-note">If two people change the same thing at the same moment, the later change is kept. Document numbers are worked out on each Mac, so if two people create, say, a quotation for the same project within a few seconds of each other, check the numbers.</p>
             <div class="backup-actions">
               <button id="team-reveal-btn">Show Folder in Finder</button>
@@ -337,10 +378,10 @@
           </div>
         </div>
     </section>
-    <section class="st-pane" id="backup" data-title="Backup &amp; Restore" data-icon="shield" hidden>
+    <section class="st-pane" id="backup" data-title="Backup &amp; Restore" data-icon="shield" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Backup & Restore</h2><p>Backups, restoring, automatic iCloud backup</p></header>
       <p class="st-intro">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and the company documents — in one folder you can also copy to a USB drive.</p>
-        <p class="small-note"><b>Automatic backups:</b> ScaffoldPro also makes a backup by itself every day at 12:00 a.m. and 12:00 p.m. (or as soon as it's open again, if the Mac was asleep or ScaffoldPro was closed then). Automatic backups more than a week old are deleted; backups you make yourself are kept.</p>
+        <p class="small-note"><b>Automatic backups:</b> ScaffoldPro also makes a backup by itself every day at 12:00 a.m. and 12:00 p.m. (or as soon as it's open again, if the Mac was asleep or ScaffoldPro was closed then). Automatic backups more than 3 days old are deleted; backups you make yourself are kept.</p>
         <div class="cloud-row auto-row"><span class="cloud-label">Status</span><span id="auto-status">—</span></div>
         <div class="backup-actions">
           <button class="primary" id="create-backup-btn">Create Backup</button>
@@ -380,7 +421,7 @@
           </div>
         </div>
     </section>
-    <section class="st-pane" id="updates" data-title="Updates" data-icon="refresh" hidden>
+    <section class="st-pane" id="updates" data-title="Updates" data-icon="refresh" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Updates</h2><p>New versions of ScaffoldPro</p></header>
       <div class="st-group">
         
@@ -403,7 +444,7 @@
         </div>
       </div>
     </section>
-    <section class="st-pane" id="web-access" data-title="Web Access" data-icon="globe" hidden>
+    <section class="st-pane" id="web-access" data-title="Web Access" data-icon="globe" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Web Access</h2><p>ScaffoldPro in a web browser</p></header>
       <p class="st-intro">This Mac serves ScaffoldPro to web browsers on the office network — for the team’s Windows PCs, iPads and phones. Everyone signs in with their name and the office password. Keep ScaffoldPro open on this Mac.</p>
       <div class="st-group">
@@ -429,7 +470,7 @@
       <div id="web-state" class="web-state st-panel"></div>
       <p class="st-foot">From outside the office: install <b>Tailscale</b> on this Mac and on each PC or phone (same account), then use this Mac’s Tailscale address with the same port.</p>
     </section>
-    <section class="st-pane" id="google-sheets" data-title="Google Sheets" data-icon="sheet" hidden>
+    <section class="st-pane" id="google-sheets" data-title="Google Sheets" data-icon="sheet" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Google Sheets</h2><p>An overview sheet kept in step both ways</p></header>
         <div class="gs-body">
       <p class="st-intro">A Google Sheet with Projects, Activity and Overview tabs, kept in step with ScaffoldPro both ways about every minute while ScaffoldPro is open on this Mac. Change a project's Stage or Notes in the sheet and ScaffoldPro is updated; lines typed into Activity are added to its history.</p>
@@ -466,7 +507,29 @@
           </div>
         </div>
     </section>
-    <section class="st-pane" id="data-location" data-title="Data Location" data-icon="folder" hidden>
+    <section class="st-pane" id="ai-import" data-title="AI Import" data-icon="spark" data-group="This Mac &amp; data" hidden>
+      <header class="st-pane-head"><h2>AI Import</h2><p>Reading old quotations and scans</p></header>
+      <p class="st-intro">Importing a quotation (Project › Quotations › Import…) reads the file on this Mac first. When it can’t make out the items — a scan, a photo, an unusual layout — a free cloud AI can read it instead. You always check what it read before a quotation is made.</p>
+      <div class="ai-body">
+        <div class="ai-state" id="ai-state"></div>
+        <ol class="gs-steps">
+          <li><span class="gs-n">1</span><div><b>Choose a provider.</b>
+            <div class="ai-providers" role="radiogroup" aria-label="Provider">
+              <label class="ai-provider"><input type="radio" name="ai-provider" value="gemini" /><span><b>Google Gemini</b><small>Free tier, no card needed. Reads PDFs and scans itself — the best choice.</small></span></label>
+              <label class="ai-provider"><input type="radio" name="ai-provider" value="openrouter" /><span><b>OpenRouter</b><small>Free models, picked by OpenRouter. Sent the text read on this Mac.</small></span></label>
+            </div></div></li>
+          <li><span class="gs-n">2</span><div><b>Get a free key.</b> <span id="ai-key-help"></span></div></li>
+          <li><span class="gs-n">3</span><div>Paste it here and save.
+            <div class="gs-form">
+              <div class="field"><label for="ai-key">Key</label><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="Paste the key" /></div>
+              <div class="field"><label for="ai-model">Model <span class="muted">(optional)</span></label><input type="text" id="ai-model" autocomplete="off" spellcheck="false" /></div>
+            </div>
+            <div class="gs-inline"><button class="primary" id="ai-save" data-no-icon>Save</button><button id="ai-remove" class="danger-btn hidden" data-no-icon>Remove Key</button><span class="small-note" id="ai-saved"></span></div></div></li>
+        </ol>
+        <p class="small-note" style="max-width:780px;">The key is kept in this Mac’s Keychain, and nothing is sent until you import a file. Only that file (or its text) goes to the provider. On free tiers the provider may use what’s sent to improve its models, so don’t use it for anything confidential.</p>
+      </div>
+    </section>
+    <section class="st-pane" id="data-location" data-title="Data Location" data-icon="folder" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Data Location</h2><p>Where the files and database are kept</p></header>
       <div class="st-group">
         
@@ -508,5 +571,7 @@
   <script src="js/settings.js"></script>
   <script src="js/google-sheets.js"></script>
   <script src="js/settings-ui.js"></script>
+  <script src="js/settings-you.js"></script>
+  <script src="js/settings-ai.js"></script>
 </body>
 </html>

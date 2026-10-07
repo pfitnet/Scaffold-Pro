@@ -4166,3 +4166,56 @@ one idea at a time, few words, and pictures that carry the meaning.
   it is off with Reduce Motion.
 - **Light and dark** both designed, and **Print or save as PDF** puts each
   chapter on its own page.
+
+## Batch 170 — Import and duplicate quotations, calendar events, Settings with You
+
+- **Custom items:** the hover label is no longer cut off; "As printed" follows
+  the light or dark theme; a tab followed by `:` lines up in "As printed" as
+  it prints. A custom item already added can be **edited** (pencil by its
+  description) on quotations, BOQs, delivery notes and invoices.
+- **Quotations:**
+  - **Duplicate…** (editor toolbar and each row on the project's Quotations
+    tab): a copy as a new draft, in this project or another, with its items,
+    sections and delivery schedule. Not linked, signed or agreed.
+  - **Import…** (project › Quotations): an old quotation, another template,
+    a scan, a photo or a Word file. It's read on this Mac first — the PDF's
+    text, or the words off a scan (Apple's text recognition). When the items
+    can't be made out, a **free cloud AI** reads it: Google Gemini's free
+    tier (gemini-2.5-flash, reads PDFs and pictures itself) or OpenRouter's
+    free router (`openrouter/free`). Every row is checked in a review box
+    before the quotation is made. The original file is kept in the
+    project's Documents, filed with the new quotation, which shows
+    "Imported from … · Open Original".
+  - **Settings › AI Import:** the provider and its free key (kept in this
+    Mac's Keychain). Nothing is sent until a file is imported.
+  - **Currency** for crane quotations (and kept from an import).
+  - The Drawings box sits beside Key Terms; Key Terms is wider.
+  - **Client Agreed** on an issued quotation. Marketing counts a quotation as
+    won only when it's agreed or a signed copy is uploaded.
+- **Invoices:**
+  - The last row spells the total out in capitals and bold:
+    "SAY HONG KONG DOLLARS … ONLY".
+  - Delivery notes from **different quotations** can go on one invoice, in a
+    section for each quotation (as priced sections are on a quotation).
+- **Settings:**
+  - Merged with You: the first section, with name, team, colour and your work.
+  - Sorted into **You**, **Company** and **This Mac & data**. Appearance is
+    per Mac.
+  - Separate standard terms for **rental** and for **sale**.
+  - Clicking a pencil no longer moves the row down.
+- **Backups:** scheduled backups are kept 3 days (was 7). No backup on quit;
+  instead, quitting saves whatever is being typed first.
+- **Calendar:**
+  - **Events** with a start and an end (a meeting, a site visit): drag down
+    an hour column to make one, or New Event / E. Shown as blocks as long as
+    they last; click one to change it.
+  - The month view and mini month start on **Sunday**.
+  - The task box redesigned: what, when, and for whom (Anyone, Me, a
+    **team**, or someone else); project, priority and notes under "More".
+    A task for a team is everyone in that team's.
+- **Sidebar:** the pencil by Overview puts the tabs in your own order (drag,
+  then Done); remembered on this Mac. Delivery Notes now come before
+  Invoices on a project's page.
+- **User Manual:** every box the same height; the contents rail jumps
+  straight to a chapter; new entries for events, teams, import, duplicate,
+  invoice sections and AI Import.

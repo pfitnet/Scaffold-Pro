@@ -1202,6 +1202,35 @@ a.chain-doc:hover { background: var(--accent-soft); color: var(--accent); text-d
 .lines-head .sort-label { font-size: 12px; color: var(--text-secondary); }
 .lines-head select { font-size: 12px; }
 .due-row { display: flex; gap: 6px; }
+/* The task / event sheet (js/task-editor.js): what, when, for whom; the
+   rest folded under "More". */
+.te-modal { width: 520px; }
+.te-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.te-head h2 { margin: 0; }
+.te-title { width: 100%; font-size: 16px; font-weight: 600; padding: 10px 12px; margin-bottom: 14px; }
+.te-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
+.te-label { font-size: 12px; color: var(--text-secondary); }
+.te-when { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.te-when input[type="date"], .te-when input[data-date] { width: 150px !important; flex: none; }
+.te-when input[type="time"] { width: 112px !important; flex: none; }
+.te-modal:not(.is-event) #tk-end, .te-modal:not(.is-event) .te-dash { display: none; }
+.te-modal.is-event .te-task-only { display: none; }
+.te-dash { color: var(--text-tertiary, var(--text-secondary)); }
+.te-for { display: flex; flex-wrap: wrap; gap: 6px; }
+.te-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; box-shadow: none;
+  border: 1px solid var(--hairline); background: transparent; color: var(--text-secondary); }
+.te-chip:hover:not(.on) { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); }
+.te-chip.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; }
+.te-person { width: auto !important; min-width: 0; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; }
+.te-person.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); font-weight: 600; }
+.te-more { margin-top: 4px; border-top: 1px solid var(--hairline); padding-top: 10px; }
+.te-more summary { cursor: pointer; font-size: 12.5px; color: var(--text-secondary); list-style: none; }
+.te-more summary::-webkit-details-marker { display: none; }
+.te-more summary::before { content: '▸'; display: inline-block; width: 14px; transition: transform .15s; }
+.te-more[open] summary::before { transform: rotate(90deg); }
+.te-more-body { padding-top: 10px; }
+.te-more-body select, .te-more-body input[type="text"] { width: 100%; }
+.te-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .due-row input[type="time"] { width: 110px !important; flex: none; }
 
 /* Dashboard widgets: Customise to move, resize (by the right edge, in
@@ -2428,15 +2457,17 @@ body.crane-job #tabs [data-tab="boq"], body.crane-job .pd-stat[data-tab="boq"], 
 
 /* "+ Add a custom item" / "+ Add an item": one card. */
 .ci-card { margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 10px; }
-.ci-editor { border: 1px solid var(--border); border-radius: 10px; background: var(--content, var(--bg)); overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.ci-editor { border: 1px solid var(--border); border-radius: 10px; background: var(--content, var(--bg)); overflow: visible; transition: border-color .15s, box-shadow .15s; }
 .ci-editor:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring, color-mix(in srgb, var(--accent) 20%, transparent)); }
-.ci-editor .pf-strip { display: flex; align-items: center; gap: 4px; margin: 0; padding: 6px 8px; border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--text) 3%, transparent); flex-wrap: nowrap; }
+.ci-editor .pf-strip { display: flex; align-items: center; gap: 4px; margin: 0; padding: 6px 8px; border-radius: 10px 10px 0 0; border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--text) 3%, transparent); flex-wrap: nowrap; }
 /* Toolbar buttons as in Google Docs: an icon in a square, its name on hover. */
 .ci-editor .pf-strip button { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; min-width: 0; padding: 0; border: none; background: none; box-shadow: none; border-radius: 8px; color: var(--text-secondary); }
 .ci-editor .pf-strip button:hover { background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--text); }
 .ci-editor .pf-strip button:active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .ci-editor .pf-strip button[data-tip]:hover::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 30; white-space: nowrap;
   padding: 4px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; color: #fff; background: rgba(32, 33, 36, .92); pointer-events: none; }
+/* The first button's name starts at its left edge, so it never runs off the box. */
+.ci-editor .pf-strip button[data-tip]:first-child:hover::after { left: 0; transform: none; }
 .ci-editor .pf-sep { width: 1px; height: 20px; background: var(--border); margin: 0 6px; }
 .ci-editor .pf-tip { margin-left: auto; font-size: 11px; color: var(--text-tertiary); white-space: nowrap; }
 .ci-editor #ci-description { display: block; width: 100%; border: none; border-radius: 0; box-shadow: none; background: transparent; padding: 10px 12px; min-height: 64px; resize: none; overflow: hidden; font: inherit; font-size: 13.5px; line-height: 1.45; }
@@ -2451,4 +2482,83 @@ body.crane-job #tabs [data-tab="boq"], body.crane-job .pd-stat[data-tab="boq"], 
 .ci-fields > button { height: 34px; padding: 0 16px; white-space: nowrap; }
 .ci-preview:empty, .ci-preview:not(:has(.pf-preview:not(:empty))) { display: none; }
 .ci-preview .pf-preview-label { margin-top: 0; }
-.ci-preview .pf-preview { background: #fff; color: #111; border: 1px solid var(--hairline); border-style: solid; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.ci-preview .pf-preview { background: color-mix(in srgb, var(--text) 3%, var(--panel)); color: var(--text); border: 1px solid var(--hairline); border-style: solid; box-shadow: none; }
+
+/* A custom item's pencil (edit it after adding), and its edit sheet. */
+.ci-edit-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; min-width: 0; padding: 0; margin-left: 6px; vertical-align: middle; border: none; box-shadow: none;
+  border-radius: 6px; background: none; color: var(--text-tertiary); opacity: 0; transition: opacity .15s, background .15s, color .15s; }
+tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
+.ci-edit-btn:hover { color: var(--accent); background: var(--accent-soft); }
+.ci-edit-modal { width: min(720px, calc(100vw - 48px)); max-width: none; }
+.ci-edit-modal .ci-card { margin: 12px 0 0; }
+.ci-edit-modal #ci-edit-text { display: block; width: 100%; border: none; border-radius: 0 0 10px 10px; box-shadow: none; background: transparent; padding: 10px 12px; min-height: 80px; resize: none; overflow: hidden; font: inherit; font-size: 13.5px; line-height: 1.45; }
+.ci-edit-modal #ci-edit-text:focus { outline: none; box-shadow: none; }
+.ci-edit-hint { margin-left: auto; align-self: center; font-size: 11.5px; color: var(--text-tertiary); }
+
+/* Quotation: the key terms (wide) with the drawings beside them. */
+.q-terms-row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); gap: 20px; align-items: start; margin-top: 24px; }
+.q-terms-row .q-terms { margin: 0; }
+.q-terms-row .linked-drawings-panel { margin-top: 0; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-card); }
+@media (max-width: 1000px) { .q-terms-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* An invoice billing several quotations' deliveries: a heading per quotation. */
+.inv-group-row td { padding: 14px 8px 6px !important; border-bottom: none !important; background: none !important; }
+.inv-group { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--doc-quotation); }
+
+/* The sidebar's tabs, put in order: a pencil by the first heading, then drag. */
+.sidebar-section { position: relative; display: flex; align-items: center; }
+.sidebar-section > span { flex: 1; }
+.nav-edit-btn { width: 20px; height: 20px; min-width: 0; padding: 0; display: grid; place-items: center; border: none; border-radius: 6px; background: none; box-shadow: none;
+  color: var(--text-tertiary); opacity: 0; transition: opacity .15s, background .15s, color .15s; }
+#sidebar:hover .nav-edit-btn, .nav-edit-btn:focus-visible, .nav-editing .nav-edit-btn { opacity: 1; }
+.nav-edit-btn:hover { background: var(--sidebar-hover); color: var(--accent); }
+.nav-edit-bar { display: flex; align-items: center; gap: 6px; margin: 2px 4px 6px; padding: 8px 8px 8px 10px; border-radius: 10px; font-size: 11.5px; color: var(--text-secondary);
+  background: var(--accent-soft); animation: nav-bar-in .2s var(--ease) both; }
+.nav-edit-bar span { flex: 1; }
+.nav-edit-bar button { height: 24px; padding: 0 9px; font-size: 11.5px; }
+@keyframes nav-bar-in { from { opacity: 0; transform: translateY(-4px); } }
+.nav-editing [data-nav] { cursor: grab; }
+.nav-editing a[data-nav] { background: color-mix(in srgb, var(--text) 3%, transparent); margin-bottom: 2px; }
+.nav-editing a[data-nav]::after { content: '⋮⋮'; margin-left: auto; font-size: 11px; letter-spacing: -2px; color: var(--text-tertiary); }
+.nav-editing .sidebar-section { border-radius: 8px; }
+.nav-editing [data-nav]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.nav-dragging { opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .nav-edit-bar { animation: none; } }
+
+/* Import a quotation (js/quotation-import.js): what was read, to check. */
+.qi-modal { width: 940px; max-width: 94vw; }
+.qi-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.qi-head h2 { margin: 0; }
+.qi-source { font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text-secondary); }
+.qi-source.ocr { background: color-mix(in srgb, #c98a14 14%, transparent); color: #a8730f; }
+.qi-source.ai { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+.qi-file { font-size: 12.5px; margin-bottom: 12px; word-break: break-word; }
+.qi-note { font-size: 12.5px; line-height: 1.45; padding: 9px 12px; border-radius: 10px; margin-bottom: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.qi-note.warn { background: color-mix(in srgb, var(--danger) 9%, transparent); color: var(--danger); }
+.qi-fields { display: grid; grid-template-columns: 2fr 1fr auto auto; gap: 10px 12px; align-items: end; margin-bottom: 12px; }
+.qi-field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.qi-field input, .qi-field select { width: 100%; }
+.qi-table-wrap { max-height: 46vh; overflow: auto; border: 1px solid var(--hairline); border-radius: 10px; }
+.qi-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.qi-table th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 7px 6px; border-bottom: 1px solid var(--hairline); }
+.qi-table td { padding: 4px 4px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.qi-table .num { text-align: right; }
+.qi-table input, .qi-table select { width: 100%; --control-h: 28px; padding: 0 7px; border-radius: 6px; }
+.qi-table td:nth-child(1) { width: 120px; } .qi-table td:nth-child(2) { width: 96px; } .qi-table td:nth-child(4) { width: 64px; }
+.qi-table td:nth-child(5) { width: 72px; } .qi-table td:nth-child(6) { width: 96px; }
+.qi-table .qi-kind input { margin-top: 4px; }
+.qi-table .qi-amount, .qi-total { white-space: nowrap; padding-top: 10px; font-variant-numeric: tabular-nums; }
+.qi-total { font-weight: 700; }
+.qi-match { display: block; font-size: 10.5px; color: var(--success, #2f9e5b); margin-top: 2px; }
+.qi-del { border: none; background: none; box-shadow: none; color: var(--text-tertiary); font-size: 16px; padding: 2px 6px; }
+.qi-del:hover { color: var(--danger); }
+.qi-text { margin-top: 10px; font-size: 12px; }
+.qi-text summary { cursor: pointer; color: var(--text-secondary); }
+.qi-text pre { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: 11px; padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--text) 4%, transparent); }
+.qi-working { display: flex; align-items: center; gap: 14px; padding: 22px 4px; }
+.qi-working div { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.qi-working span { color: var(--text-secondary); font-size: 12.5px; }
+.qi-spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--accent) 22%, transparent); border-top-color: var(--accent); animation: qi-spin .8s linear infinite; flex: none; }
+@keyframes qi-spin { to { transform: rotate(360deg); } }
+.qi-setup { font-size: 12.5px; align-self: center; }
+@media (max-width: 760px) { .qi-fields { grid-template-columns: 1fr 1fr; } }

@@ -45,8 +45,8 @@
         <button data-tab="overview">Overview</button>
         <button data-tab="boq" class="dk-boq"><span class="dk-dot" aria-hidden="true"></span>BOQ <span class="tab-count" id="count-boq"></span></button>
         <button data-tab="quotations" class="dk-quotation"><span class="dk-dot" aria-hidden="true"></span>Quotations <span class="tab-count" id="count-quotations"></span></button>
-        <button data-tab="invoices" class="dk-invoice"><span class="dk-dot" aria-hidden="true"></span>Invoices <span class="tab-count" id="count-invoices"></span></button>
         <button data-tab="delivery" class="dk-delivery"><span class="dk-dot" aria-hidden="true"></span>Delivery Notes <span class="tab-count" id="count-delivery"></span></button>
+        <button data-tab="invoices" class="dk-invoice"><span class="dk-dot" aria-hidden="true"></span>Invoices <span class="tab-count" id="count-invoices"></span></button>
         <button data-tab="letters" class="dk-letter"><span class="dk-dot" aria-hidden="true"></span>Letters <span class="tab-count" id="count-letters"></span></button>
         <button data-tab="files" class="dk-file"><span class="dk-dot" aria-hidden="true"></span>Drawings &amp; Documents <span class="tab-count" id="count-files"></span></button>
         <button data-tab="inspections">Inspections <span class="tab-count" id="count-inspections"></span></button>
@@ -98,6 +98,7 @@
         <div class="section-toolbar">
           <h2>Quotations</h2>
           <div class="toolbar-actions" id="quotation-actions">
+            <button id="import-quotation-btn" title="Make a quotation from a file — an old quotation, another template, a scan or a photo">Import…</button>
             <button class="primary" id="new-quotation-btn">+ New Quotation</button>
           </div>
         </div>
@@ -307,6 +308,7 @@
   <script src="js/doc-authors.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/document-actions.js"></script>
+  <script src="js/quotation-import.js"></script>
   <script src="js/doc-select.js"></script>
   <script src="js/file-drop.js"></script>
   <script src="js/keep-focus.js"></script>

@@ -32,6 +32,10 @@ const multiply = window.multiplyLines.attach({
 });
 // Currency label from Settings (section 50) — "HK$" for HKD, as on the PDF.
 let currencyLabel = '';
+// The company's currency (Settings); a crane quotation can have its own.
+let baseCurrency = 'HKD';
+const CURRENCY_SIGN = { HKD: 'HK$', USD: 'US$', CNY: 'RMB', RMB: 'RMB', MOP: 'MOP$', SGD: 'S$' };
+const currencySign = (code) => CURRENCY_SIGN[String(code || '').toUpperCase()] || String(code || '').toUpperCase();
 
 function getQuotationIdFromURL() {
   const params = new URLSearchParams(location.search);
@@ -97,6 +101,15 @@ function craneSetup(d) {
   const page = document.getElementById('orientation-select').closest('.tb-pick');
   if (page) page.classList.toggle('hidden', crane);
   if (crane) document.getElementById('custom-item-box').open = true;
+  // Its currency: chosen here for a crane job (or kept from an imported
+  // quotation priced in another); otherwise Settings'.
+  const code = d.currency || baseCurrency;
+  currencyLabel = currencySign(code);
+  document.getElementById('currency-field').classList.toggle('hidden', !crane && !d.currency);
+  const sel = document.getElementById('currency-select');
+  if (![...sel.options].some((o) => o.value === code)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(code)}">${esc(code)}</option>`);
+  sel.value = code;
+  sel.disabled = d.status !== 'Draft';
 }
 
 function render() {
@@ -206,6 +219,7 @@ function render() {
   renderBlocks();
   renderTotals();
   renderSignedBar();
+  renderImportedBar();
   renderDirectorBar();
 }
 
@@ -322,6 +336,22 @@ function setupDirectorBar() {
   });
 }
 
+// Imported from a file (Project › Quotations › Import…): the original,
+// kept with the project's documents, one click away.
+function renderImportedBar() {
+  const d = currentDetail;
+  const bar = document.getElementById('imported-bar');
+  if (!bar) return;
+  bar.classList.toggle('hidden', !d.importedDocumentId);
+  if (!d.importedDocumentId) return;
+  bar.innerHTML = `<span class="sb-text">Imported from <b>${esc(d.importedFileName || 'a file')}</b> — kept in the project’s Documents.</span>
+    <button type="button" id="imported-open" data-no-icon>Open Original</button>`;
+  bar.querySelector('#imported-open').addEventListener('click', async () => {
+    const r = await window.api.documents.open(d.importedDocumentId);
+    if (r && r.ok === false) alert(r.error);
+  });
+}
+
 // The client's signed copy: shown once the quotation is issued. A file
 // can also be dropped onto the bar.
 function renderSignedBar() {
@@ -351,6 +381,15 @@ function renderSignedBar() {
         <button class="primary" data-act="upload">Upload Signed Copy…</button>
         <button data-act="remove">Remove</button>
       </span>`;
+  } else if (d.clientAgreedAt) {
+    const when = new Date(d.clientAgreedAt);
+    bar.innerHTML = `
+      <span class="signed-text"><span class="status-pill pill-success">Agreed</span>
+        The client agreed${isNaN(when) ? '' : ` on ${esc(when.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep'))}`} — counted as won.</span>
+      <span class="signed-actions">
+        <button data-act="upload">Upload Signed Copy…</button>
+        <button data-act="not-agreed">Not Agreed After All</button>
+      </span>`;
   } else if (d.signedCopyNotNeeded) {
     bar.innerHTML = `
       <span class="signed-text">No signed copy needed for this quotation (it isn’t on the Dashboard’s reminder).</span>
@@ -368,6 +407,7 @@ function renderSignedBar() {
         Waiting for the client’s signed copy. Upload it, or drop the PDF or photo here.</span>
       <span class="signed-actions">
         <button class="primary" data-act="upload">Upload Signed Copy…</button>
+        <button data-act="agreed" title="The client agreed without a signed copy (by email, phone…). Counts as won in Marketing.">Client Agreed</button>
         <button data-act="not-needed" title="Take it off the Dashboard’s reminder">Not Needed</button>
       </span>`;
   }
@@ -387,6 +427,8 @@ function setupSignedBar() {
     else if (act === 'remove') changed = await window.signedCopy.remove(quotationId, currentDetail.quotationNumber);
     else if (act === 'not-needed') changed = await window.signedCopy.setNotNeeded(quotationId, true);
     else if (act === 'needed') changed = await window.signedCopy.setNotNeeded(quotationId, false);
+    else if (act === 'agreed') changed = await window.signedCopy.setAgreed(quotationId, true);
+    else if (act === 'not-agreed') changed = await window.signedCopy.setAgreed(quotationId, false);
     if (changed) await loadDetail();
   });
 }
@@ -514,7 +556,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
   tr.innerHTML = `
     <td class="drag-col">${isLocked || !draggable ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
     <td class="num row-no">${rowNo}</td>
-    <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${linkChip(item, isLocked)}</td>
+    <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
     <td>${item.unit}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
     <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
@@ -969,7 +1011,7 @@ async function init() {
   });
   window.setupDocumentActions('Quotation', () => ({
     id: quotationId, number: currentDetail ? currentDetail.quotationNumber : '', status: currentDetail ? currentDetail.status : 'Draft',
-    projectNumber: currentDetail ? currentDetail.projectNumber : '',
+    projectNumber: currentDetail ? currentDetail.projectNumber : '', projectId: currentDetail ? currentDetail.projectId : '',
   }));
   // The sections after the items: drag a section by its handle to move it.
   window.makeReorderable(document.getElementById('extra-sections'), {
@@ -996,7 +1038,11 @@ async function init() {
   }
   window.deliverySchedule.setup(quotationId);
   const settings = await window.api.settings.get();
-  currencyLabel = settings.currency === 'HKD' ? 'HK$' : settings.currency;
+  baseCurrency = settings.currency || 'HKD';
+  currencyLabel = currencySign(baseCurrency);
+  document.getElementById('currency-select').addEventListener('change', (e) => {
+    saveLetterField('currency', e.target.value === baseCurrency ? null : e.target.value);
+  });
 
   await loadDetail();
   if (!currentDetail) return;
@@ -1145,3 +1191,7 @@ async function init() {
 }
 
 init();
+
+
+// Custom items: the pencil opens them for editing (js/custom-item.js).
+if (window.wireCustomItemEdit) window.wireCustomItemEdit('quotation', (id) => (currentDetail ? currentDetail.lineItems.find((x) => x.id === id) : null), () => loadDetail());

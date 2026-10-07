@@ -71,6 +71,9 @@
     return true;
   }
 
+  // The sidebar's tabs can be put in another order (js/sidebar.js): the marker follows.
+  window.placeNavInk = () => placeNavInk(true);
+
   // ---------- Tab line and segmented pill ----------
   function placeInk(container, cls, vertical) {
     const active = container.querySelector(':scope > button.active, :scope > .active');

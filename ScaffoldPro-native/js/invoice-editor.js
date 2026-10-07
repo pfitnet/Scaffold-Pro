@@ -170,13 +170,24 @@ function renderLineItems() {
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
+  // Deliveries for other quotations on this invoice: a heading for each.
+  const groups = [...new Set(items.map((i) => i.materialGroup || ''))];
+  let lastGroup = null;
   for (const [index, item] of items.entries()) {
+    const group = item.materialGroup || '';
+    if (groups.length > 1 && group !== lastGroup && !item.chargeGroup && item.section !== 'Delivery') {
+      const head = document.createElement('tr');
+      head.className = 'inv-group-row';
+      head.innerHTML = `<td colspan="8"><span class="inv-group">${esc(group || currentDetail.sourceQuotationNumber || "This quotation")}</span></td>`;
+      tbody.appendChild(head);
+      lastGroup = group;
+    }
     const lineTotal = window.lineNetTotal(item);
     const discountLabel = window.lineDiscountLabel(item, currencyLabel);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="num row-no">${index + 1}</td>
-      <td>${item.chargeGroup ? `<span class="line-tag">${esc(item.chargeGroup)}</span>` : (item.section === 'Delivery' ? '<span class="line-tag">Delivery</span>' : '')}${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}</td>
+      <td>${item.chargeGroup ? `<span class="line-tag">${esc(item.chargeGroup)}</span>` : (item.section === 'Delivery' ? '<span class="line-tag">Delivery</span>' : '')}${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
       <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} /></td>
@@ -439,3 +450,7 @@ async function init() {
 }
 
 init();
+
+
+// Custom items: the pencil opens them for editing (js/custom-item.js).
+if (window.wireCustomItemEdit) window.wireCustomItemEdit('invoice', (id) => (currentDetail ? currentDetail.lineItems.find((x) => x.id === id) : null), () => loadDetail());

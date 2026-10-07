@@ -5,12 +5,15 @@
 // Beside it: a mini month to jump around, the chosen day, and the next 14
 // days. Each kind can be switched off (⌥-click: only that kind); the
 // choices are remembered on this Mac. Hover an item for a preview; click it
-// to open it. Keys: ←/→ day, ↑/↓ week, T today, W/M view, N new task.
+// to open it. Events (a start and an end: a meeting, a site visit) are
+// blocks on the week; drag down an empty column to make one. Keys: ←/→ day,
+// ↑/↓ week, T today, W/M view, N new task, E new event.
 
 const ICON = (d) => `<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const KINDS = [
   { key: 'Delivery', label: 'Deliveries', one: 'Delivery', color: '#5B7DB1', icon: ICON('<path d="M2.5 5.5h9v8h-9z"/><path d="M11.5 8.5h3.2l2.8 2.8v2.2h-6"/><circle cx="6" cy="14.5" r="1.6"/><circle cx="14" cy="14.5" r="1.6"/>') },
   { key: 'Inspection', label: 'Inspections', one: 'Inspection', color: '#B07A5E', icon: ICON('<path d="M10 2.5 16 5v4.5c0 4-2.6 6.6-6 8-3.4-1.4-6-4-6-8V5z"/><path d="m7.3 10 2 2 3.6-3.8"/>') },
+  { key: 'Event', label: 'Events', one: 'Event', color: '#4F6F96', icon: ICON('<rect x="3" y="4" width="14" height="13" rx="3"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/><path d="M7 11.5h3"/>') },
   { key: 'Task', label: 'Tasks', one: 'Task', color: '#5E8C6A', icon: ICON('<rect x="3" y="3" width="14" height="14" rx="3.5"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>') },
   { key: 'Quotation', label: 'Quotations', one: 'Quotation', color: '#8E72A8', icon: ICON('<path d="M11.5 2.5h-6A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16M7 11h6M7 14h4"/>') },
   { key: 'Invoice', label: 'Payments due', one: 'Payment due', color: '#A66A6A', icon: ICON('<rect x="2.5" y="5" width="15" height="10.5" rx="2"/><path d="M2.5 8.5h15M5.5 12.5h3"/>') },
@@ -47,9 +50,9 @@ let drawn = [];
 const ref = (e) => { drawn.push(e); return drawn.length - 1; };
 
 function gridStart(m) {
-  // Month grids start on Monday.
+  // Month grids start on Sunday.
   const d = new Date(m);
-  d.setDate(1 - ((d.getDay() + 6) % 7));
+  d.setDate(1 - d.getDay());
   return d;
 }
 
@@ -193,7 +196,7 @@ function allDayChip(e) {
 function renderMonth(byDay) {
   const start = gridStart(month);
   const today = todayKey();
-  const heads = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => `<div class="cal-head${i > 4 ? ' wkend' : ''}">${d}</div>`).join('');
+  const heads = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => `<div class="cal-head${i === 0 || i === 6 ? ' wkend' : ''}">${d}</div>`).join('');
   let cells = '';
   for (let i = 0; i < 42; i++) {
     const d = addDays(start, i);
@@ -216,9 +219,15 @@ function renderMonth(byDay) {
   for (const b of grid.querySelectorAll('.cal-day-add')) b.addEventListener('click', () => addTask(b.dataset.add));
 }
 
-// Items at the same time sit side by side (each counts as an hour long).
+// Items at the same time sit side by side. An event lasts until its end;
+// anything else counts as an hour long.
+const minutesOf = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
 function lanes(timed) {
-  const items = timed.map((e) => { const [h, m] = e.time.split(':').map(Number); const s = h * 60 + (m || 0); return { e, s, end: s + 60 }; }).sort((a, b) => a.s - b.s);
+  const items = timed.map((e) => {
+    const s = minutesOf(e.time);
+    const end = e.endTime ? Math.max(s + 30, minutesOf(e.endTime)) : s + 60;
+    return { e, s, end };
+  }).sort((a, b) => a.s - b.s || b.end - a.end);
   const out = [];
   let cluster = [];
   let clusterEnd = -1;
@@ -268,9 +277,10 @@ function renderWeek(byDay) {
       const e = it.e;
       const w = 100 / it.lanes;
       const k = KIND[e.kind];
-      return `<a class="week-ev${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" data-ev="${ref(e)}" href="${esc(e.url || '#')}"
-        style="--k:${colorOf(e)};top:${(it.s / 60) * HOUR_PX + 1}px;height:${HOUR_PX - 3}px;left:calc(${it.lane * w}% + 3px);width:calc(${w}% - 6px)">
-        <span class="we-top">${k ? k.icon : ''}<span class="t">${esc(e.time)}</span></span>
+      const h = e.endTime ? ((it.end - it.s) / 60) * HOUR_PX - 3 : HOUR_PX - 3;
+      return `<a class="week-ev${e.endTime ? ' is-event' : ''}${h < 34 ? ' short' : ''}${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" data-ev="${ref(e)}" href="${esc(e.url || '#')}"
+        style="--k:${colorOf(e)};top:${(it.s / 60) * HOUR_PX + 1}px;height:${h}px;left:calc(${it.lane * w}% + 3px);width:calc(${w}% - 6px)">
+        <span class="we-top">${k ? k.icon : ''}<span class="t">${esc(e.time)}${e.endTime && h >= 34 ? `–${esc(e.endTime)}` : ''}</span></span>
         <span class="we-title">${esc(e.title)}</span>${e.detail ? `<span class="we-sub">${esc(e.detail)}</span>` : ''}</a>`;
     }).join('');
     const wkend = d.getDay() === 0 || d.getDay() === 6;
@@ -291,9 +301,7 @@ function renderWeek(byDay) {
   const firstHour = days.some((d) => ymd(d) === today) ? Math.max(0, Math.min(new Date().getHours() - 1, 7)) : 7;
   newBody.scrollTop = keepScroll !== null && scrolledOnce ? keepScroll : Math.max(0, firstHour * HOUR_PX - 14);
   scrolledOnce = true;
-  for (const slot of box.querySelectorAll('.slot')) {
-    slot.addEventListener('click', () => addTask(slot.closest('.week-col').dataset.day, `${pad(slot.dataset.hour)}:00`));
-  }
+  wireDragToSchedule(box);
   for (const cell of box.querySelectorAll('.wk-day, .wk-allday-cell')) {
     cell.addEventListener('click', (e) => { if (!e.target.closest('a')) select(cell.dataset.day); });
   }
@@ -335,7 +343,7 @@ function renderMini() {
       <button class="cal-round sm" data-mini="-1" data-no-icon aria-label="Previous month"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="cal-round sm" data-mini="1" data-no-icon aria-label="Next month"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <div class="mini-grid">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((x) => `<span class="mini-wd">${x}</span>`).join('')}${cells}</div>`;
+    <div class="mini-grid">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((x) => `<span class="mini-wd">${x}</span>`).join('')}${cells}</div>`;
   for (const b of box.querySelectorAll('[data-mini]')) {
     b.addEventListener('click', () => { miniMonth = new Date(miniMonth.getFullYear(), miniMonth.getMonth() + Number(b.dataset.mini), 1); loadMini(); });
   }
@@ -345,7 +353,7 @@ function renderMini() {
 function item(e, withTime) {
   const k = KIND[e.kind] || { label: e.kind, icon: '' };
   return `<a class="ev-item${e.done ? ' done' : ''}${e.overdue ? ' overdue' : ''}" style="--k:${colorOf(e)}" href="${esc(e.url || '#')}" data-ev="${ref(e)}">
-    ${withTime ? `<span class="ev-when">${e.time ? esc(e.time) : 'All day'}</span>` : ''}
+    ${withTime ? `<span class="ev-when">${e.time ? esc(e.time) : 'All day'}${e.endTime ? `<small>${esc(e.endTime)}</small>` : ''}</span>` : ''}
     <span class="ev-icon">${k.icon}</span>
     <span class="ev-body"><span class="ev-title">${esc(e.title)}</span>
     <span class="ev-meta">${esc(k.one || k.label)}${e.overdue ? ' · <b>overdue</b>' : ''}${e.detail ? ` · ${esc(e.detail)}` : ''}</span>
@@ -442,12 +450,85 @@ function goToday() {
   load(was && was !== selected ? (was < selected ? 1 : -1) : 0);
 }
 
-async function addTask(day, time) {
+// A new task — or, with an end time (or `event`), a new event.
+async function addTask(day, time, endTime, event) {
   hidePeek();
   const [projects, people] = await Promise.all([window.api.projects.list(), window.api.tasks.people()]);
   const opts = { projects: (projects || []).filter((p) => p.status !== 'Archived'), people, dueDate: day || selected || todayKey() };
   if (time) opts.dueTime = time;
-  if (await window.editTask(null, opts)) load();
+  if (endTime) opts.endTime = endTime;
+  if (event) opts.event = true;
+  const saved = await window.editTask(null, opts);
+  clearGhost();
+  if (saved) load();
+}
+
+// An event opens in the same sheet, here — not on the Tasks page.
+async function editEvent(id) {
+  hidePeek();
+  const [task, projects, people] = await Promise.all([window.api.tasks.get(id), window.api.projects.list(), window.api.tasks.people()]);
+  if (!task) return;
+  if (await window.editTask(task, { projects: (projects || []).filter((p) => p.status !== 'Archived' || p.id === task.projectId), people })) load();
+}
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest && ev.target.closest('[data-ev]');
+  if (!el || ev.metaKey) return;
+  const e = drawn[Number(el.dataset.ev)];
+  if (!e || e.kind !== 'Event' || !e.id) return;
+  ev.preventDefault();
+  editEvent(e.id);
+});
+
+// ---------- Drag to schedule ----------
+// Press on an empty part of a day's column and drag down (or up): the
+// block snaps to quarter hours and shows its times; let go to name it.
+// A plain click makes an hour from that slot.
+
+const SNAP = 15;
+let ghost = null;
+function clearGhost() { if (ghost) { ghost.remove(); ghost = null; } }
+const hhmm = (mins) => `${pad(Math.floor(mins / 60))}:${pad(mins % 60)}`;
+
+function wireDragToSchedule(box) {
+  for (const col of box.querySelectorAll('.week-col')) {
+    col.addEventListener('pointerdown', (down) => {
+      if (down.button !== 0 || down.target.closest('a, button')) return;
+      down.preventDefault();
+      clearGhost();
+      hidePeek();
+      const rect = col.getBoundingClientRect();
+      const at = (y) => Math.max(0, Math.min(24 * 60, Math.round(((y - rect.top) / HOUR_PX) * 60 / SNAP) * SNAP));
+      const anchor = Math.floor(((down.clientY - rect.top) / HOUR_PX) * 60 / SNAP) * SNAP;
+      let from = anchor;
+      let to = anchor + 60;
+      let moved = false;
+      ghost = document.createElement('div');
+      ghost.className = 'week-ghost';
+      col.appendChild(ghost);
+      const draw = () => {
+        ghost.style.top = `${(from / 60) * HOUR_PX + 1}px`;
+        ghost.style.height = `${Math.max(12, ((to - from) / 60) * HOUR_PX - 3)}px`;
+        ghost.innerHTML = `<span>${hhmm(from)} – ${hhmm(Math.min(to, 23 * 60 + 59))}</span>`;
+      };
+      draw();
+      const onMove = (mv) => {
+        const y = at(mv.clientY);
+        if (!moved && Math.abs(mv.clientY - down.clientY) < 5) return;
+        moved = true;
+        ghost.classList.add('dragging');
+        if (y > anchor) { from = anchor; to = Math.max(anchor + SNAP, y); } else { from = Math.min(y, anchor); to = anchor + SNAP; }
+        draw();
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        ghost.classList.remove('dragging');
+        addTask(col.dataset.day, hhmm(from), hhmm(Math.min(to, 23 * 60 + 59)), true);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  }
 }
 
 // ---------- Preview on hover ----------
@@ -468,9 +549,9 @@ function showPeek(el) {
   peek.innerHTML = `<div class="pk-kind"><span class="pk-icon">${k.icon}</span>${esc(k.one || k.label)}${e.overdue ? '<span class="pk-flag">Overdue</span>' : ''}${e.done ? '<span class="pk-flag done">Done</span>' : ''}</div>
     <div class="pk-title">${esc(e.title)}</div>
     ${e.detail ? `<div class="pk-detail">${esc(e.detail)}</div>` : ''}
-    <div class="pk-when">${esc(fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${e.time ? ` · ${esc(e.time)}` : ''}</div>
+    <div class="pk-when">${esc(fmt(d, { weekday: 'long', day: 'numeric', month: 'long' }))}${e.time ? ` · ${esc(e.time)}${e.endTime ? `–${esc(e.endTime)}` : ''}` : ''}</div>
     ${e.person && window.personTag ? `<div class="pk-person">${window.personTag(e.person)}</div>` : ''}
-    ${e.url && e.url !== '#' ? '<div class="pk-hint">Click to open</div>' : ''}`;
+    ${e.url && e.url !== '#' ? `<div class="pk-hint">Click to ${e.kind === 'Event' ? 'edit' : 'open'}</div>` : ''}`;
   const r = el.getBoundingClientRect();
   peek.classList.add('measure');
   const pw = peek.offsetWidth;
@@ -509,6 +590,7 @@ document.addEventListener('keydown', (e) => {
   const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
   if (move) { e.preventDefault(); jumpTo(ymd(addDays(sel, move))); return; }
   const k = e.key.toLowerCase();
+  if (k === 'e') { e.preventDefault(); addTask(selected, null, null, true); return; }
   if (k === 't') { e.preventDefault(); goToday(); } else if (k === 'w') { e.preventDefault(); setView('week'); } else if (k === 'm') { e.preventDefault(); setView('month'); } else if (k === 'n') { e.preventDefault(); addTask(selected); } else if (e.key === 'PageUp') { e.preventDefault(); go(-1); } else if (e.key === 'PageDown') { e.preventDefault(); go(1); }
 });
 
@@ -531,6 +613,7 @@ document.addEventListener('keydown', (e) => {
   document.getElementById('cal-next').addEventListener('click', () => go(1));
   document.getElementById('cal-today').addEventListener('click', goToday);
   document.getElementById('cal-add').addEventListener('click', () => addTask(selected));
+  document.getElementById('cal-add-event').addEventListener('click', () => addTask(selected, null, null, true));
   document.getElementById('day-add').addEventListener('click', () => addTask(selected));
   // "+3 more": show that day beside the calendar.
   document.getElementById('cal-main').addEventListener('click', (e) => {
@@ -538,5 +621,17 @@ document.addEventListener('keydown', (e) => {
     if (more) { e.stopPropagation(); select(more.dataset.dayMore); }
   }, true);
   if (window.loadPersonColors) await window.loadPersonColors();
+  // calendar.html?day=2026-10-07&event=… (from a link elsewhere): show that
+  // day, and open the event.
+  const q = new URLSearchParams(location.search);
+  const qDay = q.get('day');
+  if (qDay && /^\d{4}-\d{2}-\d{2}$/.test(qDay)) {
+    const d = dayOf(qDay);
+    selected = qDay;
+    month = new Date(d.getFullYear(), d.getMonth(), 1);
+    miniMonth = new Date(month);
+    weekStart = weekStartFor(d);
+  }
   await load();
+  if (q.get('event')) editEvent(q.get('event'));
 })();

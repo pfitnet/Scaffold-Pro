@@ -173,7 +173,7 @@
 
   function render() {
     $('#mx-parts').innerHTML = parts.map((p, i) => `<a class="mx-part-tile" href="#${esc(p.first.id)}" style="--c:${p.first.color};--i:${i}">
-      <span class="mx-ico">${icon(PART_ICON[p.name] || 'doc', 22)}</span><b>${esc(p.name)}</b><small>${p.chapters.map((c) => esc(c.title)).join(' · ')}</small></a>`).join('');
+      <span class="mx-ico">${icon(PART_ICON[p.name] || 'doc', 22)}</span><b>${esc(p.name)}</b><small>${p.chapters.slice(0, 3).map((c) => esc(c.title)).join(' · ')}${p.chapters.length > 3 ? ` · +${p.chapters.length - 3} more` : ''}</small></a>`).join('');
     $('#mx-rail-list').innerHTML = parts.map((p) => `<li class="mx-rail-part">${esc(p.name)}</li>${p.chapters.map((c) => `<li data-for="${esc(c.id)}"><a href="#${esc(c.id)}" style="--c:${c.color}"><span class="mx-dot"></span>${esc(c.title)}</a></li>`).join('')}`).join('');
     $('#mx-body').innerHTML = CHAPTERS.map((c) => `<section class="mx-ch" id="${esc(c.id)}" style="--c:${c.color}">
       <header class="mx-ch-head">
@@ -224,10 +224,16 @@
 
   // Contents: the chapter in view is marked; a click scrolls to it.
   function wireRail() {
+    let jumping = 0;
     const go = (id) => {
       const t = document.getElementById(id);
       if (!t) return;
-      t.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'start' });
+      // Scroll the page itself (not every scrolling box around it), and
+      // don't let the contents list move the page while it goes.
+      const sc = document.getElementById('content');
+      const top = t.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 16;
+      jumping = Date.now();
+      sc.scrollTo({ top, behavior: still() ? 'auto' : 'smooth' });
       history.replaceState(null, '', `#${id}`);
     };
     document.addEventListener('click', (e) => {
@@ -242,7 +248,15 @@
       for (const e of entries) { if (e.isIntersecting) seen.add(e.target.id); else seen.delete(e.target.id); }
       const first = $$('.mx-ch').find((c) => seen.has(c.id));
       links.forEach((a, id) => a.classList.toggle('on', !!first && id === first.id));
-      if (first) { const a = links.get(first.id); if (a && a.scrollIntoViewIfNeeded) a.scrollIntoViewIfNeeded(false); }
+      // Keep the marked chapter in sight in the list (moving only the list).
+      if (first && Date.now() - jumping > 900) {
+        const a = links.get(first.id);
+        const rail = document.getElementById('mx-rail');
+        if (a && rail) {
+          const r = a.getBoundingClientRect(), box = rail.getBoundingClientRect();
+          if (r.top < box.top + 40 || r.bottom > box.bottom - 40) rail.scrollTop += r.top - box.top - box.height / 2;
+        }
+      }
     }, { rootMargin: '-15% 0px -70% 0px' });
     $$('.mx-ch').forEach((c) => io.observe(c));
     // Blocks rise in as they come into view.

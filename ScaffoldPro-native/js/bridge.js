@@ -242,9 +242,19 @@
       // The client's signed copy (PDF or photo/scan), kept in the project's Quotations folder.
       uploadSigned: (id) => callNative('quotations:uploadSigned', { id: id }),
       saveSignedFile: (id, fileName, base64) => callNative('quotations:saveSignedFile', { id: id, fileName: fileName, base64: base64 }),
+      // A copy as a new draft, in this project or another → { ok, error, id }.
+      duplicate: (id, projectId) => callNative('quotations:duplicate', { id: id, projectId: projectId || null }),
+      // Importing from a file: read it on this Mac → a draft to check
+      // ({ token, items, subject, …, unsure, aiReady }); read it by the AI;
+      // then make the quotation (the file is kept with the project's documents).
+      importRead: (projectNumber, name, base64) => callNative('quotations:importRead', { projectNumber: projectNumber, name: name, base64: base64 }),
+      importAI: (token) => callNative('quotations:importAI', { token: token }),
+      importCreate: (draft) => callNative('quotations:importCreate', draft),
       // action: 'open' | 'reveal' | 'remove' (the file stays in the folder).
       signedCopy: (id, action) => callNative('quotations:signedCopy', { id: id, action: action }),
       setSignedNotNeeded: (id, notNeeded) => callNative('quotations:setSignedNotNeeded', { id: id, notNeeded: !!notNeeded }),
+      // The client agreed without a signed copy (counts as won in Marketing); false takes it back.
+      setClientAgreed: (id, agreed) => callNative('quotations:setClientAgreed', { id: id, agreed: !!agreed }),
     },
     invoices: {
       listForProject: (projectId) => callNative('invoices:listForProject', { projectId: projectId }),
@@ -295,6 +305,8 @@
     // quantities: { lineId: newQuantity } → { ok, error }.
     lines: {
       setQuantities: (kind, documentId, quantities) => callNative('lines:setQuantities', { kind: kind, documentId: documentId, quantities: quantities }),
+      // A custom item's description and unit, changed after it was added (drafts only).
+      editCustom: (kind, id, description, unit) => callNative('lines:editCustom', { kind: kind, id: id, description: description, unit: unit }),
     },
     deliveryNotes: {
       // The copy signed on site (a PDF, or a photo or scan): chosen in a panel, or a dropped file.
@@ -417,14 +429,25 @@
       remove: (id) => callNative('inspections:delete', { id: id }),
       due: (withinDays) => callNative('inspections:due', withinDays == null ? {} : { withinDays: withinDays }),
     },
+    // A free cloud AI that reads quotations the app can't make out itself
+    // (Settings › AI Import). The key stays in this Mac's Keychain.
+    ai: {
+      status: () => callNative('ai:status'),
+      // { provider: 'gemini' | 'openrouter', model, key (blank = keep), removeKey }
+      configure: (opts) => callNative('ai:configure', opts),
+      openKeyPage: (provider) => callNative('ai:openKeyPage', { provider: provider }),
+    },
     // The team's to-dos.
     tasks: {
       list: (projectId) => callNative('tasks:list', projectId ? { projectId: projectId } : {}),
-      // { id?, title, notes, projectId, assignee, dueDate, priority } → { ok, error, id }
+      // { id?, title, notes, projectId, assignee or team, dueDate, dueTime, endTime (an event), priority } → { ok, error, id }
       save: (task) => callNative('tasks:save', task),
       setDone: (id, done) => callNative('tasks:setDone', { id: id, done: done }),
       remove: (id) => callNative('tasks:delete', { id: id }),
       people: () => callNative('tasks:people'),
+      // { me, teams }: this Mac's user and the team names.
+      teams: () => callNative('tasks:teams'),
+      get: (id) => callNative('tasks:get', { id: id }).then((r) => (r && r[0]) || null),
     },
     // Everything dated between two days (yyyy-MM-dd).
     calendar: {

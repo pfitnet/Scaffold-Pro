@@ -219,7 +219,7 @@ function renderLineItems() {
     tr.innerHTML = `
       <td class="drag-col">${isIssued || items.length < 2 ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
       <td class="num row-no">${index + 1}</td>
-      <td>${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${zhName(item)}
+      <td>${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isIssued) : ''}${zhName(item)}
         ${isIssued
           ? (item.notes ? `<div class="line-note">${item.notes}</div>` : '')
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>
@@ -670,3 +670,7 @@ async function init() {
 }
 
 init();
+
+
+// Custom items: the pencil opens them for editing (js/custom-item.js).
+if (window.wireCustomItemEdit) window.wireCustomItemEdit('boq', (id) => (currentDetail ? currentDetail.lineItems.find((x) => x.id === id) : null), () => loadDetail());

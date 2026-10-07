@@ -242,6 +242,7 @@ function renderAwaitingQuotations(summary) {
       <td class="num">${chargeCell(r, cur)}</td>
       <td class="quote-actions" data-no-icon>
         <button class="icon-btn upload-signed-btn" title="Upload the signed copy…" aria-label="Upload the signed copy">${window.ICONS.upload}</button>
+        <button class="icon-btn agreed-btn" title="Client agreed (by email, phone…) — counts as won" aria-label="Client agreed"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.5 10.5 3.5 3.5 7.5-8"/></svg></button>
         <button class="icon-btn not-needed-btn" title="Not needed — take it off this list (e.g. accepted by email, or not going ahead)" aria-label="Signed copy not needed">${window.ICONS.dismiss}</button>
       </td>
     </tr>`).join('')}</tbody></table>
@@ -258,6 +259,9 @@ function renderAwaitingQuotations(summary) {
     tr.querySelector('.quote-actions').addEventListener('click', (e) => e.stopPropagation());
     tr.querySelector('.upload-signed-btn').addEventListener('click', async () => {
       if (await window.signedCopy.upload(id)) await refresh();
+    });
+    tr.querySelector('.agreed-btn').addEventListener('click', async () => {
+      if (await window.signedCopy.setAgreed(id, true)) await refresh();
     });
     tr.querySelector('.not-needed-btn').addEventListener('click', async () => {
       if (await window.signedCopy.setNotNeeded(id, true)) await refresh();
@@ -304,7 +308,7 @@ async function loadDashboard() {
   const hour = now.getHours();
   const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const first = (summary.userName || '').trim().split(/\s+/)[0];
-  document.querySelector('.page-header h1').innerHTML = `${hello}${first ? `, <a href="user.html" class="plain-link dash-hello-name">${esc(first)}</a>` : ''}`;
+  document.querySelector('.page-header h1').innerHTML = `${hello}${first ? `, <a href="settings.html#you" class="plain-link dash-hello-name">${esc(first)}</a>` : ''}`;
 
   const grid = document.getElementById('stat-grid');
   const unpaidCount = summary.unpaidInvoices.length;

@@ -76,6 +76,7 @@ swiftc "$SCRIPT_DIR/main.swift" \
     -framework Cocoa \
     -framework WebKit \
     -framework PDFKit \
+    -framework Vision \
     -framework UniformTypeIdentifiers \
     -O \
     -o "$BUILD/Contents/MacOS/ScaffoldPro"
