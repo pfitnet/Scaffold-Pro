@@ -141,7 +141,7 @@ function cardHTML(r, i) {
       <div class="tk-body">
         <div class="tk-title">${t.priority === 'High' ? `<span class="tk-flag" title="High priority">${ICON.flag}</span>` : ''}<span class="tk-title-text">${esc(t.title)}</span></div>
         ${t.notes ? `<div class="tk-notes">${esc(t.notes)}</div>` : ''}
-        <div class="tk-meta">${dueChip(r)}${project}</div>
+        ${dueChip(r) || project ? `<div class="tk-meta">${dueChip(r)}${project}</div>` : ''}
       </div>
       <div class="tk-side-right">
         ${t.done ? '' : `<div class="tk-actions">

@@ -4,95 +4,8 @@
   <meta charset="UTF-8" />
   <title>Settings — ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/settings.css" />
   <style>
-    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 780px; }
-    .settings-grid .field { display: flex; flex-direction: column; gap: 4px; }
-    .settings-grid .field.full { grid-column: 1 / -1; }
-    .settings-grid label { font-size: 12px; color: var(--text-secondary); }
-    .settings-grid textarea { min-height: 70px; }
-    /* Pinned to the bottom of the window (not floating inside the page), so nothing shows beneath it. */
-    #content { padding-bottom: 96px; }
-    .save-row { position: fixed; left: var(--sidebar-width); right: 0; bottom: 0; z-index: 20; max-width: none !important;
-      display: flex; align-items: center; gap: 12px; padding: 12px 36px;
-      background: var(--content); background: color-mix(in srgb, var(--content) 88%, transparent); -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px);
-      border-top: 1px solid var(--border); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.05); }
-    .save-row .unsaved-note { display: none; font-size: 12px; color: var(--warning); }
-    .save-row.dirty .unsaved-note { display: inline; }
-    .save-row.dirty #save-btn { box-shadow: 0 0 0 3px var(--focus-ring); }
-    .number-example { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-    .inline-check { display:flex; align-items:center; gap:6px; color: var(--text) !important; font-size: 13px !important; }
-    .next-no { display:flex; align-items:center; gap:6px; font-size:12px; color: var(--text-secondary); margin-top: 4px; }
-    .next-no input { width: 80px; }
-    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
-    .saved-note { font-size:12px; color: var(--text-secondary); }
-    .backup-actions { display:flex; gap:8px; align-items:center; margin: 14px 0 12px; }
-    .backup-status { font-size:12px; color: var(--text-secondary); }
-    .cloud-backup { margin-top: 24px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
-    .cloud-backup h3 { margin: 0 0 6px; }
-    .cloud-row { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; font-size: 13px; }
-    .cloud-label { width: 56px; color: var(--text-secondary); font-size: 12px; }
-    #cloud-status.error, #auto-status.error, #local-status.error { color: var(--danger, #c0392b); }
-    .auto-row { margin: 4px 0 10px; }
-    .skipped-note { display: block; font-size: 11px; color: var(--warning); }
-    .team-box { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); max-width: 780px; }
-    .team-box ol { margin: 6px 0 10px 18px; padding: 0; font-size: 13px; }
-    .team-box ol li { margin: 3px 0; }
-    .team-members { margin: 8px 0 4px; font-size: 13px; }
-    .team-members div { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
-    .team-members .muted { font-size: 12px; }
-    .team-name-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; }
-    .team-name-row input { width: 220px; }
-    .team-warning { color: var(--warning); }
-    .changed-elsewhere { display: flex; gap: 10px; align-items: center; margin: 10px 0 0; padding: 8px 12px; font-size: 13px;
-      border: 1px solid var(--border); border-left: 3px solid var(--warning); border-radius: var(--radius); background: var(--warning-soft); }
-    .location-grid { display:grid; grid-template-columns: 130px 1fr; gap: 6px 12px; max-width: 780px; font-size: 13px; }
-    .location-label { color: var(--text-secondary); }
-    .location-path { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; }
-    .kind-safety { color: var(--text-secondary); font-style: italic; }
-    /* Collapsible sections: click a heading to open or close it. */
-    .settings-sections { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; max-width: 900px; }
-    .settings-section {
-      border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel);
-      box-shadow: var(--shadow-card); transition: border-color .2s var(--ease), box-shadow .25s var(--ease), transform .25s var(--ease);
-      position: relative; overflow: hidden;
-    }
-    .settings-section::after {
-      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--grad-accent);
-      transform: scaleY(0); transform-origin: top; transition: transform .35s var(--ease);
-    }
-    .settings-section:hover { border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
-    .settings-section[open] { box-shadow: var(--shadow-lift); }
-    .settings-section[open]::after { transform: scaleY(1); }
-    .settings-section > summary {
-      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px;
-      padding: 14px 54px 14px 18px; position: relative; -webkit-user-select: none; user-select: none;
-      transition: background .2s var(--ease);
-    }
-    .settings-section > summary::-webkit-details-marker { display: none; }
-    .settings-section > summary::after {
-      content: ""; position: absolute; right: 16px; top: 50%; width: 24px; height: 24px; margin-top: -12px;
-      border-radius: 50%; background: var(--accent-soft) center / 12px 12px no-repeat;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233a66f0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-      transition: transform .3s var(--spring), background-color .2s var(--ease);
-    }
-    .settings-section[open] > summary::after { transform: rotate(180deg); }
-    @media (prefers-color-scheme: dark) {
-      .settings-section > summary::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236d8dff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
-    }
-    .settings-section > summary:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
-    .settings-section > summary:hover::after { transform: translateY(2px); }
-    .settings-section[open] > summary:hover::after { transform: rotate(180deg) translateY(2px); }
-    .settings-section > summary:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); border-radius: var(--radius-lg); }
-    .section-title { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
-    .section-desc { font-size: 12px; color: var(--text-secondary); }
-    .settings-section[open] > summary { border-bottom: 1px solid var(--hairline); }
-    .section-body { padding: 16px 18px 20px; }
-    .settings-section[open] > .section-body { animation: section-open .35s var(--ease); }
-    @keyframes section-open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-    .section-body > .subtitle:first-child { margin-top: 0; }
-    .settings-section .settings-grid { max-width: none; }
-    .settings-section .team-box, .settings-section .cloud-backup { background: var(--content, var(--bg)); }
-    .settings-sections > .save-row { margin-top: 4px; }
     /* Google Sheets (js/google-sheets.js) */
     .gs-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin: 12px 0 4px; max-width: 780px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
     .gs-old { display: flex; align-items: center; gap: 14px; max-width: 780px; margin: 8px 0 4px; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, #c98a14 9%, var(--panel)); border: 1px solid color-mix(in srgb, #c98a14 28%, var(--border)); font-size: 12.5px; line-height: 1.45; }
@@ -114,148 +27,282 @@
     .gs-form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px 12px; margin-top: 8px; max-width: 720px; }
     .gs-form input { width: 100%; }
   </style>
+  </style>
 </head>
 <body data-page="settings">
   <nav id="sidebar"></nav>
   <main id="content">
-    <h1>Settings</h1>
-    <div class="subtitle">Click a section to open or close it. Company details feed the letterhead of every BOQ, quotation, invoice and delivery note.</div>
-
-    <div class="settings-sections">
-      <details class="settings-section" id="general" open>
-        <summary><span class="section-title">General</span><span class="section-desc">Company details, currency, appearance</span></summary>
-        <div class="section-body">
-    <div class="settings-grid">
-          <div class="field"><label>Company Name</label><input type="text" id="companyName-input" /></div>
-          <div class="field"><label>Website</label><input type="text" id="website-input" /></div>
-          <div class="field"><label>Address Line 1</label><input type="text" id="addressLine1-input" /></div>
-          <div class="field"><label>Address Line 2</label><input type="text" id="addressLine2-input" /></div>
-          <div class="field"><label>Phone</label><input type="text" id="phone-input" /></div>
-          <div class="field"><label>Email</label><input type="text" id="email-input" /></div>
-          <div class="field"><label>Registration No.</label><input type="text" id="registrationNumber-input" /></div>
-          <div class="field"><label>Currency</label><input type="text" id="currency-input" /></div>
-    </div>
-        <p class="small-note">Every quotation, invoice, delivery note and BOQ is printed on the company letterhead — the Proficiency (HK) Limited heading and the address footer — exactly as on the standard quotation Qt26193. The signatory, terms and other wording below are used in the documents.</p>
-    <h3 class="related-title">Appearance</h3>
-        <div class="segmented" id="appearance-control">
-          <button data-value="System">Follow System</button>
-          <button data-value="Light">Light</button>
-          <button data-value="Dark">Dark</button>
+    <div class="st-shell">
+      <aside class="st-nav" aria-label="Settings sections">
+        <h1>Settings</h1>
+        <label class="st-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg><input type="search" id="st-search" placeholder="Search settings" autocomplete="off" /></label>
+        <nav id="st-nav-list"></nav>
+      </aside>
+      <div class="st-main">
+        <div class="changed-elsewhere hidden" id="settings-changed-elsewhere">
+          <span>These settings were just changed on another Mac.</span>
+          <button id="settings-reload-btn" data-no-icon>Show Theirs</button>
+        </div>
+        <p class="st-none hidden" id="st-none">No settings match.</p>
+    <section class="st-pane" id="general" data-title="General" data-icon="building" hidden>
+      <header class="st-pane-head"><h2>General</h2><p>Company details and appearance</p></header>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Company</h3><p>Printed on the letterhead and footer of every BOQ, quotation, invoice and delivery note.</p></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Company name</b><span>On the letterhead of every document</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="companyName-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Website</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="website-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Address line 1</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="addressLine1-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Address line 2</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="addressLine2-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Phone</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="phone-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Email</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="email" id="email-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Registration no.</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="registrationNumber-input" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Currency</b><span>e.g. HKD</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="currency-input" /></div>
         </div>
         </div>
-      </details>
-
-      <details class="settings-section" id="documents">
-        <summary><span class="section-title">Documents &amp; Numbering</span><span class="section-desc">Paper size, default notes, document number formats</span></summary>
-        <div class="section-body">
-    <div class="settings-grid">
-          <div class="field"><label>Paper Size</label>
-            <select id="paperSize-input"><option value="A4">A4</option><option value="Letter">Letter</option></select>
-          </div>
-          <div class="field full"><label>Default Notes (filled in on new quotations and invoices)</label><textarea id="defaultNotes-input"></textarea></div>
-    </div>
-    <h3 class="related-title">Document Numbers</h3>
-        <div class="small-note" style="margin-bottom:10px; max-width:780px;">
-          Use <code>{PROJECT}</code> for the project number, <code>{YYYY}</code> or <code>{YY}</code> for the year, and <code>{SEQ}</code> for the running number (001, 002…).
-          Numbers already issued never change. Leave a box empty to use the standard format.
+      </div>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Appearance</h3></div>
+        <div class="st-card">
+        <div class="st-row choice">
+          <div class="st-label"><b>Theme</b></div>
+          <div class="st-control"><div class="segmented" id="appearance-control">
+            <button data-value="System">System</button>
+            <button data-value="Light">Light</button>
+            <button data-value="Dark">Dark</button>
+          </div></div>
         </div>
-    <div class="settings-grid">
-          <div class="field"><label>Bill of Quantities</label><input type="text" id="numberFormatBOQ-input" data-type="BOQ" placeholder="{PROJECT}-BOQ-{SEQ}" /><span class="number-example" id="numberFormatBOQ-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-BOQ" min="1" step="1" placeholder="1" /></label></div>
-          <div class="field"><label>Quotation</label><input type="text" id="numberFormatQuotation-input" data-type="QT" placeholder="Qt{YY}{SEQ}" /><span class="number-example" id="numberFormatQuotation-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-QT" min="1" step="1" placeholder="1" /></label></div>
-          <div class="field"><label>Invoice</label><input type="text" id="numberFormatInvoice-input" data-type="INV" placeholder="H{YY}{SEQ}" /><span class="number-example" id="numberFormatInvoice-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-INV" min="1" step="1" placeholder="1" /></label></div>
-          <div class="field"><label>Delivery Note</label><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /><span class="number-example" id="numberFormatDeliveryNote-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label></div>
-          <div class="field"><label>Letter</label><input type="text" id="numberFormatLetter-input" data-type="LT" placeholder="L{PROJECT}-{SEQ}" /><span class="number-example" id="numberFormatLetter-example"></span><label class="next-no">Next number at least <input type="number" class="start-input" id="start-LT" min="1" step="1" placeholder="1" /></label></div>
-    </div>
-    <label class="inline-check linked-numbers-check"><input type="checkbox" id="linkedNumbers-input" /> Linked documents share one number — the delivery notes and invoices made from <b>Qt26001-004</b> are <b>DN26001-004</b> and <b>H26001-004</b> (a second one <b>H26001-004-2</b>), and the quotation made from <b>BQ26001-004</b> is <b>Qt26001-004</b>. Used when both formats run per project (or both don’t).</label>
         </div>
-      </details>
-
-      <details class="settings-section" id="boq-defaults">
-        <summary><span class="section-title">BOQ Defaults</span><span class="section-desc">Materials every new BOQ starts with, standard terms, English or Chinese item names</span></summary>
-        <div class="section-body">
-    <div class="small-note" style="margin-bottom:10px; max-width:780px;">These items are put into every new BOQ, with these quantities, priced for the BOQ’s Sale or Rental mode. They can be changed or removed in the BOQ like any other item. BOQs already made aren’t changed.</div>
-    <div class="default-items-add">
-          <select id="default-item-source" title="Material list">
-            <option value="SP">SP Material &amp; Price List</option>
-            <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
-          </select>
-          <select id="default-item-select" title="Item"></select>
-          <input type="number" id="default-item-qty" min="1" step="1" value="1" title="Quantity" />
-          <button id="default-item-add-btn">Add Item</button>
-    </div>
-    <div id="default-items-list"></div>
-    <div class="settings-grid" style="margin-top:16px;">
-          <div class="field" style="grid-column: 1 / -1;"><label>Standard terms for the landscape BOQ (put in with “Use Standard Terms” in a BOQ)</label>
-            <textarea id="boqTerms-input" rows="5" placeholder="Blank: the same standard key terms as quotations (Settings › Quotations) are used."></textarea></div>
-          <div class="field"><label>Item names on delivery notes, quotations and BOQs (each document can choose its own)</label>
-            <select id="documentLanguage-input"><option value="English">English</option><option value="Chinese">中文 Chinese (e.g. “2.07m橫杆”)</option></select></div>
-    </div>
+      </div>
+    </section>
+    <section class="st-pane" id="documents" data-title="Documents &amp; Numbering" data-icon="doc" hidden>
+      <header class="st-pane-head"><h2>Documents & Numbering</h2><p>Paper size, default notes, document numbers</p></header>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Paper & notes</h3></div>
+        <div class="st-card">
+        <div class="st-row choice">
+          <div class="st-label"><b>Paper size</b></div>
+          <div class="st-control"><select id="paperSize-input"><option value="A4">A4</option><option value="Letter">Letter</option></select></div>
         </div>
-      </details>
-
-      <details class="settings-section" id="quotations">
-        <summary><span class="section-title">Quotations</span><span class="section-desc">Signatory, delivery charge, minimum hire, markup rounding, terms</span></summary>
-        <div class="section-body">
-    <div class="small-note" style="margin-bottom:10px; max-width:780px;">Used on every quotation, laid out like Qt26193.</div>
-    <div class="settings-grid">
-          <div class="field"><label>Signed by</label><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
-          <div class="field"><label>Title</label><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
-          <div class="field"><label>Terms &amp; Conditions web address</label><input type="text" id="termsURL-input" placeholder="www.pfitnet.com/TC" /></div>
-          <div class="field"><label>Minimum hire (months) — used when “Minimum Hire” is ticked on a rental quotation</label><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1" /></div>
-          <div class="field"><label>Minimum monthly rental charge (HK$) — used when ticked on a rental quotation</label><input type="number" id="minimumMonthlyRental-input" min="0" step="0.01" placeholder="1000" /></div>
-          <div class="field"><label>EUR → HKD exchange rate (SCAFOM list)</label><input type="number" id="eurRate-input" min="0" step="0.0001" /></div>
-          <div class="field"><label for="termsNewPage-input">Terms &amp; Conditions page</label>
-            <select id="termsNewPage-input">
-              <option value="WhenLong">Follow on the same page when they fit (else a new page)</option>
-              <option value="Always">Always on a new page</option>
+        <div class="st-row edit" data-show="long">
+          <div class="st-label"><b>Default notes</b><span>Filled in on new quotations and invoices</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><textarea id="defaultNotes-input" rows="4"></textarea></div>
+        </div>
+        </div>
+      </div>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Document numbers</h3><p>Use <code>{PROJECT}</code>, <code>{YYYY}</code> or <code>{YY}</code>, and <code>{SEQ}</code> (001, 002…). Numbers already issued never change; blank uses the standard format.</p></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="numfmt" data-default="{PROJECT}-BOQ-{SEQ}">
+          <div class="st-label"><b>BOQ</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="st-numfmt"><label><span>Format</span><input type="text" id="numberFormatBOQ-input" data-type="BOQ" placeholder="{PROJECT}-BOQ-{SEQ}" /></label>
+            <label><span>Next number at least</span><input type="number" class="start-input" id="start-BOQ" min="1" step="1" placeholder="1" /></label>
+            <span class="number-example" id="numberFormatBOQ-example"></span></div></div>
+        </div>
+        <div class="st-row edit" data-show="numfmt" data-default="Qt{YY}{SEQ}">
+          <div class="st-label"><b>Quotation</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="st-numfmt"><label><span>Format</span><input type="text" id="numberFormatQuotation-input" data-type="QT" placeholder="Qt{YY}{SEQ}" /></label>
+            <label><span>Next number at least</span><input type="number" class="start-input" id="start-QT" min="1" step="1" placeholder="1" /></label>
+            <span class="number-example" id="numberFormatQuotation-example"></span></div></div>
+        </div>
+        <div class="st-row edit" data-show="numfmt" data-default="H{YY}{SEQ}">
+          <div class="st-label"><b>Invoice</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="st-numfmt"><label><span>Format</span><input type="text" id="numberFormatInvoice-input" data-type="INV" placeholder="H{YY}{SEQ}" /></label>
+            <label><span>Next number at least</span><input type="number" class="start-input" id="start-INV" min="1" step="1" placeholder="1" /></label>
+            <span class="number-example" id="numberFormatInvoice-example"></span></div></div>
+        </div>
+        <div class="st-row edit" data-show="numfmt" data-default="{PROJECT}-DN-{SEQ}">
+          <div class="st-label"><b>Delivery note</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="st-numfmt"><label><span>Format</span><input type="text" id="numberFormatDeliveryNote-input" data-type="DN" placeholder="{PROJECT}-DN-{SEQ}" /></label>
+            <label><span>Next number at least</span><input type="number" class="start-input" id="start-DN" min="1" step="1" placeholder="1" /></label>
+            <span class="number-example" id="numberFormatDeliveryNote-example"></span></div></div>
+        </div>
+        <div class="st-row edit" data-show="numfmt" data-default="L{PROJECT}-{SEQ}">
+          <div class="st-label"><b>Letter</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="st-numfmt"><label><span>Format</span><input type="text" id="numberFormatLetter-input" data-type="LT" placeholder="L{PROJECT}-{SEQ}" /></label>
+            <label><span>Next number at least</span><input type="number" class="start-input" id="start-LT" min="1" step="1" placeholder="1" /></label>
+            <span class="number-example" id="numberFormatLetter-example"></span></div></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Linked documents share one number</b><span>From Qt26001-004 come DN26001-004 and H26001-004; from BQ26001-004 comes Qt26001-004</span></div>
+          <div class="st-control"><label class="st-switch"><input type="checkbox" id="linkedNumbers-input" /><span></span></label></div>
+        </div>
+        </div>
+      </div>
+    </section>
+    <section class="st-pane" id="boq-defaults" data-title="BOQ Defaults" data-icon="grid" hidden>
+      <header class="st-pane-head"><h2>BOQ Defaults</h2><p>What new BOQs start with</p></header>
+      <div class="st-group">
+        <div class="st-group-head"><h3>New BOQs</h3></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="items">
+          <div class="st-label"><b>Starting materials</b><span>Put into every new BOQ, priced for its Sale or Rental mode</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="default-items-add">
+            <select id="default-item-source" title="Material list">
+              <option value="SP">SP Material &amp; Price List</option>
+              <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
             </select>
+            <select id="default-item-select" title="Item"></select>
+            <input type="number" id="default-item-qty" min="1" step="1" value="1" title="Quantity" />
+            <button id="default-item-add-btn" data-no-icon>Add Item</button>
           </div>
-          <div class="field"><label for="markupRounding-input">Marked-up unit prices (quotation and BOQ markup %)</label>
-            <select id="markupRounding-input">
-              <option value="Nearest">Round off to the nearest 0.1 (4.83 → 4.80)</option>
-              <option value="Up">Round up to the next 0.1 (4.83 → 4.90)</option>
-            </select>
-          </div>
-          <div class="field full"><label>Delivery charges by weight <span class="small-note">(per truck per trip — “+ Delivery Charge” on a quotation picks the band for the materials’ weight; heavier loads go on more trucks)</span></label>
-            <table class="compact delivery-rates">
+          <div id="default-items-list"></div></div>
+        </div>
+        <div class="st-row edit" data-show="terms">
+          <div class="st-label"><b>Standard BOQ terms</b><span>Put in with “Use Standard Terms” on a landscape BOQ; blank uses the quotations’ key terms</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><textarea id="boqTerms-input" rows="5"></textarea></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Item names</b><span>On delivery notes, quotations and BOQs (each can choose its own)</span></div>
+          <div class="st-control"><select id="documentLanguage-input"><option value="English">English</option><option value="Chinese">中文 Chinese</option></select></div>
+        </div>
+        </div>
+      </div>
+    </section>
+    <section class="st-pane" id="quotations" data-title="Quotations" data-icon="quote" hidden>
+      <header class="st-pane-head"><h2>Quotations</h2><p>Signatory, pricing, delivery charges, terms</p></header>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Signatory</h3></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Signed by</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="signatoryName-input" placeholder="Richard Kwan" /></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Title</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="signatoryTitle-input" placeholder="Director" /></div>
+        </div>
+        </div>
+      </div>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Pricing</h3></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="months">
+          <div class="st-label"><b>Minimum hire</b><span>When “Minimum hire” is ticked on a rental quotation</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="number" id="defaultMinimumHireMonths-input" min="1" step="1"/></div>
+        </div>
+        <div class="st-row edit" data-show="money">
+          <div class="st-label"><b>Minimum monthly rental charge</b><span>When ticked on a rental quotation</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="number" id="minimumMonthlyRental-input" placeholder="1000" min="0" step="0.01"/></div>
+        </div>
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>EUR → HKD exchange rate</b><span>For the SCAFOM list</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="number" id="eurRate-input" min="0" step="0.0001"/></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Marked-up unit prices</b></div>
+          <div class="st-control"><select id="markupRounding-input">
+            <option value="Nearest">Nearest 0.1 (4.83 → 4.80)</option>
+            <option value="Up">Up to the next 0.1 (4.83 → 4.90)</option>
+          </select></div>
+        </div>
+        <div class="st-row edit" data-show="rates">
+          <div class="st-label"><b>Delivery charges by weight</b><span>Per truck per trip; “+ Delivery Charge” picks the band for the load</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><table class="compact delivery-rates">
               <thead><tr><th>Weight on the truck</th><th class="num">Up to (kg)</th><th class="num">Charge (HK$)</th></tr></thead>
               <tbody id="delivery-rates-body"></tbody>
             </table>
-            <button type="button" class="link-btn" id="delivery-rates-reset" data-no-icon>Use the standard rates</button>
-          </div>
-          <div class="field full"><label>Standard manpower rates</label>
-            <p class="small-note" style="margin:0">Now on <a href="price-lists.html?tab=manpower">Costs › Manpower Rates</a> — with what each rate provider charges.</p>
-          </div>
-          <div class="field full"><label>Standard key terms (used on quotations that don't have key terms of their own)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
-          <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
-    </div>
+            <button type="button" class="link-btn" id="delivery-rates-reset" data-no-icon>Use the standard rates</button></div>
         </div>
-      </details>
-
-      <details class="settings-section" id="invoices">
-        <summary><span class="section-title">Invoices</span><span class="section-desc">Due date, and the standard terms with the bank details</span></summary>
-        <div class="section-body">
-    <div class="settings-grid">
-          <div class="field"><label>Invoice Due After (days)</label><input type="number" id="defaultInvoiceDueDays-input" min="0" step="1" /></div>
-          <div class="field full"><label for="defaultPaymentTerms-input">Standard Terms (printed on invoices under Payment Information: payment terms and bank details)</label><textarea id="defaultPaymentTerms-input" rows="10" placeholder="e.g. All payments should be made to the following account:&#10;Account Name : Proficiency (HK) Ltd&#10;Bank Name : OCBC Bank (Hong Kong) Limited"></textarea></div>
-    </div>
+        <div class="st-row info">
+          <div class="st-label"><b>Manpower rates</b></div>
+          <div class="st-value plain"><a href="price-lists.html?tab=manpower">Costs › Manpower Rates</a></div>
         </div>
-      </details>
-
-      <div class="save-row" id="save-row">
-        <button class="primary" id="save-btn">Save Settings</button>
-        <span class="unsaved-note">Unsaved changes</span>
-        <span class="saved-note hidden" id="saved-note">Saved.</span>
+        </div>
       </div>
-      <div class="changed-elsewhere hidden" id="settings-changed-elsewhere">
-        <span>These settings were just changed on another Mac. Save yours to keep what you've entered here, or reload to see theirs.</span>
-        <button id="settings-reload-btn">Reload</button>
+      <div class="st-group">
+        <div class="st-group-head"><h3>Terms</h3></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="text">
+          <div class="st-label"><b>Terms &amp; Conditions web address</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="termsURL-input" placeholder="www.pfitnet.com/TC" /></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Terms &amp; Conditions page</b></div>
+          <div class="st-control"><select id="termsNewPage-input">
+            <option value="WhenLong">Same page when they fit</option>
+            <option value="Always">Always a new page</option>
+          </select></div>
+        </div>
+        <div class="st-row edit" data-show="terms">
+          <div class="st-label"><b>Standard key terms</b><span>On quotations without key terms of their own</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><textarea id="quotationTerms-input" rows="6"></textarea></div>
+        </div>
+        <div class="st-row edit" data-show="long">
+          <div class="st-label"><b>Acceptance &amp; validity paragraph</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><textarea id="quotationAcceptance-input" rows="3"></textarea></div>
+        </div>
+        </div>
       </div>
-
-      <details class="settings-section" id="team">
-        <summary><span class="section-title">Share with Other Macs</span><span class="section-desc">Work on the same data from several Macs through iCloud Drive</span></summary>
-        <div class="section-body">
-        <div class="subtitle">Several people can work on the same projects, quotations and documents, each on their own Mac, with no server: the data lives in a folder you all share in iCloud Drive (free with every Apple ID). When someone saves a change, it appears on the other Macs by itself — usually within a few seconds, as soon as iCloud has carried it across.</div>
+    </section>
+    <section class="st-pane" id="invoices" data-title="Invoices" data-icon="invoice" hidden>
+      <header class="st-pane-head"><h2>Invoices</h2><p>Due date and the standard terms</p></header>
+      <div class="st-group">
+        
+        <div class="st-card">
+        <div class="st-row edit" data-show="days">
+          <div class="st-label"><b>Due after</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="number" id="defaultInvoiceDueDays-input" min="0" step="1"/></div>
+        </div>
+        <div class="st-row edit" data-show="terms">
+          <div class="st-label"><b>Standard terms</b><span>Printed under Payment Information: payment terms and bank details</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><textarea id="defaultPaymentTerms-input" rows="10"></textarea></div>
+        </div>
+        </div>
+      </div>
+    </section>
+    <section class="st-pane" id="team" data-title="Share with Other Macs" data-icon="people" hidden>
+      <header class="st-pane-head"><h2>Share with Other Macs</h2><p>Work on the same data from several Macs</p></header>
+      <p class="st-intro">Several people work on the same projects and documents, each on their own Mac, through a folder shared in iCloud Drive. A change made on one Mac appears on the others by itself, usually within seconds.</p>
         <div class="team-box" id="team-box">
           <div id="team-off">
             <p class="small-note" style="margin-top:0;">To set it up:</p>
@@ -275,9 +322,12 @@
             <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="team-folder">—</span></div>
             <div class="cloud-row"><span class="cloud-label">Status</span><span id="team-status">—</span></div>
             <div class="team-members" id="team-members"></div>
-            <div class="team-name-row">
-              <label for="team-name-input">Your name (shown to the others, and in each project's history)</label>
-              <input type="text" id="team-name-input" />
+            <div class="st-card st-inline-card">
+        <div class="st-row edit" data-show="text" data-save="change:team-name-input">
+          <div class="st-label"><b>Your name</b><span>Shown to the others, and in each project’s history</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="text" id="team-name-input" /></div>
+        </div>
             </div>
             <p class="small-note">If two people change the same thing at the same moment, the later change is kept. Document numbers are worked out on each Mac, so if two people create, say, a quotation for the same project within a few seconds of each other, check the numbers.</p>
             <div class="backup-actions">
@@ -286,14 +336,10 @@
             </div>
           </div>
         </div>
-        </div>
-      </details>
-
-      <details class="settings-section" id="backup">
-        <summary><span class="section-title">Backup &amp; Restore</span><span class="section-desc">Backups, restoring, automatic iCloud backup</span></summary>
-        <div class="section-body">
-        <div class="subtitle">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and all worker and company documents — saved as one folder you can also copy to a USB drive. Backups are kept with the database (Library ▸ Application Support ▸ ScaffoldPro ▸ Backups), away from the business files in Documents.</div>
-
+    </section>
+    <section class="st-pane" id="backup" data-title="Backup &amp; Restore" data-icon="shield" hidden>
+      <header class="st-pane-head"><h2>Backup & Restore</h2><p>Backups, restoring, automatic iCloud backup</p></header>
+      <p class="st-intro">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and the company documents — in one folder you can also copy to a USB drive.</p>
         <p class="small-note"><b>Automatic backups:</b> ScaffoldPro also makes a backup by itself every day at 12:00 a.m. and 12:00 p.m. (or as soon as it's open again, if the Mac was asleep or ScaffoldPro was closed then). Automatic backups more than a week old are deleted; backups you make yourself are kept.</p>
         <div class="cloud-row auto-row"><span class="cloud-label">Status</span><span id="auto-status">—</span></div>
         <div class="backup-actions">
@@ -319,7 +365,11 @@
         <div class="cloud-backup" id="cloud-backup">
           <h3>Automatic iCloud Backup</h3>
           <p class="small-note">Keeps an up-to-date copy of everything — the database, every project folder and all worker and company documents — straight into the shared iCloud Drive folder <b>Proficiency › William's Work</b> (its Database, Projects, Administration, Configuration and Database History folders). It updates itself about a minute after anything is saved, every 15 minutes, and when ScaffoldPro opens; only files that changed are copied. A copy of the database is also kept for each of the last 30 days. Nothing is ever deleted from the iCloud copy. To restore from it, use <b>Restore from Folder…</b> above and choose the William's Work folder.</p>
-          <label class="inline-check"><input type="checkbox" id="cloud-enabled" /> Back up to iCloud automatically</label>
+          <div class="st-card st-inline-card">        <div class="st-row choice">
+          <div class="st-label"><b>Back up to iCloud automatically</b></div>
+          <div class="st-control"><label class="st-switch"><input type="checkbox" id="cloud-enabled" /><span></span></label></div>
+        </div>
+</div>
           <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="cloud-folder">—</span></div>
           <div class="cloud-row"><span class="cloud-label">Status</span><span id="cloud-status">—</span></div>
           <div class="backup-actions">
@@ -329,43 +379,60 @@
             <button id="cloud-reveal-btn">Show in Finder</button>
           </div>
         </div>
+    </section>
+    <section class="st-pane" id="updates" data-title="Updates" data-icon="refresh" hidden>
+      <header class="st-pane-head"><h2>Updates</h2><p>New versions of ScaffoldPro</p></header>
+      <div class="st-group">
+        
+        <div class="st-card">
+        <div class="st-row choice">
+          <div class="st-label"><b>Check for updates while ScaffoldPro is open</b><span>Also when it opens. Update Now saves your work, makes a backup, updates and reopens.</span></div>
+          <div class="st-control"><label class="st-switch"><input type="checkbox" id="auto-update" /><span></span></label></div>
         </div>
-      </details>
-
-      <details class="settings-section" id="updates">
-        <summary><span class="section-title">Updates</span><span class="section-desc">New versions of ScaffoldPro from GitHub</span></summary>
-        <div class="section-body">
-          <label class="inline-check"><input type="checkbox" id="auto-update" /> Check for updates while ScaffoldPro is open</label>
-          <p class="small-note">ScaffoldPro checks for a new version when it opens (and, with this ticked, every 30 minutes while it’s open). When there is one it asks; <b>Update Now</b> saves what you’re working on, makes a backup, updates and opens again by itself.</p>
-          <div class="field" style="margin-top:12px;">
-            <label for="github-token">GitHub access token <span class="small-note" id="token-state"></span></label>
-            <div class="token-row"><input type="password" id="github-token" placeholder="github_pat_… (paste, then Save Token)" autocomplete="off" spellcheck="false" />
-              <button id="token-save-btn">Save Token</button><button id="token-clear-btn" class="hidden">Remove</button></div>
-            <p class="small-note">Needed when the Scaffold-Pro repository on GitHub is private — without it, ScaffoldPro can’t see or download new versions by itself. On github.com: Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token; choose only the Scaffold-Pro repository, and under Repository permissions set <b>Contents: Read-only</b>. It’s kept on this Mac only (in a file only your Mac account can read).</p>
-          </div>
-          <div style="margin-top:8px;"><button id="check-updates-btn">Check Now</button></div>
+        <div class="st-row edit" data-show="token" data-own-actions>
+          <div class="st-label"><b>GitHub access token</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="token-row"><input type="password" id="github-token" placeholder="github_pat_…" autocomplete="off" spellcheck="false" />
+            <button id="token-save-btn" class="primary" data-no-icon>Save Token</button><span class="hidden" id="token-state"></span><button id="token-clear-btn" class="hidden" data-no-icon>Remove</button></div>
+            <p class="small-note">Only needed if the repository is private. github.com › Settings › Developer settings › Fine-grained tokens: just the Scaffold-Pro repository, Contents: Read-only. Kept on this Mac only.</p></div>
         </div>
-      </details>
-
-      <details class="settings-section" id="web-access">
-        <summary><span class="section-title">Web Access</span><span class="section-desc">ScaffoldPro in a web browser, for the team’s Windows PCs, iPads and phones</span></summary>
-        <div class="section-body">
-          <p class="small-note" style="max-width:780px;">This Mac serves ScaffoldPro to web browsers on the office network. Everyone signs in with their name and the office password below, and works on the same data — it’s saved through this Mac into the shared folder, like any other Mac’s work. It’s always this Mac’s version, so it updates when this Mac does. Keep ScaffoldPro open on this Mac (it won’t let the Mac fall asleep while Web Access is on).</p>
-          <label class="inline-check"><input type="checkbox" id="web-enabled" /> Turn on Web Access on this Mac</label>
-          <div class="form-row cols-3" style="margin-top:12px; max-width:780px;">
-            <div class="field"><label for="web-password">Office password</label><input type="password" id="web-password" autocomplete="new-password" placeholder="At least 6 characters" /></div>
-            <div class="field"><label for="web-port">Port</label><input type="number" id="web-port" min="1024" max="65535" step="1" /></div>
-            <div class="field"><label>&nbsp;</label><button id="web-save" data-no-icon>Save</button></div>
-          </div>
-          <div id="web-state" class="web-state"></div>
-          <p class="small-note" style="max-width:780px;">From outside the office: install the free <b>Tailscale</b> app on this Mac and on each person’s PC or phone (signed in to the same Tailscale account), then use this Mac’s Tailscale address with the same port. Files are made here and downloaded; choosing files to upload, imports, backups and setup still need a Mac.</p>
+        <div class="st-row choice">
+          <div class="st-label"><b>Check now</b></div>
+          <div class="st-control"><button id="check-updates-btn" data-no-icon>Check Now</button></div>
         </div>
-      </details>
-
-      <details class="settings-section" id="google-sheets">
-        <summary><span class="section-title">Google Sheets</span><span class="section-desc">An overview of who did what, and when — kept in step with ScaffoldPro both ways</span></summary>
-        <div class="section-body gs-body">
-          <p class="small-note" style="max-width:780px;">A Google Sheet with three tabs. <b>Projects</b>: one line per project and, under it, one per sub-project (26212-001, -002…). The BOQ, Quotation, Delivery Note and Invoice cells fill in with their colour as each goes out (pale while still a draft; hover for the document numbers), and <b>Next Step</b> says what's next in plain words. Sub-projects fold away under their project. <b>Activity</b>: When, Who, Project, What, newest first. <b>Overview</b>: who has done how much this week, projects by stage, the latest work. Change a project's <b>Stage</b> or <b>Notes</b> in the sheet and ScaffoldPro is updated; a sub-project's notes stay in the sheet. A line typed into Activity (e.g. “Site visit — checked ties”) is added to ScaffoldPro's history. It syncs about every minute while ScaffoldPro is open on this Mac. The sheet's script fetches its layout from ScaffoldPro on GitHub, so new layouts arrive by themselves; <b>Sync Now</b> fetches the newest at once.</p>
+        </div>
+      </div>
+    </section>
+    <section class="st-pane" id="web-access" data-title="Web Access" data-icon="globe" hidden>
+      <header class="st-pane-head"><h2>Web Access</h2><p>ScaffoldPro in a web browser</p></header>
+      <p class="st-intro">This Mac serves ScaffoldPro to web browsers on the office network — for the team’s Windows PCs, iPads and phones. Everyone signs in with their name and the office password. Keep ScaffoldPro open on this Mac.</p>
+      <div class="st-group">
+        
+        <div class="st-card">
+        <div class="st-row choice">
+          <div class="st-label"><b>Web Access on this Mac</b></div>
+          <div class="st-control"><label class="st-switch"><input type="checkbox" id="web-enabled" /><span></span></label></div>
+        </div>
+        <div class="st-row edit" data-show="password" data-save="click:web-save">
+          <div class="st-label"><b>Office password</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="password" id="web-password" placeholder="At least 6 characters" autocomplete="new-password"/></div>
+        </div>
+        <div class="st-row edit" data-show="text" data-save="click:web-save">
+          <div class="st-label"><b>Port</b></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><input type="number" id="web-port" min="1024" max="65535" step="1"/></div>
+        </div>
+        </div>
+      </div>
+      <button id="web-save" class="hidden" data-no-icon>Save</button>
+      <div id="web-state" class="web-state st-panel"></div>
+      <p class="st-foot">From outside the office: install <b>Tailscale</b> on this Mac and on each PC or phone (same account), then use this Mac’s Tailscale address with the same port.</p>
+    </section>
+    <section class="st-pane" id="google-sheets" data-title="Google Sheets" data-icon="sheet" hidden>
+      <header class="st-pane-head"><h2>Google Sheets</h2><p>An overview sheet kept in step both ways</p></header>
+        <div class="gs-body">
+      <p class="st-intro">A Google Sheet with Projects, Activity and Overview tabs, kept in step with ScaffoldPro both ways about every minute while ScaffoldPro is open on this Mac. Change a project's Stage or Notes in the sheet and ScaffoldPro is updated; lines typed into Activity are added to its history.</p>
           <div class="gs-linked hidden" id="gs-linked">
             <div class="gs-card">
               <div class="gs-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="2.5" width="16" height="19" rx="2.5" fill="#1e8e3e"/><path d="M8 9h8M8 12.5h8M8 16h8M11.5 9v7" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></div>
@@ -398,21 +465,36 @@
             <p class="small-note" style="max-width:780px;">Set it up on one Mac — the office Mac that's usually open — and that Mac keeps the sheet up to date for everyone. The URL and secret are kept on this Mac only.</p>
           </div>
         </div>
-      </details>
-
-      <details class="settings-section" id="data-location">
-        <summary><span class="section-title">Data Location</span><span class="section-desc">Where the files and database are kept</span></summary>
-        <div class="section-body">
-        <div class="location-grid">
-          <div class="location-label">Business files</div><div class="location-path" id="loc-documents">—</div>
-          <div class="location-label">Backups</div><div class="location-path" id="loc-backups">—</div>
-          <div class="location-label">Database</div><div class="location-path" id="loc-database">—</div>
+    </section>
+    <section class="st-pane" id="data-location" data-title="Data Location" data-icon="folder" hidden>
+      <header class="st-pane-head"><h2>Data Location</h2><p>Where the files and database are kept</p></header>
+      <div class="st-group">
+        
+        <div class="st-card">
+        <div class="st-row info">
+          <div class="st-label"><b>Business files</b></div>
+          <div class="st-value plain"><span class="location-path" id="loc-documents">—</span></div>
         </div>
-        <div style="margin-top:10px;"><button id="show-data-folder-btn">Show in Finder</button></div>
+        <div class="st-row info">
+          <div class="st-label"><b>Backups</b></div>
+          <div class="st-value plain"><span class="location-path" id="loc-backups">—</span></div>
         </div>
-      </details>
-
+        <div class="st-row info">
+          <div class="st-label"><b>Database</b></div>
+          <div class="st-value plain"><span class="location-path" id="loc-database">—</span></div>
+        </div>
+        <div class="st-row choice">
+          <div class="st-label"><b>Show in Finder</b></div>
+          <div class="st-control"><button id="show-data-folder-btn" data-no-icon>Show in Finder</button></div>
+        </div>
+        </div>
+      </div>
+    </section>
+      </div>
     </div>
+    <!-- Kept for js/settings.js: every change is saved by itself now (js/settings-ui.js). -->
+    <div class="hidden" id="save-row"><button id="save-btn">Save Settings</button><span class="saved-note hidden" id="saved-note">Saved.</span></div>
+    <div class="st-toast" id="st-toast" role="status" aria-live="polite"></div>
   </main>
   <script src="js/dialogs.js"></script>
   <script src="js/sidebar.js"></script>
@@ -425,5 +507,6 @@
   <script src="js/delivery-rates.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/google-sheets.js"></script>
+  <script src="js/settings-ui.js"></script>
 </body>
 </html>
