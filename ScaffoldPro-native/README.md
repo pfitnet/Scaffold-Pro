@@ -3353,3 +3353,36 @@ Every form control is now drawn by the app instead of macOS, on every page
   project.
 - The Overview keeps the creator and client groups, the status filter and
   the search.
+
+## Batch 143 — Subsidiaries: pick which to attach, follow the main status, share the BOQ
+
+- **Attach specific subsidiaries.** At Export PDF, Word or Print, a
+  quotation with more than one subsidiary offers:
+  - "Qt… Only";
+  - "Choose…", a list of its subsidiaries to tick or untick;
+  - "Attach All".
+  
+  With one subsidiary it's simply Only or Attach.
+- **Status follows the main quotation.** Setting the main quotation to
+  Issued (or Cancelled, or back to Draft) gives its subsidiaries the same
+  status. Changing a subsidiary, e.g. back to Draft, never changes the
+  main one.
+- **Splitting keeps the BOQ link.** A quotation linked to a BOQ can now be
+  split without removing the link first.
+  - The subsidiary is linked to the same BOQ. The BOQ holds the main
+    quotation's items and the subsidiary's, each kept in step with its
+    own quotation.
+  - Items added on the BOQ go to the main quotation.
+  - Added sections (delivery charges, design fees and the like) are
+    never part of the link.
+- **Unlink one item, and link it again.** On a quotation linked to a BOQ,
+  each item shows a small green link mark.
+  - Click it to unlink just that item. It keeps its own quantity and
+    price, and the BOQ keeps its own.
+  - An unlinked item shows "Unlinked · Relink…". Relinking shows both
+    sets of figures and asks which is right: the BOQ's, or this
+    quotation's.
+- **The delivery schedule goes with a split.** The items moved to a
+  subsidiary take their quantities on the delivery schedule with them,
+  day for day. Reverting the split brings them back onto the main
+  quotation's days.

@@ -231,6 +231,9 @@
       remove: (id, force) => callNative('quotations:delete', { id: id, force: !!force }),
       // opts: { preview: true } → the PDF comes back to show (js/doc-preview.js) before it's saved, withSubsidiaries.
       exportPDF: (id, opts) => callNative('quotations:exportPDF', Object.assign({ id: id }, opts || {})),
+      // One linked line taken out of the link (linked false), or linked again
+      // with prevail 'boq' | 'quotation' — whose figures are kept.
+      setLineLink: (id, linked, prevail) => callNative('quotations:setLineLink', { id: id, linked: !!linked, prevail: prevail || null }),
       exportWord: (id) => callNative('quotations:exportWord', { id: id }),
       // opts: { withSubsidiaries } — its subsidiaries printed after it.
       print: (id, opts) => callNative('quotations:print', Object.assign({ id: id }, opts || {})),

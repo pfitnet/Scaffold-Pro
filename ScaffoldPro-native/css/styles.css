@@ -2269,3 +2269,20 @@ a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); 
 .ov-bracket.tracing .ov-line.lit { stroke-width: 3; }
 .ov-doc.lit { border-color: #22d36b; }
 @media (max-width: 1180px) { .ov-bracket { column-gap: 22px; grid-template-columns: minmax(150px, 1fr) repeat(4, minmax(100px, 1fr)); } }
+
+/* A linked quotation's line: kept in step with its BOQ line, or unlinked. */
+.line-link { display: inline-flex; align-items: center; gap: 4px; height: 20px; min-width: 0; padding: 0 6px; margin-left: 6px; vertical-align: 1px;
+  border-radius: 999px; border: 1px solid color-mix(in srgb, #22b35e 40%, var(--border)); background: color-mix(in srgb, #22b35e 10%, transparent);
+  color: #1f9d55; font-size: 11px; font-weight: 600; box-shadow: none; opacity: .55; transition: opacity .15s, background-color .15s; }
+tr:hover .line-link, .line-link:focus-visible { opacity: 1; }
+.line-link:hover:not(:disabled) { background: color-mix(in srgb, #22b35e 18%, transparent); box-shadow: none; }
+.line-link.off { opacity: 1; color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); background: var(--warning-soft); }
+
+/* Choosing which subsidiaries to attach. */
+.sub-pick-backdrop { z-index: 10060; }
+.sub-pick { max-width: 460px; }
+.sub-pick-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.sub-pick-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; transition: border-color .15s, background-color .15s; }
+.sub-pick-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.sub-pick-row:has(input:checked) { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.sub-pick-row > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }

@@ -201,17 +201,48 @@ function liveSubsidiaries() {
   return ((currentDetail && currentDetail.subsidiaries) || []).filter((r) => r.status !== 'Cancelled');
 }
 
-// At Export (PDF or Word) and Print: put the subsidiaries after this
-// quotation? true / false, or null when cancelled. No question without any.
+// At Export (PDF or Word) and Print: put subsidiaries after this
+// quotation? The ids of the ones to attach (all, or those ticked), false
+// for none, or null when cancelled. No question without any.
 async function askSubsidiaries(what) {
   const subs = liveSubsidiaries();
   if (!subs.length) return false;
   const names = subs.map((r) => r.number).join(', ');
   const one = subs.length === 1;
-  return window.appChoose(`Attach the subsidiar${one ? 'y' : 'ies'} too?\n\n${names} ${one ? 'was' : 'were'} split off ${currentDetail.quotationNumber}. ${one ? 'It' : 'They'} can go after its own pages in this ${what}.`, [
-    { label: `${currentDetail.quotationNumber} Only`, value: false },
-    { label: `Attach ${one ? names : `${subs.length} Subsidiaries`}`, value: true, primary: true },
-  ]);
+  const choices = [{ label: `${currentDetail.quotationNumber} Only`, value: 'none' }];
+  if (!one) choices.push({ label: 'Choose…', value: 'pick' });
+  choices.push({ label: one ? `Attach ${names}` : `Attach All ${subs.length}`, value: 'all', primary: true });
+  const pick = await window.appChoose(`Attach the subsidiar${one ? 'y' : 'ies'} too?\n\n${names} ${one ? 'was' : 'were'} split off ${currentDetail.quotationNumber}. ${one ? 'It' : 'They'} can go after its own pages in this ${what}.`, choices);
+  if (pick === null || pick === undefined) return null;
+  if (pick === 'none') return false;
+  if (pick === 'all') return subs.map((r) => r.id);
+  return pickSubsidiaries(subs, what);
+}
+
+// Tick the subsidiaries to attach → their ids (in order), or null.
+function pickSubsidiaries(subs, what) {
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'modal-backdrop sub-pick-backdrop';
+    el.innerHTML = `<div class="modal sub-pick" role="dialog" aria-labelledby="sub-pick-title">
+      <h2 id="sub-pick-title">Which subsidiaries go in this ${esc(what)}?</h2>
+      <p class="small-note">They follow ${esc(currentDetail.quotationNumber)}’s own pages, in this order.</p>
+      <div class="sub-pick-list">${subs.map((r) => `<label class="sub-pick-row"><input type="checkbox" value="${esc(r.id)}" checked />
+        <span><b>${esc(r.number)}</b>${r.subject ? `<span class="sub">${esc(r.subject)}</span>` : ''}</span>
+        <span class="status-pill">${esc(r.status)}</span></label>`).join('')}</div>
+      <div class="actions"><button type="button" class="sp-cancel">Cancel</button><button type="button" class="primary sp-ok">Attach</button></div></div>`;
+    document.body.appendChild(el);
+    const ok = el.querySelector('.sp-ok');
+    const boxes = [...el.querySelectorAll('input[type=checkbox]')];
+    const count = () => { const n = boxes.filter((b) => b.checked).length; ok.textContent = n ? `Attach ${n}` : `${currentDetail.quotationNumber} Only`; };
+    for (const b of boxes) b.addEventListener('change', count);
+    count();
+    const close = (v) => { el.remove(); resolve(v); };
+    el.querySelector('.sp-cancel').addEventListener('click', () => close(null));
+    ok.addEventListener('click', () => { const ids = boxes.filter((b) => b.checked).map((b) => b.value); close(ids.length ? ids : false); });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(null); } });
+    setTimeout(() => ok.focus(), 30);
+  });
 }
 
 // "Revert" on a subsidiary: everything back onto the quotation it was split off.
@@ -415,6 +446,47 @@ function renderDelivery() {
 }
 
 // One line of the items or of the delivery charges.
+// A line of a quotation linked to a BOQ: kept in step with its BOQ line,
+// or (unlinked on its own) not — with a way to link it again.
+const LINK_ICON = '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 9a3 3 0 0 0 4.2.3l2-2a3 3 0 0 0-4.2-4.2l-.8.8"/><path d="M9 7a3 3 0 0 0-4.2-.3l-2 2a3 3 0 0 0 4.2 4.2l.8-.8"/></svg>';
+function linkChip(item, isLocked) {
+  const d = currentDetail;
+  if (!d.boqLinked || !item.boqLineId || item.blockId) return '';
+  const boq = esc(d.sourceBOQNumber || 'the BOQ');
+  if (item.boqDetached) {
+    return ` <button type="button" class="line-link off" data-no-icon ${isLocked ? 'disabled' : ''} title="Not kept in step with ${boq} — click to link it again">${LINK_ICON}Unlinked · Relink…</button>`;
+  }
+  return ` <button type="button" class="line-link" data-no-icon ${isLocked ? 'disabled' : ''} title="Kept in step with ${boq} — click to unlink just this item">${LINK_ICON}</button>`;
+}
+
+async function unlinkLine(item) {
+  const boq = currentDetail.sourceBOQNumber || 'the BOQ';
+  if (!await appConfirm(`Unlink ${item.itemDescription} from ${boq}?\n\nIt keeps its own quantity and price on this quotation, and ${boq} keeps its own, until you link it again. The rest stays linked.`, { ok: 'Unlink Item' })) return;
+  const r = await window.api.quotations.setLineLink(item.id, false);
+  if (r && r.ok === false) { await appAlert(r.error); return; }
+  await loadDetail();
+}
+
+async function relinkLine(item) {
+  const d = currentDetail;
+  const boqNo = d.sourceBOQNumber || 'the BOQ';
+  let theirs = null;
+  try {
+    const boq = d.sourceBOQId ? await window.api.boq.get(d.sourceBOQId) : null;
+    theirs = boq && (boq.lineItems || []).find((l) => l.id === item.boqLineId);
+  } catch (e) { /* shown without the BOQ's figures */ }
+  const mine = `${Math.round(item.quantity)} ${item.unit} @ ${money(item.appliedUnitPrice)}`;
+  const other = theirs ? `${Math.round(theirs.quantity)} ${theirs.unit} @ ${money(theirs.appliedUnitPrice)}` : 'its figures';
+  const pick = await window.appChoose(`Link ${item.itemDescription} to ${boqNo} again?\n\nWhich one is right?\n• This quotation: ${mine}\n• ${boqNo}: ${other}`, [
+    { label: `Keep ${boqNo}’s`, value: 'boq' },
+    { label: 'Keep This Quotation’s', value: 'quotation', primary: true },
+  ]);
+  if (!pick) return;
+  const r = await window.api.quotations.setLineLink(item.id, true, pick);
+  if (r && r.ok === false) { await appAlert(r.error); return; }
+  await loadDetail();
+}
+
 function lineRow(item, rowNo, isLocked, draggable) {
   const lineTotal = currentDetail.lineTotals[item.id] ?? window.lineNetTotal(item);
   const effectivePrice = currentDetail.effectiveUnitPrices[item.id] ?? item.appliedUnitPrice;
@@ -428,7 +500,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
   tr.innerHTML = `
     <td class="drag-col">${isLocked || !draggable ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
     <td class="num row-no">${rowNo}</td>
-    <td class="line-desc">${item.itemDescription}</td>
+    <td class="line-desc">${item.itemDescription}${linkChip(item, isLocked)}</td>
     <td>${item.unit}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
     <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
@@ -442,6 +514,8 @@ function lineRow(item, rowNo, isLocked, draggable) {
   window.calcChange(priceInput, (v, f) => updateLine(item.id, { appliedUnitPrice: Math.max(0, v), priceFormula: f }));
   const removeBtn = tr.querySelector('.remove-btn');
   if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
+  const chip = tr.querySelector('.line-link');
+  if (chip) chip.addEventListener('click', () => (item.boqDetached ? relinkLine(item) : unlinkLine(item)));
   const discountBtn = tr.querySelector('.discount-btn');
   if (discountBtn) discountBtn.addEventListener('click', () => {
     window.openLineDiscount(Object.assign({}, item, { appliedUnitPrice: effectivePrice }), currencyLabel, async (type, value) => {
@@ -929,23 +1003,24 @@ async function init() {
   // Shown first (js/doc-preview.js), with its subsidiaries after it if
   // that's asked for; saved into the project folder from there.
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
-    const withSubsidiaries = await askSubsidiaries('PDF');
-    if (withSubsidiaries === null) return;
-    const result = await window.docPreview.pdf(() => window.api.quotations.exportPDF(quotationId, { preview: true, withSubsidiaries }),
-      { title: currentDetail.quotationNumber + (withSubsidiaries ? ` + ${currentDetail.subsidiaries.length} subsidiar${currentDetail.subsidiaries.length === 1 ? 'y' : 'ies'}` : '') });
+    const subIds = await askSubsidiaries('PDF');
+    if (subIds === null) return;
+    const n = subIds ? subIds.length : 0;
+    const result = await window.docPreview.pdf(() => window.api.quotations.exportPDF(quotationId, { preview: true, withSubsidiaries: n > 0, subsidiaryIds: subIds || [] }),
+      { title: currentDetail.quotationNumber + (n ? ` + ${n} subsidiar${n === 1 ? 'y' : 'ies'}` : '') });
     if (!result.ok) { alert(result.error); }
   });
 
   document.getElementById('export-word-btn').addEventListener('click', async (e) => {
-    const withSubsidiaries = await askSubsidiaries('Word document');
-    if (withSubsidiaries === null) return;
+    const subIds = await askSubsidiaries('Word document');
+    if (subIds === null) return;
     e.target.disabled = true;
     try {
       const result = await window.exportWord(async () => {
         const layout = await window.api.quotations.exportWord(quotationId);
         // Each subsidiary as its own section after it, in the same file.
-        if (layout && layout.ok && withSubsidiaries) {
-          layout.attach = await Promise.all(liveSubsidiaries().map((r) => window.api.quotations.exportWord(r.id)));
+        if (layout && layout.ok && subIds && subIds.length) {
+          layout.attach = await Promise.all(subIds.map((sid) => window.api.quotations.exportWord(sid)));
         }
         return layout;
       });
@@ -981,9 +1056,9 @@ async function init() {
   });
 
   document.getElementById('print-btn').addEventListener('click', async () => {
-    const withSubsidiaries = await askSubsidiaries('print');
-    if (withSubsidiaries === null) return;
-    const result = await window.api.quotations.print(quotationId, { withSubsidiaries });
+    const subIds = await askSubsidiaries('print');
+    if (subIds === null) return;
+    const result = await window.api.quotations.print(quotationId, { withSubsidiaries: !!(subIds && subIds.length), subsidiaryIds: subIds || [] });
     if (!result.ok) { alert(result.error); }
   });
 

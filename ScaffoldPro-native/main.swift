@@ -1510,6 +1510,9 @@ struct QuotationLineItem: Codable {
     /// The line of the BOQ it came from (and, while the two are linked,
     /// is kept the same as).
     var boqLineId: String? = nil
+    /// Taken out of the link on its own ("Unlink from BOQ"): it keeps its
+    /// own quantity and price, and the BOQ's line keeps its, until relinked.
+    var boqDetached: Bool? = nil
 }
 
 /// A letter on the letterhead, written in the letter editor. The app prints
@@ -6664,14 +6667,32 @@ final class AppDatabase {
     private func mirrorBOQ(_ boq: BillOfQuantities, into quotationId: String) {
         var qs = quotationsStore.readAll()
         guard let qi = qs.firstIndex(where: { $0.id == quotationId }) else { return }
-        let boqLines = lineItems(for: boq.id)
-        let boqLineIds = Set(boqLines.map { $0.id })
+        let fullBOQ = lineItems(for: boq.id)
+        let boqLineIds = Set(fullBOQ.map { $0.id })
         var all = quotationLineItemsStore.readAll()
         let before = all.filter { $0.quotationId == quotationId }
         var paired: [String: QuotationLineItem] = [:]
         for l in before where l.blockId == nil { if let b = l.boqLineId, paired[b] == nil { paired[b] = l } }
+        // A subsidiary sharing its main quotation's BOQ holds only its own
+        // items of it; the main one holds all but its subsidiaries'.
+        var boqLines = fullBOQ
+        if parentQuotation(of: qs[qi], in: qs) != nil {
+            boqLines = fullBOQ.filter { paired[$0.id] != nil }
+        } else {
+            let subs = Set(qs.filter { $0.id != quotationId && $0.sourceBOQId == boq.id && parentQuotation(of: $0, in: qs)?.id == quotationId }.map { $0.id })
+            if !subs.isEmpty {
+                let held = Set(all.filter { subs.contains($0.quotationId) && $0.blockId == nil }.compactMap { $0.boqLineId })
+                boqLines = fullBOQ.filter { !held.contains($0.id) }
+            }
+        }
         var materials: [QuotationLineItem] = []
         for (index, item) in boqLines.enumerated() {
+            // Unlinked on its own: it stays as it is.
+            if var own = paired[item.id], own.boqDetached == true {
+                own.sortOrder = index
+                materials.append(own)
+                continue
+            }
             let priced = linkedPricing(of: item, boq: boq)
             var line = paired[item.id] ?? QuotationLineItem(id: makeId("qitem"), quotationId: quotationId, sourceKey: nil, priceListItemId: nil,
                                                             itemCode: "", itemDescription: "", unit: "", quantity: 0, appliedUnitPrice: 0,
@@ -6696,7 +6717,7 @@ final class AppDatabase {
         // any item only on the quotation) stays, after the BOQ's items.
         let pairedIds = Set(materials.map { $0.id })
         let others = before
-            .filter { !pairedIds.contains($0.id) && !($0.blockId == nil && $0.boqLineId.map { !boqLineIds.contains($0) } ?? false) }
+            .filter { !pairedIds.contains($0.id) && !($0.blockId == nil && $0.boqDetached != true && $0.boqLineId.map { !boqLineIds.contains($0) } ?? false) }
             .sorted { $0.sortOrder < $1.sortOrder }
             .enumerated().map { i, l -> QuotationLineItem in
                 var c = l
@@ -6745,7 +6766,8 @@ final class AppDatabase {
         guard let q = getQuotation(id: quotationId), q.boqLinked == true, q.status == "Draft",
               let boqId = q.sourceBOQId, let boq = getBOQ(id: boqId), boq.status == "Draft" else { return }
         var qAll = quotationLineItemsStore.readAll()
-        let qIndexes = qAll.indices.filter { qAll[$0].quotationId == quotationId && qAll[$0].blockId == nil && (qAll[$0].boqLineId != nil || isMaterialLine(qAll[$0])) }
+        let qIndexes = qAll.indices.filter { qAll[$0].quotationId == quotationId && qAll[$0].blockId == nil && qAll[$0].boqDetached != true
+            && (qAll[$0].boqLineId != nil || isMaterialLine(qAll[$0])) }
             .sorted { qAll[$0].sortOrder < qAll[$1].sortOrder }
         var bAll = boqLineItemsStore.readAll()
         let bBefore = bAll.filter { $0.boqId == boqId }
@@ -7350,7 +7372,7 @@ final class AppDatabase {
         touchQuotation(q.id)
         // Linked to a BOQ (a Draft): the item comes off it, and off the
         // BOQ's other linked quotations.
-        if q.boqLinked == true, let boqLine = target.boqLineId, let boqId = q.sourceBOQId, getBOQ(id: boqId)?.status == "Draft" {
+        if q.boqLinked == true, target.boqDetached != true, let boqLine = target.boqLineId, let boqId = q.sourceBOQId, getBOQ(id: boqId)?.status == "Draft" {
             var lines = boqLineItemsStore.readAll()
             if lines.contains(where: { $0.id == boqLine && $0.boqId == boqId }) {
                 lines.removeAll { $0.id == boqLine && $0.boqId == boqId }
@@ -7508,7 +7530,73 @@ final class AppDatabase {
         if changed, status == "Draft", qs[index].boqLinked == true, let boq = qs[index].sourceBOQId.flatMap({ getBOQ(id: $0) }) {
             mirrorBOQ(boq, into: id)
         }
+        // A main quotation's subsidiaries follow its status (a subsidiary's
+        // own change never moves the main one).
+        if changed {
+            let all = quotationsStore.readAll()
+            for sub in all where sub.id != id && sub.status != status && sub.status != "Cancelled" && parentQuotation(of: sub, in: all)?.id == id {
+                _ = updateQuotationStatus(id: sub.id, status: status)
+            }
+        }
         return nil
+    }
+
+    /// One line of a linked quotation taken out of the link (it keeps its
+    /// own quantity and price), or put back: `prevail` "quotation" makes the
+    /// BOQ's line the quotation's, "boq" the quotation's line the BOQ's.
+    func setQuotationLineLink(lineId: String, linked: Bool, prevail: String?) -> String? {
+        var lines = quotationLineItemsStore.readAll()
+        guard let li = lines.firstIndex(where: { $0.id == lineId }) else { return "Line item not found." }
+        guard let q = getQuotation(id: lines[li].quotationId) else { return "Quotation not found." }
+        guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        guard q.boqLinked == true, let boqId = q.sourceBOQId, let boq = getBOQ(id: boqId) else { return "This quotation isn’t linked to a BOQ." }
+        guard lines[li].boqLineId != nil || linked else { return "This item isn’t on the BOQ." }
+        if !linked {
+            lines[li].boqDetached = true
+            quotationLineItemsStore.writeAll(lines)
+            touchQuotation(q.id)
+            logActivity(projectId: q.projectId, "\(lines[li].itemDescription) unlinked from \(boq.boqNumber)", reference: q.quotationNumber)
+            return nil
+        }
+        lines[li].boqDetached = nil
+        quotationLineItemsStore.writeAll(lines)
+        if prevail == "quotation" {
+            guard boq.status == "Draft" else { return "\(boq.boqNumber) is issued, so it keeps its own figures. Relink with the BOQ’s instead." }
+            pushQuotationToBOQ(q.id)
+        } else {
+            mirrorBOQ(boq, into: q.id)
+        }
+        touchQuotation(q.id)
+        logActivity(projectId: q.projectId, "\(lines[li].itemDescription) linked to \(boq.boqNumber) again (\(prevail == "quotation" ? "the quotation’s" : "the BOQ’s") figures kept)", reference: q.quotationNumber)
+        return nil
+    }
+
+    /// A day-by-day delivery schedule's quantities for `lineIds` moved from
+    /// one quotation to another, day for day (a day made there if needed).
+    private func moveDeliveryQuantities(lineIds: Set<String>, from source: String, to target: String) {
+        guard !lineIds.isEmpty else { return }
+        var days = quotationDeliveriesStore.readAll()
+        var changed = false
+        for i in days.indices where days[i].quotationId == source {
+            let moving = days[i].quantities.filter { lineIds.contains($0.key) }
+            guard !moving.isEmpty else { continue }
+            for k in moving.keys { days[i].quantities.removeValue(forKey: k) }
+            days[i].updatedAt = nowISO()
+            if let t = days.firstIndex(where: { $0.quotationId == target && $0.day == days[i].day }) {
+                for (k, v) in moving { days[t].quantities[k] = (days[t].quantities[k] ?? 0) + v }
+                days[t].updatedAt = nowISO()
+            } else {
+                var copy = days[i]
+                copy.id = makeId("qdday")
+                copy.quotationId = target
+                copy.quantities = moving
+                copy.createdAt = nowISO()
+                copy.updatedAt = nowISO()
+                days.append(copy)
+            }
+            changed = true
+        }
+        if changed { quotationDeliveriesStore.writeAll(days) }
     }
 
     /// Draft only — an issued quotation is cancelled, never deleted
@@ -7598,6 +7686,7 @@ final class AppDatabase {
         var lines = quotationLineItemsStore.readAll()
         var next = (lines.filter { $0.quotationId == parent.id && $0.blockId == nil }.map { $0.sortOrder }.max() ?? -1) + 1
         let moved = lines.filter { $0.quotationId == q.id }.count
+        moveDeliveryQuantities(lineIds: Set(lines.filter { $0.quotationId == q.id }.map { $0.id }), from: q.id, to: parent.id)
         for i in lines.indices where lines[i].quotationId == q.id {
             lines[i].quotationId = parent.id
             if lines[i].blockId == nil {
@@ -7636,13 +7725,10 @@ final class AppDatabase {
         guard moving.count < items.count || movingBlocks.count < blocks.count else {
             return QuotationSplitResult(ok: false, error: "That's everything on this quotation — leave at least one line or section on it.")
         }
-        if q.boqLinked == true, let boq = q.sourceBOQId.flatMap({ getBOQ(id: $0) }),
-           moving.contains(where: { $0.blockId == nil && $0.boqLineId != nil }) {
-            return QuotationSplitResult(ok: false, error: "The items come from \(boq.boqNumber), which this quotation is linked to. Remove the link first, or move only sections and delivery charges.")
-        }
-
+        // Linked to a BOQ: the subsidiary is linked to it too, holding the
+        // items it takes (the BOQ keeps the main's and the subsidiaries').
         var split = Quotation(
-            id: makeId("quotation"), projectId: q.projectId, sourceBOQId: nil,
+            id: makeId("quotation"), projectId: q.projectId, sourceBOQId: q.sourceBOQId,
             quotationNumber: subsidiaryNumber(of: q.quotationNumber),
             status: "Draft", quotationDate: nowISO(), pricingMode: q.pricingMode, validUntil: q.validUntil,
             paymentTerms: q.paymentTerms, discountType: "None", discountValue: 0, taxRatePercent: q.taxRatePercent,
@@ -7663,15 +7749,18 @@ final class AppDatabase {
         split.lineSort = q.lineSort == "manual" ? "manual" : nil
         split.orientation = q.orientation
         split.parentQuotationId = q.id
+        split.boqLinked = q.boqLinked
         quotationsStore.insert(split)
 
         let movingIds = Set(moving.map { $0.id })
         var lines = quotationLineItemsStore.readAll()
         for i in lines.indices where movingIds.contains(lines[i].id) {
             lines[i].quotationId = split.id
-            lines[i].boqLineId = nil
+            if q.sourceBOQId == nil { lines[i].boqLineId = nil }
         }
         quotationLineItemsStore.writeAll(lines)
+        // Their deliveries go with them, day for day.
+        moveDeliveryQuantities(lineIds: movingIds, from: q.id, to: split.id)
         var allBlocks = quotationBlocksStore.readAll()
         for (n, block) in movingBlocks.enumerated() {
             if let i = allBlocks.firstIndex(where: { $0.id == block.id }) {
@@ -14983,6 +15072,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "projects:update":
             let error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "quotations:setLineLink":
+            let error = db.setQuotationLineLink(lineId: (payload["id"] as? String) ?? "", linked: (payload["linked"] as? Bool) ?? true, prevail: payload["prevail"] as? String)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "projects:overview":
             respond(id: id, encodable: db.projectsOverview())
         case "projects:contents":
@@ -15486,7 +15578,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:exportPDF":
             let qid = (payload["id"] as? String) ?? ""
             handleExportQuotationPDF(id: id, quotationId: qid, mode: previewMode(payload),
-                                     withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false)
+                                     withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false, subsidiaryIds: payload["subsidiaryIds"] as? [String])
         case "boq:exportWord":
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .word)
         case "quotations:exportWord":
@@ -15510,7 +15602,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportBOQPDF(id: id, boqId: (payload["id"] as? String) ?? "", mode: .print)
         case "quotations:print":
             handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .print,
-                                     withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false)
+                                     withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false, subsidiaryIds: payload["subsidiaryIds"] as? [String])
         case "quotations:combinePDF":
             handleCombineDocuments(id: id, kind: "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
         case "documents:combinePDF":
@@ -17028,7 +17120,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         )
     }
 
-    private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export, withSubsidiaries: Bool = false) {
+    private func handleExportQuotationPDF(id: String, quotationId: String, mode: PDFMode = .export, withSubsidiaries: Bool = false, subsidiaryIds: [String]? = nil) {
         guard let detail = db.getQuotationDetail(id: quotationId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Quotation not found.", path: nil))
             return
@@ -17051,14 +17143,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             deliverPDF(id: id, mode: mode, data: data, paperSize: NSSize(width: layout.pageWidth, height: layout.pageHeight),
                        projectNumber: detail.projectNumber, subfolder: "Quotations", documentNumber: detail.quotationNumber, docTypeTag: "Quotation",
-                       attachments: quotationAttachments(detail, withSubsidiaries: withSubsidiaries))
+                       attachments: quotationAttachments(detail, withSubsidiaries: withSubsidiaries, only: subsidiaryIds))
             return
         }
         let company = db.getCompanySettings()
         let letter = quotationLetter(detail, company: company)
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Quotations",
                            documentNumber: detail.quotationNumber, docTypeTag: "Quotation", letter: letter,
-                           attachments: mode == .word ? [] : quotationAttachments(detail, withSubsidiaries: withSubsidiaries))
+                           attachments: mode == .word ? [] : quotationAttachments(detail, withSubsidiaries: withSubsidiaries, only: subsidiaryIds))
     }
 
     /// A quotation's own pages as a PDF, as it's set to print (portrait
@@ -17178,9 +17270,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Everything added after a quotation's own pages: its delivery
     /// schedule, the BOQ it follows (not after a landscape quotation, which
     /// is the BQ sheet itself), then its image and PDF drawings.
-    private func quotationAttachments(_ detail: QuotationDetail, withSubsidiaries: Bool = false) -> [URL] {
+    private func quotationAttachments(_ detail: QuotationDetail, withSubsidiaries: Bool = false, only: [String]? = nil) -> [URL] {
         let boq = detail.orientation == "Landscape" ? nil : followedBOQFile(detail)
-        return (withSubsidiaries ? subsidiaryFiles(detail) : [])
+        return (withSubsidiaries ? subsidiaryFiles(detail, only: only) : [])
             + [deliveryScheduleFile(kind: "Quotation", id: detail.id), boq].compactMap { $0 }
             + db.appendedDrawingFiles(kind: "Quotation", id: detail.id)
     }
@@ -17188,8 +17280,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// The quotations split off this one (not cancelled ones), as each
     /// prints, written to temporary PDFs so they follow this quotation's own
     /// pages — when asked for at Export / Print.
-    private func subsidiaryFiles(_ detail: QuotationDetail) -> [URL] {
-        return detail.subsidiaries.filter { $0.status != "Cancelled" }.compactMap { ref -> URL? in
+    /// `only`: just these of them (chosen at Export / Print).
+    private func subsidiaryFiles(_ detail: QuotationDetail, only: [String]? = nil) -> [URL] {
+        return detail.subsidiaries.filter { $0.status != "Cancelled" && (only.map { Set($0) }?.contains($0.id) ?? true) }.compactMap { ref -> URL? in
             guard let sub = db.getQuotationDetail(id: ref.id), let data = quotationPDFData(sub) else { return nil }
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-\(sub.id).pdf")
             return (try? data.write(to: url)) != nil ? url : nil
