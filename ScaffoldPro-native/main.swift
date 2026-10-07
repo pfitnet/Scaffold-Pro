@@ -4974,12 +4974,101 @@ final class AppDatabase {
             return ["id": e.id, "when": e.createdAt, "who": e.by ?? "", "project": p?.projectNumber ?? "", "projectName": p?.name ?? "",
                     "what": e.action, "reference": e.reference ?? "", "from": e.device == "google-sheets" ? "Google Sheets" : "ScaffoldPro"]
         }
+        let subs = sheetsSubProjects(projects)
+        let letters = Dictionary(grouping: lettersStore.readAll().filter { $0.projectId != nil && $0.status != "Cancelled" }, by: { $0.projectId ?? "" })
         let rows: [[String: Any]] = projects.map { p in
             ["id": p.id, "number": p.projectNumber, "name": p.name, "client": clients[p.clientId] ?? "", "site": sites[p.siteId] ?? "",
              "status": p.status, "projectManager": p.projectManager ?? "", "internalNotes": p.internalNotes ?? "",
-             "lastActivity": last[p.id]?.createdAt ?? "", "lastBy": last[p.id]?.by ?? ""]
+             "lastActivity": last[p.id]?.createdAt ?? "", "lastBy": last[p.id]?.by ?? "",
+             "letters": (letters[p.id] ?? []).sorted { $0.letterNumber.localizedStandardCompare($1.letterNumber) == .orderedAscending }
+                .map { "\($0.letterNumber) · \($0.status)" },
+             "subs": subs[p.id] ?? []]
         }
         return (activity, rows)
+    }
+
+    /// A project's sub-projects for the sheet: its documents grouped by the
+    /// number after the project code (BQ26212-001, Qt26212-001-s1,
+    /// DN26212-001-2 and H26212-001 are all 26212-001), each with how far
+    /// it has got.
+    func sheetsSubProjects(_ projects: [Project]) -> [String: [[String: Any]]] {
+        let numbers = Dictionary(projects.map { ($0.id, $0.projectNumber) }, uniquingKeysWith: { a, _ in a })
+        func key(_ docNumber: String, _ projectId: String) -> String {
+            guard let code = numbers[projectId], let r = docNumber.range(of: code) else { return "" }
+            let rest = String(docNumber[r.upperBound...])
+            guard let m = rest.range(of: #"^-(?:[A-Za-z]+-)?(\d+)"#, options: .regularExpression) else { return "" }
+            return String(rest[m].filter { $0.isNumber })
+        }
+        struct Group { var boqs: [String] = []; var quotations: [String] = []; var notes: [String] = []; var invoices: [String] = []
+            var title: String? = nil; var updated = ""; var updatedBy: String? = nil; var statuses: [String] = []
+            var anyIssuedQuote = false; var accepted = false; var delivered = false; var invoiced = false; var invoiceStates: [String] = [] }
+        var groups: [String: [String: Group]] = [:]
+        func touch(_ g: inout Group, _ at: String, _ by: String?) { if at > g.updated { g.updated = at; g.updatedBy = by } }
+        let boqAuthors = authorsByRecord("boqs.json"), qAuthors = authorsByRecord("quotations.json")
+        let dnAuthors = authorsByRecord("delivery_notes.json"), invAuthors = authorsByRecord("invoices.json")
+        let tag: (String) -> String = { $0 == "PartiallyPaid" ? "Part paid" : $0 }
+        for b in boqsStore.readAll() {
+            let k = key(b.boqNumber, b.projectId)
+            var g = groups[b.projectId, default: [:]][k, default: Group()]
+            g.boqs.append("\(b.boqNumber) · \(b.status)")
+            if g.title == nil { g.title = nonBlank(b.structure) }
+            g.statuses.append(b.status)
+            touch(&g, b.updatedAt, boqAuthors[b.id]?.lastEditedBy)
+            groups[b.projectId, default: [:]][k] = g
+        }
+        // Main quotations first, so the subject is the main one's.
+        for q in quotationsStore.readAll().sorted(by: { $0.quotationNumber.count < $1.quotationNumber.count }) {
+            let k = key(q.quotationNumber, q.projectId)
+            var g = groups[q.projectId, default: [:]][k, default: Group()]
+            let signed = q.signedCopyPath.map { fileIsPresent($0) } ?? false
+            g.quotations.append("\(q.quotationNumber) · \(q.status)\(signed ? " · client signed" : q.directorSignedBy != nil ? " · chopped" : "")")
+            if let subject = nonBlank(q.subject), !q.quotationNumber.contains("-s") { g.title = subject }
+            g.statuses.append(q.status)
+            if q.status == "Issued" { g.anyIssuedQuote = true }
+            if signed { g.accepted = true }
+            touch(&g, q.updatedAt, qAuthors[q.id]?.lastEditedBy)
+            groups[q.projectId, default: [:]][k] = g
+        }
+        for n in deliveryNotesStore.readAll() {
+            let k = key(n.deliveryNoteNumber, n.projectId)
+            var g = groups[n.projectId, default: [:]][k, default: Group()]
+            let signed = n.signedCopyPath.map { fileIsPresent($0) } ?? false
+            g.notes.append("\(n.deliveryNoteNumber) · \(n.status)\(signed ? " · signed" : "")")
+            g.statuses.append(n.status)
+            if n.status == "Issued" { g.delivered = true }
+            touch(&g, n.updatedAt, dnAuthors[n.id]?.lastEditedBy)
+            groups[n.projectId, default: [:]][k] = g
+        }
+        for i in invoicesStore.readAll() {
+            let k = key(i.invoiceNumber, i.projectId)
+            var g = groups[i.projectId, default: [:]][k, default: Group()]
+            g.invoices.append("\(i.invoiceNumber) · \(tag(i.status))")
+            g.statuses.append(i.status)
+            if i.status != "Cancelled" { g.invoiceStates.append(i.status) }
+            if i.status != "Draft" && i.status != "Cancelled" { g.invoiced = true }
+            touch(&g, i.updatedAt, invAuthors[i.id]?.lastEditedBy)
+            groups[i.projectId, default: [:]][k] = g
+        }
+        let sortNumbers: ([String]) -> [String] = { $0.sorted { $0.localizedStandardCompare($1) == .orderedAscending } }
+        var out: [String: [[String: Any]]] = [:]
+        for (pid, byKey) in groups {
+            let code = numbers[pid] ?? ""
+            out[pid] = byKey.keys.sorted { a, b in a.isEmpty ? false : b.isEmpty ? true : a.localizedStandardCompare(b) == .orderedAscending }.map { k -> [String: Any] in
+                let g = byKey[k]!
+                let stage: String
+                if !g.invoiceStates.isEmpty && g.invoiceStates.allSatisfy({ $0 == "Paid" }) { stage = "Paid" }
+                else if g.invoiced { stage = "Invoiced" }
+                else if g.delivered { stage = "Delivered" }
+                else if g.accepted { stage = "Accepted" }
+                else if g.anyIssuedQuote { stage = "Quoted" }
+                else if !g.statuses.isEmpty && g.statuses.allSatisfy({ $0 == "Cancelled" }) { stage = "Cancelled" }
+                else { stage = "Draft" }
+                return ["key": k.isEmpty ? "other" : k, "ref": k.isEmpty ? "\(code) (other)" : "\(code)-\(k)", "title": g.title ?? "", "stage": stage,
+                        "boqs": sortNumbers(g.boqs), "quotations": sortNumbers(g.quotations), "deliveryNotes": sortNumbers(g.notes),
+                        "invoices": sortNumbers(g.invoices), "updated": g.updated, "updatedBy": g.updatedBy ?? ""]
+            }
+        }
+        return out
     }
 
     /// What was changed in the sheet: a project's status, manager or notes,
