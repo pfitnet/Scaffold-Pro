@@ -2332,6 +2332,8 @@ struct PendingPreview {
     var documentNumber: String
     var docTypeTag: String
     var fileName: String
+    /// Saved here (a new name if one's taken) instead of the project folder.
+    var folder: URL? = nil
 }
 
 struct PreviewPage: Codable {
@@ -2704,6 +2706,8 @@ struct LetterDocument {
     var infoRows: [LetterInfoRow] = []
     /// Shorter rows (23pt heading, 21.1pt items), as on the delivery note.
     var compactTable = false
+    /// Item rows this tall instead (a delivery note squeezed onto one page).
+    var tableRowHeight: Double? = nil
     /// Lines to write on after everything else, two to a row, e.g.
     /// ("Received By", "Date"), ("Full Name", "Contact No."). If they go
     /// on a page of their own it starts "Ref.: <number>".
@@ -4914,6 +4918,18 @@ final class AppDatabase {
             var o = o
             o.boqs.sort(by: byNumber); o.quotations.sort(by: byNumber); o.deliveryNotes.sort(by: byNumber); o.invoices.sort(by: byNumber)
             return o
+        }
+    }
+
+    /// A document's status from its kind and number (for the PDF's watermark).
+    func documentStatus(docTypeTag: String, number: String) -> String? {
+        switch docTypeTag {
+        case "BOQ": return boqsStore.readAll().first { $0.boqNumber == number }?.status
+        case "Quotation": return quotationsStore.readAll().first { $0.quotationNumber == number }?.status
+        case "Invoice": return invoicesStore.readAll().first { $0.invoiceNumber == number }?.status
+        case "DeliveryNote": return deliveryNotesStore.readAll().first { $0.deliveryNoteNumber == number }?.status
+        case "Letter": return lettersStore.readAll().first { $0.letterNumber == number }?.status
+        default: return nil
         }
     }
 
@@ -9658,9 +9674,9 @@ final class PDFGenerator {
     private var baselineBelowMiddle: CGFloat = 5.2
 
     private func configure(for doc: LetterDocument) {
-        rowHeight = doc.compactTable ? 21.1 : 24.1
+        rowHeight = doc.tableRowHeight.map { CGFloat($0) } ?? (doc.compactTable ? 21.1 : 24.1)
         headerHeight = doc.compactTable ? 23.0 : 24.1
-        baselineBelowMiddle = doc.compactTable ? 4.1 : 5.2
+        baselineBelowMiddle = doc.tableRowHeight.map { max(3.2, CGFloat($0) / 2 - 6.2) } ?? (doc.compactTable ? 4.1 : 5.2)
     }
 
     /// "A4" (595.28 × 841.89 pt) or "Letter" (612 × 792 pt) — sections 27, 54.
@@ -10019,9 +10035,7 @@ final class PDFGenerator {
         }
 
         text(doc.title, x: pageWidth / 2, baseline: baseline, font: body(15, bold: true), align: .center, underline: true)
-        if doc.status != "Issued" {
-            text(doc.status.uppercased(), x: textRight, baseline: baseline, font: body(11, bold: true), color: LetterheadColor.grey, align: .right)
-        }
+        // A draft or cancelled one says so across each whole page (PDFWatermark).
         var last = baseline
         var next = baseline + 18.0 + titlePadding
         if let salutation = doc.salutation, !salutation.isEmpty {
@@ -11685,13 +11699,45 @@ enum BQSheet {
     /// pieces (and weight) each day. Seven days to a sheet; more carry on,
     /// on the next one ("Left" on the last). The days' notes in a box under
     /// the table. Long lists run on over pages under the repeated heading.
+    /// The schedule on one page if it can be: every day side by side, on
+    /// A4 landscape or A4 portrait — whichever needs less shrinking — or,
+    /// if neither holds it at a readable size, on A3 (landscape or
+    /// portrait). Only a schedule too big even for A3 goes over several A4
+    /// landscape sheets, a run of days on each.
     static func deliverySchedule(info: (projectCode: String, client: String, jobSite: String, document: String),
                                  lines: [ScheduleLine], days: [QuotationDeliveryDay], chinese: Bool, withInternalNotes: Bool = false) -> [SheetLayout] {
         guard !lines.isEmpty, !days.isEmpty else { return [] }
-        let pageWidth = 842.88, pageHeight = 595.92, top = 53.625
+        func onOne(_ width: Double, _ height: Double) -> SheetLayout? {
+            guard let raw = scheduleSheets(info: info, lines: lines, days: days, chinese: chinese, withInternalNotes: withInternalNotes,
+                                           pageWidth: width, pageHeight: height, everyDay: true).first else { return nil }
+            let tall = raw.rows.reduce(0) { $0 + $1.height }
+            let k = min(1, (width - 72) / (raw.right - raw.left), (raw.bottomLimit - raw.top - 3) / max(1, tall))
+            guard k >= 0.55 else { return nil }
+            return k < 1 ? scaled(raw, by: k, from: (raw.left + raw.right) / 2, to: width / 2) : raw
+        }
+        // The first that's largest wins (landscape before portrait on a tie).
+        func best(_ options: [SheetLayout?]) -> SheetLayout? {
+            var pick: SheetLayout?
+            for case let o? in options where pick == nil || o.scale > pick!.scale + 0.001 { pick = o }
+            return pick
+        }
+        let a4 = best([onOne(842.88, 595.92), onOne(595.92, 842.88)])
+        if let a4 = a4, a4.scale >= 0.8 { return [a4] }
+        if let roomiest = best([a4, onOne(1190.55, 841.89), onOne(841.89, 1190.55)]) { return [roomiest] }
+        return scheduleSheets(info: info, lines: lines, days: days, chinese: chinese, withInternalNotes: withInternalNotes,
+                              pageWidth: 842.88, pageHeight: 595.92, everyDay: false)
+    }
+
+    /// The schedule laid out for a page `pageWidth` × `pageHeight`: all the
+    /// days on one sheet (`everyDay`, as wide as that needs — the caller
+    /// shrinks it to fit), or as many as fit on each.
+    static func scheduleSheets(info: (projectCode: String, client: String, jobSite: String, document: String),
+                               lines: [ScheduleLine], days: [QuotationDeliveryDay], chinese: Bool, withInternalNotes: Bool,
+                               pageWidth: Double, pageHeight: Double, everyDay: Bool) -> [SheetLayout] {
+        let top = 53.625
         let room = pageWidth - 2 * 36
         let noW = 34.5, unitW = 42.0, qtyW = 51.75, dayW = 56.0, leftW = 51.75
-        let perSheet = max(1, Int((room - noW - unitW - qtyW - 170 - leftW) / dayW))
+        let perSheet = everyDay ? days.count : max(1, Int((room - noW - unitW - qtyW - 170 - leftW) / dayW))
         let day: (String?) -> String = { iso in
             let p = DateFormatter()
             p.locale = Locale(identifier: "en_US_POSIX")
@@ -11712,7 +11758,7 @@ enum BQSheet {
         for start in stride(from: 0, to: days.count, by: perSheet) {
             let chunk = Array(days[start..<min(days.count, start + perSheet)])
             let last = start + perSheet >= days.count
-            let nameW = min(330, room - noW - unitW - qtyW - Double(chunk.count) * dayW - (last ? leftW : 0))
+            let nameW = max(170, min(330, room - noW - unitW - qtyW - Double(chunk.count) * dayW - (last ? leftW : 0)))
             let width = noW + nameW + unitW + qtyW + Double(chunk.count) * dayW + (last ? leftW : 0)
             let left = (pageWidth - width) / 2, right = left + width
             var edges = [left, left + noW, left + noW + nameW, left + noW + nameW + unitW, left + noW + nameW + unitW + qtyW]
@@ -11808,8 +11854,9 @@ enum BQSheet {
                                          cells: [cell(left, right, text, 11, "left", end ? 12.375 : 3.375)], repeats: false, joinNext: !end))
                 }
             }
-            sheets.append(fitToPage(SheetLayout(landscape: true, pageWidth: pageWidth, pageHeight: pageHeight, left: left, right: right,
-                                                top: top, bottomLimit: pageHeight - 53.25, rows: rows), smallest: 0.8))
+            let sheet = SheetLayout(landscape: pageWidth > pageHeight, pageWidth: pageWidth, pageHeight: pageHeight, left: left, right: right,
+                                    top: top, bottomLimit: pageHeight - 53.25, rows: rows)
+            sheets.append(everyDay ? sheet : fitToPage(sheet, smallest: 0.8))
         }
         return sheets
     }
@@ -14296,6 +14343,52 @@ struct WebStatus: Codable {
 /// first, and a Mac on another network simply waits for iCloud as before.
 /// Messages are signed with a key made from the shared folder's marker file,
 /// so only Macs in the same shared folder are listened to.
+/// A big word ("DRAFT") laid diagonally across every page of a PDF, corner
+/// to corner, light enough to read the page through.
+enum PDFWatermark {
+    static func stamp(_ data: Data, text: String) -> Data {
+        guard let provider = CGDataProvider(data: data as CFData), let source = CGPDFDocument(provider), source.numberOfPages > 0,
+              let first = source.page(at: 1) else { return data }
+        let out = NSMutableData()
+        var firstBox = first.getBoxRect(.mediaBox)
+        guard let consumer = CGDataConsumer(data: out as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &firstBox, nil) else { return data }
+        for index in 1...source.numberOfPages {
+            guard let page = source.page(at: index) else { continue }
+            var box = page.getBoxRect(.mediaBox)
+            let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size)
+            context.beginPDFPage([kCGPDFContextMediaBox as String: boxData] as CFDictionary)
+            context.drawPDFPage(page)
+            draw(text, in: box, on: context)
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return out.length > 0 ? out as Data : data
+    }
+
+    private static func draw(_ text: String, in box: CGRect, on context: CGContext) {
+        let diagonal = (box.width * box.width + box.height * box.height).squareRoot()
+        // Sized to run about three quarters of the way along the diagonal.
+        let probe = CTFontCreateWithName("Helvetica-Bold" as CFString, 100, nil)
+        let probeLine = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [kCTFontAttributeName as NSAttributedString.Key: probe]))
+        let probeWidth = max(1, CTLineGetBoundsWithOptions(probeLine, .useGlyphPathBounds).width)
+        let size = min(220, 100 * diagonal * 0.72 / probeWidth)
+        let font = CTFontCreateWithName("Helvetica-Bold" as CFString, size, nil)
+        let colour = CGColor(red: 0.55, green: 0.55, blue: 0.58, alpha: 0.16)
+        let attributes: [NSAttributedString.Key: Any] = [kCTFontAttributeName as NSAttributedString.Key: font,
+                                                         kCTForegroundColorAttributeName as NSAttributedString.Key: colour,
+                                                         kCTKernAttributeName as NSAttributedString.Key: size * 0.08]
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
+        let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+        context.saveGState()
+        context.translateBy(x: box.midX, y: box.midY)
+        context.rotate(by: atan2(box.height, box.width))
+        context.textPosition = CGPoint(x: -bounds.width / 2 - bounds.minX, y: -bounds.height / 2 - bounds.minY)
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
+}
+
 final class TeamLink {
     static let shared = TeamLink()
     private var listener: NWListener?
@@ -15194,7 +15287,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let error = db.deleteLetter(id: (payload["id"] as? String) ?? "", force: (payload["force"] as? Bool) ?? false)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "letters:exportPDF":
-            handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: .export)
+            handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: previewMode(payload))
         case "letters:print":
             handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: .print)
         case "letters:letterhead":
@@ -15206,7 +15299,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: db.deliverySchedule(quotationId: (payload["id"] as? String) ?? ""))
         case "quotations:deliverySchedulePDF":
             handleExportSchedulePDF(id: id, kind: (payload["kind"] as? String) ?? "Quotation", documentId: (payload["id"] as? String) ?? "",
-                                    withInternalNotes: (payload["internal"] as? Bool) ?? false)
+                                    withInternalNotes: (payload["internal"] as? Bool) ?? false, mode: previewMode(payload))
         case "quotations:addDeliveryDay":
             let error = db.addDeliveryDay(quotationId: (payload["id"] as? String) ?? "")
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
@@ -15604,9 +15697,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportQuotationPDF(id: id, quotationId: (payload["id"] as? String) ?? "", mode: .print,
                                      withSubsidiaries: (payload["withSubsidiaries"] as? Bool) ?? false, subsidiaryIds: payload["subsidiaryIds"] as? [String])
         case "quotations:combinePDF":
-            handleCombineDocuments(id: id, kind: "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
+            handleCombineDocuments(id: id, kind: "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false, mode: previewMode(payload))
         case "documents:combinePDF":
-            handleCombineDocuments(id: id, kind: (payload["kind"] as? String) ?? "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false)
+            handleCombineDocuments(id: id, kind: (payload["kind"] as? String) ?? "Quotation", ids: (payload["ids"] as? [String]) ?? [], includeDrawings: (payload["includeDrawings"] as? Bool) ?? false, mode: previewMode(payload))
         case "files:locateDocuments":
             handleLocateDocuments(id: id, kind: (payload["kind"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
         case "team:status":
@@ -16447,6 +16540,32 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         return (pages, document.pageCount)
     }
 
+    /// Any finished PDF shown in the app first (js/doc-preview.js): kept
+    /// aside until Save ("files:savePreview") puts it where `pending` says.
+    private func showPreview(id: String, data: Data, _ pending: PendingPreview) {
+        let token = UUID().uuidString
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-preview-\(token).pdf")
+        do { try data.write(to: url, options: .atomic) } catch {
+            respond(id: id, encodable: PreviewResult(ok: false, error: "The preview couldn't be prepared: \(error.localizedDescription)"))
+            return
+        }
+        for (old, p) in pendingPreviews where p.docTypeTag == pending.docTypeTag && p.documentNumber == pending.documentNumber {
+            try? FileManager.default.removeItem(at: p.url)
+            pendingPreviews.removeValue(forKey: old)
+        }
+        var kept = pending
+        kept.url = url
+        pendingPreviews[token] = kept
+        let filename = pending.fileName
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let drawn = NativeBridge.previewPages(data)
+            DispatchQueue.main.async {
+                self?.respond(id: id, encodable: PreviewResult(ok: true, error: nil, token: token, fileName: filename,
+                                                                pages: drawn.pages, pageCount: drawn.count))
+            }
+        }
+    }
+
     /// "Save" in the preview: the PDF shown goes into the project folder.
     private func handleSavePreview(id: String, token: String) {
         guard let p = pendingPreviews.removeValue(forKey: token), let data = try? Data(contentsOf: p.url) else {
@@ -16454,6 +16573,24 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         try? FileManager.default.removeItem(at: p.url)
+        if let folder = p.folder {
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                let base = (p.fileName as NSString).deletingPathExtension
+                var url = folder.appendingPathComponent(p.fileName)
+                var n = 2
+                while FileManager.default.fileExists(atPath: url.path) {
+                    url = folder.appendingPathComponent("\(base) (\(n)).pdf")
+                    n += 1
+                }
+                try data.write(to: url, options: .atomic)
+                db.recordGeneratedPDF(docTypeTag: p.docTypeTag, documentNumber: p.documentNumber, path: url.path)
+                respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: url.path))
+            } catch {
+                respond(id: id, encodable: PDFExportResult(ok: false, error: "The PDF couldn't be saved: \(error.localizedDescription)", path: nil))
+            }
+            return
+        }
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: p.projectNumber, subfolder: p.subfolder, meaningfulFilename: p.fileName)
             db.recordGeneratedPDF(docTypeTag: p.docTypeTag, documentNumber: p.documentNumber, path: destination.path)
@@ -16545,29 +16682,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     private func deliverPDF(id: String, mode: PDFMode, data original: Data, paperSize: NSSize, projectNumber: String, subfolder: String, documentNumber: String, docTypeTag: String,
                             attachments: [URL] = []) {
         let safeNumber = documentNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-        let data = PDFAttachments.append(attachments, to: original, paperSize: paperSize)
+        // A draft (or cancelled) document: a big diagonal word across each
+        // of its own pages — not across drawings attached after them.
+        let status = db.documentStatus(docTypeTag: docTypeTag, number: documentNumber)
+        let mark = status == "Draft" ? "DRAFT" : status == "Cancelled" ? "CANCELLED" : nil
+        let own = mark.map { PDFWatermark.stamp(original, text: $0) } ?? original
+        let data = PDFAttachments.append(attachments, to: own, paperSize: paperSize)
         // The preview: kept aside, its pages drawn for the page to show.
         if mode == .preview {
-            let filename = "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"
-            let token = UUID().uuidString
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-preview-\(token).pdf")
-            do { try data.write(to: url, options: .atomic) } catch {
-                respond(id: id, encodable: PreviewResult(ok: false, error: "The preview couldn't be prepared: \(error.localizedDescription)"))
-                return
-            }
-            for (old, p) in pendingPreviews where p.docTypeTag == docTypeTag && p.documentNumber == documentNumber {
-                try? FileManager.default.removeItem(at: p.url)
-                pendingPreviews.removeValue(forKey: old)
-            }
-            pendingPreviews[token] = PendingPreview(url: url, projectNumber: projectNumber, subfolder: subfolder,
-                                                    documentNumber: documentNumber, docTypeTag: docTypeTag, fileName: filename)
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                let drawn = NativeBridge.previewPages(data)
-                DispatchQueue.main.async {
-                    self?.respond(id: id, encodable: PreviewResult(ok: true, error: nil, token: token, fileName: filename,
-                                                                    pages: drawn.pages, pageCount: drawn.count))
-                }
-            }
+            showPreview(id: id, data: data, PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: projectNumber, subfolder: subfolder,
+                                                           documentNumber: documentNumber, docTypeTag: docTypeTag,
+                                                           fileName: "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"))
             return
         }
         // From a browser, "Print" makes the PDF; the browser prints it.
@@ -16800,6 +16925,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let folder = storage.appRoot.appendingPathComponent("Unit Rates", isDirectory: true)
         let who = block.name.isEmpty ? "" : " - \(block.name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-"))"
         let base = "Unit Rates\(who) - \(String(today.prefix(10)))"
+        if previewMode(payload) == .preview {
+            showPreview(id: id, data: data, PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: "", subfolder: "", documentNumber: base,
+                                                           docTypeTag: "Unit Rates", fileName: "\(base).pdf", folder: folder))
+            return
+        }
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             var url = folder.appendingPathComponent("\(base).pdf")
@@ -17048,7 +17178,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// PDF): the landscape sheet, saved in the document's folder as
     /// "…_Delivery Schedule_Qt26212-007.pdf" (Internal: with the internal
     /// notes, "…_Delivery Schedule (Internal)_…") and opened.
-    private func handleExportSchedulePDF(id: String, kind: String, documentId: String, withInternalNotes: Bool) {
+    private func handleExportSchedulePDF(id: String, kind: String, documentId: String, withInternalNotes: Bool, mode: PDFMode = .export) {
         let isBOQ = kind == "BOQ"
         let doc: (number: String, projectNumber: String)? = isBOQ
             ? db.getBOQDetail(id: documentId).map { ($0.boqNumber, $0.projectNumber) }
@@ -17061,7 +17191,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Put some items on a day of the schedule first.", path: nil))
             return
         }
-        deliverPDF(id: id, mode: .export, data: data, paperSize: NSSize(width: 842.88, height: 595.92), projectNumber: doc.projectNumber,
+        let size = PDFDocument(data: data)?.page(at: 0)?.bounds(for: .mediaBox).size ?? NSSize(width: 842.88, height: 595.92)
+        deliverPDF(id: id, mode: mode, data: data, paperSize: size, projectNumber: doc.projectNumber,
                    subfolder: isBOQ ? "BOQ" : "Quotations", documentNumber: doc.number, docTypeTag: withInternalNotes ? "Delivery Schedule (Internal)" : "Delivery Schedule")
     }
 
@@ -17283,7 +17414,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// `only`: just these of them (chosen at Export / Print).
     private func subsidiaryFiles(_ detail: QuotationDetail, only: [String]? = nil) -> [URL] {
         return detail.subsidiaries.filter { $0.status != "Cancelled" && (only.map { Set($0) }?.contains($0.id) ?? true) }.compactMap { ref -> URL? in
-            guard let sub = db.getQuotationDetail(id: ref.id), let data = quotationPDFData(sub) else { return nil }
+            guard let sub = db.getQuotationDetail(id: ref.id), var data = quotationPDFData(sub) else { return nil }
+            if sub.status == "Draft" { data = PDFWatermark.stamp(data, text: "DRAFT") }
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-\(sub.id).pdf")
             return (try? data.write(to: url)) != nil ? url : nil
         }
@@ -17376,7 +17508,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Several quotations or BOQs of a project in one PDF, in the order
     /// given — each with its drawings (for a quotation, the BOQ it follows
     /// first) after it, if asked. Saved in the project's folder and opened.
-    private func handleCombineDocuments(id: String, kind: String, ids: [String], includeDrawings: Bool) {
+    private func handleCombineDocuments(id: String, kind: String, ids: [String], includeDrawings: Bool, mode: PDFMode = .export) {
         let company = db.getCompanySettings()
         let paper = company.paperSize ?? "A4"
         let paperSize = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
@@ -17429,6 +17561,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let numbers = parts.map { $0.number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") }
         let name = numbers.count <= 4 ? numbers.joined(separator: "+") : "\(numbers.count) \(label.lowercased()) \(letterDate(nowISO()).replacingOccurrences(of: "/", with: "-"))"
         let filename = "\(first.projectNumber)_\(label)_\(name)\(includeDrawings ? "_with drawings" : "").pdf"
+        if mode == .preview {
+            showPreview(id: id, data: data, PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: first.projectNumber, subfolder: subfolder,
+                                                           documentNumber: name, docTypeTag: "Combined", fileName: filename))
+            return
+        }
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: subfolder, meaningfulFilename: filename)
             self.openForUser(destination)
@@ -17671,6 +17808,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         let safe = letter.letterNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         let folder = storage.administrationCategoryFolder("Letters")
+        if mode == .preview {
+            let mark = letter.status == "Draft" ? "DRAFT" : letter.status == "Cancelled" ? "CANCELLED" : nil
+            showPreview(id: id, data: mark.map { PDFWatermark.stamp(data, text: $0) } ?? data,
+                        PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: "", subfolder: "", documentNumber: letter.letterNumber,
+                                       docTypeTag: "Letter", fileName: "Letter_\(safe).pdf", folder: folder))
+            return
+        }
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let destination = folder.appendingPathComponent("Letter_\(safe).pdf")
@@ -17691,7 +17835,29 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let company = db.getCompanySettings()
         deliverRenderedPDF(id: id, mode: mode, company: company, projectNumber: detail.projectNumber, subfolder: "Delivery Notes",
                            documentNumber: detail.deliveryNoteNumber, docTypeTag: "DeliveryNote",
-                           letter: deliveryNoteLetter(detail, note: note, company: company))
+                           letter: onOnePage(deliveryNoteLetter(detail, note: note, company: company), paper: company.paperSize ?? "A4"))
+    }
+
+    /// A delivery note that just spills onto a second page — its items there
+    /// would fill no more than a quarter of it — is drawn with its rows a
+    /// little closer together so that it all fits on one page. One with more
+    /// than that keeps its second page.
+    private func onOnePage(_ letter: LetterDocument, paper: String) -> LetterDocument {
+        func pages(_ doc: LetterDocument) -> Int {
+            guard let generator = PDFGenerator(paperSize: paper) else { return 1 }
+            return PDFDocument(data: generator.generate(doc))?.pageCount ?? 1
+        }
+        guard pages(letter) > 1 else { return letter }
+        let items = Double(letter.rows.count)
+        let quarterPage = (paper == "Letter" ? 792.0 : 841.89) / 4
+        for height in [20.0, 19.0, 18.0, 17.2, 16.5] {
+            // Squeezing more than a quarter page's worth: it stays on two pages.
+            guard items * (21.1 - height) <= quarterPage else { break }
+            var tighter = letter
+            tighter.tableRowHeight = height
+            if pages(tighter) == 1 { return tighter }
+        }
+        return letter
     }
 
     /// A delivery note laid out on the letterhead (as DN26038a).

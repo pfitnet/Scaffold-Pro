@@ -139,10 +139,15 @@
       go.onclick = async () => {
         go.disabled = true;
         go.textContent = 'Making PDF…';
-        const r = await window.api.files.combinePDF(opts.kind, list, opts.drawings && m.querySelector('.sel-drawings').checked);
+        const drawings = opts.drawings && m.querySelector('.sel-drawings').checked;
+        m.classList.add('hidden');
+        // Shown first (js/doc-preview.js); saved from there.
+        const r = window.docPreview
+          ? await window.docPreview.pdf(() => window.api.files.combinePDF(opts.kind, list, drawings, { preview: true }),
+            { title: `${list.length} ${list.length === 1 ? opts.noun : `${opts.noun}s`} in one PDF` })
+          : await window.api.files.combinePDF(opts.kind, list, drawings);
         go.disabled = false;
         go.textContent = 'Export PDF';
-        m.classList.add('hidden');
         if (!r || !r.ok) alert((r && r.error) || 'The PDF couldn’t be made.');
       };
       m.classList.remove('hidden');

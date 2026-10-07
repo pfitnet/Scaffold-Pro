@@ -3397,3 +3397,31 @@ Every form control is now drawn by the app instead of macOS, on every page
   room between them, and on hover the edge thickens in the document's own
   colour instead of switching to blue.
 - The last row of a list has no line under it.
+
+## Batch 145 — Draft watermark; schedules and delivery notes on one page; a preview before every PDF
+
+- **DRAFT across the page.** A draft BOQ, quotation, invoice, delivery
+  note or letter now has a big, light grey **DRAFT** running corner to
+  corner across every one of its pages, instead of the small word beside
+  the title. A cancelled one says CANCELLED the same way. Drawings
+  attached after the document's pages are left clean.
+  - A draft subsidiary attached after its quotation is marked too.
+  - The Word copy doesn't have it yet.
+- **The delivery schedule fits on one page when it can.** All the days go
+  side by side on one sheet. ScaffoldPro tries A4 landscape and A4
+  portrait and takes whichever needs less shrinking. If neither holds the
+  schedule at a readable size, it uses A3 (landscape or portrait). Only a
+  schedule too big even for A3 goes over several A4 sheets, a run of days
+  on each, as before.
+- **Delivery notes stay on one page.** A delivery note that just spills
+  onto a second page has its rows drawn a little closer together so it
+  all fits on one. The limit is items that would fill no more than a
+  quarter of that second page; one with more keeps its second page.
+- **Every PDF is previewed first.** These now open in the in-program
+  preview, with Save to Project Folder, instead of saving straight away:
+  - a project's lists: Select › Export PDF, several documents in one PDF;
+  - the delivery schedule's Export (External and Internal);
+  - Material List › Unit Rates PDF (saved in the Unit Rates folder);
+  - letters, whose Export PDF preview now works.
+  
+  BOQs, quotations, invoices and delivery notes already did this.

@@ -165,7 +165,9 @@ async function init() {
   });
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
     await flush();
-    const r = await window.api.letters.exportPDF(letterId);
+    // Shown first (js/doc-preview.js); saved from there.
+    const r = await window.docPreview.pdf(() => window.api.letters.exportPDF(letterId, { preview: true }),
+      { title: (detail && detail.letter && detail.letter.letterNumber) || 'Letter' });
     if (r && r.ok === false) alert(r.error);
   });
   document.getElementById('print-btn').addEventListener('click', async () => {
