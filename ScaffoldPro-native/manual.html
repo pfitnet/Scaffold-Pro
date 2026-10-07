@@ -71,7 +71,7 @@
           <tr><td><b>Sorting lists</b></td><td>Click a column title to sort: the first click sorts ascending, the second descending, and the third puts the table back in its own order.</td></tr>
           <tr><td><b>Previews</b></td><td>Every PDF and Word export opens in a <b>preview</b> first (zoom with <kbd>⌘</kbd><kbd>−</kbd> / <kbd>⌘</kbd><kbd>0</kbd> / <kbd>⌘</kbd><kbd>+</kbd>). Nothing is saved until <span class="mn-btn primary">Save to Project Folder</span> (<kbd>⌘</kbd><kbd>S</kbd>). After saving you can <span class="mn-btn">Open</span> it, <span class="mn-btn">Show in Finder</span>, or choose <span class="mn-btn">Done</span>.</td></tr>
         </tbody></table>
-        <div class="mn-tip">Changes save by themselves as you type or leave a box, everywhere except Settings, which has a <span class="mn-btn primary">Save Settings</span> bar. If you try to leave Settings with unsaved changes, it asks whether to save them.</div>
+        <div class="mn-tip">Changes save by themselves as you type or leave a box — Settings too, where each setting saves when you press its Save (or flip its switch).</div>
         <div class="mn-tip">Everything respects <b>System Settings › Accessibility › Reduce motion</b>, and the app follows Light or Dark mode (Settings › General › Appearance).</div>
       </section>
 
@@ -528,23 +528,33 @@
 
       <section class="mn-ch" id="stock">
         <h2>Stock</h2>
-        <p class="mn-lead">Every material we hold: what's <b>in the yard</b>, <b>on hire</b> (by project) and <b>owned</b> in total. Open it with <kbd>⌘</kbd><kbd>5</kbd>.</p>
+        <p class="mn-lead">Every material we hold: what's <b>in the yard</b>, <b>on hire</b> (by project and site) and <b>owned</b>. Record receipts, returns, counts and write-offs — many items at once. Open it with <kbd>⌘</kbd><kbd>5</kbd>.</p>
         <figure class="mn-shot" data-shot="stock" data-alt="Stock">
           <ol class="mn-legend">
-            <li><b>Totals</b>: pieces and tonnage in the yard, on hire, and owned.</li>
-            <li><b>Stock List · Movements · By Site</b> tabs. By Site shows what's out at each site, the companies managing it, and the pieces and tons.</li>
-            <li><b>Receive Stock…</b>: new materials into the yard.</li>
-            <li><b>Record Return…</b>: materials back from a project.</li>
-            <li><b>Stock Count…</b>: sets the yard quantity from a count and records the difference.</li>
-            <li><b>Write Off…</b>: lost or damaged.</li>
-            <li><b>Export to Excel</b>.</li>
+            <li><b>Totals</b>: items held, pieces in the yard and on hire, the weight owned, and a bar of yard against hire.</li>
+            <li><b>Record Stock</b>: Receive, Return, Count or Write Off — one sheet for as many items as you need (<kbd>N</kbd>).</li>
+            <li><b>Stock · On Hire · History</b>. On Hire is by site and project, each with <b>Return…</b> to bring it all back. History is by day, with things recorded together in one card.</li>
+            <li><b>Search</b> (<kbd>/</kbd>), the material list (All, SP, SCAFOM, Other) and <b>Only items we hold</b>.</li>
+            <li><b>Stocktake</b>: a Counted box on every row — type the counts (↑ ↓ or Return to move), then <b>Save Count</b> once.</li>
+            <li><b>Categories</b> fold away. Click an item for where it's on hire, its recent history and Receive / Return / Count / Write Off.</li>
+            <li><b>Export</b> what's shown to Excel.</li>
           </ol>
         </figure>
         <div class="mn-flow">
-          <div class="mn-flow-title">How stock moves</div>
-          <div data-chain="grey|Yard|Receive Stock adds > dn|Delivery Note issued|Books out: on hire (or sold) > project|On hire at the project > grey|Record Return|Back in the yard"></div>
+          <div class="mn-flow-title">Recording many items at once</div>
+          <div data-chain="grey|Record Stock|Receive, Return, Count or Write Off > grey|Add items|Type a code or name, Return; or paste rows from Excel; or Quick fill > grey|Quantities|Return goes back for the next item > money|Save|One entry in History, one ⌘Z"></div>
         </div>
-        <p>The Movements tab lists every movement. Manual entries can be deleted there.</p>
+        <table class="mn-ref"><tbody>
+          <tr><td>Typing items</td><td>Type a code or part of a name; ↑ ↓ choose, <b>Return</b> adds it and jumps to its quantity; <b>Return</b> there goes back for the next item. The same item twice is added together.</td></tr>
+          <tr><td>Paste from Excel</td><td>Copy rows with a code or name and a quantity, and paste into "Add an item". Anything not on the material list is listed so you can fix it.</td></tr>
+          <tr><td>Quick fill</td><td>Return: everything on hire to the project, with its quantities. Receive and Count: a whole category; Count also every item we hold.</td></tr>
+          <tr><td>Counts</td><td>Type what's in the yard; only the differences are saved, as one stock count.</td></tr>
+          <tr><td>History</td><td>Remove a whole entry with one click (⌘Z puts it back). What delivery notes booked out changes with the delivery note.</td></tr>
+        </tbody></table>
+        <div class="mn-flow">
+          <div class="mn-flow-title">How stock moves</div>
+          <div data-chain="grey|Yard|Receive adds > dn|Delivery Note issued|Books out: on hire (or sold) > project|On hire at the site > grey|Return|Back in the yard"></div>
+        </div>
       </section>
 
       <!-- ================================================================ COMPANY -->
@@ -641,18 +651,17 @@
 
       <section class="mn-ch" id="settings">
         <h2>Settings</h2>
-        <p class="mn-lead">Company-wide choices, in folding sections. Open it with <kbd>⌘</kbd><kbd>,</kbd>. Changes are kept only when you press <span class="mn-btn primary">Save Settings</span> at the bottom, and "Unsaved changes" shows until then.</p>
+        <p class="mn-lead">Company-wide choices, a section at a time. Open it with <kbd>⌘</kbd><kbd>,</kbd>. Each setting shows what it's set to; its pencil changes just that one.</p>
         <figure class="mn-shot" data-shot="settings" data-alt="Settings">
           <ol class="mn-legend">
-            <li><b>General</b>: company name, website, address, phone, email, registration number, currency, and Appearance (Follow System / Light / Dark).</li>
-            <li><b>Documents &amp; Numbering</b>: paper size (A4 / Letter), default notes, and number formats for BOQs, quotations, invoices, delivery notes and letters (<code>{PROJECT}</code> <code>{YYYY}</code> <code>{YY}</code> <code>{SEQ}</code>, with "next number at least"). Linked documents share a number (switchable).</li>
-            <li><b>Quotations</b>: signatory and title, the Terms &amp; Conditions web address, minimum hire months, the minimum monthly rental charge, the EUR → HKD rate, the Terms page (follow on, or always a new page), markup rounding (nearest or up to 0.1), delivery charges by weight, the standard key terms, and the acceptance paragraph.</li>
-            <li><b>Share with Other Macs</b>: your name, and sharing the data through iCloud Drive (see that chapter).</li>
-            <li><b>Backup &amp; Restore</b>: backups, the local copy and the iCloud backup.</li>
-            <li><b>Google Sheets</b>: the overview sheet (see that chapter).</li>
-            <li><b>Save Settings</b>.</li>
+            <li><b>Search settings</b> (<kbd>⌘</kbd><kbd>F</kbd> or <kbd>/</kbd>): finds a setting in any section.</li>
+            <li><b>Sections</b>: General, Documents &amp; Numbering, BOQ Defaults, Quotations, Invoices, Share with Other Macs, Backup &amp; Restore, Updates, Web Access, Google Sheets, Data Location (↑ ↓ to move).</li>
+            <li><b>What it's set to</b>, as text — blank ones say "Not set".</li>
+            <li><b>The pencil</b>: changes just that setting, with Save and Cancel (Return saves, Esc cancels).</li>
+            <li><b>Switches, lists and buttons</b> work straight away — no pencil.</li>
           </ol>
         </figure>
+        <p>Every change saves by itself — a small <b>Saved</b> shows in the corner.</p>
         <table class="mn-ref"><tbody>
           <tr><td>BOQ Defaults</td><td>Materials and quantities every new BOQ starts with, standard terms for the landscape BOQ (blank = the quotation key terms), and whether item names print in English or Chinese by default.</td></tr>
           <tr><td>Invoices</td><td><b>Invoice Due After</b> (days) and <b>Standard Terms</b>: one formatted box for the payment terms <i>and</i> the bank details, printed under Payment Information. Use the bar (Hanging Indent, • Bullets, 1. / (i) Numbering, Indent / Outdent) and check the "As printed" preview. Draft invoices follow it until given terms of their own.</td></tr>
