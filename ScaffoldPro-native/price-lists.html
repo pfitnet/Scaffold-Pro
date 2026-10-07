@@ -2,14 +2,20 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Material List — ScaffoldPro</title>
+  <title>Costs — ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body data-page="price-lists">
   <nav id="sidebar"></nav>
   <main id="content">
-    <h1>Material List</h1>
-    <div class="subtitle">Materials with their weights, rental and sale prices — used for BOQs, quotations and invoices</div>
+    <h1>Costs</h1>
+    <div class="subtitle">What things cost and what we charge: materials with their weights, rental and sale prices, and manpower with each provider’s rates — used for BOQs, quotations and invoices</div>
+    <div class="tabs" id="costs-tabs" role="tablist">
+      <button type="button" data-tab="materials" class="active" role="tab">Materials</button>
+      <button type="button" data-tab="manpower" role="tab">Manpower Rates</button>
+    </div>
+    <section id="costs-manpower" class="hidden" aria-label="Manpower rates"></section>
+    <div id="costs-materials">
     <div class="sync-note hidden" id="material-sync-note"></div>
 
     <div class="toolbar">
@@ -39,6 +45,7 @@
       <button id="rates-done-btn" data-no-icon>Done</button>
     </div>
     <div id="table-container"></div>
+    </div>
   </main>
 
   <div class="modal-backdrop hidden" id="item-modal">
@@ -100,5 +107,6 @@
   <script src="js/icons.js"></script>
   <script src="js/drag-reorder.js"></script>
   <script src="js/price-lists.js"></script>
+  <script src="js/manpower-costs.js"></script>
 </body>
 </html>

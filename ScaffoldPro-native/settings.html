@@ -174,7 +174,7 @@
       </details>
 
       <details class="settings-section" id="quotations">
-        <summary><span class="section-title">Quotations</span><span class="section-desc">Signatory, delivery charge, minimum hire, markup rounding, manpower rates, terms</span></summary>
+        <summary><span class="section-title">Quotations</span><span class="section-desc">Signatory, delivery charge, minimum hire, markup rounding, terms</span></summary>
         <div class="section-body">
     <div class="small-note" style="margin-bottom:10px; max-width:780px;">Used on every quotation, laid out like Qt26193.</div>
     <div class="settings-grid">
@@ -203,11 +203,8 @@
             </table>
             <button type="button" class="link-btn" id="delivery-rates-reset" data-no-icon>Use the standard rates</button>
           </div>
-          <div class="field full"><label>Standard manpower rates <span class="small-note">(“Standard Manpower Rates” / “Fill Standard Rates” on a quotation)</span></label>
-            <table class="compact manpower-rates">
-              <thead><tr><th>Worker</th><th class="num">Rate (HK$)</th><th>Per</th></tr></thead>
-              <tbody id="manpower-rates-body"></tbody>
-            </table>
+          <div class="field full"><label>Standard manpower rates</label>
+            <p class="small-note" style="margin:0">Now on <a href="price-lists.html?tab=manpower">Costs › Manpower Rates</a> — with what each rate provider charges.</p>
           </div>
           <div class="field full"><label>Standard key terms (used on quotations that don't have key terms of their own)</label><textarea id="quotationTerms-input" rows="6"></textarea></div>
           <div class="field full"><label>Acceptance &amp; validity paragraph</label><textarea id="quotationAcceptance-input" rows="3"></textarea></div>

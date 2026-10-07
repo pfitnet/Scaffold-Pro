@@ -2143,6 +2143,8 @@ struct CompanySettings: Codable {
     /// The standard manpower rates filled into a quotation's rates section
     /// by "Standard Rates". nil = `defaultManpowerRates`.
     var manpowerRates: [ManpowerRate]?
+    /// The manpower rate providers (Costs › Manpower). nil = the defaults.
+    var manpowerProviders: [String]? = nil
     /// Marked-up unit prices (quotation and BOQ markup %) are rounded up to
     /// the next 0.1 (true) or off to the nearest 0.1 (nil / false).
     var markupRoundUp: Bool? = nil
@@ -2174,8 +2176,19 @@ struct DefaultBOQItem: Codable {
 /// A worker type and its day rate, e.g. "Scaffolder CP", 2,300 per "md".
 struct ManpowerRate: Codable {
     var name: String
+    /// What we charge (filled into quotations).
     var rate: Double
     var unit: String
+    /// What each rate provider charges us for it, by provider name.
+    var costs: [String: Double]? = nil
+}
+
+/// Who supplies our workers (Costs › Manpower), unless changed there.
+let defaultManpowerProviders = ["Summit Engineering & Resources Limited", "Lingma Const. & Eng. Co. Ltd."]
+
+struct ManpowerPage: Codable {
+    var rates: [ManpowerRate]
+    var providers: [String]
 }
 
 /// A delivery charge band: per truck per trip for a load up to `upToKg`.
@@ -8808,6 +8821,36 @@ final class AppDatabase {
         return defaults
     }
 
+    /// Costs › Manpower: the workers, what we charge and what each provider
+    /// charges us.
+    func manpowerPage() -> ManpowerPage {
+        let s = getCompanySettings()
+        return ManpowerPage(rates: s.manpowerRates ?? defaultManpowerRates, providers: s.manpowerProviders ?? defaultManpowerProviders)
+    }
+
+    func saveManpower(_ payload: [String: Any]) -> String? {
+        var settings = getCompanySettings()
+        var providers: [String] = []
+        for raw in (payload["providers"] as? [String]) ?? [] {
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty && !providers.contains(where: { $0.lowercased() == name.lowercased() }) { providers.append(name) }
+        }
+        let number: (Any?) -> Double? = { v in (v as? NSNumber)?.doubleValue ?? (v as? String).flatMap { Double($0) } }
+        let rates: [ManpowerRate] = ((payload["rates"] as? [[String: Any]]) ?? []).compactMap { item in
+            guard let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+            let unit = ((item["unit"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            var costs: [String: Double] = [:]
+            for (provider, value) in (item["costs"] as? [String: Any]) ?? [:] where providers.contains(provider) {
+                if let v = number(value), v >= 0 { costs[provider] = v }
+            }
+            return ManpowerRate(name: name, rate: max(0, number(item["rate"]) ?? 0), unit: unit.isEmpty ? "md" : unit, costs: costs.isEmpty ? nil : costs)
+        }
+        settings.manpowerRates = rates
+        settings.manpowerProviders = providers
+        settingsStore.writeAll([settings])
+        return nil
+    }
+
     func updateCompanySettings(_ payload: [String: Any]) -> CompanySettings {
         var settings = getCompanySettings()
         if let v = payload["companyName"] as? String, !v.isEmpty { settings.companyName = v }
@@ -8864,10 +8907,12 @@ final class AppDatabase {
         if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
         if let v = payload["markupRounding"] as? String, ["Nearest", "Up"].contains(v) { settings.markupRoundUp = v == "Up" ? true : nil }
         if let list = payload["manpowerRates"] as? [[String: Any]] {
+            let before = settings.manpowerRates ?? []
             settings.manpowerRates = list.compactMap { item in
                 guard let name = (item["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
                 let unit = ((item["unit"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                return ManpowerRate(name: name, rate: max(0, (item["rate"] as? Double) ?? 0), unit: unit.isEmpty ? "md" : unit)
+                return ManpowerRate(name: name, rate: max(0, (item["rate"] as? Double) ?? 0), unit: unit.isEmpty ? "md" : unit,
+                                    costs: before.first { $0.name.lowercased() == name.lowercased() }?.costs)
             }
         }
         if let v = payload["minimumMonthlyRental"] as? Double { settings.minimumMonthlyRental = max(0, v) }
@@ -15631,6 +15676,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             let error = db.setBOQCharges(id: (payload["id"] as? String) ?? "", charges: charges)
             respond(id: id, encodable: BOQActionResult(ok: error == nil, error: error))
+        case "costs:manpower":
+            respond(id: id, encodable: db.manpowerPage())
+        case "costs:saveManpower":
+            let error = db.saveManpower(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "boq:standardRates":
             respond(id: id, encodable: db.getCompanySettings().manpowerRates ?? defaultManpowerRates)
         case "quotations:setOrientation":
