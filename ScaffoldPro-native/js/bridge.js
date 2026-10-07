@@ -141,7 +141,7 @@
       deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
       // The schedule on its own, as the landscape sheet printed after the BOQ → { ok, error, path }.
       // (internal: with the days' internal notes.)
-      deliverySchedulePDF: (id, internal) => callNative('quotations:deliverySchedulePDF', { id: id, kind: 'BOQ', internal: !!internal }),
+      deliverySchedulePDF: (id, internal, opts) => callNative('quotations:deliverySchedulePDF', Object.assign({ id: id, kind: 'BOQ', internal: !!internal }, opts || {})),
       addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
       updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
       deleteDeliveryDay: (dayId) => callNative('quotations:deleteDeliveryDay', { id: dayId }),
@@ -184,7 +184,7 @@
       // Delivery schedule: how many of each material go to site on Day 1, Day 2… (not tied to stock).
       deliverySchedule: (id) => callNative('quotations:deliverySchedule', { id: id }),
       // The schedule on its own, as the landscape sheet printed after the quotation → { ok, error, path }.
-      deliverySchedulePDF: (id, internal) => callNative('quotations:deliverySchedulePDF', { id: id, kind: 'Quotation', internal: !!internal }),
+      deliverySchedulePDF: (id, internal, opts) => callNative('quotations:deliverySchedulePDF', Object.assign({ id: id, kind: 'Quotation', internal: !!internal }, opts || {})),
       addDeliveryDay: (id) => callNative('quotations:addDeliveryDay', { id: id }),
       // changes: { date?, sent?, note?, internalNote?, quantities?: { lineId: qty } }
       updateDeliveryDay: (dayId, changes) => callNative('quotations:updateDeliveryDay', Object.assign({ id: dayId }, changes)),
@@ -238,7 +238,7 @@
       // opts: { withSubsidiaries } — its subsidiaries printed after it.
       print: (id, opts) => callNative('quotations:print', Object.assign({ id: id }, opts || {})),
       // Several quotations in one PDF (in the order given), optionally each with its drawings.
-      combinePDF: (ids, includeDrawings) => callNative('quotations:combinePDF', { ids: ids, includeDrawings: !!includeDrawings }),
+      combinePDF: (ids, includeDrawings, opts) => callNative('quotations:combinePDF', Object.assign({ ids: ids, includeDrawings: !!includeDrawings }, opts || {})),
       // The client's signed copy (PDF or photo/scan), kept in the project's Quotations folder.
       uploadSigned: (id) => callNative('quotations:uploadSigned', { id: id }),
       saveSignedFile: (id, fileName, base64) => callNative('quotations:saveSignedFile', { id: id, fileName: fileName, base64: base64 }),
@@ -282,7 +282,7 @@
       update: (id, changes) => callNative('letters:update', Object.assign({ id: id }, changes)),
       updateStatus: (id, status) => callNative('letters:updateStatus', { id: id, status: status }),
       remove: (id, force) => callNative('letters:delete', { id: id, force: !!force }),
-      exportPDF: (id) => callNative('letters:exportPDF', { id: id }),
+      exportPDF: (id, opts) => callNative('letters:exportPDF', Object.assign({ id: id }, opts || {})),
       print: (id) => callNative('letters:print', { id: id }),
       // The letterhead and footer as a page-sized PNG → { png (base64), paperSize }.
       letterhead: () => callNative('letters:letterhead'),
@@ -339,7 +339,7 @@
       // Several at once: one Finder window with all their files selected.
       locateDocuments: (kind, ids) => callNative('files:locateDocuments', { kind: kind, ids: ids }),
       // Several quotations or BOQs ('Quotation' | 'BOQ') in one PDF, optionally each with its drawings.
-      combinePDF: (kind, ids, includeDrawings) => callNative('documents:combinePDF', { kind: kind, ids: ids, includeDrawings: !!includeDrawings }),
+      combinePDF: (kind, ids, includeDrawings, opts) => callNative('documents:combinePDF', Object.assign({ kind: kind, ids: ids, includeDrawings: !!includeDrawings }, opts || {})),
       // Files dropped onto a project's Drawings or Documents section.
       // target: 'drawing' (options: linkedKind, linkedId) or 'document'
       // (options: category); files: [{ name, base64 }].

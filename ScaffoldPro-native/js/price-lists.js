@@ -137,16 +137,20 @@ async function makeUnitRates() {
   go.disabled = true;
   go.textContent = 'Making PDF…';
   const clientId = document.getElementById('rates-client').value || null;
-  const r = await window.api.priceLists.unitRatesPDF({
+  const input = {
     itemIds: order.map(([id]) => id), clientId: clientId,
     markupPercent: Number(document.getElementById('rates-markup').value) || 0,
     subject: document.getElementById('rates-subject').value.trim() || null,
     notes: document.getElementById('rates-notes').value.trim() || null,
-  });
+  };
+  document.getElementById('rates-modal').classList.add('hidden');
+  // Shown first (js/doc-preview.js); saved from there.
+  const r = window.docPreview
+    ? await window.docPreview.pdf(() => window.api.priceLists.unitRatesPDF(Object.assign({ preview: true }, input)), { title: 'Unit Rates' })
+    : await window.api.priceLists.unitRatesPDF(input);
   go.disabled = false;
   go.textContent = 'Make PDF';
-  if (!r || !r.ok) { alert((r && r.error) || 'The PDF couldn’t be made.'); return; }
-  document.getElementById('rates-modal').classList.add('hidden');
+  if (!r || !r.ok) { alert((r && r.error) || 'The PDF couldn’t be made.'); document.getElementById('rates-modal').classList.remove('hidden'); }
 }
 
 function setupUnitRates() {

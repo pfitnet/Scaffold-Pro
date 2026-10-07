@@ -199,7 +199,10 @@
       // Export itself: External PDF.
       const pdf = async (internal) => {
         if (!data.days.some((d) => Object.values(d.quantities || {}).some((q) => q > 0))) { alert('Put some items on a day first.'); return; }
-        const r = await api().deliverySchedulePDF(quotationId, internal);
+        // Shown first (js/doc-preview.js); saved from there.
+        const r = window.docPreview
+          ? await window.docPreview.pdf(() => api().deliverySchedulePDF(quotationId, internal, { preview: true }), { title: `Delivery Schedule${internal ? ' (Internal)' : ''}` })
+          : await api().deliverySchedulePDF(quotationId, internal);
         if (r && r.ok === false) alert(r.error);
       };
       const formats = (which) => [
