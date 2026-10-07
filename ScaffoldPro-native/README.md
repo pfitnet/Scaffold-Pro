@@ -3255,3 +3255,24 @@ Every form control is now drawn by the app instead of macOS, on every page
   a period. A key strip under the calendar lists them.
 - **Motion.** Moving between weeks or months slides the grid, items pop
   in, and the summary chips spring in. Reduce Motion is respected.
+
+## Batch 139 — Review before signing; a notice that follows the signer
+
+- **Team › Signatures.** A quotation waiting for you has one button,
+  **Review**. It opens the quotation as it will be printed, in the
+  in-program PDF viewer. Sign & Chop and Decline are at the bottom of that
+  viewer, so a quotation is always seen before it's signed. Close leaves it
+  waiting.
+- **The signer is told straight away, on every page.** "Send to Sign…"
+  posts a notice just for the signer: "William asked you to sign and chop
+  Qt26213-001 — …".
+  - It floats in the corner of whatever page they're on, appearing within
+    seconds, and has a Review button.
+  - It stays until they close it, and closing it keeps it closed on every
+    Mac they use.
+  - It goes by itself once the quotation is signed or declined, or the
+    request is withdrawn.
+  - On the Dashboard the waiting quotation shows in the announcement bar,
+    whose Review button opens the viewer directly.
+- The Signatures tab and the Dashboard bar check for new requests every
+  15 seconds (was every minute).
