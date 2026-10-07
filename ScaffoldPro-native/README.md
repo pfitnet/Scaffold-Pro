@@ -3867,3 +3867,48 @@ every cell. The Projects tab (layout 3) now reads left to right.
     noted in the history ("now a crane job").
   - The Projects list marks crane jobs with an amber "Crane" tag, on cards
     and in the list view.
+
+## Batch 163 — Formatting in custom items; Projects list columns; crane quotations
+
+- **Custom items get the Terms formatting.** The "+ Add a custom item" box
+  in the BOQ, quotation, delivery note and invoice editors has the same
+  toolbar as Terms: Hanging Indent, Bullets, 1. / (i) Numbering, Indent,
+  Outdent, and Tab. Under it, an "As printed" preview shows the result.
+  - Typed as in the crane example: "Provision of Tracked Telescopic Boom
+    Lift", a blank line, then "Model. : ZT14JC", "Manufacturer : ZOOMLION",
+    "Traveling Mechanism : Steel Track + Rubber Trackpad", "Platform Height :".
+  - Labels in a run share one colon column, just past the longest one, as
+    in a typed spec list. A blank line leaves a gap.
+  - Hanging Indent on a short line already typed ("Model") makes it the
+    label ("Model : ") with the cursor after the colon.
+  - The line list in the editors shows the description laid out as printed
+    (`window.descriptionHTML`).
+  - A description is laid out this way when it runs over several lines (or
+    has a Tab) and at least one line is a bullet, number or label
+    (`isFormattedDescription`). One-line descriptions print as typed.
+- **How it prints.**
+  - Portrait letter (quotation, invoice, delivery note, portrait BOQ): the
+    description cell sets each line at its own indent: the marker at its
+    place, the colon, and the text with its wrapped lines under it
+    (`formattedCellLines`, `drawCell`).
+  - BQ sheet (landscape BOQ / quotation): a description over several lines
+    now runs on in rows joined under the item, 14.25pt apart. Before, its
+    lines were run together into one.
+  - Word: the same lines set in with spaces.
+- **Projects list.**
+  - The company sections inside each person's group are gone. In the list
+    view the company is a **Company** column again.
+  - Every column has a set width (`<colgroup>`, `table-layout: fixed`), so
+    columns line up from one group to the next.
+  - The table sits inside its group's rounded box instead of running past
+    its right edge.
+  - The Crane tag sits under the number with room above it, in the page's
+    own type rather than the number's monospace.
+- **Crane jobs: the letter quotation.** A crane job's quotation is the
+  portrait letter (Dear Sir / Madam, Re:, No / Item Description / Unit Rate
+  / Qty / Total Price, Total Amount).
+  - It's never the landscape BQ sheet: the Page choice is hidden, and no BOQ
+    sheet is attached to its PDF.
+  - In the editor, the scaffolding material list steps aside ("Show the
+    material list" brings it back). "+ Add an item", the custom item box with
+    its formatting, is open and in front.
