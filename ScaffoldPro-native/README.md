@@ -3665,3 +3665,14 @@ Every form control is now drawn by the app instead of macOS, on every page
 - The steps in the script and in Settings › Google Sheets now say to choose
   "setup" (not onOpen) in the list next to Run. They also cover Google's
   "unverified app" screen (Advanced › Go to …).
+
+## Batch 155 — Google Sheets script made at script.google.com
+
+- The script no longer has to be opened from the sheet. If the sheet's
+  Extensions › Apps Script won't open, make a project at script.google.com,
+  paste the script, and paste the sheet's link into **SHEET_URL** at the
+  top. The script then opens that sheet itself. Running setup, the Web app
+  and the sync work the same either way.
+- With neither (not attached, no SHEET_URL), setup says how to fix it.
+- **showSecret** also writes the secret to the Execution log, so it can be
+  run from the editor.

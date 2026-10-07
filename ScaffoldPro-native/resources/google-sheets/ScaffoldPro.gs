@@ -22,9 +22,19 @@
  *   4. In ScaffoldPro: Settings › Google Sheets — paste the Web app URL and the
  *      secret, then Connect. It syncs about every minute while ScaffoldPro is open.
  *
- * The secret can be shown again from the sheet: ScaffoldPro › Connection secret.
+ * Made at script.google.com instead (not from the sheet's Extensions menu)?
+ * Paste the sheet's link into SHEET_URL just below, save, then carry on from
+ * step 2. The script then opens that sheet itself.
+ *
+ * The secret can be shown again from the sheet: ScaffoldPro › Connection secret
+ * (or run "showSecret" and look in the Execution log).
  * After changing this script, use Deploy › Manage deployments › Edit › New version.
  */
+
+// Only for a script made at script.google.com: the sheet's link, e.g.
+// 'https://docs.google.com/spreadsheets/d/1AbC…/edit'. Leave it '' when the
+// script was opened from the sheet (Extensions › Apps Script).
+const SHEET_URL = '';
 
 const TABS = { overview: 'Overview', activity: 'Activity', projects: 'Projects', sync: '_sync' };
 const ACTIVITY_HEAD = ['When', 'Who', 'Project', 'Project Name', 'What', 'Reference', 'From', 'ID'];
@@ -52,9 +62,7 @@ function onOpen() {
 }
 
 function setup() {
-  if (!SpreadsheetApp.getActive()) {
-    throw new Error('This script isn\'t attached to a Google Sheet. Open the sheet, choose Extensions › Apps Script there, and paste the script into that project.');
-  }
+  ss_();
   const secret = secret_();
   ensureTabs_();
   buildOverview_();
@@ -66,7 +74,19 @@ function setup() {
 }
 
 function showSecret() {
-  SpreadsheetApp.getUi().alert('Connection secret for ScaffoldPro › Settings › Google Sheets:\n\n' + secret_());
+  const message = 'Connection secret for ScaffoldPro › Settings › Google Sheets:\n\n' + secret_();
+  Logger.log(message);
+  try { SpreadsheetApp.getUi().alert(message); } catch (e) { /* run from the editor: see the log */ }
+}
+
+// The sheet: the one the script belongs to, or the one in SHEET_URL.
+function ss_() {
+  let ss = null;
+  try { ss = SpreadsheetApp.getActive(); } catch (e) { /* not attached to a sheet */ }
+  if (ss) return ss;
+  const url = String(SHEET_URL || '').trim();
+  if (!url) throw new Error('This script isn\'t attached to a Google Sheet. Paste the sheet\'s link into SHEET_URL at the top of the script (or open the script from the sheet: Extensions › Apps Script).');
+  return /^https?:/.test(url) ? SpreadsheetApp.openByUrl(url) : SpreadsheetApp.openById(url);
 }
 
 function secret_() {
@@ -77,7 +97,7 @@ function secret_() {
 }
 
 function ensureTabs_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = ss_();
   const make = (name, head, widths) => {
     let sh = ss.getSheetByName(name);
     if (!sh) sh = ss.insertSheet(name);
@@ -111,7 +131,7 @@ function statusRule_(sh) {
 }
 
 function buildOverview_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = ss_();
   const sh = ss.getSheetByName(TABS.overview) || ss.insertSheet(TABS.overview);
   sh.clear();
   sh.getRange('A1').setValue('ScaffoldPro — Overview').setFontSize(16).setFontWeight('bold');
@@ -140,7 +160,7 @@ function doPost(e) {
   const secret = PropertiesService.getScriptProperties().getProperty('SECRET');
   if (!secret) return out_({ ok: false, error: 'The sheet isn’t set up yet — run "setup" in its Apps Script first.' });
   if (req.secret !== secret) return out_({ ok: false, error: 'The secret doesn’t match. In the sheet, choose ScaffoldPro › Connection secret and copy it again.' });
-  const ss = SpreadsheetApp.getActive();
+  const ss = ss_();
   if (req.action === 'ping') return out_({ ok: true, name: ss.getName(), url: ss.getUrl() });
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return out_({ ok: false, error: 'The sheet is busy — trying again shortly.' });
@@ -168,7 +188,7 @@ const date_ = (iso) => { const d = iso ? new Date(iso) : null; return d && !isNa
 // Projects: what was changed in the sheet since the last sync goes back to
 // ScaffoldPro (and is kept); everything else is written from ScaffoldPro.
 function syncProjects_(projects) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = ss_();
   const sh = ss.getSheetByName(TABS.projects);
   const sync = ss.getSheetByName(TABS.sync);
   const values = sh.getDataRange().getValues();
@@ -254,7 +274,7 @@ function syncProjects_(projects) {
 // Activity: ScaffoldPro's entries not in the sheet yet go in at the top;
 // rows typed in by hand get an ID and go back to ScaffoldPro.
 function syncActivity_(entries) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(TABS.activity);
+  const sh = ss_().getSheetByName(TABS.activity);
   const values = sh.getDataRange().getValues();
   const head = values[0].map(str_);
   const col = {};
