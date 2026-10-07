@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1791343166.3150294,
-    "seen": 1791343261.9865828,
-    "ast_hash": "50110d7a2e530c38aa9732279cde3983",
+    "mtime": 1791343460.4344068,
+    "seen": 1791343587.0946207,
+    "ast_hash": "56bed29ed62c14a2c5b3a5dce460cbc3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791049414.3537679,
-    "seen": 1791049865.3039002,
-    "ast_hash": "fb0f0933c31199e6b20cab4a258348c4",
+    "mtime": 1791343460.4336307,
+    "seen": 1791343587.0946538,
+    "ast_hash": "bc646cb19231694e52cb8d376586561f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791343166.3108644,
-    "seen": 1791343261.9866273,
-    "ast_hash": "2332f62a1bec6d84aa089989c4f48bd1",
+    "mtime": 1791343411.8112311,
+    "seen": 1791343587.0946662,
+    "ast_hash": "70d8a3c9ab22e820672031c14d0ce44f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791343254.538427,
-    "seen": 1791343261.986636,
-    "ast_hash": "eccade14b1610e0378ede04374d47479",
+    "mtime": 1791343582.0024123,
+    "seen": 1791343587.0946753,
+    "ast_hash": "e7f4d99c6332ae648b3acac47bac6a85",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -630,9 +630,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-split.js": {
-    "mtime": 1791028958.7699363,
-    "seen": 1791029057.1961384,
-    "ast_hash": "538e52aab2bab32ae7ee5206ed69037f",
+    "mtime": 1791343491.5971854,
+    "seen": 1791343587.094655,
+    "ast_hash": "e9724b13edaea93082df4937288e655e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/doc-preview.js": {

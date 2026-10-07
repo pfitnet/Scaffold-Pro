@@ -35,7 +35,7 @@
       sheet.innerHTML = `
         <div class="modal wide qs-sheet" role="dialog" aria-labelledby="qs-title">
           <h2 id="qs-title">Split ${esc(d.quotationNumber)}</h2>
-          <p class="small-note">What you tick moves to a new quotation of this project, with the next number and this one’s letter details (subject, refs, pricing, markup, terms). It isn’t linked to this one — each is changed on its own — and is listed under it. The delivery schedule and drawings stay here.</p>
+          <p class="small-note">What you tick moves to a new quotation of this project, with the next number and this one’s letter details (subject, refs, pricing, markup, terms). It isn’t linked to this one — each is changed on its own — and is listed under it. If this quotation is linked to a BOQ, the new one is too (the BOQ keeps both’s items). The items’ deliveries on the delivery schedule go with them; drawings stay here.</p>
           <div class="qs-list">
             ${group('Items', materials.map((l, n) => lineRow(l, n + 1)).join(''))}
             ${group('Delivery charges', delivery.map((l, n) => lineRow(l, `D${n + 1}`)).join(''))}
