@@ -125,6 +125,11 @@ function ensureTabs_() {
   const prj = tab(TABS.projects);
   const sync = tab(TABS.sync);
   sync.hideSheet();
+  // The empty first tab a new spreadsheet comes with.
+  ['Sheet1', '工作表1'].forEach((name) => {
+    const extra = ss.getSheetByName(name);
+    if (extra && extra.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(extra);
+  });
   if (fresh) {
     migrateActivity_(act);
     // The Projects tab is written again in full by the next sync.
@@ -169,7 +174,9 @@ function migrateActivity_(sh) {
   if (head.indexOf('Project Name') < 0 && head.indexOf('Reference') < 0) return;
   const c = {}; head.forEach((h, i) => { c[h] = i; });
   const get = (r, h) => (c[h] >= 0 ? r[c[h]] : '');
-  const rows = values.slice(1).map((r) => [
+  // Backups and undo / redo aren't work: left out.
+  const noise = (r) => /backup made|^undone:|^redone:|^restored from/i.test(str_(get(r, 'What')));
+  const rows = values.slice(1).filter((r) => !noise(r)).map((r) => [
     get(r, 'When'), str_(get(r, 'Who')),
     [str_(get(r, 'Project')), str_(get(r, 'Project Name'))].filter(Boolean).join(' '),
     [str_(get(r, 'What')), str_(get(r, 'Reference'))].filter(Boolean).join(' — '),
