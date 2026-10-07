@@ -284,6 +284,9 @@
       remove: (id, force) => callNative('letters:delete', { id: id, force: !!force }),
       exportPDF: (id, opts) => callNative('letters:exportPDF', Object.assign({ id: id }, opts || {})),
       print: (id) => callNative('letters:print', { id: id }),
+      // PDFs / pictures chosen and copied for an annexure (a new one when attachmentId is null) → { ok, attachments }.
+      addAttachmentFiles: (id, attachmentId) => callNative('letters:addAttachmentFiles', { id: id, attachmentId: attachmentId || null }),
+      openAttachmentFile: (path) => callNative('letters:openAttachmentFile', { path: path }),
       // The letterhead and footer as a page-sized PNG → { png (base64), paperSize }.
       letterhead: () => callNative('letters:letterhead'),
     },

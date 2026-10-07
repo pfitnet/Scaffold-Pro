@@ -135,6 +135,16 @@
           <div class="paper-foot" id="paper-foot"></div>
         </div>
       </div>
+
+      <!-- Annexures: each one's cover page and files follow the letter (js/letter-attachments.js). -->
+      <section class="annex-panel" id="annex-panel">
+        <div class="annex-head">
+          <div><h2>Attachments</h2><p class="small-note">Each is listed under the letter and gets its own cover page (the letterhead, who it's to, and its name) followed by its files, after the letter's pages.</p></div>
+          <label class="annex-prefix" title="How the annexures are numbered">Numbered <input type="text" id="annex-prefix" value="ANNEXURE P." /><span>01, 02…</span></label>
+        </div>
+        <div id="annex-list"></div>
+        <button type="button" class="annex-add" id="annex-add" data-no-icon>+ Add Attachment…</button>
+      </section>
     </div>
   </main>
 
@@ -148,5 +158,6 @@
   <script src="js/icons.js"></script>
   <script src="js/rich-editor.js"></script>
   <script src="js/letter-editor.js"></script>
+  <script src="js/letter-attachments.js"></script>
 </body>
 </html>

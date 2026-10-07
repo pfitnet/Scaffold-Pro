@@ -1539,6 +1539,28 @@ struct Letter: Codable {
     var pdfPath: String?
     var createdAt: String
     var updatedAt: String
+    /// Annexures sent with it, in order: each gets a cover page (the
+    /// letterhead, the recipient, "ANNEXURE P.01") followed by its files,
+    /// after the letter's own pages, and a line in the letter's
+    /// "Attachments:" list.
+    var attachments: [LetterAttachment]? = nil
+    /// How annexures are numbered: this then 01, 02… (default "ANNEXURE P.").
+    var annexurePrefix: String? = nil
+}
+
+struct LetterAttachment: Codable {
+    var id: String
+    /// "a detailed list of items for 1 unit of Kroll K1400"
+    var description: String
+    /// PDFs and pictures, in order (copies kept with the letter).
+    var files: [String]
+}
+
+/// "ANNEXURE P.01", "ANNEXURE P.02"… for a letter's attachments.
+func annexureLabel(_ letter: Letter, _ index: Int) -> String {
+    // As typed, a space at its end kept ("ANNEX " → "ANNEX 01").
+    let prefix = letter.annexurePrefix.flatMap { nonBlank($0) == nil ? nil : $0 } ?? "ANNEXURE P."
+    return prefix + String(format: "%02d", index + 1)
 }
 
 struct LetterSummary: Codable {
@@ -7933,9 +7955,38 @@ final class AppDatabase {
         }
         if payload.keys.contains("clientId") { all[i].clientId = nonBlank(payload["clientId"] as? String) }
         if let html = payload["bodyHTML"] as? String { all[i].bodyHTML = html }
+        if payload.keys.contains("annexurePrefix") {
+            let raw = (payload["annexurePrefix"] as? String) ?? ""
+            all[i].annexurePrefix = nonBlank(raw) == nil ? nil : String(raw.drop { $0 == " " })
+        }
+        if let list = payload["attachments"] as? [[String: Any]] {
+            all[i].attachments = list.map { a in
+                LetterAttachment(id: nonBlank(a["id"] as? String) ?? makeId("annex"), description: ((a["description"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+                                 files: ((a["files"] as? [String]) ?? []).filter { !$0.isEmpty })
+            }
+        }
         all[i].updatedAt = nowISO()
         lettersStore.writeAll(all)
         return nil
+    }
+
+    /// Files added to one of a letter's attachments (a new one if
+    /// `attachmentId` is nil). Returns the attachments.
+    func addLetterAttachmentFiles(letterId: String, attachmentId: String?, paths: [String]) -> Result<[LetterAttachment], WorkerError> {
+        var all = lettersStore.readAll()
+        guard let i = all.firstIndex(where: { $0.id == letterId }) else { return .failure(WorkerError(message: "Letter not found.")) }
+        guard all[i].status == "Draft" else { return .failure(WorkerError(message: "This letter is issued and can no longer be edited. Set it back to Draft first.")) }
+        var list = all[i].attachments ?? []
+        if let aid = attachmentId, let k = list.firstIndex(where: { $0.id == aid }) {
+            list[k].files += paths
+        } else {
+            let base = paths.first.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? ""
+            list.append(LetterAttachment(id: makeId("annex"), description: base, files: paths))
+        }
+        all[i].attachments = list
+        all[i].updatedAt = nowISO()
+        lettersStore.writeAll(all)
+        return .success(list)
     }
 
     func updateLetterStatus(id: String, status: String) -> String? {
@@ -10744,6 +10795,23 @@ final class PDFGenerator {
         }
         // The body's first line sits about a line below.
         return next - 8
+    }
+
+    /// An annexure's cover page: the letterhead, the letter's opening, and
+    /// the annexure's name large between two rules in the middle of the page.
+    /// `pageNumber`: its place in the whole letter (for the footer).
+    func annexureCover(opening: LetterOpening, title: String, pageNumber number: Int) -> Data {
+        pageNumber = max(0, number - 1)
+        beginPage()
+        drawLetterOpening(opening)
+        let ruleLeft = pageWidth * 0.2, ruleWidth = pageWidth * 0.6
+        let middle = pageHeight * 0.49
+        fill(ruleLeft, middle - 45, ruleWidth, 1.1, .black)
+        fill(ruleLeft, middle + 44, ruleWidth, 1.1, .black)
+        text(title, x: pageWidth / 2, baseline: middle + 12, font: body(34, bold: true), align: .center)
+        endPage()
+        context.closePDF()
+        return mutableData as Data
     }
 
     private func letterOpeningHeight(_ o: LetterOpening) -> CGFloat { layOutLetterOpening(o, draw: false) }
@@ -15063,7 +15131,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                                   "settings:chooseLogo", "drawings:relink", "drawings:replace", "documents:replace", "documents:upload",
                                   "documents:relink", "workerDocuments:upload", "workerDocuments:relink", "adminDocuments:upload",
                                   "adminDocuments:relink", "users:setName", "team:start", "team:join", "team:leave", "team:setName", "team:reveal",
-                                  "projects:revealFolder"]
+                                  "projects:revealFolder", "letters:addAttachmentFiles"]
         if exact.contains(action) { return true }
         return ["backup:", "cloudBackup:", "app:", "web:"].contains { action.hasPrefix($0) }
     }
@@ -15335,6 +15403,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: previewMode(payload))
         case "letters:print":
             handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: .print)
+        case "letters:addAttachmentFiles":
+            handleAddLetterAttachment(id: id, letterId: (payload["id"] as? String) ?? "", attachmentId: nonBlank(payload["attachmentId"] as? String))
+        case "letters:openAttachmentFile":
+            let path = (payload["path"] as? String) ?? ""
+            if fileIsPresent(path) { self.openForUser(URL(fileURLWithPath: path)); respond(id: id, encodable: SimpleResult(ok: true, error: nil)) }
+            else { respond(id: id, encodable: SimpleResult(ok: false, error: "That file isn’t there any more.")) }
         case "letters:letterhead":
             // The letterhead and footer as a page-sized picture, for the editor's page.
             struct LetterheadPicture: Encodable { var png: String?; var paperSize: String }
@@ -17823,6 +17897,29 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             out.addAttribute(.font, value: replacement, range: range)
         }
+        // The annexures, listed under the letter: "ANNEXURE P.01 : …".
+        if let annexes = letter.attachments, !annexes.isEmpty {
+            let size: CGFloat = 12
+            let regular = NSFont(name: "EBGaramond-Regular", size: size) ?? NSFont.systemFont(ofSize: size)
+            let bold = NSFont(name: "EBGaramond-Bold", size: size) ?? NSFont.boldSystemFont(ofSize: size)
+            let labels = annexes.indices.map { annexureLabel(letter, $0) }
+            let labelWidth = labels.map { ($0 as NSString).size(withAttributes: [.font: bold]).width }.max() ?? 0
+            let colonX = labelWidth + 6
+            let heading = NSMutableParagraphStyle()
+            heading.paragraphSpacingBefore = 14
+            heading.paragraphSpacing = 6
+            out.append(NSAttributedString(string: "\nAttachments:\n", attributes: [.font: bold, .paragraphStyle: heading]))
+            for (i, annex) in annexes.enumerated() {
+                let style = NSMutableParagraphStyle()
+                style.tabStops = [NSTextTab(textAlignment: .left, location: colonX), NSTextTab(textAlignment: .left, location: colonX + 12)]
+                style.headIndent = colonX + 12
+                style.paragraphSpacing = 2
+                let line = NSMutableAttributedString(string: "\(labels[i])\t:\t", attributes: [.font: bold, .paragraphStyle: style])
+                line.append(NSAttributedString(string: (nonBlank(annex.description) ?? "") + (i == annexes.count - 1 ? "" : "\n"),
+                                               attributes: [.font: regular, .paragraphStyle: style]))
+                out.append(line)
+            }
+        }
         return out
     }
 
@@ -17838,6 +17935,72 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// Saves the letter as a PDF (in its project's Letters folder, or
     /// Administration › Letters) and opens it, or prints it.
+    /// Choose PDFs or pictures to attach to a letter: copied next to the
+    /// letter (the project's Letters folder, or Administration › Letters).
+    private func handleAddLetterAttachment(id: String, letterId: String, attachmentId: String?) {
+        guard let window = window, let letter = db.getLetter(id: letterId) else { respondNull(id: id); return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.pdf, .image]
+        panel.message = "Choose the PDFs or pictures for this annexure. Copies are kept with the letter; the originals stay where they are."
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self = self else { return }
+            guard response == .OK, !panel.urls.isEmpty else { self.respondNull(id: id); return }
+            let safe = letter.letterNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+            let project = letter.projectId.flatMap { self.db.getProject(id: $0) }
+            let folder = (project.map { self.storage.projectFolder($0.projectNumber).appendingPathComponent("Letters", isDirectory: true) }
+                ?? self.storage.administrationCategoryFolder("Letters")).appendingPathComponent("\(safe) Attachments", isDirectory: true)
+            var copied: [String] = []
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                for url in panel.urls {
+                    let destination = self.storage.uniqueDestination(folder.appendingPathComponent(url.lastPathComponent))
+                    try FileManager.default.copyItem(at: url, to: destination)
+                    copied.append(destination.path)
+                }
+            } catch {
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: "The files couldn’t be copied: \(error.localizedDescription)"))
+                return
+            }
+            switch self.db.addLetterAttachmentFiles(letterId: letterId, attachmentId: attachmentId, paths: copied) {
+            case .success(let list):
+                struct AttachResult: Encodable { var ok: Bool; var attachments: [LetterAttachment] }
+                self.respond(id: id, encodable: AttachResult(ok: true, attachments: list))
+            case .failure(let e):
+                self.respond(id: id, encodable: SimpleResult(ok: false, error: e.message))
+            }
+        }
+    }
+
+    /// The letter's pages, then each annexure: its cover page, then its files.
+    private func letterPDFWithAnnexures(_ letter: Letter, body: Data, paper: String) -> Data {
+        guard let annexes = letter.attachments, !annexes.isEmpty else { return body }
+        let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
+        // The cover's opening: as the letter's, without our reference or the "Re:" line.
+        var opening = letterOpening(letter)
+        opening.refRows.removeAll { $0.label == "Our Ref. No." }
+        opening.subject = nil
+        var parts = [body]
+        var pages = PDFDocument(data: body)?.pageCount ?? 1
+        for (i, annex) in annexes.enumerated() {
+            guard let generator = PDFGenerator(paperSize: paper) else { continue }
+            let cover = generator.annexureCover(opening: opening, title: annexureLabel(letter, i), pageNumber: pages + 1)
+            let files = annex.files.map { URL(fileURLWithPath: $0) }.filter { FileManager.default.fileExists(atPath: $0.path) }
+            let part = PDFAttachments.append(files, to: cover, paperSize: size)
+            pages += PDFDocument(data: part)?.pageCount ?? 1
+            parts.append(part)
+        }
+        let joined = PDFDocument()
+        for part in parts {
+            guard let doc = PDFDocument(data: part) else { continue }
+            for p in 0..<doc.pageCount {
+                if let page = doc.page(at: p)?.copy() as? PDFPage { joined.insert(page, at: joined.pageCount) }
+            }
+        }
+        return joined.dataRepresentation() ?? body
+    }
+
     private func handleExportLetter(id: String, letterId: String, mode: PDFMode) {
         guard let letter = db.getLetter(id: letterId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Letter not found.", path: nil))
@@ -17848,7 +18011,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letter.", path: nil))
             return
         }
-        let data = generator.generateRichText(text, opening: letterOpening(letter))
+        let data = letterPDFWithAnnexures(letter, body: generator.generateRichText(text, opening: letterOpening(letter)), paper: paper)
         let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
         let project = letter.projectId.flatMap { db.getProject(id: $0) }
         if project != nil || mode == .print {
