@@ -21282,7 +21282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
 
         // Go — ⌘1…⌘7 for the sidebar sections (letters are in each project; sites are with clients) (Settings is ⌘,), ⌘[ / ⌘] for back/forward.
         let go = NSMenu(title: "Go")
-        let sections: [(String, String)] = [("Dashboard", "index.html"), ("Material List", "price-lists.html"),
+        let sections: [(String, String)] = [("Dashboard", "index.html"), ("Costs", "price-lists.html"),
                                             ("Clients & Sites", "clients.html"), ("Projects", "projects.html"),
                                             ("Stock", "stock.html"), ("Accounting", "accounts.html"), ("Admin", "admin.html")]
         for (index, entry) in sections.enumerated() {
@@ -21321,6 +21321,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         addSubmenu(main, "Window", windowMenu)
         NSApp.windowsMenu = windowMenu
+
+        // Help — the User Manual (manual.html), ⇧⌘?.
+        let help = NSMenu(title: "Help")
+        let manual = item("ScaffoldPro User Manual", #selector(goToPage(_:)), "?", page: "manual.html")
+        manual.target = self
+        help.addItem(manual)
+        addSubmenu(main, "Help", help)
+        NSApp.helpMenu = help
 
         NSApp.mainMenu = main
     }

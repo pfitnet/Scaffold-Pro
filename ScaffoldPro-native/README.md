@@ -3581,3 +3581,48 @@ Every form control is now drawn by the app instead of macOS, on every page
   - Unit / Sale Price
 
   There's no Unit column. Table headings can now run to two lines.
+
+## Batch 152 — The ScaffoldPro User Manual
+
+- **User Manual** in the sidebar (under Settings), and **Help › ScaffoldPro
+  User Manual** (⇧⌘?). It's `manual.html`, so it's in the app and in
+  ScaffoldPro Web.
+- **31 chapters** in six parts:
+  - Getting started: how the app is organised, everyday controls, and the
+    main workflow from start to finish.
+  - Overview: Dashboard, Calendar, Tasks.
+  - Team: Chat; Team (people, signatures, announcements).
+  - Operations: Costs, Clients & Sites, Projects, a project's page, the
+    BOQ, quotation, delivery schedule, delivery note, invoice and letter
+    editors, exporting, and Stock.
+  - Company: Accounting, Marketing, Admin, Settings, your User page.
+  - Working together: sharing and ScaffoldPro Web, Google Sheets, and
+    backups / updates / installing.
+  - Reference: keyboard shortcuts, numbers / colours / statuses, and
+    questions and fixes.
+- **Visual cues:** 32 screenshots of the real pages, with numbered red
+  markers.
+  - Rest the pointer on a marker or its line in the legend and both light
+    up, with an outline round the control.
+  - Click a screenshot to enlarge it.
+  - Each control is explained in the legend, with button-by-button tables
+    for the rest.
+- **Workflow charts:**
+  - the document chain;
+  - set up → price → win → deliver and bill;
+  - who usually does what;
+  - signing and chopping;
+  - linking and splitting quotations;
+  - exporting;
+  - how stock moves;
+  - a promotional campaign;
+  - how changes travel between Macs;
+  - connecting Google Sheets.
+- **Finding things:** a contents list follows your place. Search the
+  manual with **/**, and chapters not matching are hidden.
+- It **prints** cleanly (each chapter on a new page), e.g. to make a PDF
+  copy.
+- The screenshots are in `resources/manual`. The marker positions are in
+  `js/manual-shots.js`, made together with the screenshots.
+- `install.sh` now copies `manual.html` into the app. The Go menu's
+  "Material List" is now "Costs".

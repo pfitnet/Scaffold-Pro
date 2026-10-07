@@ -19,6 +19,7 @@ const ICONS = {
   tasks: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>',
   marketing: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>',
   letters: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>',
+  manual: '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v12.5H5.5A1.5 1.5 0 0 0 4 17z"/><path d="M4 17a1.5 1.5 0 0 1 1.5-1.5H16V17H5.5"/><path d="M8 7h5M8 10h3.5"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
   chat: '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3h0a2 2 0 0 1-2-2z"/><path d="M7 8.5h6M7 11h3.5"/>',
@@ -73,6 +74,7 @@ const NAV_ITEMS = [
   { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
   { page: 'admin', label: 'Admin', href: 'admin.html', key: '7' },
   { page: 'settings', label: 'Settings', href: 'settings.html', key: ',' },
+  { page: 'manual', label: 'User Manual', href: 'manual.html' },
 ];
 
 // The app mark (see icon/ScaffoldPro-logo.svg), in its simplified small-size
