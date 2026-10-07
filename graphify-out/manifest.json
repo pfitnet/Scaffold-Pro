@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791365121.581543,
-    "seen": 1791365137.6911955,
-    "ast_hash": "204703d5fb005f430484b363197d0717",
+    "mtime": 1791365695.115865,
+    "seen": 1791365781.4204926,
+    "ast_hash": "57e200166fbcca840a62947e659005d6",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791365131.3115177,
-    "seen": 1791365137.6912062,
-    "ast_hash": "1d705977543dbdf41a7ffc14087c3ebc",
+    "mtime": 1791365775.1280115,
+    "seen": 1791365781.4205031,
+    "ast_hash": "63a9a24d32b4c080081e44c65e7a4dc6",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
-    "mtime": 1791365121.5824697,
-    "seen": 1791365137.6912231,
-    "ast_hash": "6f242b1747026949c9cb64b788d762a6",
+    "mtime": 1791365700.3047824,
+    "seen": 1791365781.4205184,
+    "ast_hash": "722fc4f4aabb0f89791688efa4a0156c",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/sites.html": {
@@ -702,9 +702,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/google-sheets.js": {
-    "mtime": 1791345350.166333,
-    "seen": 1791345480.0490527,
-    "ast_hash": "efc96a85374bce8c67e1384f5bd108c0",
+    "mtime": 1791365695.1208768,
+    "seen": 1791365781.4204586,
+    "ast_hash": "8060234a77f150a94c88a7c460c1e979",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-shots.js": {
@@ -726,9 +726,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/manual.html": {
-    "mtime": 1791364684.7424295,
-    "seen": 1791364702.170887,
-    "ast_hash": "68737e216a042f643fd69c614b6806b1",
+    "mtime": 1791365775.1280115,
+    "seen": 1791365781.420514,
+    "ast_hash": "80202bf77410cd091d4d043e203e52ae",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/manual/accounting.jpg": {
@@ -927,6 +927,12 @@
     "mtime": 1791361286.502059,
     "seen": 1791361347.1622083,
     "ast_hash": "dab35a3402ff0d07203a80e8cbab207b",
+    "semantic_hash": ""
+  },
+  "ScaffoldPro-native/resources/google-sheets/ScaffoldPro-core.js": {
+    "mtime": 1791365630.7936535,
+    "seen": 1791365781.4204936,
+    "ast_hash": "78349483155c929e6991becd286c56db",
     "semantic_hash": ""
   }
 }

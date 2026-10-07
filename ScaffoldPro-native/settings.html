@@ -95,6 +95,8 @@
     .settings-sections > .save-row { margin-top: 4px; }
     /* Google Sheets (js/google-sheets.js) */
     .gs-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin: 12px 0 4px; max-width: 780px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+    .gs-old { display: flex; align-items: center; gap: 14px; max-width: 780px; margin: 8px 0 4px; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, #c98a14 9%, var(--panel)); border: 1px solid color-mix(in srgb, #c98a14 28%, var(--border)); font-size: 12.5px; line-height: 1.45; }
+    .gs-old > span:first-child { flex: 1; }
     .gs-mark { width: 40px; height: 40px; flex: none; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: rgba(30, 142, 62, 0.1); }
     .gs-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
     .gs-info b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -363,16 +365,20 @@
       <details class="settings-section" id="google-sheets">
         <summary><span class="section-title">Google Sheets</span><span class="section-desc">An overview of who did what, and when — kept in step with ScaffoldPro both ways</span></summary>
         <div class="section-body gs-body">
-          <p class="small-note" style="max-width:780px;">A Google Sheet with three tabs. <b>Projects</b>: one line per project and, under it, one per sub-project (26212-001, -002…). The BOQ, Quotation, Delivery Note and Invoice cells fill in with their colour as each goes out (pale while still a draft; hover for the document numbers), and <b>Next Step</b> says what's next in plain words. Sub-projects fold away under their project. <b>Activity</b>: When, Who, Project, What, newest first. <b>Overview</b>: who has done how much this week, projects by stage, the latest work. Change a project's <b>Stage</b> or <b>Notes</b> in the sheet and ScaffoldPro is updated; a sub-project's notes stay in the sheet. A line typed into Activity (e.g. “Site visit — checked ties”) is added to ScaffoldPro's history. It syncs about every minute while ScaffoldPro is open on this Mac.</p>
+          <p class="small-note" style="max-width:780px;">A Google Sheet with three tabs. <b>Projects</b>: one line per project and, under it, one per sub-project (26212-001, -002…). The BOQ, Quotation, Delivery Note and Invoice cells fill in with their colour as each goes out (pale while still a draft; hover for the document numbers), and <b>Next Step</b> says what's next in plain words. Sub-projects fold away under their project. <b>Activity</b>: When, Who, Project, What, newest first. <b>Overview</b>: who has done how much this week, projects by stage, the latest work. Change a project's <b>Stage</b> or <b>Notes</b> in the sheet and ScaffoldPro is updated; a sub-project's notes stay in the sheet. A line typed into Activity (e.g. “Site visit — checked ties”) is added to ScaffoldPro's history. It syncs about every minute while ScaffoldPro is open on this Mac. The sheet's script fetches its layout from ScaffoldPro on GitHub, so new layouts arrive by themselves; <b>Sync Now</b> fetches the newest at once.</p>
           <div class="gs-linked hidden" id="gs-linked">
             <div class="gs-card">
               <div class="gs-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="2.5" width="16" height="19" rx="2.5" fill="#1e8e3e"/><path d="M8 9h8M8 12.5h8M8 16h8M11.5 9v7" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></div>
               <div class="gs-info"><b id="gs-name">Google Sheet</b><span id="gs-state">—</span></div>
               <div class="gs-actions">
                 <button id="gs-open" data-no-icon>Open Sheet</button>
-                <button id="gs-sync" data-no-icon>Sync Now</button>
+                <button id="gs-sync" data-no-icon title="Syncs now, and has the sheet fetch its newest layout from GitHub">Sync Now</button>
                 <button id="gs-unlink" class="danger-btn" data-no-icon>Disconnect…</button>
               </div>
+            </div>
+            <div class="gs-old hidden" id="gs-old">
+              <span>The sheet still runs a script pasted before it could update itself. Paste ScaffoldPro's script into its Apps Script <b>once more</b>, run <b>setup</b>, then Deploy › Manage deployments › ✏️ › New version › Deploy. From then on new layouts arrive by themselves.</span>
+              <span class="gs-inline"><button id="gs-copy2" data-no-icon>Copy Script</button><span class="small-note" id="gs-copied2"></span></span>
             </div>
           </div>
           <div class="gs-setup" id="gs-setup">

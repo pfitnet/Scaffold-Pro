@@ -38,6 +38,8 @@
       state.textContent = 'Connected — the first sync is on its way.';
     }
     $('gs-open').disabled = !s.sheetURL;
+    // A sheet whose script was pasted before it fetched its own layout.
+    $('gs-old').classList.toggle('hidden', !s.lastSyncAt || !!s.sheetLayout || !!s.lastError);
   }
 
   async function refresh() {
@@ -69,10 +71,12 @@
       $('google-sheets').querySelector('.section-body').innerHTML = '<p class="small-note">The Google Sheet is connected and kept up to date from the office Mac — set it up there, in Settings › Google Sheets.</p>';
       return;
     }
-    $('gs-copy').addEventListener('click', async () => {
-      const r = await window.api.sheets.copyScript();
-      $('gs-copied').textContent = r && r.ok ? 'Copied — paste it into Apps Script.' : ((r && r.error) || 'It couldn’t be copied.');
-    });
+    for (const [btn, note] of [['gs-copy', 'gs-copied'], ['gs-copy2', 'gs-copied2']]) {
+      $(btn).addEventListener('click', async () => {
+        const r = await window.api.sheets.copyScript();
+        $(note).textContent = r && r.ok ? 'Copied — paste it into Apps Script.' : ((r && r.error) || 'It couldn’t be copied.');
+      });
+    }
     $('gs-connect').addEventListener('click', connect);
     for (const id of ['gs-url', 'gs-secret']) $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); connect(); } });
     $('gs-sync').addEventListener('click', async () => {
