@@ -24,6 +24,7 @@ const ICONS = {
   search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
   chat: '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3h0a2 2 0 0 1-2-2z"/><path d="M7 8.5h6M7 11h3.5"/>',
   team: '<circle cx="7" cy="7.5" r="2.5"/><circle cx="13.5" cy="7.5" r="2.5"/><path d="M2.5 16c.4-2.6 2.2-4 4.5-4s4.1 1.4 4.5 4M10.5 12.7c.8-.5 1.8-.7 3-.7 2.3 0 4.1 1.4 4.5 4"/>',
+  assistant: '<path d="M10 2.8 11.5 7.5 16.2 9 11.5 10.5 10 15.2 8.5 10.5 3.8 9 8.5 7.5z"/><path d="M15.4 13.6l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z"/>',
   user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.5-3.3 2.9-5 6-5s5.5 1.7 6 5"/>',
 };
 
@@ -61,6 +62,7 @@ const NAV_ITEMS = [
   { page: 'dashboard', label: 'Dashboard', href: 'index.html', key: '1' },
   { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
   { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
+  { page: 'assistant', label: 'Assistant', href: 'assistant.html' },
   { section: 'Team' },
   { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },
@@ -601,7 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'assistant.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

@@ -4613,3 +4613,28 @@ one idea at a time, few words, and pictures that carry the meaning.
 - Prices already in HKD are left exactly as they are.
 - Lines already on a BOQ or quotation keep their price until it's picked
   or re-priced again.
+
+## Batch 203 — The Assistant
+
+- A new **Assistant** tab (under Overview) to chat with the team's AI (the
+  one set up in Settings › AI Import) and have it do work. For example:
+  - "Make a rental quotation for 26219 with 200 2.0m standards, 400 1.8m
+    ledgers and 2 trips delivery";
+  - attach a quotation, BOQ or list (PDF, picture, Excel, Word or text)
+    and say "make a quotation for 26219 from this";
+  - "Add these to Qt26219-002: …";
+  - "What's the rental price of the 1.8m ledger?";
+  - "Remind me on Friday to chase the signed quotation".
+- It looks things up in ScaffoldPro by itself: projects, the material list
+  (with item codes and Sale / Rental prices) and quotations. Items it finds
+  in the material list get their code and list price. It never makes up a
+  price; a line with no price is pointed out.
+- What it would do is shown as a card: a new quotation or lines for one
+  (with the items, quantities, prices and total), a task, or a page to
+  open. You can change quantities and prices, or leave lines out, on the
+  card. Nothing is made until you press its button; then it says what was
+  made, with an Open button.
+- Attach files with the paperclip, by dropping them on the page, or by
+  pasting a picture. The Mac reads them (scans too), and the AI also sees
+  PDFs and pictures as they are.
+- The conversation is kept on this Mac until "New Chat" (⌘N).
