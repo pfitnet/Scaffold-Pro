@@ -2808,6 +2808,9 @@ enum LetterTableRow {
     /// Values for the first columns, then `tail` centred across the rest,
     /// e.g. a rates-only row: No, description, rate, "(Rate Only)".
     case partial([String], tail: String)
+    /// A row number in the first column, then text across all the others,
+    /// left-aligned and wrapped, e.g. a buy-back offer's BO1.
+    case wide(number: String, text: String)
     /// A note across the whole table in small grey italics, e.g. "* Please
     /// note that labour rates are subject to a price increase…".
     case note(String)
@@ -11406,10 +11409,18 @@ final class PDFGenerator {
             return (emphasized ? 37.5 : 29.25) + CGFloat(max(1, lines) - 1) * cellPitch
         case .partial(let cells, _):
             return height(of: .item(cells), in: doc)
+        case .wide(_, let text):
+            return rowHeight + CGFloat(max(1, wideLines(text, doc: doc).count) - 1) * 14.9
         case .note(let note):
             let lines = wrap(note, noteFont, noteWidth(doc)).count
             return 29.25 + CGFloat(max(1, lines) - 1) * notePitch
         }
+    }
+
+    /// A wide row's text, wrapped across every column but the first.
+    private func wideLines(_ text: String, doc: LetterDocument) -> [String] {
+        let width = doc.columns.dropFirst().reduce(CGFloat(0)) { $0 + $1.width } - 10
+        return wrap(text, body(11), max(60, width))
     }
 
     // Table notes: 9.5pt italic, grey, 13pt apart.
@@ -11524,6 +11535,18 @@ final class PDFGenerator {
                 }
                 text(tail, x: (edges[count] + edges[last] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0),
                      font: font, align: .center)
+            case .wide(let number, let wideText):
+                vRule(edges[0], top, h)
+                if last > 1 { vRule(edges[1], top, h) }
+                vRule(edges[last], top, h)
+                // The number on one line ("BO1"), a little smaller if it must.
+                var numberFont = body(11)
+                if lineWidth(makeLine(number, numberFont, .black)) > (edges[1] - edges[0]) - 3 { numberFont = body(9) }
+                text(number, x: (edges[0] + edges[1] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: numberFont, align: .center)
+                let lines = wideLines(wideText, doc: doc)
+                for (j, line) in lines.enumerated() {
+                    text(line, x: edges[1] + 5.0, baseline: cellBaseline(top: top, height: h, lines: lines.count, line: j), font: body(11))
+                }
             case .note(let note):
                 vRule(edges[0], top, h)
                 vRule(edges[last], top, h)
@@ -11854,6 +11877,7 @@ final class PDFGenerator {
             case .summary(let label, let value, let emphasized):
                 return WordRow(type: "summary", height: h, label: label, value: value, emphasized: emphasized)
             case .partial(let cells, let tail): return WordRow(type: "partial", height: h, cells: lines(cells), text: tail)
+            case .wide(let number, let wideText): return WordRow(type: "wide", height: h, cells: [[number]], text: wideLines(wideText, doc: doc).joined(separator: "\n"))
             case .note(let note): return WordRow(type: "note", height: h, text: note)
             }
         }
@@ -19500,7 +19524,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // The buy-back offer: one row, BO1, worded from its figures.
         if block.kind == "BuyBack" {
             if let offer = detail.buyBack {
-                rows.append(.item(["\(block.prefix)1", offer.sentences(currency: currency).joined(separator: "\n"), "", "", ""]))
+                rows.append(.wide(number: "\(block.prefix)1", text: offer.sentences(currency: currency).joined(separator: "\n")))
             }
             if let note = nonBlank(block.note) { rows.append(.note(note)) }
             return rows
