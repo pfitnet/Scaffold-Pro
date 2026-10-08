@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791429872.1986127,
-    "seen": 1791429907.1735344,
-    "ast_hash": "bf33a9e47b99599f1e5f34182efc7769",
+    "mtime": 1791429945.4393585,
+    "seen": 1791429972.2452044,
+    "ast_hash": "05058eddf7f0dea3536f3bf5a22e565f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791429852.3192918,
-    "seen": 1791429907.1735575,
-    "ast_hash": "e7bcf20f5c11f866f12dd6bb3926db60",
+    "mtime": 1791429945.4378805,
+    "seen": 1791429972.245226,
+    "ast_hash": "70b482e09e9c6faafbba251eb7e30f42",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791429899.921969,
-    "seen": 1791429907.1735735,
-    "ast_hash": "c42057fd2072fbf7be19bd3aaa9a2913",
+    "mtime": 1791429964.8259728,
+    "seen": 1791429972.2452424,
+    "ast_hash": "f8ae6919bdcbe123768e5a469d0322e4",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -324,9 +324,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/settings.html": {
-    "mtime": 1791429872.1973546,
-    "seen": 1791429907.1735933,
-    "ast_hash": "10cae3271b50fb203636a215b7739731",
+    "mtime": 1791429945.4397075,
+    "seen": 1791429972.245263,
+    "ast_hash": "0d5f321371108d99df83d312684732c2",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/sites.html": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1791429899.9391296,
-    "seen": 1791429907.1735702,
-    "ast_hash": "d4ba7c8cd78e375251ce18a1cbc2fe73",
+    "mtime": 1791429964.840249,
+    "seen": 1791429972.2452385,
+    "ast_hash": "0bbb038b0fd4efcf9e9154eccff45b29",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-content.js": {

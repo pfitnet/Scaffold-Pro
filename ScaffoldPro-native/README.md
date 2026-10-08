@@ -4339,3 +4339,13 @@ one idea at a time, few words, and pictures that carry the meaning.
   amount are left out; with no monthly reduction, the lines about it are.
 - The section card warns when the offer would reach 0% before its last
   month (e.g. 20% less 2% a month reaches 0% after 16 months).
+
+## Batch 180 — Buy-back: the price at the first month beyond
+
+- The standard wording's second line now gives the price one month past
+  the limit: "For each month beyond 36 months, the buy-back price is
+  reduced by 1% of the price (i.e. HK$ 62,643.00 at 37 months and so on)."
+- New figures for the wording: `{NEXT_MONTHS}`, `{NEXT_PERCENT}` and
+  `{NEXT_UNIT_PRICE}` (the first month beyond the limit). Left out with the
+  rest of the line when there's no monthly reduction, and the bracket when
+  there's no price.

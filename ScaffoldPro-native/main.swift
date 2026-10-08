@@ -1611,13 +1611,14 @@ struct BuyBackTerms: Codable {
     /// leaves the amounts out.
     var unitPrice: Double? = nil
     /// The wording (Settings › Quotations › Crane jobs), with the figures
-    /// as {PERCENT}, {UNIT_PRICE}, {MONTHS}, {LESS}, {END_MONTHS},
-    /// {END_PERCENT} and {END_UNIT_PRICE}; a line a paragraph.
+    /// as {PERCENT}, {UNIT_PRICE}, {MONTHS}, {LESS}, {NEXT_MONTHS},
+    /// {NEXT_PERCENT}, {NEXT_UNIT_PRICE} (the first month beyond),
+    /// {END_MONTHS}, {END_PERCENT} and {END_UNIT_PRICE}; a line a paragraph.
     var wording: String = BuyBackTerms.defaultWording
 
     static let defaultWording = """
     We offer to buy back the equipment at {PERCENT} of its price (i.e. {UNIT_PRICE} per unit) after {MONTHS} months.
-    For each month beyond {MONTHS} months, the buy-back price is reduced by {LESS} of the price.
+    For each month beyond {MONTHS} months, the buy-back price is reduced by {LESS} of the price (i.e. {NEXT_UNIT_PRICE} at {NEXT_MONTHS} months and so on).
     No buy-back is offered after {END_MONTHS} months.
     """
 
@@ -1638,17 +1639,20 @@ struct BuyBackTerms: Codable {
         let money: (Double) -> String = { p in price.map { "\(currency) \(formatMoney($0 * p / 100))" } ?? "" }
         let end = max(endMonths, afterMonths)
         let last = share(atMonths: end) ?? 0
+        let next = afterMonths + 1
+        let nextShare = share(atMonths: next) ?? 0
         let reduces = reductionPercent > 0 && endMonths > afterMonths
         var lines: [String] = []
         for raw in wording.components(separatedBy: .newlines) {
             var line = raw.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
-            if !reduces && (line.contains("{LESS}") || line.contains("{END_PERCENT}") || line.contains("{END_UNIT_PRICE}")) { continue }
+            if !reduces && ["{LESS}", "{NEXT_", "{END_PERCENT}", "{END_UNIT_PRICE}"].contains(where: { line.contains($0) }) { continue }
             if price == nil {
-                line = line.replacingOccurrences(of: #"\s*\([^()]*\{(END_)?UNIT_PRICE\}[^()]*\)"#, with: "", options: .regularExpression)
-                line = line.replacingOccurrences(of: "{UNIT_PRICE}", with: "").replacingOccurrences(of: "{END_UNIT_PRICE}", with: "")
+                line = line.replacingOccurrences(of: #"\s*\([^()]*\{(END_|NEXT_)?UNIT_PRICE\}[^()]*\)"#, with: "", options: .regularExpression)
+                for token in ["{UNIT_PRICE}", "{NEXT_UNIT_PRICE}", "{END_UNIT_PRICE}"] { line = line.replacingOccurrences(of: token, with: "") }
             }
             let values = ["{PERCENT}": pc(percent), "{UNIT_PRICE}": money(percent), "{MONTHS}": String(afterMonths), "{LESS}": pc(reductionPercent),
+                          "{NEXT_MONTHS}": String(next), "{NEXT_PERCENT}": pc(nextShare), "{NEXT_UNIT_PRICE}": money(nextShare),
                           "{END_MONTHS}": String(end), "{END_PERCENT}": pc(last), "{END_UNIT_PRICE}": money(last)]
             for (token, value) in values { line = line.replacingOccurrences(of: token, with: value) }
             lines.append(line)
