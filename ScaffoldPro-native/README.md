@@ -4231,3 +4231,23 @@ one idea at a time, few words, and pictures that carry the meaning.
   another currency (e.g. a crane job in US$) now shows and prints that
   currency, including the "SAY US DOLLARS … ONLY" row. Delivery notes for
   quotations in different currencies can't be put on one invoice.
+
+## Batch 172 — Buy-back offer on crane quotations
+
+- **Every crane quotation offers a buy-back**, printed (PDF and Word) under
+  "Buy-back Offer", before the Terms and Conditions:
+  - we buy the equipment back at **a % of its price after so many months**;
+  - **less a % of the price for each month beyond** that;
+  - **no offer after a set month**.
+  On a sale quotation the amounts are worked out from the items' price
+  (before delivery), e.g. "60% of its price (US$ 60,000.00) after 6 months …
+  24% (US$ 24,000.00) after 24 months".
+- In the quotation editor (crane jobs only): a **Buy-back offer** box in the
+  Letter card, ticked by default, with the four figures and the wording as
+  printed. Blank a figure to go back to the standard one.
+- The standard offer is in **Settings › Quotations › Crane jobs** (60% after
+  6 months, 2% less a month, none after 24 months until changed).
+- **Fix:** a quotation's currency, "Client Agreed", imported file and
+  subsidiary link were not read back when quotations were loaded, so they
+  were lost on the next save. They're read now (a currency or agreement
+  recorded since Batch 170 may need setting again).

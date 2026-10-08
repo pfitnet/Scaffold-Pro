@@ -173,6 +173,10 @@ async function loadSettings() {
   for (const f of QUOTE_TEXT_FIELDS) document.getElementById(`${f}-input`).value = settings[f] || '';
   renderDeliveryRates(settings.deliveryRates);
   document.getElementById('defaultMinimumHireMonths-input').value = settings.defaultMinimumHireMonths ?? 2;
+  // Crane jobs' standard buy-back offer.
+  for (const [f, d] of [['buyBackPercent', 60], ['buyBackAfterMonths', 6], ['buyBackReductionPercent', 2], ['buyBackEndMonths', 24]]) {
+    document.getElementById(`${f}-input`).value = settings[f] ?? d;
+  }
   document.getElementById('minimumMonthlyRental-input').value = settings.minimumMonthlyRental ?? 1000;
   document.getElementById('boqTerms-input').value = settings.boqTerms || '';
   document.getElementById('linkedNumbers-input').checked = settings.linkedNumbers !== false;
@@ -219,6 +223,10 @@ async function saveSettings() {
   payload.linkedNumbers = document.getElementById('linkedNumbers-input').checked;
   payload.documentLanguage = document.getElementById('documentLanguage-input').value;
   payload.defaultMinimumHireMonths = Math.max(1, Math.round(Number(document.getElementById('defaultMinimumHireMonths-input').value) || 2));
+  for (const [f, d] of [['buyBackPercent', 60], ['buyBackAfterMonths', 6], ['buyBackReductionPercent', 2], ['buyBackEndMonths', 24]]) {
+    const v = document.getElementById(`${f}-input`).value;
+    payload[f] = v === '' ? d : Math.max(0, f.endsWith('Months') ? Math.round(Number(v)) : Number(v)) || 0;
+  }
   const eur = Number(document.getElementById('eurRate-input').value);
   if (eur > 0) payload.exchangeRates = { EUR: eur };
   payload.numberStarts = {};

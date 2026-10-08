@@ -1195,6 +1195,15 @@ extension Quotation {
         directorSignedAt = try c.decodeIfPresent(String.self, forKey: .directorSignedAt)
         directorSignedBy = try c.decodeIfPresent(String.self, forKey: .directorSignedBy)
         orientation = try c.decodeIfPresent(String.self, forKey: .orientation)
+        parentQuotationId = try c.decodeIfPresent(String.self, forKey: .parentQuotationId)
+        currency = try c.decodeIfPresent(String.self, forKey: .currency)
+        clientAgreedAt = try c.decodeIfPresent(String.self, forKey: .clientAgreedAt)
+        importedFromDocumentId = try c.decodeIfPresent(String.self, forKey: .importedFromDocumentId)
+        buyBackEnabled = try c.decodeIfPresent(Bool.self, forKey: .buyBackEnabled)
+        buyBackPercent = try c.decodeIfPresent(Double.self, forKey: .buyBackPercent)
+        buyBackAfterMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackAfterMonths)
+        buyBackReductionPercent = try c.decodeIfPresent(Double.self, forKey: .buyBackReductionPercent)
+        buyBackEndMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackEndMonths)
     }
 }
 
@@ -1575,6 +1584,53 @@ struct Quotation: Codable {
     /// Imported from a file (an old quotation, a scan): that file, kept
     /// with the project's documents.
     var importedFromDocumentId: String? = nil
+    /// A crane job's buy-back offer (nil = Settings' standard offer): on or
+    /// off, the % of the price after so many months, the % taken off for
+    /// each month beyond, and the month after which none is offered.
+    var buyBackEnabled: Bool? = nil
+    var buyBackPercent: Double? = nil
+    var buyBackAfterMonths: Int? = nil
+    var buyBackReductionPercent: Double? = nil
+    var buyBackEndMonths: Int? = nil
+}
+
+/// A crane quotation's buy-back offer, as printed: we buy the equipment
+/// back at `percent` of its price after `afterMonths` months, less
+/// `reductionPercent` (of the price) for each month beyond that, and make
+/// no offer after `endMonths` months.
+struct BuyBackTerms: Codable {
+    var enabled: Bool
+    var percent: Double
+    var afterMonths: Int
+    var reductionPercent: Double
+    var endMonths: Int
+    /// The price it's a share of: the items, before delivery (on a sale).
+    var basePrice: Double? = nil
+
+    /// The % offered when it's returned after `months` months; nil = none.
+    func share(atMonths months: Int) -> Double? {
+        guard months <= endMonths else { return nil }
+        return max(0, percent - reductionPercent * Double(max(0, months - afterMonths)))
+    }
+
+    /// The offer in words, a sentence a line.
+    func sentences(currency: String) -> [String] {
+        let pc: (Double) -> String = { v in
+            (v.rounded() == v ? String(Int(v)) : String(format: "%.1f", v)) + "%"
+        }
+        let months: (Int) -> String = { n in "\(n) month\(n == 1 ? "" : "s")" }
+        let amount: (Double) -> String = { p in
+            guard let base = basePrice, base > 0 else { return "" }
+            return " (\(currency) \(formatMoney(base * p / 100)))"
+        }
+        var out = ["We offer to buy back the equipment at \(pc(percent)) of its price\(amount(percent)) after \(months(afterMonths))."]
+        if reductionPercent > 0 && endMonths > afterMonths {
+            let last = share(atMonths: endMonths) ?? 0
+            out.append("For each month beyond \(months(afterMonths)), the buy-back price is reduced by \(pc(reductionPercent)) of the price — \(pc(last))\(amount(last)) after \(months(endMonths)).")
+        }
+        out.append("No buy-back is offered after \(months(max(endMonths, afterMonths))).")
+        return out
+    }
 }
 
 /// An amount written out as on a cheque, in capitals: "SAY HONG KONG
@@ -2011,6 +2067,8 @@ struct QuotationDetail: Codable {
     /// Imported from a file: that file, kept with the project's documents.
     var importedDocumentId: String? = nil
     var importedFileName: String? = nil
+    /// A crane job's buy-back offer (nil for other jobs).
+    var buyBack: BuyBackTerms? = nil
     /// Signed and chopped by a director, and a request still waiting.
     var directorSignedBy: String? = nil
     var directorSignedAt: String? = nil
@@ -2358,6 +2416,12 @@ struct CompanySettings: Codable {
     var standardDeliveryCharge: Double?
     /// Rental quotations: "Minimum Hire of N Months".
     var defaultMinimumHireMonths: Int?
+    /// Crane quotations' standard buy-back offer: the % of the price after
+    /// so many months, less a % a month beyond, none after so many months.
+    var buyBackPercent: Double? = nil
+    var buyBackAfterMonths: Int? = nil
+    var buyBackReductionPercent: Double? = nil
+    var buyBackEndMonths: Int? = nil
     /// Foreign price lists → base currency, e.g. ["EUR": 8.93].
     var exchangeRates: [String: Double]?
     /// Continue an existing sequence, e.g. ["QT": 194] after Qt26193.
@@ -7293,6 +7357,20 @@ final class AppDatabase {
         for id in boqIds { refreshQuotationSubjects(boqId: id) }
     }
 
+    /// A crane quotation's buy-back offer: its own figures, else Settings'
+    /// (60% after 6 months, 2% less a month beyond, none after 24 months,
+    /// unless changed there).
+    func buyBackTerms(for q: Quotation, basePrice: Double?) -> BuyBackTerms {
+        let s = getCompanySettings()
+        let after = q.buyBackAfterMonths ?? s.buyBackAfterMonths ?? 6
+        return BuyBackTerms(enabled: q.buyBackEnabled ?? true,
+                            percent: q.buyBackPercent ?? s.buyBackPercent ?? 60,
+                            afterMonths: after,
+                            reductionPercent: q.buyBackReductionPercent ?? s.buyBackReductionPercent ?? 2,
+                            endMonths: max(after, q.buyBackEndMonths ?? s.buyBackEndMonths ?? 24),
+                            basePrice: basePrice)
+    }
+
     /// A copy of a quotation as a new draft — in its own project or another
     /// — with its items, sections and delivery schedule. Not linked to a BOQ,
     /// not signed or agreed; numbered as the next in the project.
@@ -8048,6 +8126,7 @@ final class AppDatabase {
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
+        if detail.jobType == "Crane" { detail.buyBack = buyBackTerms(for: q, basePrice: q.pricingMode == "Sale" ? detail.materialsSubtotal : nil) }
         detail.orientation = q.orientation == "Landscape" && detail.jobType != "Crane" ? "Landscape" : "Portrait"
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
@@ -8233,6 +8312,13 @@ final class AppDatabase {
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
         if let enabled = payload["minimumHireEnabled"] as? Bool { qs[i].minimumHireEnabled = enabled }
         if let enabled = payload["minimumMonthlyChargeEnabled"] as? Bool { qs[i].minimumMonthlyChargeEnabled = enabled ? true : nil }
+        // The buy-back offer (crane jobs): a number, or null for Settings'.
+        if let enabled = payload["buyBackEnabled"] as? Bool { qs[i].buyBackEnabled = enabled }
+        let number: (String) -> NSNumber? = { payload[$0] as? NSNumber }
+        if payload.keys.contains("buyBackPercent") { qs[i].buyBackPercent = number("buyBackPercent").map { min(100, max(0, $0.doubleValue)) } }
+        if payload.keys.contains("buyBackAfterMonths") { qs[i].buyBackAfterMonths = number("buyBackAfterMonths").map { max(0, $0.intValue) } }
+        if payload.keys.contains("buyBackReductionPercent") { qs[i].buyBackReductionPercent = number("buyBackReductionPercent").map { min(100, max(0, $0.doubleValue)) } }
+        if payload.keys.contains("buyBackEndMonths") { qs[i].buyBackEndMonths = number("buyBackEndMonths").map { max(0, $0.intValue) } }
         qs[i].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         return nil
@@ -9956,6 +10042,10 @@ final class AppDatabase {
             settings.deliveryRates = rates.isEmpty ? nil : rates
         }
         if let v = payload["defaultMinimumHireMonths"] as? Int { settings.defaultMinimumHireMonths = max(1, v) }
+        if let v = (payload["buyBackPercent"] as? NSNumber)?.doubleValue { settings.buyBackPercent = min(100, max(0, v)) }
+        if let v = (payload["buyBackAfterMonths"] as? NSNumber)?.intValue { settings.buyBackAfterMonths = max(0, v) }
+        if let v = (payload["buyBackReductionPercent"] as? NSNumber)?.doubleValue { settings.buyBackReductionPercent = min(100, max(0, v)) }
+        if let v = (payload["buyBackEndMonths"] as? NSNumber)?.intValue { settings.buyBackEndMonths = max(0, v) }
         if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
         if let v = payload["markupRounding"] as? String, ["Nearest", "Up"].contains(v) { settings.markupRoundUp = v == "Up" ? true : nil }
         if let list = payload["manpowerRates"] as? [[String: Any]] {
@@ -19285,6 +19375,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         return LetterSignature(heading: "For and on Behalf of", subheading: nameUnderHeading ? company.companyName : nil, lines: lines)
     }
 
+    /// A crane quotation's buy-back offer, when it's on.
+    private func buyBackSection(_ detail: QuotationDetail, currency: String) -> [LetterSection] {
+        guard let offer = detail.buyBack, offer.enabled else { return [] }
+        return [LetterSection(heading: "Buy-back Offer", paragraphs: offer.sentences(currency: currency).map { LetterParagraph.text($0, link: nil) }, keepTogether: true)]
+    }
+
     private func remarks(_ notes: String?) -> [LetterSection] {
         guard let notes = nonBlank(notes) else { return [] }
         return [LetterSection(heading: "Remarks", paragraphs: [.text(notes, link: nil)])]
@@ -19816,7 +19912,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
             intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
-            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
+            sections: remarks(detail.notes) + buyBackSection(detail, currency: currencySymbol(company)) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
                                                                       alwaysNewPage: company.termsNewPage == "Always")],
             // The company's name right under "For and on Behalf of" (who
             // signs under the line); the client's side is "Accepted By".

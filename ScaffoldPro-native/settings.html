@@ -297,6 +297,20 @@
         </div>
       </div>
       <div class="st-group">
+        <div class="st-group-head"><h3>Crane jobs</h3><p>Every crane quotation offers this buy-back unless it’s changed or switched off there.</p></div>
+        <div class="st-card">
+        <div class="st-row edit" data-show="buyback">
+          <div class="st-label"><b>Buy-back offer</b><span>The % of the price after so many months, less a % for each month beyond, none after a set month</span></div>
+          <div class="st-value"></div>
+          <div class="st-editor"><div class="bb-sentence">
+            At <span class="bb-num"><input type="number" id="buyBackPercent-input" min="0" max="100" step="0.5" aria-label="Buy-back %" /><i>%</i></span>
+            after <span class="bb-num"><input type="number" id="buyBackAfterMonths-input" min="0" step="1" aria-label="After months" /><i>months</i></span>,
+            less <span class="bb-num"><input type="number" id="buyBackReductionPercent-input" min="0" max="100" step="0.5" aria-label="% less each month beyond" /><i>%</i></span> a month beyond;
+            none after <span class="bb-num"><input type="number" id="buyBackEndMonths-input" min="0" step="1" aria-label="No offer after months" /><i>months</i></span></div></div>
+        </div>
+        </div>
+      </div>
+      <div class="st-group">
         <div class="st-group-head"><h3>Terms</h3></div>
         <div class="st-card">
         <div class="st-row edit" data-show="text">

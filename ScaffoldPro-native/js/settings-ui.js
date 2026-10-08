@@ -220,6 +220,13 @@
       const v = $('.st-editor textarea', row).value.trim();
       return v ? `<span class="long">${esc(v)}</span>` : none('Not set');
     },
+    buyback(row) {
+      const v = (id) => Number(($(`#${id}`, row) || {}).value) || 0;
+      const p = v('buyBackPercent-input'); const after = v('buyBackAfterMonths-input');
+      const less = v('buyBackReductionPercent-input'); const end = Math.max(after, v('buyBackEndMonths-input'));
+      const last = Math.max(0, p - less * (end - after));
+      return `${p}% after ${plural(after, 'month')}${less ? `, then ${less}% less a month (${last}% at ${end})` : ''} <span class="none">· none after ${plural(end, 'month')}</span>`;
+    },
     months: (row) => { const v = Number($('.st-editor input', row).value); return v ? plural(v, 'month') : none('Not set'); },
     days: (row) => { const v = $('.st-editor input', row).value; return v === '' ? none('Not set') : plural(Number(v), 'day'); },
     money: (row) => { const v = $('.st-editor input', row).value; return v === '' ? none('Not set') : `HK$ ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; },
