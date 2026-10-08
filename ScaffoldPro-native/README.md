@@ -4603,3 +4603,13 @@ one idea at a time, few words, and pictures that carry the meaning.
   before Split can be pressed.
 - When part of an item's deliveries could come from more than one day, its
   row asks which days, with an "All" button for each.
+
+## Batch 202 — Converted prices to the nearest 0.1
+
+- Prices brought over from another currency (e.g. the SCAFOM list in EUR
+  × 8.93 → HKD) are rounded to the nearest 0.1, e.g. HK$ 37.38 → 37.4.
+  This applies wherever they appear: the item pickers, BOQs, quotations and
+  invoices.
+- Prices already in HKD are left exactly as they are.
+- Lines already on a BOQ or quotation keep their price until it's picked
+  or re-priced again.

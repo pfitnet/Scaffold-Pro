@@ -1228,6 +1228,16 @@ func roundToCents(_ value: Decimal) -> Decimal {
     return result
 }
 
+/// A price from another currency (EUR × 8.93 → HKD): rounded to the
+/// nearest 0.1. A price already in the base currency (rate 1) is kept as is.
+func convertedPrice(_ value: Double, rate: Double) -> Double {
+    guard rate != 1 else { return value }
+    var input = decimalOf(value) * decimalOf(rate)
+    var result = Decimal()
+    NSDecimalRound(&result, &input, 1, .plain)
+    return doubleOf(result)
+}
+
 func doubleOf(_ value: Decimal) -> Double {
     NSDecimalNumber(decimal: value).doubleValue
 }
@@ -6619,14 +6629,15 @@ final class AppDatabase {
         return map
     }
 
-    /// A price-list item's Sale or Rental price in the base currency,
-    /// rounded to the cent (falls back to the other price if one is blank).
+    /// A price-list item's Sale or Rental price in the base currency —
+    /// converted ones rounded to the nearest 0.1 (falls back to the other
+    /// price if one is blank).
     func basePrice(_ item: PriceListItem, mode: String, rates: [String: Double]) -> Double? {
         let primary = mode == "Sale" ? item.unitSalePrice : item.unitRentalPrice
         let fallback = mode == "Sale" ? item.unitRentalPrice : item.unitSalePrice
         guard let raw = primary ?? fallback else { return nil }
         let rate = rates[item.sourceKey] ?? 1
-        return doubleOf(roundToCents(decimalOf(raw) * decimalOf(rate)))
+        return convertedPrice(raw, rate: rate)
     }
 
     /// The same list of items with prices converted to the base currency —
@@ -6637,8 +6648,8 @@ final class AppDatabase {
             let rate = rates[item.sourceKey] ?? 1
             guard rate != 1 else { return item }
             var c = item
-            c.unitSalePrice = item.unitSalePrice.map { doubleOf(roundToCents(decimalOf($0) * decimalOf(rate))) }
-            c.unitRentalPrice = item.unitRentalPrice.map { doubleOf(roundToCents(decimalOf($0) * decimalOf(rate))) }
+            c.unitSalePrice = item.unitSalePrice.map { convertedPrice($0, rate: rate) }
+            c.unitRentalPrice = item.unitRentalPrice.map { convertedPrice($0, rate: rate) }
             return c
         }
     }
