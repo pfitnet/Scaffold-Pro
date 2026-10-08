@@ -283,7 +283,7 @@ async function review(r) {
 }
 
 async function signIt(r) {
-  if (!await window.appConfirm(`Sign and chop ${r.number}?\n\nYour signature and the company chop go on its “For and on Behalf of” line. The signed PDF is saved in project ${r.projectNumber}’s Quotations folder, and ${r.requestedBy} is told.`, { ok: 'Sign & Chop' })) return;
+  if (!await window.appConfirm(`Sign and chop ${r.number}?\n\nYour signature and the company chop go on its “For and on Behalf of” line. The signed PDF is saved with the quotation in project ${r.projectNumber}’s folder, and ${r.requestedBy} is told.`, { ok: 'Sign & Chop' })) return;
   const res = await window.api.signatures.sign(r.id);
   if (!res || res.ok === false) { await window.appAlert((res && res.error) || 'It couldn’t be signed.'); return; }
   await load();

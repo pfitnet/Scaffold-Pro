@@ -3806,6 +3806,14 @@ final class FileStorage {
         return wanted
     }
 
+    /// "26001-002/26001-002 Quotations": a quotation series' folder for one
+    /// kind of document (BOQ, Quotations, Delivery Notes, Invoices,
+    /// Delivery Schedules), inside the project's folder.
+    func seriesFolder(_ projectNumber: String, _ series: String, _ sub: String) -> URL {
+        projectFolder(projectNumber).appendingPathComponent(series, isDirectory: true)
+            .appendingPathComponent("\(series) \(sub)", isDirectory: true)
+    }
+
     /// Renames a project's folder to "<number> <name>" and the folders in it
     /// to "<number> BOQ", "<number> Quotations"… (also after its name or
     /// number changes). Returns the moves (old path → new), and the old
@@ -3853,7 +3861,9 @@ final class FileStorage {
     func createProjectFolders(_ projectNumber: String) -> URL {
         let folder = projectFolder(projectNumber)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        for sub in projectSubfolders {
+        // The documents of a quotation series go in its own folder
+        // ("26001-002"), made when the first is saved.
+        for sub in ["Drawings", "Documents", "Other"] {
             try? FileManager.default.createDirectory(at: projectSubfolder(projectNumber, sub), withIntermediateDirectories: true)
         }
         return folder
@@ -3897,8 +3907,8 @@ final class FileStorage {
     /// copying an existing source file.
     /// A document's PDF always has the same name (its number), so a new
     /// export replaces the previous one rather than piling up copies.
-    func writeGeneratedFile(data: Data, projectNumber: String, subfolder: String, meaningfulFilename: String) throws -> URL {
-        let destFolder = projectSubfolder(projectNumber, subfolder)
+    func writeGeneratedFile(data: Data, projectNumber: String, subfolder: String, meaningfulFilename: String, folder: URL? = nil) throws -> URL {
+        let destFolder = folder ?? projectSubfolder(projectNumber, subfolder)
         try FileManager.default.createDirectory(at: destFolder, withIntermediateDirectories: true)
         let destination = destFolder.appendingPathComponent(meaningfulFilename)
         try data.write(to: destination, options: .atomic)
@@ -5924,6 +5934,54 @@ final class AppDatabase {
             o.boqs.sort(by: byNumber); o.quotations.sort(by: byNumber); o.deliveryNotes.sort(by: byNumber); o.invoices.sort(by: byNumber)
             return o
         }
+    }
+
+    /// The quotation series a document is filed under: "26001-002" for
+    /// BQ26001-002, Qt26001-002 (and its -s1…), and the delivery notes and
+    /// invoices made from Qt26001-002. nil if its number doesn't follow
+    /// the project's.
+    func documentSeries(docTypeTag: String, number: String) -> String? {
+        func series(_ num: String, projectId: String) -> String? {
+            guard let p = getProject(id: projectId) else { return nil }
+            // Its project's number, else the number it was given before the
+            // project's was changed.
+            let pattern = NSRegularExpression.escapedPattern(for: p.projectNumber) + "-[0-9]+"
+            return (num.range(of: pattern, options: .regularExpression) ?? num.range(of: "[0-9]+-[0-9]+", options: .regularExpression))
+                .map { String(num[$0]) }
+        }
+        let quotes = quotationsStore.readAll()
+        func viaQuotation(_ id: String?) -> String? {
+            quotes.first(where: { $0.id == id }).flatMap { series($0.quotationNumber, projectId: $0.projectId) }
+        }
+        if docTypeTag == "Invoice" || docTypeTag == "DeliveryNote" || docTypeTag == "Delivery Note" {
+            if let i = invoicesStore.readAll().first(where: { $0.invoiceNumber == number }) {
+                return viaQuotation(i.sourceQuotationId) ?? series(i.invoiceNumber, projectId: i.projectId)
+            }
+            if let d = deliveryNotesStore.readAll().first(where: { $0.deliveryNoteNumber == number }) {
+                return viaQuotation(d.sourceQuotationId) ?? series(d.deliveryNoteNumber, projectId: d.projectId)
+            }
+        }
+        if let q = quotes.first(where: { $0.quotationNumber == number }) { return series(q.quotationNumber, projectId: q.projectId) }
+        if let b = boqsStore.readAll().first(where: { $0.boqNumber == number }) { return series(b.boqNumber, projectId: b.projectId) }
+        if let i = invoicesStore.readAll().first(where: { $0.invoiceNumber == number }) {
+            return viaQuotation(i.sourceQuotationId) ?? series(i.invoiceNumber, projectId: i.projectId)
+        }
+        if let d = deliveryNotesStore.readAll().first(where: { $0.deliveryNoteNumber == number }) {
+            return viaQuotation(d.sourceQuotationId) ?? series(d.deliveryNoteNumber, projectId: d.projectId)
+        }
+        return nil
+    }
+
+    /// A project's BOQs, quotations, delivery notes and invoices as
+    /// (kind, number), longest numbers first (so Qt26001-002-s1 is found
+    /// before Qt26001-002 in a file's name).
+    func projectDocumentNumbers(projectId: String) -> [(tag: String, number: String)] {
+        var out: [(tag: String, number: String)] = []
+        out += boqsStore.readAll().filter { $0.projectId == projectId }.map { ("BOQ", $0.boqNumber) }
+        out += quotationsStore.readAll().filter { $0.projectId == projectId }.map { ("Quotation", $0.quotationNumber) }
+        out += deliveryNotesStore.readAll().filter { $0.projectId == projectId }.map { ("DeliveryNote", $0.deliveryNoteNumber) }
+        out += invoicesStore.readAll().filter { $0.projectId == projectId }.map { ("Invoice", $0.invoiceNumber) }
+        return out.filter { !$0.number.isEmpty }.sorted { $0.number.count > $1.number.count }
     }
 
     /// A document's status from its kind and number (for the PDF's watermark).
@@ -17576,8 +17634,57 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         var moves: [(String, String)] = []
         for number in numbers ?? db.allProjectNumbers() where !number.isEmpty {
             moves += storage.organiseProjectFolder(number)
+            moves += fileDocumentsBySeries(number)
         }
         db.rebaseFilePaths(moves: moves)
+    }
+
+    /// The project folders kept for each kind of document. Inside a
+    /// quotation series' folder they're "26001-002 BOQ", "26001-002
+    /// Quotations"…, plus "26001-002 Delivery Schedules".
+    private static let documentKindFolders = ["BOQ", "Quotations", "Invoices", "Delivery Notes"]
+
+    /// Where a project's file goes: the folder of its quotation series and
+    /// kind ("26001-002/26001-002 Quotations"; delivery schedules in
+    /// "26001-002 Delivery Schedules"), found from the document's number
+    /// (given, or in the file's name). Files of several documents go in
+    /// "<number> Other"; anything else in the project's own subfolder.
+    private func fileFolder(projectNumber: String, subfolder: String, name: String, docTypeTag: String? = nil, documentNumber: String? = nil) -> URL {
+        if docTypeTag == "Combined" || isCombinedExport(name) { return storage.projectSubfolder(projectNumber, "Other") }
+        guard NativeBridge.documentKindFolders.contains(subfolder) else { return storage.projectSubfolder(projectNumber, subfolder) }
+        let schedule = (docTypeTag ?? "").hasPrefix("Delivery Schedule") || name.lowercased().contains("delivery schedule")
+        var series: String?
+        if let tag = docTypeTag, let number = nonBlank(documentNumber) { series = db.documentSeries(docTypeTag: tag, number: number) }
+        if series == nil, let project = db.getProjectByNumber(projectNumber) {
+            let safe = { (n: String) in n.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-") }
+            if let match = db.projectDocumentNumbers(projectId: project.id).first(where: { name.contains(safe($0.number)) }) {
+                series = db.documentSeries(docTypeTag: match.tag, number: match.number)
+            }
+        }
+        guard let found = series else { return storage.projectSubfolder(projectNumber, subfolder) }
+        return storage.seriesFolder(projectNumber, found, schedule ? "Delivery Schedules" : subfolder)
+    }
+
+    /// Moves the files in a project's "<number> BOQ", "<number> Quotations"…
+    /// into their quotation series' folders (fileFolder), and removes those
+    /// folders once empty. Returns the moves, for the stored paths.
+    private func fileDocumentsBySeries(_ projectNumber: String) -> [(String, String)] {
+        let fm = FileManager.default
+        var moves: [(String, String)] = []
+        for sub in NativeBridge.documentKindFolders {
+            let folder = storage.projectSubfolder(projectNumber, sub)
+            guard let items = try? fm.contentsOfDirectory(atPath: folder.path) else { continue }
+            for item in items where item != ".DS_Store" && !item.hasPrefix(".") {
+                let target = fileFolder(projectNumber: projectNumber, subfolder: sub, name: item)
+                guard target.standardizedFileURL.path != folder.standardizedFileURL.path else { continue }
+                let from = folder.appendingPathComponent(item)
+                try? fm.createDirectory(at: target, withIntermediateDirectories: true)
+                let to = storage.uniqueDestination(target.appendingPathComponent(item))
+                if (try? fm.moveItem(at: from, to: to)) != nil { moves.append((from.path, to.path)) }
+            }
+            if ((try? fm.contentsOfDirectory(atPath: folder.path)) ?? []).allSatisfy({ $0 == ".DS_Store" }) { try? fm.removeItem(at: folder) }
+        }
+        return moves
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -19354,7 +19461,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // subfolder (a quotation's delivery schedule) or an Administration one.
         var folder = storage.administrationCategoryFolder("Accounts")
         if let project = nonBlank(payload["projectNumber"] as? String) {
-            folder = storage.projectSubfolder(project, nonBlank(payload["subfolder"] as? String) ?? "Other")
+            folder = fileFolder(projectNumber: project, subfolder: nonBlank(payload["subfolder"] as? String) ?? "Other", name: name)
         } else if let admin = nonBlank(payload["adminFolder"] as? String), !admin.contains("/"), !admin.hasPrefix(".") {
             folder = storage.administrationCategoryFolder(admin)
         }
@@ -19452,7 +19559,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         do {
-            let destination = try storage.writeGeneratedFile(data: data, projectNumber: p.projectNumber, subfolder: p.subfolder, meaningfulFilename: p.fileName)
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: p.projectNumber, subfolder: p.subfolder, meaningfulFilename: p.fileName,
+                                                             folder: fileFolder(projectNumber: p.projectNumber, subfolder: p.subfolder, name: p.fileName,
+                                                                                docTypeTag: p.docTypeTag, documentNumber: p.documentNumber))
             db.recordGeneratedPDF(docTypeTag: p.docTypeTag, documentNumber: p.documentNumber, path: destination.path)
             if let project = db.getProjectByNumber(p.projectNumber) {
                 db.logActivity(projectId: project.id, "PDF exported", reference: destination.lastPathComponent)
@@ -19487,7 +19596,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         do {
-            let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: fileName)
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: fileName,
+                                                             folder: fileFolder(projectNumber: projectNumber, subfolder: subfolder, name: fileName))
             if (payload["open"] as? Bool) != false { self.openForUser(destination) }
             if let project = db.getProjectByNumber(projectNumber) {
                 db.logActivity(projectId: project.id, "Word document exported", reference: destination.lastPathComponent)
@@ -19584,7 +19694,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
         let filename = "\(db.documentFileBase(docTypeTag: docTypeTag, number: documentNumber) ?? "\(projectNumber)_\(docTypeTag)_\(safeNumber)").pdf"
         do {
-            let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: filename)
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: filename,
+                                                             folder: fileFolder(projectNumber: projectNumber, subfolder: subfolder, name: filename,
+                                                                                docTypeTag: docTypeTag, documentNumber: documentNumber))
             db.recordGeneratedPDF(docTypeTag: docTypeTag, documentNumber: documentNumber, path: destination.path)
             self.openForUser(destination)
             if let project = db.getProjectByNumber(projectNumber) {
@@ -19620,7 +19732,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         default: return nil
         }
         guard !number.isEmpty, let project = db.getProject(id: projectId) else { return nil }
-        let folder = storage.projectSubfolder(project.projectNumber, subfolder)
+        let folder = fileFolder(projectNumber: project.projectNumber, subfolder: subfolder, name: number, docTypeTag: kind, documentNumber: number)
         if let path = pdfPath, fileIsPresent(path) { return (URL(fileURLWithPath: path), folder, number) }
         let fm = FileManager.default
         let safeNumber = number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
@@ -20491,7 +20603,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
         do {
-            let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: subfolder, meaningfulFilename: filename)
+            let destination = try storage.writeGeneratedFile(data: data, projectNumber: first.projectNumber, subfolder: "Other", meaningfulFilename: filename)
             self.openForUser(destination)
             if let project = db.getProjectByNumber(first.projectNumber) {
                 db.logActivity(projectId: project.id, "\(label) exported as one PDF", reference: destination.lastPathComponent)
@@ -21529,7 +21641,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: detail.projectNumber, subfolder: "Quotations",
-                                                             meaningfulFilename: "\(db.documentFileBase(docTypeTag: "Quotation", number: detail.quotationNumber) ?? "\(detail.projectNumber)_Quotation_\(safe)") - Signed & Chopped.pdf")
+                                                             meaningfulFilename: "\(db.documentFileBase(docTypeTag: "Quotation", number: detail.quotationNumber) ?? "\(detail.projectNumber)_Quotation_\(safe)") - Signed & Chopped.pdf",
+                                                             folder: fileFolder(projectNumber: detail.projectNumber, subfolder: "Quotations", name: safe,
+                                                                                docTypeTag: "Quotation", documentNumber: detail.quotationNumber))
             if let error = db.finishSignRequest(id: requestId, signed: true, filePath: destination.path, reply: nil) { fail(error); return }
             respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
         } catch {
@@ -22041,7 +22155,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     }
 
     /// The signed copy of a quotation (from the client) or a delivery note
-    /// (signed on site): "<number> - Signed.<ext>" in the project's
+    /// (signed on site): "<number> - Signed.<ext>" in its quotation series'
     /// Quotations or Delivery Notes folder, recorded on the document.
     private func storeSignedCopy(kind: String, documentId: String, fileName: String, write: (URL) throws -> Void) -> SimpleResult {
         let found: (number: String, projectId: String, folder: String, noun: String)?
@@ -22057,7 +22171,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         guard let type = UTType(filenameExtension: ext), NativeBridge.signedCopyTypes.contains(where: { type.conforms(to: $0) }) else {
             return SimpleResult(ok: false, error: "Use a PDF, or a photo or scan (JPEG, PNG, HEIC or TIFF), of the signed \(doc.noun).")
         }
-        let folder = storage.projectSubfolder(project.projectNumber, doc.folder)
+        let folder = fileFolder(projectNumber: project.projectNumber, subfolder: doc.folder, name: doc.number,
+                                docTypeTag: kind == "deliveryNote" ? "DeliveryNote" : "Quotation", documentNumber: doc.number)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let safe = doc.number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")

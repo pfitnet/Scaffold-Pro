@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 189.
+"## Batch N" section per change, newest at the bottom, up to Batch 190.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **190**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **191**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -164,7 +164,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–189, newest last)
+## 5. Recent work (Batches 147–190, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -252,6 +252,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **187:** inline styles in descriptions: `**b**` `*i*` `__u__` → marks U+E010–E012 (`applyInlineMarkup`, `inlineRuns`; PDF `styledText`/`wrapStyled`; docx `run()`; js `inlineMarkupHTML`); BQ sheet uses `plainMarkup`. Priced-section unit price takes words (`priceNote` free text) instead of the 185 dropdown.
 - **188:** New Project's quick New Client / New Site use `QUICK_FIELDS` in js/projects.js — the same fields as js/connections.js's sheets (keep the two in step).
 - **189:** project folders "<number> <name>" with "<number> BOQ"… inside: `FileStorage.projectFolder` / `projectSubfolder` / `organiseProjectFolder` (run at launch and after a name or code change via `NativeBridge.organiseProjectFolders`); `rebaseFilePaths(moves:)` re-points every stored path (now incl. signed copies, letters, sign requests). Always build paths with `projectSubfolder`, never `projectFolder(...).appendingPathComponent("BOQ")`.
+- **190:** documents filed by quotation series: `<project>/26219-002/26219-002 Quotations` (and BOQ, Delivery Notes, Invoices, Delivery Schedules). `NativeBridge.fileFolder(projectNumber:subfolder:name:docTypeTag:documentNumber:)` picks the folder (series from `AppDatabase.documentSeries`; invoices/DNs via `sourceQuotationId`; else a number found in the file name via `projectDocumentNumbers`); combined exports go to `<n> Other`; no series → project-level `<n> <Kind>`. `fileDocumentsBySeries` moves old files at launch (inside `organiseProjectFolders`, so paths are rebased). New save sites must pass a `folder:` from `fileFolder` to `writeGeneratedFile`.
 
 ---
 
