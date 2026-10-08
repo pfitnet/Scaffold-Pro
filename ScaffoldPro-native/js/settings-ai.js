@@ -17,17 +17,23 @@
 
   function draw() {
     const p = chosen();
+    const on = !!(status && status.hasKey);
+    // Once a key is saved, the setup is closed: only Remove Key, until it's gone.
+    $('ai-steps').classList.toggle('hidden', on);
+    $('ai-state').className = `ai-state${on ? ' on' : ''}`;
+    $('ai-state').innerHTML = on
+      ? `<span class="dot"></span><span>Ready — <b>${NAMES[status.provider]}</b> reads what the app can’t (${status.model || status.defaultModel}).
+          <small>To use another key, provider or model, remove this key first.</small></span>
+          <button type="button" class="danger-btn" id="ai-remove" data-no-icon>Remove Key</button>`
+      : '<span class="dot"></span><span>Not set up. Imports are read on this Mac only.</span>';
+    const remove = $('ai-remove');
+    if (remove) remove.addEventListener('click', async () => {
+      if (await window.appConfirm('Remove the AI key from this Mac? Imports are then read on this Mac only until a key is added again.')) save(true);
+    });
+    if (on) return;
     $('ai-key-help').innerHTML = `${HELP[p]} <button type="button" class="link-btn" id="ai-get-key" data-no-icon>Open the page</button>`;
     $('ai-get-key').addEventListener('click', () => window.api.ai.openKeyPage(chosen()));
-    const same = status && status.provider === p;
     $('ai-model').placeholder = p === 'gemini' ? 'gemini-2.5-flash' : 'openrouter/free';
-    $('ai-key').placeholder = same && status.hasKey ? 'Saved — paste a new key to replace it' : 'Paste the key';
-    $('ai-remove').classList.toggle('hidden', !(same && status.hasKey));
-    const on = status && status.hasKey;
-    $('ai-state').className = `ai-state${on ? ' on' : ''}`;
-    $('ai-state').innerHTML = `<span class="dot"></span><span>${on
-      ? `Ready — <b>${NAMES[status.provider]}</b> reads what the app can’t (${status.model || status.defaultModel}).`
-      : 'Not set up. Imports are read on this Mac only.'}</span>`;
   }
 
   async function load() {
@@ -39,18 +45,17 @@
   }
 
   async function save(removeKey) {
-    status = await window.api.ai.configure({ provider: chosen(), model: $('ai-model').value.trim(), key: $('ai-key').value.trim(), removeKey: !!removeKey });
+    const key = $('ai-key').value.trim();
+    if (!removeKey && !key) { $('ai-saved').textContent = 'Paste the key first.'; return; }
+    status = await window.api.ai.configure({ provider: chosen(), model: $('ai-model').value.trim(), key: removeKey ? '' : key, removeKey: !!removeKey });
     $('ai-key').value = '';
-    $('ai-saved').textContent = removeKey ? 'Key removed.' : status.hasKey ? 'Saved.' : 'Saved — add a key to use it.';
+    $('ai-saved').textContent = removeKey ? 'Key removed.' : '';
     setTimeout(() => { $('ai-saved').textContent = ''; }, 3000);
     draw();
   }
 
   for (const r of document.querySelectorAll('input[name="ai-provider"]')) r.addEventListener('change', draw);
   $('ai-save').addEventListener('click', () => save(false));
-  $('ai-remove').addEventListener('click', async () => {
-    if (await window.appConfirm('Remove the AI key from this Mac?')) save(true);
-  });
   $('ai-key').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(false); } });
   load();
 })();
