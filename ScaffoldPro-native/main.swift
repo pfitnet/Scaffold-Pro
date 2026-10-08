@@ -1607,8 +1607,19 @@ struct BuyBackTerms: Codable {
     var afterMonths: Int
     var reductionPercent: Double
     var endMonths: Int
-    /// The price it's a share of: the items, before delivery (on a sale).
-    var basePrice: Double? = nil
+    /// One unit's price (the dearest item, as charged), on a sale; nil
+    /// leaves the amounts out.
+    var unitPrice: Double? = nil
+    /// The wording (Settings › Quotations › Crane jobs), with the figures
+    /// as {PERCENT}, {UNIT_PRICE}, {MONTHS}, {LESS}, {END_MONTHS},
+    /// {END_PERCENT} and {END_UNIT_PRICE}; a line a paragraph.
+    var wording: String = BuyBackTerms.defaultWording
+
+    static let defaultWording = """
+    We offer to buy back the equipment at {PERCENT} of its price (i.e. {UNIT_PRICE} per unit) after {MONTHS} months.
+    For each month beyond {MONTHS} months, the buy-back price is reduced by {LESS} of the price.
+    No buy-back is offered after {END_MONTHS} months.
+    """
 
     /// The % offered when it's returned after `months` months; nil = none.
     func share(atMonths months: Int) -> Double? {
@@ -1616,23 +1627,33 @@ struct BuyBackTerms: Codable {
         return max(0, percent - reductionPercent * Double(max(0, months - afterMonths)))
     }
 
-    /// The offer in words, a sentence a line.
+    /// The offer in words, a line a paragraph. Without a unit price, the
+    /// brackets holding one are left out; without a monthly reduction, the
+    /// lines about it are.
     func sentences(currency: String) -> [String] {
         let pc: (Double) -> String = { v in
             (v.rounded() == v ? String(Int(v)) : String(format: "%.1f", v)) + "%"
         }
-        let months: (Int) -> String = { n in "\(n) month\(n == 1 ? "" : "s")" }
-        let amount: (Double) -> String = { p in
-            guard let base = basePrice, base > 0 else { return "" }
-            return " (\(currency) \(formatMoney(base * p / 100)))"
+        let price = unitPrice.flatMap { $0 > 0 ? $0 : nil }
+        let money: (Double) -> String = { p in price.map { "\(currency) \(formatMoney($0 * p / 100))" } ?? "" }
+        let end = max(endMonths, afterMonths)
+        let last = share(atMonths: end) ?? 0
+        let reduces = reductionPercent > 0 && endMonths > afterMonths
+        var lines: [String] = []
+        for raw in wording.components(separatedBy: .newlines) {
+            var line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty { continue }
+            if !reduces && (line.contains("{LESS}") || line.contains("{END_PERCENT}") || line.contains("{END_UNIT_PRICE}")) { continue }
+            if price == nil {
+                line = line.replacingOccurrences(of: #"\s*\([^()]*\{(END_)?UNIT_PRICE\}[^()]*\)"#, with: "", options: .regularExpression)
+                line = line.replacingOccurrences(of: "{UNIT_PRICE}", with: "").replacingOccurrences(of: "{END_UNIT_PRICE}", with: "")
+            }
+            let values = ["{PERCENT}": pc(percent), "{UNIT_PRICE}": money(percent), "{MONTHS}": String(afterMonths), "{LESS}": pc(reductionPercent),
+                          "{END_MONTHS}": String(end), "{END_PERCENT}": pc(last), "{END_UNIT_PRICE}": money(last)]
+            for (token, value) in values { line = line.replacingOccurrences(of: token, with: value) }
+            lines.append(line)
         }
-        var out = ["We offer to buy back the equipment at \(pc(percent)) of its price\(amount(percent)) after \(months(afterMonths))."]
-        if reductionPercent > 0 && endMonths > afterMonths {
-            let last = share(atMonths: endMonths) ?? 0
-            out.append("For each month beyond \(months(afterMonths)), the buy-back price is reduced by \(pc(reductionPercent)) of the price — \(pc(last))\(amount(last)) after \(months(endMonths)).")
-        }
-        out.append("No buy-back is offered after \(months(max(endMonths, afterMonths))).")
-        return out
+        return lines
     }
 }
 
@@ -2425,6 +2446,9 @@ struct CompanySettings: Codable {
     var buyBackAfterMonths: Int? = nil
     var buyBackReductionPercent: Double? = nil
     var buyBackEndMonths: Int? = nil
+    /// The buy-back offer's wording, with its figures as {PERCENT}, {UNIT_PRICE}…;
+    /// nil = the standard wording (`BuyBackTerms.defaultWording`).
+    var buyBackWording: String? = nil
     /// Foreign price lists → base currency, e.g. ["EUR": 8.93].
     var exchangeRates: [String: Double]?
     /// Continue an existing sequence, e.g. ["QT": 194] after Qt26193.
@@ -7389,7 +7413,7 @@ final class AppDatabase {
     /// own figures, else Settings' (60% after 6 months, 2% less a month
     /// beyond, none after 24 months, unless changed there). On while it
     /// has a Buy-back Offer section.
-    func buyBackTerms(for q: Quotation, basePrice: Double?) -> BuyBackTerms {
+    func buyBackTerms(for q: Quotation, unitPrice: Double?) -> BuyBackTerms {
         let s = getCompanySettings()
         let after = q.buyBackAfterMonths ?? s.buyBackAfterMonths ?? 6
         let offered = quotationBlocks(for: q.id).contains { $0.kind == "BuyBack" }
@@ -7398,7 +7422,8 @@ final class AppDatabase {
                             afterMonths: after,
                             reductionPercent: q.buyBackReductionPercent ?? s.buyBackReductionPercent ?? 2,
                             endMonths: max(after, q.buyBackEndMonths ?? s.buyBackEndMonths ?? 24),
-                            basePrice: basePrice)
+                            unitPrice: unitPrice,
+                            wording: nonBlank(s.buyBackWording) ?? BuyBackTerms.defaultWording)
     }
 
     /// A copy of a quotation as a new draft — in its own project or another
@@ -8156,7 +8181,10 @@ final class AppDatabase {
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
-        detail.buyBack = buyBackTerms(for: q, basePrice: q.pricingMode == "Sale" ? detail.materialsSubtotal : nil)
+        // "Per unit": one of the dearest item (the equipment), as charged.
+        let unitPrices = detail.lineItems.filter { $0.blockId == nil && $0.section != "Delivery" }
+            .map { detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice }
+        detail.buyBack = buyBackTerms(for: q, unitPrice: q.pricingMode == "Sale" ? unitPrices.max() : nil)
         detail.orientation = q.orientation == "Landscape" && detail.jobType != "Crane" ? "Landscape" : "Portrait"
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
@@ -10086,6 +10114,10 @@ final class AppDatabase {
         if let v = (payload["buyBackAfterMonths"] as? NSNumber)?.intValue { settings.buyBackAfterMonths = max(0, v) }
         if let v = (payload["buyBackReductionPercent"] as? NSNumber)?.doubleValue { settings.buyBackReductionPercent = min(100, max(0, v)) }
         if let v = (payload["buyBackEndMonths"] as? NSNumber)?.intValue { settings.buyBackEndMonths = max(0, v) }
+        if payload.keys.contains("buyBackWording") {
+            let v = (payload["buyBackWording"] as? String).flatMap { nonBlank($0) }
+            settings.buyBackWording = v == BuyBackTerms.defaultWording ? nil : v
+        }
         if let v = payload["termsNewPage"] as? String, ["WhenLong", "Always"].contains(v) { settings.termsNewPage = v == "Always" ? v : nil }
         if let v = payload["markupRounding"] as? String, ["Nearest", "Up"].contains(v) { settings.markupRoundUp = v == "Up" ? true : nil }
         if let list = payload["manpowerRates"] as? [[String: Any]] {
@@ -18181,6 +18213,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             // Light / Dark is each person's own, not the company's.
             var current = db.getCompanySettings()
             current.appearance = ownAppearance()
+            current.buyBackWording = current.buyBackWording ?? BuyBackTerms.defaultWording
             respond(id: id, encodable: current)
         case "settings:update":
             // Appearance is the person's own; everything else is the company's.
@@ -18192,6 +18225,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             var updated = db.updateCompanySettings(changes)
             updated.appearance = ownAppearance()
+            updated.buyBackWording = updated.buyBackWording ?? BuyBackTerms.defaultWording
             respond(id: id, encodable: updated)
         case "settings:chooseLogo":
             handleChooseLogo(id: id)

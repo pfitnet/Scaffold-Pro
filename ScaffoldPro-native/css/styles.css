@@ -2574,6 +2574,7 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 .bb-sentence { font-size: 13px; line-height: 2.1; color: var(--text-secondary); margin: 6px 0 8px; }
 .bb-row td { vertical-align: top; font-size: 12.5px; line-height: 1.5; }
 .bb-row p { margin: 0 0 3px; }
+.bb-warn { margin: 6px 0 0; font-size: 12px; color: var(--warning, #b7791f); }
 .bb-sentence.off { opacity: .5; }
 .bb-num { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; }
 .bb-num input { width: 64px !important; --control-h: 28px; padding: 0 7px; text-align: right; }

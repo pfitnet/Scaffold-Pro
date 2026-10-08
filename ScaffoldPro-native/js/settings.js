@@ -177,6 +177,7 @@ async function loadSettings() {
   for (const [f, d] of [['buyBackPercent', 60], ['buyBackAfterMonths', 6], ['buyBackReductionPercent', 2], ['buyBackEndMonths', 24]]) {
     document.getElementById(`${f}-input`).value = settings[f] ?? d;
   }
+  document.getElementById('buyBackWording-input').value = settings.buyBackWording || '';
   document.getElementById('minimumMonthlyRental-input').value = settings.minimumMonthlyRental ?? 1000;
   document.getElementById('boqTerms-input').value = settings.boqTerms || '';
   document.getElementById('linkedNumbers-input').checked = settings.linkedNumbers !== false;
@@ -227,6 +228,8 @@ async function saveSettings() {
     const v = document.getElementById(`${f}-input`).value;
     payload[f] = v === '' ? d : Math.max(0, f.endsWith('Months') ? Math.round(Number(v)) : Number(v)) || 0;
   }
+  // Blank: back to the standard wording.
+  payload.buyBackWording = document.getElementById('buyBackWording-input').value;
   const eur = Number(document.getElementById('eurRate-input').value);
   if (eur > 0) payload.exchangeRates = { EUR: eur };
   payload.numberStarts = {};
