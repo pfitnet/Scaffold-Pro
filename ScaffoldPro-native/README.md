@@ -4296,3 +4296,12 @@ one idea at a time, few words, and pictures that carry the meaning.
   first). The app refuses a new key while one is saved, too.
 - Removing the key removes every provider's saved key, so switching
   provider never picks up an old one.
+
+## Batch 177 — Closing the window quits again
+
+- Closing the window (the red button or ⌘W) could leave ScaffoldPro running
+  in the Dock. The window was gone before the "save what's being typed"
+  step ran, so that step could wait for a page that had gone to sleep.
+- Now the window stays open while what's being typed is saved (the page
+  is still awake), then ScaffoldPro quits straight away, within 1.5 seconds
+  at most. ⌘Q and Quit work the same way.

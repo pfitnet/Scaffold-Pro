@@ -22433,7 +22433,7 @@ func relaunchApp() {
     NSApp.terminate(nil)
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     var bridge: NativeBridge!
@@ -22743,20 +22743,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         true
     }
 
-    /// Quitting (⌘Q or the menu) first saves what's being typed: the box
-    /// in use is left, as if clicked away from, so its change is saved.
-    /// Nothing else (no backup) happens on the way out.
+    /// Quitting (⌘Q, the menu, or closing the window) first saves what's
+    /// being typed: the box in use is left, as if clicked away from, so its
+    /// change is saved. Nothing else (no backup) happens on the way out.
     private var savedBeforeQuit = false
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard !savedBeforeQuit, let web = webView else { return .terminateNow }
-        savedBeforeQuit = true
-        let script = "try { var a = document.activeElement; if (a && a.blur) { a.dispatchEvent(new Event('change', { bubbles: true })); a.blur(); } window.dispatchEvent(new Event('beforeunload')); } catch (e) {} true"
-        web.evaluateJavaScript(script) { _, _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { sender.reply(toApplicationShouldTerminate: true) }
-        }
-        // Never held up: leave after 3 seconds whatever happens.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { sender.reply(toApplicationShouldTerminate: true) }
+        guard !savedBeforeQuit, webView != nil else { return .terminateNow }
+        saveOpenWork { sender.reply(toApplicationShouldTerminate: true) }
         return .terminateLater
+    }
+
+    /// Asks the page to save what's being typed, then `done` — once, and
+    /// within 1.5 seconds even if the page doesn't answer.
+    private var afterSave: (() -> Void)?
+    private func saveOpenWork(then done: @escaping () -> Void) {
+        savedBeforeQuit = true
+        afterSave = done
+        let script = "try { var a = document.activeElement; if (a && a.blur) { a.dispatchEvent(new Event('change', { bubbles: true })); a.blur(); } window.dispatchEvent(new Event('beforeunload')); } catch (e) {} true"
+        webView?.evaluateJavaScript(script) { [weak self] _, _ in
+            // A moment for the save it started to reach the app.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self?.finishSave() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.finishSave() }
+    }
+    private func finishSave() {
+        let done = afterSave
+        afterSave = nil
+        done?()
+    }
+
+    /// The red button (or ⌘W) on the main window quits ScaffoldPro. The
+    /// window stays until what's being typed is saved — the page is still
+    /// awake then — and the app quits straight after.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard sender === window else { return true }
+        if savedBeforeQuit { NSApp.terminate(nil); return false }
+        saveOpenWork { NSApp.terminate(nil) }
+        return false
     }
 
     /// EB Garamond — the documents' body font (as on the company's
@@ -22895,12 +22918,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate {
         window.toolbarStyle = .unified
         // Reopen at the same size and position as last time.
         window.setFrameAutosaveName("ScaffoldProMainWindow")
-        // Closing the window quits ScaffoldPro (the hidden launch card
-        // would otherwise keep it running). What's being typed is saved first.
-        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
-            self?.webView?.evaluateJavaScript("try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.dispatchEvent(new Event('beforeunload')); } catch (e) {}", completionHandler: nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
-        }
+        // Closing the window quits ScaffoldPro (windowShouldClose, below).
+        window.delegate = self
 
         let contentController = WKUserContentController()
         bridge = NativeBridge(db: db, storage: storage)
