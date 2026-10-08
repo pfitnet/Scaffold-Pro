@@ -652,3 +652,19 @@ window.refreshChatBadge();
     (document.head || document.documentElement).appendChild(s);
   }
 })();
+
+// ---------------------------------------------------------------------
+// The Assistant's floating chat (js/assistant.js), on every page: the
+// sparkle at the bottom right, or ⌘J.
+// ---------------------------------------------------------------------
+(function loadAssistant() {
+  if (document.querySelector('script[src$="js/assistant.js"]') || (document.body && document.body.dataset.page === 'assistant')) return;
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'css/assistant.css';
+  document.head.appendChild(css);
+  const script = document.createElement('script');
+  script.src = 'js/assistant.js';
+  script.defer = true;
+  document.head.appendChild(script);
+})();

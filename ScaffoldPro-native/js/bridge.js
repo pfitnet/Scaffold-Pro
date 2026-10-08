@@ -435,7 +435,8 @@
     // message's files as { name, mime, base64 } → { ok, reply, proposals, files };
     // run(proposal) carries out one the person confirmed.
     assistant: {
-      send: (messages, attachments) => callNative('assistant:send', { messages: messages, attachments: attachments || [] }),
+      // `context`: what's on screen (the floating chat): page, ids, selection, the page's text.
+      send: (messages, attachments, context) => callNative('assistant:send', { messages: messages, attachments: attachments || [], context: context || null }),
       run: (proposal) => callNative('assistant:run', { proposal: proposal }),
     },
     ai: {
