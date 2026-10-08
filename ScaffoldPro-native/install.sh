@@ -63,23 +63,77 @@ pick_sdk() {
     return 1
 }
 
+# Kept between builds (not in build/, which is cleared each time): the SDK
+# that worked, and the last compiled ScaffoldPro with the fingerprint of
+# what it was built from.
+CACHE="$SCRIPT_DIR/.build-cache"
+mkdir -p "$CACHE"
+
 echo "🔎 Checking the Swift compiler and macOS SDK..."
-SDK_PATH="$(pick_sdk)" || exit 1
+SWIFT_VERSION="$(swiftc --version 2>/dev/null | head -n 1)"
+# The SDK that worked last time, while the compiler is the same one:
+# checking every SDK again takes a while.
+SDK_FROM_CACHE=""
+if [ -f "$CACHE/sdk" ] && [ "$(sed -n 2p "$CACHE/sdk")" = "$SWIFT_VERSION" ] && [ -d "$(sed -n 1p "$CACHE/sdk")" ]; then
+    SDK_PATH="$(sed -n 1p "$CACHE/sdk")"
+    SDK_FROM_CACHE=1
+else
+    SDK_PATH="$(pick_sdk)" || exit 1
+    printf '%s\n%s\n' "$SDK_PATH" "$SWIFT_VERSION" > "$CACHE/sdk"
+fi
 export SDKROOT="$SDK_PATH"
-echo "   $(swiftc --version 2>/dev/null | head -n 1)"
+echo "   $SWIFT_VERSION"
 echo "   SDK: $(basename "$SDK_PATH")"
 
-echo "⚙️  Compiling ScaffoldPro for $(uname -m)..."
-swiftc "$SCRIPT_DIR/main.swift" \
-    -sdk "$SDK_PATH" \
-    -target "$(uname -m)-apple-macosx12.0" \
-    -framework Cocoa \
-    -framework WebKit \
-    -framework PDFKit \
-    -framework Vision \
-    -framework UniformTypeIdentifiers \
-    -O \
-    -o "$BUILD/Contents/MacOS/ScaffoldPro"
+ARCH="$(uname -m)"
+CORES="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+base_flags() {
+    FLAGS=(-sdk "$SDK_PATH" -target "$ARCH-apple-macosx12.0"
+           -framework Cocoa -framework WebKit -framework PDFKit -framework Vision -framework UniformTypeIdentifiers
+           -O)
+}
+base_flags
+# What the program is built from: main.swift, the compiler, the SDK and the
+# settings. When none of these changed (an update to the pages only), the
+# last build is used as it is — no compiling.
+fingerprint() {
+    { shasum -a 256 "$SCRIPT_DIR/main.swift" | cut -d' ' -f1; echo "$SWIFT_VERSION|$SDK_PATH|${FLAGS[*]}"; } | shasum -a 256 | cut -c1-20
+}
+# Whole-module, with the optimising and code generation spread over every
+# core (it's otherwise done on one). Expressions or functions slow to
+# type-check are noted in the log, to be made quicker.
+compile() {
+    swiftc "$SCRIPT_DIR/main.swift" "${FLAGS[@]}" -wmo -num-threads "$CORES" \
+        -Xfrontend -warn-long-function-bodies=400 \
+        -Xfrontend -warn-long-expression-type-checking=200 \
+        -o "$1"
+}
+
+CACHED="$CACHE/ScaffoldPro-$(fingerprint)"
+if [ -s "$CACHED" ]; then
+    echo "⚙️  Compiling ScaffoldPro for $ARCH... no need: the app's code hasn't changed since the last build, so that build is used."
+    cp "$CACHED" "$BUILD/Contents/MacOS/ScaffoldPro"
+else
+    echo "⚙️  Compiling ScaffoldPro for $ARCH (on $CORES cores)..."
+    STARTED=$(date +%s)
+    if ! compile "$BUILD/Contents/MacOS/ScaffoldPro"; then
+        # The remembered SDK may not suit any more: choose again, once.
+        [ -n "$SDK_FROM_CACHE" ] || exit 1
+        echo "   Trying the other macOS SDKs..."
+        rm -f "$CACHE/sdk"
+        unset SDKROOT
+        SDK_PATH="$(pick_sdk)" || exit 1
+        export SDKROOT="$SDK_PATH"
+        printf '%s\n%s\n' "$SDK_PATH" "$SWIFT_VERSION" > "$CACHE/sdk"
+        base_flags
+        CACHED="$CACHE/ScaffoldPro-$(fingerprint)"
+        compile "$BUILD/Contents/MacOS/ScaffoldPro"
+    fi
+    echo "   Compiled in $(( $(date +%s) - STARTED ))s."
+    # Only the newest build is kept.
+    rm -f "$CACHE"/ScaffoldPro-*
+    cp "$BUILD/Contents/MacOS/ScaffoldPro" "$CACHED"
+fi
 
 chmod +x "$BUILD/Contents/MacOS/ScaffoldPro"
 
