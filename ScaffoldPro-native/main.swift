@@ -1725,7 +1725,7 @@ func applyInlineMarkup(_ s: String) -> String {
     var out = s
     out = out.replacingOccurrences(of: #"\*\*(?=\S)(.+?)(?<=\S)\*\*"#, with: "\u{E010}$1\u{E010}", options: .regularExpression)
     out = out.replacingOccurrences(of: #"__(?=\S)(.+?)(?<=\S)__"#, with: "\u{E012}$1\u{E012}", options: .regularExpression)
-    out = out.replacingOccurrences(of: #"(^|[^*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])"#, with: "$1\u{E011}$2\u{E011}", options: [.regularExpression, .anchorsMatchLines])
+    out = out.replacingOccurrences(of: #"(?m)(^|[^*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])"#, with: "$1\u{E011}$2\u{E011}", options: .regularExpression)
     return out
 }
 

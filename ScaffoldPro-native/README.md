@@ -4483,3 +4483,9 @@ one idea at a time, few words, and pictures that carry the meaning.
   Open and Locate File keep working. Empty `26219 BOQ`, `26219 Quotations`…
   folders are removed. A file with no document number in its name stays
   where it is.
+
+## Batch 191 — Build fix
+
+- The italic markup (`*text*`) in custom items used an option the Swift
+  compiler rejects; the pattern now says "match at the start of each
+  line" itself, so it builds and works the same.

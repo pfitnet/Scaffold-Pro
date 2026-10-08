@@ -36744,14 +36744,14 @@
       "source_location": ""
     },
     {
-      "id": "handoff_5_recent_work_batches_147_190_newest_last",
-      "label": "5. Recent work (Batches 147\u2013190, newest last)",
+      "id": "handoff_5_recent_work_batches_147_191_newest_last",
+      "label": "5. Recent work (Batches 147\u2013191, newest last)",
       "_origin": "ast",
       "community": 42,
       "community_name": "URL",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "5. recent work (batches 147\u2013190, newest last)",
+      "norm_label": "5. recent work (batches 147\u2013191, newest last)",
       "source_file": "HANDOFF.md",
       "source_location": "L167"
     },
@@ -37680,7 +37680,7 @@
       "node_kind": "heading",
       "norm_label": "6. open items and things waiting on the user",
       "source_file": "HANDOFF.md",
-      "source_location": "L259"
+      "source_location": "L260"
     },
     {
       "id": "handoff_7_starting_the_new_chat",
@@ -37692,7 +37692,7 @@
       "node_kind": "heading",
       "norm_label": "7. starting the new chat",
       "source_file": "HANDOFF.md",
-      "source_location": "L288"
+      "source_location": "L289"
     },
     {
       "id": "handoff_scaffoldpro_handoff_for_a_new_chat",
@@ -141845,7 +141845,7 @@
     },
     {
       "source": "handoff_scaffoldpro_handoff_for_a_new_chat",
-      "target": "handoff_5_recent_work_batches_147_190_newest_last",
+      "target": "handoff_5_recent_work_batches_147_191_newest_last",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -141862,7 +141862,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L259",
+      "source_location": "L260",
       "weight": 1.0
     },
     {
@@ -141873,7 +141873,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L288",
+      "source_location": "L289",
       "weight": 1.0
     },
     {
@@ -178173,7 +178173,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_documentseries",
       "relation": "references",
       "_origin": "ast",
@@ -178185,7 +178185,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdelegate_windowshouldclose",
       "relation": "references",
       "_origin": "ast",
@@ -178209,7 +178209,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_buybackterms",
       "relation": "references",
       "_origin": "ast",
@@ -178221,7 +178221,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_buybackterms_sentences",
       "relation": "references",
       "_origin": "ast",
@@ -178233,7 +178233,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_filestorage_projectfolder",
       "relation": "references",
       "_origin": "ast",
@@ -178281,7 +178281,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_organiseprojectfolders",
       "relation": "references",
       "_origin": "ast",
@@ -178293,7 +178293,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_ownappearance",
       "relation": "references",
       "_origin": "ast",
@@ -178329,7 +178329,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_quotationai_configure",
       "relation": "references",
       "_origin": "ast",
@@ -178341,7 +178341,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_quotationblock",
       "relation": "references",
       "_origin": "ast",
@@ -178397,11 +178397,11 @@
       "confidence_score": 0.95,
       "context": "applicationShouldTerminate",
       "source_file": "HANDOFF.md",
-      "source_location": "L277",
+      "source_location": "L278",
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_applyinlinemarkup",
       "relation": "references",
       "_origin": "ast",
@@ -178413,7 +178413,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_js_quotation_editor_buybacksentences",
       "relation": "references",
       "_origin": "ast",
@@ -178449,7 +178449,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_createimportedquotation",
       "relation": "references",
       "_origin": "ast",
@@ -178497,7 +178497,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_filedocumentsbyseries",
       "relation": "references",
       "_origin": "ast",
@@ -178509,7 +178509,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_filefolder",
       "relation": "references",
       "_origin": "ast",
@@ -178533,7 +178533,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_inlineruns",
       "relation": "references",
       "_origin": "ast",
@@ -178545,7 +178545,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_filestorage_organiseprojectfolder",
       "relation": "references",
       "_origin": "ast",
@@ -178557,7 +178557,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_plainmarkup",
       "relation": "references",
       "_origin": "ast",
@@ -178569,7 +178569,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_pricenotelabel",
       "relation": "references",
       "_origin": "ast",
@@ -178581,7 +178581,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_projectdocumentnumbers",
       "relation": "references",
       "_origin": "ast",
@@ -178593,7 +178593,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_filestorage_projectsubfolder",
       "relation": "references",
       "_origin": "ast",
@@ -178605,7 +178605,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_safefilename",
       "relation": "references",
       "_origin": "ast",
@@ -178617,7 +178617,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdelegate_saveopenwork",
       "relation": "references",
       "_origin": "ast",
@@ -178641,7 +178641,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_setaiconnection",
       "relation": "references",
       "_origin": "ast",
@@ -178653,7 +178653,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_setquotationlinepricenote",
       "relation": "references",
       "_origin": "ast",
@@ -178673,7 +178673,7 @@
       "confidence_score": 0.95,
       "context": "setup",
       "source_file": "HANDOFF.md",
-      "source_location": "L263",
+      "source_location": "L264",
       "weight": 1.0
     },
     {
@@ -178713,7 +178713,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_pdfgenerator_styledtext",
       "relation": "references",
       "_origin": "ast",
@@ -178749,7 +178749,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_pdfgenerator_wrapstyled",
       "relation": "references",
       "_origin": "ast",
@@ -178761,7 +178761,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_190_newest_last",
+      "source": "handoff_5_recent_work_batches_147_191_newest_last",
       "target": "scaffoldpro_native_main_filestorage_writegeneratedfile",
       "relation": "references",
       "_origin": "ast",
@@ -181258,5 +181258,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "bf22d8f1b0886ebe83343fd32e8a21865be4b224"
+  "built_at_commit": "0bec37feee7bfd0141d436bb8fba5d8f70d0fd7e"
 }
