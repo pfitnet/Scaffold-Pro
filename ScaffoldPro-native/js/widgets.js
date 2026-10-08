@@ -522,7 +522,7 @@
         reset.addEventListener('click', () => {
           layout = { order: [], hidden: [], span: {} };
           try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
-          location.reload();
+          window.softReload();
         });
         button.insertAdjacentElement('afterend', reset);
       } else if (!on && reset) reset.remove();

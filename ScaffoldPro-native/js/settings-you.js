@@ -67,7 +67,7 @@
     if (!name || !page || name === page.name) return;
     const r = await window.api.users.setName(name);
     if (r && r.ok === false) { await window.appAlert(r.error); return; }
-    location.reload();   // the sidebar shows the new name too
+    window.softReload();   // the sidebar shows the new name too
   });
   $('you-team-save').addEventListener('click', async () => {
     const r = await window.api.users.setTeam($('you-team-input').value.trim());

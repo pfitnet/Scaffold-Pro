@@ -141,7 +141,7 @@ function setupNavEditing(sidebar) {
   bar.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-act]');
     if (!b) return;
-    if (b.dataset.act === 'reset') { try { localStorage.removeItem(NAV_ORDER_KEY); } catch (err) { /* ignore */ } location.reload(); }
+    if (b.dataset.act === 'reset') { try { localStorage.removeItem(NAV_ORDER_KEY); } catch (err) { /* ignore */ } window.softReload(); }
     else stop();
   });
   // While editing, a click doesn't open the tab.

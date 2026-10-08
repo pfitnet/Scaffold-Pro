@@ -4525,3 +4525,44 @@ one idea at a time, few words, and pictures that carry the meaning.
   beside its first row of choices.
 - A new event is for "Me" unless you choose someone else, a team or
   Anyone. New tasks still start as Anyone.
+
+## Batch 196 — Split a quotation by quantity, deliveries included
+
+- In Split…, each ticked item has "Move [ ] of N": move all of it, or only
+  some. What's left stays on this quotation; the part moved goes on the new
+  one, at the same price.
+- The deliveries go with the part moved:
+  - on one day of the schedule only: they come off that day by themselves;
+  - on several days (or partly not scheduled yet): the sheet asks which days
+    they come off, and Split waits until the numbers add up;
+  - they go on the same days (same Day number and date) of the new
+    quotation's delivery schedule.
+- An item linked to a BOQ that's split this way keeps its own quantity on
+  both quotations from then on (as "Unlink from BOQ"), until it's merged
+  back by Revert.
+
+## Batch 197 — Revert merges the same items
+
+- Reverting a subsidiary adds its items to the same items on the original
+  quotation (same description, code, unit, price and section) instead of
+  adding them again as new lines. Their deliveries are added to that line's
+  on the same days.
+- When the merged quantity is the BOQ's again, the item follows its BOQ
+  again.
+
+## Batch 198 — No flashing when changes arrive from other Macs
+
+- When another Mac's changes come in, pages that can redraw themselves
+  (projects, quotations, BOQs, invoices, delivery notes, tasks, calendar,
+  stock, accounts, team…) now update in place, with no reload and the same
+  scroll position.
+- Any other page reloads behind a still picture of itself that fades away
+  once the new page has drawn, so the screen doesn't flash. The same is used
+  for every other reload in the app (undo, Settings › Reload, your name…).
+
+## Batch 199 — Loading screen for ScaffoldPro Web
+
+- In a browser, pages show a ScaffoldPro loading screen while they and
+  their data come over from the office Mac: straight away on the first
+  page of a visit ("Connecting to the office Mac…"), and on later pages
+  only if they take more than a moment, so quick ones don't blink.

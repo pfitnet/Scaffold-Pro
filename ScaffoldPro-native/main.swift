@@ -8974,14 +8974,17 @@ final class AppDatabase {
 
     /// A day-by-day delivery schedule's quantities for `lineIds` moved from
     /// one quotation to another, day for day (a day made there if needed).
-    private func moveDeliveryQuantities(lineIds: Set<String>, from source: String, to target: String) {
+    private func moveDeliveryQuantities(lineIds: Set<String>, from source: String, to target: String, renamed: [String: String] = [:]) {
         guard !lineIds.isEmpty else { return }
         var days = quotationDeliveriesStore.readAll()
         var changed = false
         for i in days.indices where days[i].quotationId == source {
-            let moving = days[i].quantities.filter { lineIds.contains($0.key) }
-            guard !moving.isEmpty else { continue }
-            for k in moving.keys { days[i].quantities.removeValue(forKey: k) }
+            let found = days[i].quantities.filter { lineIds.contains($0.key) }
+            guard !found.isEmpty else { continue }
+            for k in found.keys { days[i].quantities.removeValue(forKey: k) }
+            // Onto another line there (merged back): under its id.
+            var moving: [String: Double] = [:]
+            for (k, v) in found { moving[renamed[k] ?? k, default: 0] += v }
             days[i].updatedAt = nowISO()
             if let t = days.firstIndex(where: { $0.quotationId == target && $0.day == days[i].day }) {
                 for (k, v) in moving { days[t].quantities[k] = (days[t].quantities[k] ?? 0) + v }
@@ -8998,6 +9001,48 @@ final class AppDatabase {
             changed = true
         }
         if changed { quotationDeliveriesStore.writeAll(days) }
+    }
+
+    /// Part of a line's deliveries, by day (day id → how many), from one
+    /// document's schedule to the same day of another's, under `newLineId`.
+    private func moveDeliveryAmounts(lineId: String, newLineId: String, amounts: [String: Double], from source: String, to target: String) {
+        let wanted = amounts.filter { $0.value > 0 }
+        guard !wanted.isEmpty else { return }
+        var days = quotationDeliveriesStore.readAll()
+        var changed = false
+        for (dayId, amount) in wanted {
+            guard let i = days.firstIndex(where: { $0.id == dayId && $0.quotationId == source }),
+                  let had = days[i].quantities[lineId], had > 0 else { continue }
+            let take = min(amount, had)
+            let left = had - take
+            if left > 0.0001 { days[i].quantities[lineId] = left } else { days[i].quantities.removeValue(forKey: lineId) }
+            days[i].updatedAt = nowISO()
+            if let t = days.firstIndex(where: { $0.quotationId == target && $0.day == days[i].day }) {
+                days[t].quantities[newLineId, default: 0] += take
+                days[t].updatedAt = nowISO()
+            } else {
+                var copy = days[i]
+                copy.id = makeId("qdday")
+                copy.quotationId = target
+                copy.quantities = [newLineId: take]
+                copy.createdAt = nowISO()
+                copy.updatedAt = nowISO()
+                days.append(copy)
+            }
+            changed = true
+        }
+        if changed { quotationDeliveriesStore.writeAll(days) }
+    }
+
+    /// The same item on two quotations (to merge them back into one line):
+    /// same description, code, unit, price, section and discount.
+    private func sameItem(_ a: QuotationLineItem, _ b: QuotationLineItem) -> Bool {
+        a.blockId == nil && b.blockId == nil && a.section == b.section && a.itemCode == b.itemCode
+            && a.itemDescription == b.itemDescription && a.unit == b.unit && a.priceListItemId == b.priceListItemId
+            && abs(a.appliedUnitPrice - b.appliedUnitPrice) < 0.005 && a.priceNote == b.priceNote
+            && (a.discountType ?? "None") == (b.discountType ?? "None")
+            && ((a.discountType ?? "None") != "Percent" || (a.discountValue ?? 0) == (b.discountValue ?? 0))
+            && (a.boqLineId == nil || b.boqLineId == nil || a.boqLineId == b.boqLineId)
     }
 
     /// Draft only — an issued quotation is cancelled, never deleted
@@ -9083,11 +9128,27 @@ final class AppDatabase {
             usedPrefixes.insert(blocks[i].prefix.uppercased())
         }
         quotationBlocksStore.writeAll(blocks)
-        // Its lines after the parent's.
+        // Its lines after the parent's — or, the same item as one there,
+        // added to that line's quantity (and its deliveries to that line's).
         var lines = quotationLineItemsStore.readAll()
         var next = (lines.filter { $0.quotationId == parent.id && $0.blockId == nil }.map { $0.sortOrder }.max() ?? -1) + 1
         let moved = lines.filter { $0.quotationId == q.id }.count
-        moveDeliveryQuantities(lineIds: Set(lines.filter { $0.quotationId == q.id }.map { $0.id }), from: q.id, to: parent.id)
+        let boqQuantity = Dictionary(boqLineItemsStore.readAll().map { ($0.id, $0.quantity) }, uniquingKeysWith: { a, _ in a })
+        var mergedInto: [String: String] = [:]
+        for i in lines.indices where lines[i].quotationId == q.id && lines[i].blockId == nil {
+            guard let t = lines.indices.first(where: { lines[$0].quotationId == parent.id && sameItem(lines[$0], lines[i]) }) else { continue }
+            lines[t].quantity += lines[i].quantity
+            lines[t].quantityFormula = nil
+            if lines[t].discountType == "Amount" { lines[t].discountValue = (lines[t].discountValue ?? 0) + (lines[i].discountValue ?? 0) }
+            if lines[t].boqLineId == nil { lines[t].boqLineId = lines[i].boqLineId }
+            // Whole again: it follows its BOQ line again when they agree.
+            if lines[t].boqDetached == true, let b = lines[t].boqLineId, let bq = boqQuantity[b], abs(bq.rounded() - lines[t].quantity) < 0.0001 {
+                lines[t].boqDetached = nil
+            }
+            mergedInto[lines[i].id] = lines[t].id
+        }
+        moveDeliveryQuantities(lineIds: Set(lines.filter { $0.quotationId == q.id }.map { $0.id }), from: q.id, to: parent.id, renamed: mergedInto)
+        lines.removeAll { mergedInto[$0.id] != nil }
         for i in lines.indices where lines[i].quotationId == q.id {
             lines[i].quotationId = parent.id
             if lines[i].blockId == nil {
@@ -9106,7 +9167,14 @@ final class AppDatabase {
         return QuotationSplitResult(ok: true, error: nil, id: parent.id, number: parent.quotationNumber)
     }
 
-    func splitQuotation(id: String, lineIds: [String], blockIds: [String]) -> QuotationSplitResult {
+    /// Part of a line moved by a split: how many, and how many of them come
+    /// off each day of the delivery schedule (day id → how many).
+    struct PartialSplit {
+        var quantity: Double
+        var days: [String: Double]
+    }
+
+    func splitQuotation(id: String, lineIds: [String], blockIds: [String], partial: [String: PartialSplit] = [:]) -> QuotationSplitResult {
         guard let q = getQuotation(id: id) else { return QuotationSplitResult(ok: false, error: "Quotation not found.") }
         guard q.status == "Draft" else {
             return QuotationSplitResult(ok: false, error: "Only a draft quotation can be split. Set it back to Draft first.")
@@ -9120,10 +9188,13 @@ final class AppDatabase {
         let movingBlockIds = Set(movingBlocks.map { $0.id })
         // Rows of a section go with it; other lines only when chosen.
         let moving = items.filter { l in l.blockId.map { movingBlockIds.contains($0) } ?? lineIds.contains(l.id) }
-        guard !moving.isEmpty || !movingBlocks.isEmpty else {
+        // Lines split by quantity: some stay here, the rest go.
+        let parts = partial.compactMapValues { p -> PartialSplit? in p.quantity > 0 ? p : nil }
+            .filter { k, p in !lineIds.contains(k) && items.contains { $0.id == k && $0.blockId == nil && p.quantity < $0.quantity } }
+        guard !moving.isEmpty || !movingBlocks.isEmpty || !parts.isEmpty else {
             return QuotationSplitResult(ok: false, error: "Tick what to move to the new quotation.")
         }
-        guard moving.count < items.count || movingBlocks.count < blocks.count else {
+        guard !parts.isEmpty || moving.count < items.count || movingBlocks.count < blocks.count else {
             return QuotationSplitResult(ok: false, error: "That's everything on this quotation — leave at least one line or section on it.")
         }
         // Linked to a BOQ: the subsidiary is linked to it too, holding the
@@ -9159,9 +9230,38 @@ final class AppDatabase {
             lines[i].quotationId = split.id
             if q.sourceBOQId == nil { lines[i].boqLineId = nil }
         }
+        // Part of a line: a copy with that many goes; this one keeps the
+        // rest. Linked to a BOQ, both keep their own quantities from now on
+        // (as "Unlink from BOQ") until merged back.
+        var partMoves: [(from: String, to: String, days: [String: Double])] = []
+        for (lineId, part) in parts {
+            guard let i = lines.firstIndex(where: { $0.id == lineId }) else { continue }
+            let whole = lines[i].quantity
+            var copy = lines[i]
+            copy.id = makeId("qitem")
+            copy.quotationId = split.id
+            copy.quantity = part.quantity
+            copy.quantityFormula = nil
+            lines[i].quantity = whole - part.quantity
+            lines[i].quantityFormula = nil
+            if lines[i].discountType == "Amount", let amount = lines[i].discountValue, whole > 0 {
+                copy.discountValue = amount * part.quantity / whole
+                lines[i].discountValue = amount - (copy.discountValue ?? 0)
+            }
+            if q.sourceBOQId == nil { copy.boqLineId = nil }
+            if q.boqLinked == true && lines[i].boqLineId != nil {
+                lines[i].boqDetached = true
+                copy.boqDetached = true
+            }
+            lines.append(copy)
+            partMoves.append((lineId, copy.id, part.days))
+        }
         quotationLineItemsStore.writeAll(lines)
         // Their deliveries go with them, day for day.
         moveDeliveryQuantities(lineIds: movingIds, from: q.id, to: split.id)
+        for m in partMoves {
+            moveDeliveryAmounts(lineId: m.from, newLineId: m.to, amounts: m.days, from: q.id, to: split.id)
+        }
         var allBlocks = quotationBlocksStore.readAll()
         for (n, block) in movingBlocks.enumerated() {
             if let i = allBlocks.firstIndex(where: { $0.id == block.id }) {
@@ -17457,7 +17557,9 @@ final class WebServer {
         let ext = url.pathExtension.lowercased()
         if ext == "html", var html = String(data: data, encoding: .utf8) {
             // The bridge the Mac window injects, here as script tags.
-            let inject = #"<script>document.documentElement.classList.add('web')</script><script src="/__web/shim.js"></script><script src="/js/bridge.js"></script>"#
+            // First, the loading screen (js/web-loading.js), shown while the
+            // page and its data come over the network.
+            let inject = #"<script src="/js/web-loading.js"></script><script>document.documentElement.classList.add('web')</script><script src="/__web/shim.js"></script><script src="/js/bridge.js"></script>"#
             if let r = html.range(of: "<head>") { html.insert(contentsOf: inject, at: r.upperBound) } else { html = inject + html }
             data = Data(html.utf8)
         }
@@ -17664,6 +17766,38 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         makeSeriesFolders(numbers)
     }
 
+    /// A picture of the page, laid over it while it reloads (so there's no
+    /// blank flash), until the reloaded page says it has drawn.
+    private var heldFrame: NSView?
+
+    private func holdFrame(_ done: @escaping () -> Void) {
+        guard let webView = webView, let container = webView.superview else { done(); return }
+        webView.takeSnapshot(with: nil) { [weak self] image, _ in
+            guard let self = self, let image = image else { done(); return }
+            self.heldFrame?.removeFromSuperview()
+            let view = NSImageView(frame: webView.frame)
+            view.image = image
+            view.imageScaling = .scaleAxesIndependently
+            view.autoresizingMask = [.width, .height]
+            container.addSubview(view, positioned: .above, relativeTo: webView)
+            self.heldFrame = view
+            // Never left up for long, whatever happens to the page.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self, weak view] in
+                if let view = view, self?.heldFrame === view { self?.releaseFrame() }
+            }
+            done()
+        }
+    }
+
+    private func releaseFrame() {
+        guard let view = heldFrame else { return }
+        heldFrame = nil
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.18
+            view.animator().alphaValue = 0
+        }, completionHandler: { view.removeFromSuperview() })
+    }
+
     /// The project folders kept for each kind of document. Inside a
     /// quotation series' folder they're "26001-002 BOQ", "26001-002
     /// Quotations"…, plus "26001-002 Delivery Schedules".
@@ -17811,6 +17945,17 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// Answers a page's request — from this Mac's window, or a browser.
     func handle(id: String, action: String, payload: [String: Any]) {
+        // A reload without a flash (window.softReload in js/bridge.js).
+        if action == "ui:holdFrame" || action == "ui:releaseFrame" {
+            if servingWeb { respond(id: id, encodable: SimpleResult(ok: true, error: nil)); return }
+            if action == "ui:releaseFrame" {
+                releaseFrame()
+                respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+            } else {
+                holdFrame { [weak self] in self?.respond(id: id, encodable: SimpleResult(ok: true, error: nil)) }
+            }
+            return
+        }
         // A new BOQ or quotation: its series' folders, once it's saved.
         if NativeBridge.seriesCreatingActions.contains(action) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.makeSeriesFolders() }
@@ -18189,9 +18334,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let error = db.reorderQuotationBlocks(quotationId: (payload["quotationId"] as? String) ?? "", ids: (payload["ids"] as? [String]) ?? [])
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:split":
+            var partial: [String: AppDatabase.PartialSplit] = [:]
+            for (lineId, value) in (payload["partial"] as? [String: Any]) ?? [:] {
+                guard let part = value as? [String: Any], let quantity = (part["quantity"] as? NSNumber)?.doubleValue else { continue }
+                let days = ((part["days"] as? [String: Any]) ?? [:]).compactMapValues { ($0 as? NSNumber)?.doubleValue }
+                partial[lineId] = AppDatabase.PartialSplit(quantity: quantity, days: days)
+            }
             respond(id: id, encodable: db.splitQuotation(id: (payload["id"] as? String) ?? "",
                                                          lineIds: (payload["lineIds"] as? [String]) ?? [],
-                                                         blockIds: (payload["blockIds"] as? [String]) ?? []))
+                                                         blockIds: (payload["blockIds"] as? [String]) ?? [], partial: partial))
         case "quotations:revertSplit":
             respond(id: id, encodable: db.revertQuotationSplit(id: (payload["id"] as? String) ?? ""))
         case "quotations:removeBlock":

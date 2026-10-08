@@ -551,7 +551,7 @@ function setupTeam() {
   document.getElementById('team-name-input').addEventListener('change', async (e) => {
     renderTeam(await window.api.team.setName(e.target.value));
   });
-  document.getElementById('settings-reload-btn').addEventListener('click', () => location.reload());
+  document.getElementById('settings-reload-btn').addEventListener('click', () => window.softReload());
   refreshTeam();
   setInterval(refreshTeam, 10000);
 }

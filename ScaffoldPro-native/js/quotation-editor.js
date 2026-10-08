@@ -277,7 +277,7 @@ async function revertSplit() {
   const d = currentDetail;
   const lines = d.lineItems.filter((i) => !i.blockId).length;
   const what = [lines ? `its ${lines} line${lines === 1 ? '' : 's'}` : '', d.blocks.length ? `${d.blocks.length} section${d.blocks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ') || 'everything on it';
-  if (!await appConfirm(`Revert ${d.quotationNumber}?\n\n${what[0].toUpperCase() + what.slice(1)} go back onto ${d.parent.number}, and ${d.quotationNumber} is deleted.`, { ok: 'Revert' })) return;
+  if (!await appConfirm(`Revert ${d.quotationNumber}?\n\n${what[0].toUpperCase() + what.slice(1)} go back onto ${d.parent.number} (an item that's on it too is added to its quantity, with its deliveries), and ${d.quotationNumber} is deleted.`, { ok: 'Revert' })) return;
   const r = await window.api.quotations.revertSplit(quotationId);
   if (!r || !r.ok) { await appAlert((r && r.error) || 'The quotation couldn’t be reverted.'); return; }
   location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
@@ -286,9 +286,11 @@ async function revertSplit() {
 async function splitQuotation() {
   const d = currentDetail;
   if (d.status !== 'Draft') { await appAlert('Only a draft quotation can be split.\n\nSet it back to Draft first.'); return; }
-  const pick = await window.quotationSplit.open(d, currencyLabel);
+  let schedule = null;
+  try { schedule = await window.api.quotations.deliverySchedule(quotationId); } catch (e) { schedule = null; }
+  const pick = await window.quotationSplit.open(d, currencyLabel, schedule);
   if (!pick) return;
-  const r = await window.api.quotations.split(quotationId, pick.lineIds, pick.blockIds);
+  const r = await window.api.quotations.split(quotationId, pick.lineIds, pick.blockIds, pick.partial);
   if (!r || !r.ok) { await appAlert((r && r.error) || 'The quotation couldn’t be split.'); return; }
   await loadDetail();
   const go = await appChoose(`Split off as ${r.number}\n\nIt’s listed under ${d.quotationNumber} on the project page.`,

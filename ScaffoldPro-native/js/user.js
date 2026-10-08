@@ -125,7 +125,7 @@ document.getElementById('name-save').addEventListener('click', async () => {
   const r = await window.api.users.setName(name);
   if (r && r.ok === false) { alert(r.error); return; }
   // The sidebar shows the new name too.
-  location.reload();
+  window.softReload();
 });
 document.getElementById('name-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('name-save').click(); });
 document.getElementById('colour-auto').addEventListener('click', () => setColour(''));
