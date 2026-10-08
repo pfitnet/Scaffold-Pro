@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 207.
+"## Batch N" section per change, newest at the bottom, up to Batch 208.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **208**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **209**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -98,7 +98,7 @@ Keep the reply short and plain. Say clearly what was tested and what wasn't
   with `window.appRefresh` where the page has one; otherwise use
   `window.softReload()` (js/bridge.js), never `location.reload()`: the Mac
   app holds a snapshot of the window over it (`ui:holdFrame`) until the
-  reloaded page has drawn (`ui:releaseFrame`). Moving between pages is covered the same way by NativeBridge's `WKNavigationDelegate` (snapshot at `decidePolicyFor` with `afterScreenUpdates = false`, never waiting more than 0.12 s; released by bridge.js two frames after DOMContentLoaded, or 0.6 s after `didFinish`); js/motion.js does no fade out / rise in inside the Mac app. Check this in every fix.
+  reloaded page has drawn (`ui:releaseFrame`). Moving between pages holds nothing (it must be instant): the web view doesn't draw its own background and the window's content view (`PageBackdropView`) is the pages' --content colour, so there's nothing dark between pages; js/motion.js does no fade out / rise in inside the Mac app. Check this in every fix.
 - **Settings-style editing:** show values as text with a small pencil SVG
   to edit; switches, dropdowns and segmented buttons act immediately with no
   pencil; autosave with a small "Saved".
@@ -170,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–207, newest last)
+## 5. Recent work (Batches 147–208, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -276,6 +276,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **205:** Assistant, more abilities and a floating chat. Lookups added: getProject, findClients, listTasks, listInvoices, stock (getQuotation now gives line ids, totals, refs). Proposals added: editQuotationItems (by line id/code/words; card shows before → after), updateQuotationDetails, duplicateQuotation, createProject (matches or makes client/site; next number), createClient, completeTask; createTask takes endTime/team (an event). Up to 6 lookup rounds. js/assistant.js is now a component (`AssistantChat.mount(el, { compact, context, onClose })`): assistant.html mounts it full size; sidebar.js loads it on every other page as a floating chat (`.as-launcher` / `#as-float`, ⌘J, stays open across pages via sessionStorage). The floating chat sends `context` (page, id/number, selection, the page's text ≤ 8,000 chars) → `assistantScreen` adds "On screen: …" to the newest message; after a card runs, the page's `appRefresh()` redraws it in place.
 - **206:** no black flash between pages (NativeBridge is the main web view's `navigationDelegate`; see "No flashing, ever" above). The floating chat moves by its top bar and resizes from its bottom-left corner (`placeSaved` / `startDrag` / `startResize` in js/assistant.js; kept in localStorage `assistant.floatRect`, kept on screen; double-click the bar to put it back).
 - **207:** page changes quicker (the snapshot uses what's on screen and waits at most 0.12 s; the new page is shown two frames after DOMContentLoaded, a reload 0.3 s later; 0.12 s crossfade). The floating chat resizes from every edge and corner (`.as-resize-n/s/e/w/ne/nw/se/sw`, `startResize(e, dir)`).
+- **208:** no picture held on page changes any more (instant again); `PageBackdropView` behind a transparent web view stops the black flash. The floating chat sends a JPEG of the screen (≤ 1,600 px wide, `screenPicture`) with each message, besides the page's text.
 
 ---
 
