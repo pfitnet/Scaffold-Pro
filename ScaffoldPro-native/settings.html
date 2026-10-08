@@ -368,6 +368,28 @@
         </div>
       </div>
     </section>
+    <section class="st-pane" id="ai-import" data-title="AI Import" data-icon="spark" data-group="Company" hidden>
+      <header class="st-pane-head"><h2>AI Import</h2><p>Reading old quotations and scans</p></header>
+      <p class="st-intro">Importing a quotation (Project › Quotations › Import…) reads the file on this Mac first. When it can’t make out the items — a scan, a photo, an unusual layout — a free cloud AI can read it instead. You always check what it read before a quotation is made.</p>
+      <div class="ai-body">
+        <div class="ai-state" id="ai-state"></div>
+        <ol class="gs-steps" id="ai-steps">
+          <li><span class="gs-n">1</span><div><b>Choose a provider.</b>
+            <div class="ai-providers" role="radiogroup" aria-label="Provider">
+              <label class="ai-provider"><input type="radio" name="ai-provider" value="gemini" /><span><b>Google Gemini</b><small>Free tier, no card needed. Reads PDFs and scans itself — the best choice.</small></span></label>
+              <label class="ai-provider"><input type="radio" name="ai-provider" value="openrouter" /><span><b>OpenRouter</b><small>Free models, picked by OpenRouter. Sent the text read on this Mac.</small></span></label>
+            </div></div></li>
+          <li><span class="gs-n">2</span><div><b>Get a free key.</b> <span id="ai-key-help"></span></div></li>
+          <li><span class="gs-n">3</span><div>Paste it here and save.
+            <div class="gs-form">
+              <div class="field"><label for="ai-key">Key</label><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="Paste the key" /></div>
+              <div class="field"><label for="ai-model">Model <span class="muted">(optional)</span></label><input type="text" id="ai-model" autocomplete="off" spellcheck="false" /></div>
+            </div>
+            <div class="gs-inline"><button class="primary" id="ai-save" data-no-icon>Save</button><span class="small-note" id="ai-saved"></span></div></div></li>
+        </ol>
+        <p class="small-note" style="max-width:780px;">The provider, model and key are the whole team’s: set once, used on every Mac (they’re kept with the company’s settings and their backups). Nothing is sent until someone imports a file. Only that file (or its text) goes to the provider. On free tiers the provider may use what’s sent to improve its models, so don’t use it for anything confidential.</p>
+      </div>
+    </section>
     <section class="st-pane" id="team" data-title="Share with Other Macs" data-icon="people" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Share with Other Macs</h2><p>Work on the same data from several Macs</p></header>
       <p class="st-intro">Several people work on the same projects and documents, each on their own Mac, through a folder shared in iCloud Drive. A change made on one Mac appears on the others by itself, usually within seconds.</p>
@@ -527,28 +549,6 @@
             <p class="small-note" style="max-width:780px;">Set it up on one Mac — the office Mac that's usually open — and that Mac keeps the sheet up to date for everyone. The URL and secret are kept on this Mac only.</p>
           </div>
         </div>
-    </section>
-    <section class="st-pane" id="ai-import" data-title="AI Import" data-icon="spark" data-group="This Mac &amp; data" hidden>
-      <header class="st-pane-head"><h2>AI Import</h2><p>Reading old quotations and scans</p></header>
-      <p class="st-intro">Importing a quotation (Project › Quotations › Import…) reads the file on this Mac first. When it can’t make out the items — a scan, a photo, an unusual layout — a free cloud AI can read it instead. You always check what it read before a quotation is made.</p>
-      <div class="ai-body">
-        <div class="ai-state" id="ai-state"></div>
-        <ol class="gs-steps" id="ai-steps">
-          <li><span class="gs-n">1</span><div><b>Choose a provider.</b>
-            <div class="ai-providers" role="radiogroup" aria-label="Provider">
-              <label class="ai-provider"><input type="radio" name="ai-provider" value="gemini" /><span><b>Google Gemini</b><small>Free tier, no card needed. Reads PDFs and scans itself — the best choice.</small></span></label>
-              <label class="ai-provider"><input type="radio" name="ai-provider" value="openrouter" /><span><b>OpenRouter</b><small>Free models, picked by OpenRouter. Sent the text read on this Mac.</small></span></label>
-            </div></div></li>
-          <li><span class="gs-n">2</span><div><b>Get a free key.</b> <span id="ai-key-help"></span></div></li>
-          <li><span class="gs-n">3</span><div>Paste it here and save.
-            <div class="gs-form">
-              <div class="field"><label for="ai-key">Key</label><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="Paste the key" /></div>
-              <div class="field"><label for="ai-model">Model <span class="muted">(optional)</span></label><input type="text" id="ai-model" autocomplete="off" spellcheck="false" /></div>
-            </div>
-            <div class="gs-inline"><button class="primary" id="ai-save" data-no-icon>Save</button><span class="small-note" id="ai-saved"></span></div></div></li>
-        </ol>
-        <p class="small-note" style="max-width:780px;">The key is kept in this Mac’s Keychain, and nothing is sent until you import a file. Only that file (or its text) goes to the provider. On free tiers the provider may use what’s sent to improve its models, so don’t use it for anything confidential.</p>
-      </div>
     </section>
     <section class="st-pane" id="data-location" data-title="Data Location" data-icon="folder" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Data Location</h2><p>Where the files and database are kept</p></header>

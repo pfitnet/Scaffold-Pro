@@ -1703,6 +1703,17 @@ func amountInWords(_ amount: Double, currency: String) -> String {
     return text + " ONLY"
 }
 
+/// A name a file can have on a Mac, Windows and in the cloud: a slash
+/// (as in "GL/09") becomes "∕", which looks the same; \ : * ? " < > |
+/// become "-"; at most 200 characters.
+func safeFileName(_ name: String) -> String {
+    var out = name.replacingOccurrences(of: "/", with: "∕")
+    for c in ["\\", ":", "*", "?", "\"", "<", ">", "|"] { out = out.replacingOccurrences(of: c, with: "-") }
+    out = out.components(separatedBy: .controlCharacters).joined().trimmingCharacters(in: .whitespacesAndNewlines)
+    while out.hasSuffix(".") { out.removeLast() }
+    return String(out.prefix(200))
+}
+
 /// How a currency is written on documents: HK$, US$, RMB, or its code.
 func currencyDisplay(_ code: String) -> String {
     switch code.uppercased() {
@@ -2453,6 +2464,12 @@ struct CompanySettings: Codable {
     /// The buy-back offer's wording, with its figures as {PERCENT}, {UNIT_PRICE}…;
     /// nil = the standard wording (`BuyBackTerms.defaultWording`).
     var buyBackWording: String? = nil
+    /// The AI that reads imported quotations (Settings › AI Import), the
+    /// same for the whole team: "gemini" or "openrouter", its model (nil =
+    /// the provider's default) and key. The key never goes to the pages.
+    var aiProvider: String? = nil
+    var aiModel: String? = nil
+    var aiKey: String? = nil
     /// Foreign price lists → base currency, e.g. ["EUR": 8.93].
     var exchangeRates: [String: Double]?
     /// Continue an existing sequence, e.g. ["QT": 194] after Qt26193.
@@ -5766,6 +5783,40 @@ final class AppDatabase {
     }
 
     /// A document's status from its kind and number (for the PDF's watermark).
+    /// How a document's files are named: its number, the project's name
+    /// and, when there is one, the structure — "Qt26001-001 NOL Ancilliary
+    /// Works - GL/09 Platform". Other files from it (a delivery schedule)
+    /// say what they are in brackets. nil if the number isn't found.
+    func documentFileBase(docTypeTag: String, number: String) -> String? {
+        let boqs = boqsStore.readAll()
+        let quotes = quotationsStore.readAll()
+        // A quotation's structure is its BOQ's.
+        func structure(ofQuotation id: String?) -> String? {
+            guard let q = quotes.first(where: { $0.id == id }) else { return nil }
+            return q.sourceBOQId.flatMap { bid in boqs.first { $0.id == bid }?.structure }
+        }
+        var projectId: String?
+        var structureName: String?
+        if let b = boqs.first(where: { $0.boqNumber == number }) {
+            projectId = b.projectId; structureName = b.structure
+        } else if let q = quotes.first(where: { $0.quotationNumber == number }) {
+            projectId = q.projectId; structureName = structure(ofQuotation: q.id)
+        } else if let i = invoicesStore.readAll().first(where: { $0.invoiceNumber == number }) {
+            projectId = i.projectId; structureName = structure(ofQuotation: i.sourceQuotationId)
+        } else if let d = deliveryNotesStore.readAll().first(where: { $0.deliveryNoteNumber == number }) {
+            projectId = d.projectId; structureName = structure(ofQuotation: d.sourceQuotationId)
+        } else if let l = lettersStore.readAll().first(where: { $0.letterNumber == number }) {
+            projectId = l.projectId
+        } else {
+            return nil
+        }
+        var base = number
+        if let name = projectId.flatMap({ getProject(id: $0)?.name }).flatMap({ nonBlank($0) }) { base += " \(name)" }
+        if let s = nonBlank(structureName) { base += " - \(s)" }
+        if !["BOQ", "Quotation", "Invoice", "DeliveryNote", "Letter"].contains(docTypeTag) { base += " (\(docTypeTag))" }
+        return safeFileName(base)
+    }
+
     func documentStatus(docTypeTag: String, number: String) -> String? {
         switch docTypeTag {
         case "BOQ": return boqsStore.readAll().first { $0.boqNumber == number }?.status
@@ -10061,6 +10112,15 @@ final class AppDatabase {
         settings.manpowerProviders = providers
         settingsStore.writeAll([settings])
         return nil
+    }
+
+    /// The team's AI connection (Settings › AI Import); nil key removes it.
+    func setAIConnection(provider: String?, model: String?, key: String?) {
+        var settings = getCompanySettings()
+        settings.aiProvider = provider
+        settings.aiModel = model
+        settings.aiKey = key
+        settingsStore.writeAll([settings])
     }
 
     func updateCompanySettings(_ payload: [String: Any]) -> CompanySettings {
@@ -15287,9 +15347,14 @@ final class QuotationAI {
     static let providers = ["gemini": "Google Gemini (free tier)", "openrouter": "OpenRouter (free models)"]
     static let defaultModels = ["gemini": "gemini-2.5-flash", "openrouter": "openrouter/free"]
 
-    var provider: String { defaults.string(forKey: Key.provider) ?? "gemini" }
-    var model: String { nonBlank(defaults.string(forKey: Key.model)) ?? QuotationAI.defaultModels[provider] ?? "" }
-    var ready: Bool { key(for: provider) != nil }
+    /// The team's settings, where the connection is kept (set at launch).
+    weak var db: AppDatabase?
+    private var company: CompanySettings? { db?.getCompanySettings() }
+
+    var provider: String { nonBlank(company?.aiProvider) ?? "gemini" }
+    var model: String { nonBlank(company?.aiModel) ?? QuotationAI.defaultModels[provider] ?? "" }
+    var ready: Bool { sharedKey != nil }
+    private var sharedKey: String? { nonBlank(company?.aiKey) }
 
     struct Status: Codable {
         var provider: String
@@ -15298,42 +15363,52 @@ final class QuotationAI {
         var hasKey: Bool
     }
     func status() -> Status {
-        Status(provider: provider, model: nonBlank(defaults.string(forKey: Key.model)) ?? "", defaultModel: QuotationAI.defaultModels[provider] ?? "", hasKey: ready)
+        adoptThisMacsKey()
+        return Status(provider: provider, model: nonBlank(company?.aiModel) ?? "", defaultModel: QuotationAI.defaultModels[provider] ?? "", hasKey: ready)
     }
 
-    /// Saves the choice and key while none is set; `removeKey` removes it.
+    /// Saves the connection for the whole team while none is set;
+    /// `removeKey` removes it (for everyone).
     func configure(provider: String, model: String?, key: String?, removeKey: Bool) {
-        // Removing the key clears every provider's, and keeps the choice.
+        guard let db = db else { return }
+        adoptThisMacsKey()
         if removeKey {
-            for p in QuotationAI.providers.keys { setKey(nil, for: p) }
+            db.setAIConnection(provider: company?.aiProvider, model: company?.aiModel, key: nil)
             return
         }
         // A key in use: no new key, provider or model until it's removed.
         if ready { return }
         let p = QuotationAI.providers[provider] == nil ? "gemini" : provider
-        defaults.set(p, forKey: Key.provider)
-        if let m = nonBlank(model) { defaults.set(m, forKey: Key.model) } else { defaults.removeObject(forKey: Key.model) }
-        if let k = nonBlank(key) { setKey(k, for: p) }
+        db.setAIConnection(provider: p, model: nonBlank(model), key: nonBlank(key))
     }
 
-    // ---- Keychain ----
+    /// Before the connection was the team's, each Mac kept its own key in
+    /// its Keychain: the first one found becomes the team's, and leaves
+    /// the Keychain.
+    private func adoptThisMacsKey() {
+        guard let db = db, sharedKey == nil else { return }
+        let localProvider = defaults.string(forKey: Key.provider) ?? "gemini"
+        for p in [localProvider] + QuotationAI.providers.keys.filter({ $0 != localProvider }) {
+            guard let k = keychainKey(for: p) else { continue }
+            db.setAIConnection(provider: p, model: p == localProvider ? nonBlank(defaults.string(forKey: Key.model)) : nil, key: k)
+            break
+        }
+        for p in QuotationAI.providers.keys { _ = SecItemDelete(query(p) as CFDictionary) }
+        defaults.removeObject(forKey: Key.provider)
+        defaults.removeObject(forKey: Key.model)
+    }
+
+    // ---- The old per-Mac Keychain keys (read once, then removed) ----
     private func query(_ provider: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "ScaffoldPro AI", kSecAttrAccount as String: provider]
     }
-    private func key(for provider: String) -> String? {
+    private func keychainKey(for provider: String) -> String? {
         var q = query(provider)
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: AnyObject?
         guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
         return nonBlank(String(data: data, encoding: .utf8))
-    }
-    private func setKey(_ key: String?, for provider: String) {
-        _ = SecItemDelete(query(provider) as CFDictionary)
-        guard let key = key, let data = key.data(using: .utf8) else { return }
-        var q = query(provider)
-        q[kSecValueData as String] = data
-        _ = SecItemAdd(q as CFDictionary, nil)
     }
 
     static let prompt = """
@@ -15357,7 +15432,8 @@ final class QuotationAI {
 
     /// Reads the file (or its text) → the JSON answer, or why not (main thread).
     func read(fileURL: URL, text: String, completion: @escaping ([String: Any]?, String?) -> Void) {
-        guard let key = key(for: provider) else { completion(nil, "No AI is set up. Add a free key in Settings › AI Import."); return }
+        adoptThisMacsKey()
+        guard let key = sharedKey else { completion(nil, "No AI is set up. Add a free key in Settings › AI Import."); return }
         let ext = fileURL.pathExtension.lowercased()
         let mime: String? = ext == "pdf" ? "application/pdf" : ext == "png" ? "image/png" : ["jpg", "jpeg"].contains(ext) ? "image/jpeg"
             : ext == "webp" ? "image/webp" : ["heic"].contains(ext) ? "image/heic" : nil
@@ -17210,6 +17286,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         self.cloudBackup = CloudBackupManager(db: db, storage: storage)
         self.localCopy = LocalCopyManager(db: db, storage: storage)
         self.sheets = GoogleSheetsSync(db: db)
+        QuotationAI.shared.db = db
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -18242,6 +18319,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             var current = db.getCompanySettings()
             current.appearance = ownAppearance()
             current.buyBackWording = current.buyBackWording ?? BuyBackTerms.defaultWording
+            current.aiKey = nil
             respond(id: id, encodable: current)
         case "settings:update":
             // Appearance is the person's own; everything else is the company's.
@@ -18254,6 +18332,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             var updated = db.updateCompanySettings(changes)
             updated.appearance = ownAppearance()
             updated.buyBackWording = updated.buyBackWording ?? BuyBackTerms.defaultWording
+            updated.aiKey = nil
             respond(id: id, encodable: updated)
         case "settings:chooseLogo":
             handleChooseLogo(id: id)
@@ -19133,7 +19212,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             layout.letterheadPNG = png.base64EncodedString()
             layout.projectNumber = projectNumber
             layout.subfolder = subfolder
-            layout.fileName = "\(projectNumber)_\(docTypeTag)_\(safeNumber).docx"
+            layout.fileName = "\(db.documentFileBase(docTypeTag: docTypeTag, number: documentNumber) ?? "\(projectNumber)_\(docTypeTag)_\(safeNumber)").docx"
             if let fonts = Bundle.main.resourceURL?.appendingPathComponent("resources/fonts", isDirectory: true) {
                 for (style, file) in [("regular", "EBGaramond-Regular"), ("bold", "EBGaramond-Bold"), ("italic", "EBGaramond-Italic"), ("boldItalic", "EBGaramond-BoldItalic")] {
                     if let data = try? Data(contentsOf: fonts.appendingPathComponent("\(file).ttf")) {
@@ -19167,7 +19246,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         if mode == .preview {
             showPreview(id: id, data: data, PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: projectNumber, subfolder: subfolder,
                                                            documentNumber: documentNumber, docTypeTag: docTypeTag,
-                                                           fileName: "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"))
+                                                           fileName: "\(db.documentFileBase(docTypeTag: docTypeTag, number: documentNumber) ?? "\(projectNumber)_\(docTypeTag)_\(safeNumber)").pdf"))
             return
         }
         // From a browser, "Print" makes the PDF; the browser prints it.
@@ -19197,7 +19276,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             return
         }
 
-        let filename = "\(projectNumber)_\(docTypeTag)_\(safeNumber).pdf"
+        let filename = "\(db.documentFileBase(docTypeTag: docTypeTag, number: documentNumber) ?? "\(projectNumber)_\(docTypeTag)_\(safeNumber)").pdf"
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: projectNumber, subfolder: subfolder, meaningfulFilename: filename)
             db.recordGeneratedPDF(docTypeTag: docTypeTag, documentNumber: documentNumber, path: destination.path)
@@ -19575,7 +19654,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             layout.number = detail.boqNumber
             layout.projectNumber = detail.projectNumber
             layout.subfolder = "BOQ"
-            layout.fileName = "\(detail.projectNumber)_BOQ_\(safeNumber).docx"
+            layout.fileName = "\(db.documentFileBase(docTypeTag: "BOQ", number: detail.boqNumber) ?? "\(detail.projectNumber)_BOQ_\(safeNumber)").docx"
             respond(id: id, encodable: layout)
             return
         }
@@ -19795,7 +19874,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 layout.number = detail.quotationNumber
                 layout.projectNumber = detail.projectNumber
                 layout.subfolder = "Quotations"
-                layout.fileName = "\(detail.projectNumber)_Quotation_\(safe).docx"
+                layout.fileName = "\(db.documentFileBase(docTypeTag: "Quotation", number: detail.quotationNumber) ?? "\(detail.projectNumber)_Quotation_\(safe)").docx"
                 respond(id: id, encodable: layout)
                 return
             }
@@ -20460,12 +20539,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let mark = letter.status == "Draft" ? "DRAFT" : letter.status == "Cancelled" ? "CANCELLED" : nil
             showPreview(id: id, data: mark.map { PDFWatermark.stamp(data, text: $0) } ?? data,
                         PendingPreview(url: URL(fileURLWithPath: "/"), projectNumber: "", subfolder: "", documentNumber: letter.letterNumber,
-                                       docTypeTag: "Letter", fileName: "Letter_\(safe).pdf", folder: folder))
+                                       docTypeTag: "Letter", fileName: "\(db.documentFileBase(docTypeTag: "Letter", number: letter.letterNumber) ?? "Letter_\(safe)").pdf", folder: folder))
             return
         }
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let destination = folder.appendingPathComponent("Letter_\(safe).pdf")
+            let destination = folder.appendingPathComponent("\(db.documentFileBase(docTypeTag: "Letter", number: letter.letterNumber) ?? "Letter_\(safe)").pdf")
             try data.write(to: destination, options: .atomic)
             db.recordGeneratedPDF(docTypeTag: "Letter", documentNumber: letter.letterNumber, path: destination.path)
             self.openForUser(destination)
@@ -21138,7 +21217,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         do {
             let destination = try storage.writeGeneratedFile(data: data, projectNumber: detail.projectNumber, subfolder: "Quotations",
-                                                             meaningfulFilename: "\(detail.projectNumber)_Quotation_\(safe) - Signed & Chopped.pdf")
+                                                             meaningfulFilename: "\(db.documentFileBase(docTypeTag: "Quotation", number: detail.quotationNumber) ?? "\(detail.projectNumber)_Quotation_\(safe)") - Signed & Chopped.pdf")
             if let error = db.finishSignRequest(id: requestId, signed: true, filePath: destination.path, reply: nil) { fail(error); return }
             respond(id: id, encodable: PDFExportResult(ok: true, error: nil, path: destination.path))
         } catch {
@@ -21671,7 +21750,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let safe = doc.number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-            let destination = storage.uniqueDestination(folder.appendingPathComponent("\(safe) - Signed.\(ext)"))
+            let base = db.documentFileBase(docTypeTag: kind == "deliveryNote" ? "DeliveryNote" : "Quotation", number: doc.number) ?? safe
+            let destination = storage.uniqueDestination(folder.appendingPathComponent("\(base) - Signed.\(ext)"))
             try write(destination)
             let error = kind == "deliveryNote" ? db.setDeliveryNoteSignedCopy(id: documentId, path: destination.path)
                                                : db.setQuotationSignedCopy(id: documentId, path: destination.path)
