@@ -1,7 +1,7 @@
 # Graph Report - Scaffold-Pro  (2026-10-08)
 
 ## Corpus Check
-- 104 files · ~482,948 words
+- 104 files · ~483,053 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 41 file(s) not represented in the graph (top: .whl 16, .css 9, .ttf 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e43b8ddc`
+- Built from commit: `4dca0150`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -153,15 +153,15 @@
 10. `AppDelegate` - 56 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `5. Recent work (Batches 147–203, newest last)` --references--> `paginate()`  [INFERRED]
+- `5. Recent work (Batches 147–204, newest last)` --references--> `paginate()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/doc-preview.js
-- `5. Recent work (Batches 147–203, newest last)` --references--> `buyBackSentences()`  [INFERRED]
+- `5. Recent work (Batches 147–204, newest last)` --references--> `buyBackSentences()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/quotation-editor.js
-- `5. Recent work (Batches 147–203, newest last)` --references--> `BuyBackTerms`  [INFERRED]
+- `5. Recent work (Batches 147–204, newest last)` --references--> `BuyBackTerms`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
-- `5. Recent work (Batches 147–203, newest last)` --references--> `applyInlineMarkup()`  [INFERRED]
+- `5. Recent work (Batches 147–204, newest last)` --references--> `applyInlineMarkup()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
-- `5. Recent work (Batches 147–203, newest last)` --references--> `plainMarkup()`  [INFERRED]
+- `5. Recent work (Batches 147–204, newest last)` --references--> `plainMarkup()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
 
 ## Import Cycles
@@ -342,7 +342,7 @@ Nodes (52): AdminDocument, AdminDocumentSummary, AutoBackupStatus, BOQActionResu
 
 ### Community 42 - "URL"
 Cohesion: 0.10
-Nodes (9): 5. Recent work (Batches 147–203, newest last), FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot, .projectsRoot, GitHubToken, .file (+1 more)
+Nodes (9): 5. Recent work (Batches 147–204, newest last), FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot, .projectsRoot, GitHubToken, .file (+1 more)
 
 ### Community 43 - "dashboard.js"
 Cohesion: 0.16
