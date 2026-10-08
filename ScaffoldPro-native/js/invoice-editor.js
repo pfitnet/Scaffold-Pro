@@ -73,6 +73,7 @@ window.appRefresh = () => loadDetail();
 
 async function loadDetail() {
   currentDetail = await window.api.invoices.get(invoiceId);
+  if (currentDetail && currentDetail.currency) currencyLabel = currentDetail.currency;
   if (!currentDetail) {
     document.getElementById('not-found').classList.remove('hidden');
     document.getElementById('invoice-body').classList.add('hidden');
