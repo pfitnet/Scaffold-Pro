@@ -3806,12 +3806,68 @@ final class FileStorage {
         return wanted
     }
 
-    /// "26001-002/26001-002 Quotations": a quotation series' folder for one
-    /// kind of document (BOQ, Quotations, Delivery Notes, Invoices,
-    /// Delivery Schedules), inside the project's folder.
+    /// A quotation series' title (its structure, else its quotation's
+    /// subject), from the project's number and the series (set by the app).
+    var seriesName: ((String, String) -> String?)?
+
+    /// "26219-001 GL∕09 Platform": a quotation series' folder — its number,
+    /// then its structure or subject.
+    func seriesFolderName(_ projectNumber: String, _ series: String) -> String {
+        guard let title = seriesName?(projectNumber, series).flatMap({ nonBlank($0) }) else { return series }
+        return safeFileName("\(series) \(String(title.prefix(80)))")
+    }
+
+    /// The folders already there for a series ("26219-001", "26219-001 …").
+    func existingSeriesFolders(_ projectNumber: String, _ series: String) -> [URL] {
+        let folder = projectFolder(projectNumber)
+        return ((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
+            .filter { $0 == series || $0.hasPrefix(series + " ") }.sorted()
+            .map { folder.appendingPathComponent($0, isDirectory: true) }
+    }
+
+    /// A series' folder: named as above, or the one already there for it
+    /// until it's renamed (NativeBridge.organiseSeriesFolders).
+    func seriesRoot(_ projectNumber: String, _ series: String) -> URL {
+        let wanted = projectFolder(projectNumber).appendingPathComponent(seriesFolderName(projectNumber, series), isDirectory: true)
+        if FileManager.default.fileExists(atPath: wanted.path) { return wanted }
+        return existingSeriesFolders(projectNumber, series).first ?? wanted
+    }
+
+    /// "26219-001 …/26219-001 Quotations": a quotation series' folder for one
+    /// kind of file (BOQ, Quotations, Delivery Schedules, Delivery Notes,
+    /// Invoices, Drawings, Documents), inside the project's folder.
     func seriesFolder(_ projectNumber: String, _ series: String, _ sub: String) -> URL {
-        projectFolder(projectNumber).appendingPathComponent(series, isDirectory: true)
-            .appendingPathComponent("\(series) \(sub)", isDirectory: true)
+        seriesRoot(projectNumber, series).appendingPathComponent("\(series) \(sub)", isDirectory: true)
+    }
+
+    /// Moves everything in `from` into `into` (folders of the same name
+    /// merged), then removes `from` if that left it empty. Returns the moves.
+    func mergeFolder(_ from: URL, into: URL) -> [(String, String)] {
+        let fm = FileManager.default
+        var moves: [(String, String)] = []
+        try? fm.createDirectory(at: into, withIntermediateDirectories: true)
+        for item in (try? fm.contentsOfDirectory(atPath: from.path)) ?? [] where item != ".DS_Store" {
+            let source = from.appendingPathComponent(item)
+            let target = into.appendingPathComponent(item)
+            var isDir: ObjCBool = false
+            var targetIsDir: ObjCBool = false
+            if fm.fileExists(atPath: source.path, isDirectory: &isDir), isDir.boolValue,
+               fm.fileExists(atPath: target.path, isDirectory: &targetIsDir), targetIsDir.boolValue {
+                moves += mergeFolder(source, into: target)
+                continue
+            }
+            let to = uniqueDestination(target)
+            if (try? fm.moveItem(at: source, to: to)) != nil { moves.append((source.path, to.path)) }
+        }
+        if ((try? fm.contentsOfDirectory(atPath: from.path)) ?? []).allSatisfy({ $0 == ".DS_Store" }) { try? fm.removeItem(at: from) }
+        return moves
+    }
+
+    /// True when a folder holds nothing (or only Finder's .DS_Store).
+    func isEmptyFolder(_ url: URL) -> Bool {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else { return false }
+        return ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []).allSatisfy { $0 == ".DS_Store" }
     }
 
     /// Renames a project's folder to "<number> <name>" and the folders in it
@@ -3837,7 +3893,9 @@ final class FileStorage {
             let wanted = target.appendingPathComponent(wantedName, isDirectory: true)
             // The plain name, or another number's (after the number changed).
             let words = sub.split(separator: " ").count
-            let legacy = names.filter { $0 != wantedName && ($0 == sub || ($0.hasSuffix(" \(sub)") && $0.split(separator: " ").count == words + 1)) }
+            // (Not a quotation series' folder, "26219-001 Other".)
+            let legacy = names.filter { $0 != wantedName && ($0 == sub || ($0.hasSuffix(" \(sub)") && $0.split(separator: " ").count == words + 1))
+                && $0.range(of: #"^\S+-[0-9]+ "#, options: .regularExpression) == nil }
             for name in legacy {
                 let old = target.appendingPathComponent(name, isDirectory: true)
                 if !fm.fileExists(atPath: wanted.path) {
@@ -3861,16 +3919,14 @@ final class FileStorage {
     func createProjectFolders(_ projectNumber: String) -> URL {
         let folder = projectFolder(projectNumber)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        // The documents of a quotation series go in its own folder
-        // ("26001-002"), made when the first is saved.
-        for sub in ["Drawings", "Documents", "Other"] {
-            try? FileManager.default.createDirectory(at: projectSubfolder(projectNumber, sub), withIntermediateDirectories: true)
-        }
+        // Its Drawings, Documents and Other folders are made when something
+        // is first put in them; each quotation series' folders as soon as
+        // the series exists (NativeBridge.makeSeriesFolders).
         return folder
     }
 
-    func copyFileIntoProject(source: URL, projectNumber: String, subfolder: String, meaningfulFilename: String) throws -> URL {
-        let destFolder = projectSubfolder(projectNumber, subfolder)
+    func copyFileIntoProject(source: URL, projectNumber: String, subfolder: String, meaningfulFilename: String, folder: URL? = nil) throws -> URL {
+        let destFolder = folder ?? projectSubfolder(projectNumber, subfolder)
         try FileManager.default.createDirectory(at: destFolder, withIntermediateDirectories: true)
         let destination = uniqueDestination(destFolder.appendingPathComponent(meaningfulFilename))
         try FileManager.default.copyItem(at: source, to: destination)
@@ -5970,6 +6026,24 @@ final class AppDatabase {
             return viaQuotation(d.sourceQuotationId) ?? series(d.deliveryNoteNumber, projectId: d.projectId)
         }
         return nil
+    }
+
+    /// What a quotation series' folder is called after its number: the
+    /// structure of its BOQ (or of its quotation's BOQ), else its
+    /// quotation's subject. nil if it has neither.
+    func seriesTitle(projectNumber: String, series: String) -> String? {
+        guard let project = getProjectByNumber(projectNumber) else { return nil }
+        let boqs = boqsStore.readAll().filter { $0.projectId == project.id }
+        let pattern = NSRegularExpression.escapedPattern(for: series) + "(?![0-9])"
+        let inSeries = { (n: String) in n.range(of: pattern, options: .regularExpression) != nil }
+        if let s = boqs.filter({ inSeries($0.boqNumber) }).compactMap({ nonBlank($0.structure) }).first { return s }
+        // The main quotation first (Qt26219-001 before its -s1…).
+        let quotes = quotationsStore.readAll().filter { $0.projectId == project.id && inSeries($0.quotationNumber) }
+            .sorted { $0.quotationNumber.count < $1.quotationNumber.count }
+        for q in quotes {
+            if let s = q.sourceBOQId.flatMap({ id in boqs.first { $0.id == id } }).flatMap({ nonBlank($0.structure) }) { return s }
+        }
+        return quotes.compactMap { nonBlank($0.subject) }.first
     }
 
     /// Every project's quotation series ("26219-001"…) by its number, as
@@ -10743,6 +10817,14 @@ final class AppDatabase {
 
     func getDrawing(id: String) -> ProjectDrawing? {
         drawingsStore.readAll().first { $0.id == id }
+    }
+
+    func drawingsForProject(_ projectId: String) -> [ProjectDrawing] {
+        drawingsStore.readAll().filter { $0.projectId == projectId }
+    }
+
+    func documentsForProject(_ projectId: String) -> [ProjectDocument] {
+        documentsStore.readAll().filter { $0.projectId == projectId }
     }
 
     func updateDrawingDescription(id: String, description: String?) -> String? {
@@ -17750,6 +17832,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         self.sheets = GoogleSheetsSync(db: db)
         QuotationAI.shared.db = db
         storage.projectName = { [weak db] number in db?.getProjectByNumber(number)?.name }
+        storage.seriesName = { [weak db] number, series in db?.seriesTitle(projectNumber: number, series: series) }
     }
 
     /// Project folders named "<number> <name>", with "<number> BOQ",
@@ -17760,10 +17843,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         var moves: [(String, String)] = []
         for number in numbers ?? db.allProjectNumbers() where !number.isEmpty {
             moves += storage.organiseProjectFolder(number)
+            moves += organiseSeriesFolders(number)
             moves += fileDocumentsBySeries(number)
         }
         db.rebaseFilePaths(moves: moves)
+        moves = []
+        for number in numbers ?? db.allProjectNumbers() where !number.isEmpty { moves += fileLinkedFiles(number) }
+        db.rebaseFilePaths(moves: moves)
         makeSeriesFolders(numbers)
+        for number in numbers ?? db.allProjectNumbers() where !number.isEmpty { removeEmptyProjectFolders(number) }
     }
 
     /// A picture of the page, laid over it while it reloads (so there's no
@@ -17803,7 +17891,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Quotations"…, plus "26001-002 Delivery Schedules".
     private static let documentKindFolders = ["BOQ", "Quotations", "Invoices", "Delivery Notes"]
     /// What's in each quotation series' folder, made even while empty.
-    private static let seriesKindFolders = ["BOQ", "Quotations", "Delivery Schedules", "Delivery Notes", "Invoices"]
+    private static let seriesKindFolders = ["BOQ", "Quotations", "Delivery Schedules", "Delivery Notes", "Invoices", "Drawings", "Documents"]
+    /// The folders' tidy-up, waiting for a pause in typing (see handle).
+    private var organiseSoon: DispatchWorkItem?
     /// Actions after which a project may have a new quotation series.
     private static let seriesCreatingActions: Set<String> = ["boq:create", "quotations:create", "quotations:duplicate", "quotations:importCreate",
                                                              "quotations:importFromBOQ", "deliveryNotes:create", "deliveryNotes:importQuotation", "invoices:create"]
@@ -17821,8 +17911,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let all = db.seriesByProject()
         for number in numbers ?? db.allProjectNumbers() where !number.isEmpty {
             for series in (all[number] ?? []).sorted() {
+                let root = storage.seriesRoot(number, series)
                 for kind in NativeBridge.seriesKindFolders {
-                    let folder = storage.seriesFolder(number, series, kind)
+                    let folder = root.appendingPathComponent("\(series) \(kind)", isDirectory: true)
                     if !FileManager.default.fileExists(atPath: folder.path) {
                         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                     }
@@ -17855,6 +17946,77 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
         guard let found = series else { return storage.projectSubfolder(projectNumber, subfolder) }
         return storage.seriesFolder(projectNumber, found, schedule ? "Delivery Schedules" : subfolder)
+    }
+
+    /// Renames each quotation series' folder to "<series> <structure or
+    /// subject>" (merging any other folder of the same series into it).
+    private func organiseSeriesFolders(_ projectNumber: String) -> [(String, String)] {
+        let fm = FileManager.default
+        let projectFolder = storage.projectFolder(projectNumber)
+        guard fm.fileExists(atPath: projectFolder.path) else { return [] }
+        var moves: [(String, String)] = []
+        for series in projectSeries(projectNumber) {
+            let target = projectFolder.appendingPathComponent(storage.seriesFolderName(projectNumber, series), isDirectory: true)
+            for old in storage.existingSeriesFolders(projectNumber, series) where old.lastPathComponent != target.lastPathComponent {
+                if !fm.fileExists(atPath: target.path) {
+                    if (try? fm.moveItem(at: old, to: target)) != nil { moves.append((old.path, target.path)) }
+                } else {
+                    moves += storage.mergeFolder(old, into: target)
+                    moves.append((old.path, target.path))
+                }
+            }
+        }
+        return moves
+    }
+
+    /// The folder a drawing or document goes in: its BOQ's or quotation's
+    /// series' Drawings / Documents folder when it's linked to one, else
+    /// the project's own.
+    private func linkedFileFolder(projectNumber: String, kind: String?, linkedId: String?, sub: String) -> URL {
+        if let kind = kind, let lid = linkedId,
+           let number = kind == "BOQ" ? db.getBOQ(id: lid)?.boqNumber : kind == "Quotation" ? db.getQuotation(id: lid)?.quotationNumber : nil,
+           let series = db.documentSeries(docTypeTag: kind, number: number) {
+            return storage.seriesFolder(projectNumber, series, sub)
+        }
+        return storage.projectSubfolder(projectNumber, sub)
+    }
+
+    /// A drawing's or document's file moved to where its link says (see
+    /// linkedFileFolder), if it's somewhere in its project's folder.
+    private func refileLinkedFile(path: String, projectNumber: String, kind: String?, linkedId: String?, sub: String) -> (String, String)? {
+        let fm = FileManager.default
+        let file = URL(fileURLWithPath: path).standardizedFileURL
+        let projectPath = storage.projectFolder(projectNumber).standardizedFileURL.path
+        guard file.path.hasPrefix(projectPath + "/"), fm.fileExists(atPath: file.path) else { return nil }
+        let target = linkedFileFolder(projectNumber: projectNumber, kind: kind, linkedId: linkedId, sub: sub).standardizedFileURL
+        guard file.deletingLastPathComponent().path != target.path else { return nil }
+        try? fm.createDirectory(at: target, withIntermediateDirectories: true)
+        let to = storage.uniqueDestination(target.appendingPathComponent(file.lastPathComponent))
+        guard (try? fm.moveItem(at: file, to: to)) != nil else { return nil }
+        return (path, to.path)
+    }
+
+    /// Every linked drawing and document of a project moved into its
+    /// series' folder (and unlinked ones back to the project's).
+    private func fileLinkedFiles(_ projectNumber: String) -> [(String, String)] {
+        guard let project = db.getProjectByNumber(projectNumber) else { return [] }
+        var moves: [(String, String)] = []
+        for d in db.drawingsForProject(project.id) {
+            if let m = refileLinkedFile(path: d.filePath, projectNumber: projectNumber, kind: d.linkedKind, linkedId: d.linkedId, sub: "Drawings") { moves.append(m) }
+        }
+        for d in db.documentsForProject(project.id) {
+            if let m = refileLinkedFile(path: d.filePath, projectNumber: projectNumber, kind: d.linkedKind, linkedId: d.linkedId, sub: "Documents") { moves.append(m) }
+        }
+        return moves
+    }
+
+    /// The project's own folders (Drawings, Documents, Other, Letters…)
+    /// aren't kept while they're empty.
+    private func removeEmptyProjectFolders(_ projectNumber: String) {
+        for sub in projectSubfolders + ["Letters"] {
+            let folder = storage.projectSubfolder(projectNumber, sub)
+            if storage.isEmptyFolder(folder) { try? FileManager.default.removeItem(at: folder) }
+        }
     }
 
     /// Moves the files in a project's "<number> BOQ", "<number> Quotations"…
@@ -17956,9 +18118,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             }
             return
         }
-        // A new BOQ or quotation: its series' folders, once it's saved.
-        if NativeBridge.seriesCreatingActions.contains(action) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.makeSeriesFolders() }
+        // A new BOQ or quotation (its series' folders), or a new structure
+        // or subject (its series' folder's name): the folders follow.
+        if NativeBridge.seriesCreatingActions.contains(action) || action == "boq:updateDetails" || action == "quotations:updateLetterFields" {
+            organiseSoon?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.organiseProjectFolders() }
+            organiseSoon = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
         }
         switch action {
         case "history:undo", "history:redo":
@@ -18120,10 +18286,23 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let number = (payload["projectNumber"] as? String) ?? ""
             handleUploadDrawing(id: id, projectNumber: number, linkedKind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
         case "documents:setLink":
-            let error = db.setDocumentLink(id: (payload["id"] as? String) ?? "", kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+            let docId = (payload["id"] as? String) ?? ""
+            let error = db.setDocumentLink(id: docId, kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+            // Its file follows: into the series' Documents folder, or back.
+            if error == nil, let d = db.getDocument(id: docId), let project = db.getProject(id: d.projectId),
+               let m = refileLinkedFile(path: d.filePath, projectNumber: project.projectNumber, kind: d.linkedKind, linkedId: d.linkedId, sub: "Documents") {
+                db.rebaseFilePaths(moves: [m])
+                removeEmptyProjectFolders(project.projectNumber)
+            }
             respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
         case "drawings:setLink":
-            let error = db.setDrawingLink(id: (payload["id"] as? String) ?? "", kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+            let drawingId = (payload["id"] as? String) ?? ""
+            let error = db.setDrawingLink(id: drawingId, kind: payload["linkedKind"] as? String, linkedId: payload["linkedId"] as? String)
+            if error == nil, let d = db.getDrawing(id: drawingId), let project = db.getProject(id: d.projectId),
+               let m = refileLinkedFile(path: d.filePath, projectNumber: project.projectNumber, kind: d.linkedKind, linkedId: d.linkedId, sub: "Drawings") {
+                db.rebaseFilePaths(moves: [m])
+                removeEmptyProjectFolders(project.projectNumber)
+            }
             respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
         case "drawings:listForDocument":
             respond(id: id, encodable: db.listDrawings(linkedKind: (payload["linkedKind"] as? String) ?? "", linkedId: (payload["linkedId"] as? String) ?? ""))
@@ -21397,7 +21576,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respondNull(id: id)
             return
         }
-        makeSeriesFolders([project.projectNumber])
+        organiseProjectFolders([project.projectNumber])
         let detail = ProjectDetail(
             id: project.id, projectNumber: project.projectNumber, name: project.name, status: project.status,
             projectDescription: project.projectDescription, startDate: project.startDate,
@@ -21442,7 +21621,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.allowedContentTypes = drawingContentTypes
-        panel.message = "Choose one or more drawings: PDF, DWG, DXF or images. The originals stay where they are; copies go in the project's Drawings folder."
+        panel.message = "Choose one or more drawings: PDF, DWG, DXF or images. The originals stay where they are; copies go in the Drawings folder of the BOQ or quotation they're linked to (else the project's)."
 
         panel.beginSheetModal(for: window) { [weak self] response in
             guard let self = self else { return }
@@ -21459,9 +21638,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Copies a drawing into the project's Drawings folder and records it.
     private func addDrawingFile(_ sourceURL: URL, project: Project, linkedKind: String?, linkedId: String?) throws -> UploadDrawingResult {
         let originalName = sourceURL.lastPathComponent
+        // Uploaded to a BOQ or quotation: into its series' Drawings folder.
         let destination = try storage.copyFileIntoProject(
             source: sourceURL, projectNumber: project.projectNumber,
-            subfolder: "Drawings", meaningfulFilename: "\(project.projectNumber)_Drawing_\(originalName)"
+            subfolder: "Drawings", meaningfulFilename: "\(project.projectNumber)_Drawing_\(originalName)",
+            folder: linkedFileFolder(projectNumber: project.projectNumber, kind: linkedKind, linkedId: linkedId, sub: "Drawings")
         )
         db.recordDrawing(projectId: project.id, originalName: originalName, storedURL: destination, linkedKind: linkedKind, linkedId: linkedId)
         return UploadDrawingResult(originalName: originalName, destination: destination.path)
@@ -22236,7 +22417,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 }
                 let subfolder = isDrawing ? "Drawings" : "Documents"
                 let name = "\(project.projectNumber)_\(isDrawing ? "Drawing" : "Document")_\(source.lastPathComponent)"
-                let dest = try self.storage.copyFileIntoProject(source: source, projectNumber: project.projectNumber, subfolder: subfolder, meaningfulFilename: name)
+                let link = isDrawing ? self.db.getDrawing(id: recordId).map { ($0.linkedKind, $0.linkedId) } : self.db.getDocument(id: recordId).map { ($0.linkedKind, $0.linkedId) }
+                let dest = try self.storage.copyFileIntoProject(source: source, projectNumber: project.projectNumber, subfolder: subfolder, meaningfulFilename: name,
+                                                               folder: self.linkedFileFolder(projectNumber: project.projectNumber, kind: link?.0 ?? nil, linkedId: link?.1 ?? nil, sub: subfolder))
                 let error = isDrawing
                     ? self.db.replaceDrawingFile(id: recordId, originalName: source.lastPathComponent, storedURL: dest)
                     : self.db.replaceDocumentFile(id: recordId, originalName: source.lastPathComponent, storedURL: dest)
