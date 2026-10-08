@@ -24574,7 +24574,7 @@ final class Updater: NSObject {
 
     private func build() {
         setButtons([])
-        show("Building the new version…", "This takes about a minute. ScaffoldPro closes and opens again by itself when it's done.", progress: 3)
+        show("Building the new version…", "A minute or two when the app's code changed; seconds when only its pages did. ScaffoldPro closes and opens again by itself when it's done.", progress: 3)
         NSApp.activate(ignoringOtherApps: true)
         try? Data().write(to: logURL)
         let task = Process()
@@ -24709,6 +24709,9 @@ final class Updater: NSObject {
             show("Finishing…", "Almost done.", progress: 90)
         } else if has("Assembling bundle") {
             show("Putting it together…", "Almost done.", progress: 84)
+        } else if has("so that build is used") {
+            // Only the pages changed: nothing to compile (install.sh's build cache).
+            show("Using the last build…", "Only the pages changed, so there's nothing to compile.", progress: 80)
         } else if has("Compiling ScaffoldPro") {
             if compileStarted == nil { compileStarted = Date() }
             // Compiling is most of the wait (about a minute): creep towards 80%.

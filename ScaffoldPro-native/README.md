@@ -4798,3 +4798,15 @@ one idea at a time, few words, and pictures that carry the meaning.
   agreements. Someone who signs agreements can have their ID card number
   printed under their name.
 - Workers added before this get a "Make Agreement" button.
+
+## Batch 214 — Quicker updates
+
+- When an update only changes the app's pages (most of them), it no longer
+  rebuilds the app: the last build is reused, so the update takes seconds.
+- When the app's code did change, it's built using every core of the Mac
+  instead of one, which shortens the longest step.
+- The installer remembers which macOS SDK worked, instead of checking them
+  all every time.
+- The update log (~/Library/Logs/ScaffoldPro Update.log) now says how long
+  the build took and notes any parts of the code that are slow to build,
+  so they can be sped up.

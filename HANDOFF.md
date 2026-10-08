@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 213.
+"## Batch N" section per change, newest at the bottom, up to Batch 214.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **214**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **215**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -170,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–213, newest last)
+## 5. Recent work (Batches 147–214, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -282,6 +282,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **211:** the window's close / minimise / full-screen buttons are re-armed after every page load (`refreshTitlebarButtons` at `didCommit` / `didFinish`: tracking areas updated and a synthetic mouseMoved), and the floating chat is kept below the 44 px title-bar strip in the Mac app. Assistant: an empty (or just "Done") answer gets one "answer properly" round, then an error with Try Again — the page never fills in "Done." itself; "continue / yes / go ahead" means propose the discussed action as a card.
 - **212:** Assistant chat history and context window. Chats live in localStorage `assistant.chats` (array of `{id, title, createdAt, updatedAt, messages, summary, summarisedUpTo}`, max 60, 400 messages each; on a quota error older chats lose their file text, then the oldest go) plus `assistant.current`; the old single `assistant.chat` is migrated on first load. Full page: a chats column (search, grouped by day, rename, delete; toggled by the sidebar button, hidden state in `assistant.sideHidden`); floating chat: a clock button opens the same list over it. New Chat keeps the old one. A ring in the bar estimates tokens (chars ÷ 3.5 + 3k instructions, + 2.5k screen in the float) against a window guessed from the provider/model (Gemini 128k, small OpenRouter models 32k); its card shows the split and "Summarise Earlier Messages Now". Before a send, past 70% (or more than 60 unsent messages) everything but the newest 4 (cut at a user message) goes to new native `assistant:summarise` (`handleAssistantSummarise`, `QuotationAI.chat(json: false)`, notes under 350 words, previous summary folded in); `history()` then sends the summary first and messages from `summarisedUpTo`. A divider "N earlier messages summarised for the AI" opens to show the summary. Native history backstop raised to the last 80 turns.
 - **213:** Worker employment agreements (簡易僱傭合約, from the user's "Simple Employment Agreement" PDF). `Worker` gains `chineseName`, `honorific` (先生/女士), `idNumber`, `dailyWage`; new store `worker_agreements.json` (`WorkerAgreement`: dates, position, daily wage, hours, pay day, notice days, signatory, employer-signed path, signed-copy path), one per worker, made in `workers:create` (or "Make Agreement" for older workers). Routes `workerAgreements:<action>` → `NativeBridge.handleWorkerAgreement` (get, create, update, exportPDF with preview, print, exportWord, sign, unsign, uploadSigned [Mac only], saveSignedFile, file). Words built once in `AppDatabase.agreementContent` (template text, with `chineseCapitalAmount` 壹仟叁佰元正, `chineseClockTime`, `chineseDate`) and drawn by `PDFGenerator.employmentAgreement` (cover between rules, terms with aligned colons, signing page; Times + Songti TC cascade) and by `docx-export.js` `agreementParts` (layout `kind: 'agreement'`; `sectionXML` split out of `letterParts`; `files:saveWord` takes `workerId` → the worker's Contracts folder). Files: Administration/Workers/W001/Contracts/"W001-EA Employment Agreement - <name>[ - Signed & Chopped | - Signed].pdf". Team permission split: `TeamMembership.canSign` = quotations, new `canSignAgreements` = worker agreements, plus `idNumber` printed under the signer's name. Changing terms after the employer signed takes the signature off (asked first). UI: `js/worker-agreement.js` + `css/worker-agreement.css` on Admin › Workers (steps Made → Signed & chopped → Signed by the worker; drop the signed copy on the card).
+- **214:** Faster updates. `install.sh` keeps `ScaffoldPro-native/.build-cache/` (gitignored): `sdk` (the SDK that worked + `swiftc --version`; reused without the probe, re-picked once with `SDKROOT` unset if a compile fails with it) and `ScaffoldPro-<fingerprint>` (the last binary; fingerprint = sha256 of main.swift + compiler + SDK + flags). Same fingerprint → no compile ("…so that build is used." in the log; the in-app updater shows "Using the last build…"). Otherwise `swiftc -O -wmo -num-threads <cores>` (LLVM work spread over every core) with `-warn-long-function-bodies=400` / `-warn-long-expression-type-checking=200` so slow spots show in ~/Library/Logs/ScaffoldPro Update.log, plus "Compiled in Ns.". Bigger next step if still slow: split main.swift into several files and build them in parallel (incremental).
 
 ---
 
