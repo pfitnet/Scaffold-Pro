@@ -15199,12 +15199,19 @@ final class QuotationAI {
         Status(provider: provider, model: nonBlank(defaults.string(forKey: Key.model)) ?? "", defaultModel: QuotationAI.defaultModels[provider] ?? "", hasKey: ready)
     }
 
-    /// Saves the choice; a blank key leaves the saved one, `removeKey` removes it.
+    /// Saves the choice and key while none is set; `removeKey` removes it.
     func configure(provider: String, model: String?, key: String?, removeKey: Bool) {
+        // Removing the key clears every provider's, and keeps the choice.
+        if removeKey {
+            for p in QuotationAI.providers.keys { setKey(nil, for: p) }
+            return
+        }
+        // A key in use: no new key, provider or model until it's removed.
+        if ready { return }
         let p = QuotationAI.providers[provider] == nil ? "gemini" : provider
         defaults.set(p, forKey: Key.provider)
         if let m = nonBlank(model) { defaults.set(m, forKey: Key.model) } else { defaults.removeObject(forKey: Key.model) }
-        if removeKey { setKey(nil, for: p) } else if let k = nonBlank(key) { setKey(k, for: p) }
+        if let k = nonBlank(key) { setKey(k, for: p) }
     }
 
     // ---- Keychain ----

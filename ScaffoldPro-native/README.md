@@ -4287,3 +4287,12 @@ one idea at a time, few words, and pictures that carry the meaning.
     signing, that's once too.
   - If the certificate can't be made or used, it signs ad hoc as before
     and says so.
+
+## Batch 176 — AI key locked once saved
+
+- **Settings › AI Import:** once a key is saved, the setup closes to one
+  line: the provider and model, and **Remove Key**. A new key, another
+  provider or model can only be set after the key is removed (which asks
+  first). The app refuses a new key while one is saved, too.
+- Removing the key removes every provider's saved key, so switching
+  provider never picks up an old one.

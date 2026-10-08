@@ -9,6 +9,8 @@
     /* AI Import (js/settings-ai.js) */
     .ai-state { display: flex; align-items: center; gap: 10px; max-width: 780px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); font-size: 13px; }
     .ai-state .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-tertiary); flex: none; }
+    .ai-state > span:nth-child(2) { flex: 1; min-width: 0; }
+    .ai-state small { display: block; color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
     .ai-state.on .dot { background: var(--success, #2f9e5b); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success, #2f9e5b) 18%, transparent); }
     .ai-providers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .ai-provider { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--panel); }
@@ -526,7 +528,7 @@
       <p class="st-intro">Importing a quotation (Project › Quotations › Import…) reads the file on this Mac first. When it can’t make out the items — a scan, a photo, an unusual layout — a free cloud AI can read it instead. You always check what it read before a quotation is made.</p>
       <div class="ai-body">
         <div class="ai-state" id="ai-state"></div>
-        <ol class="gs-steps">
+        <ol class="gs-steps" id="ai-steps">
           <li><span class="gs-n">1</span><div><b>Choose a provider.</b>
             <div class="ai-providers" role="radiogroup" aria-label="Provider">
               <label class="ai-provider"><input type="radio" name="ai-provider" value="gemini" /><span><b>Google Gemini</b><small>Free tier, no card needed. Reads PDFs and scans itself — the best choice.</small></span></label>
@@ -538,7 +540,7 @@
               <div class="field"><label for="ai-key">Key</label><input type="password" id="ai-key" autocomplete="off" spellcheck="false" placeholder="Paste the key" /></div>
               <div class="field"><label for="ai-model">Model <span class="muted">(optional)</span></label><input type="text" id="ai-model" autocomplete="off" spellcheck="false" /></div>
             </div>
-            <div class="gs-inline"><button class="primary" id="ai-save" data-no-icon>Save</button><button id="ai-remove" class="danger-btn hidden" data-no-icon>Remove Key</button><span class="small-note" id="ai-saved"></span></div></div></li>
+            <div class="gs-inline"><button class="primary" id="ai-save" data-no-icon>Save</button><span class="small-note" id="ai-saved"></span></div></div></li>
         </ol>
         <p class="small-note" style="max-width:780px;">The key is kept in this Mac’s Keychain, and nothing is sent until you import a file. Only that file (or its text) goes to the provider. On free tiers the provider may use what’s sent to improve its models, so don’t use it for anything confidential.</p>
       </div>
