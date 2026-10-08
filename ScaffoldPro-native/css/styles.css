@@ -915,6 +915,13 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
   padding: 8px 0 0; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 4px;
 }
 #sidebar a.sidebar-user { padding: 5px 8px; }
+.sidebar-user-row { display: flex; align-items: center; gap: 4px; }
+.sidebar-user-row .sidebar-user { flex: 1; min-width: 0; }
+#sidebar a.sidebar-gear { flex: none; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--text-secondary); }
+#sidebar a.sidebar-gear .nav-icon { width: 17px; height: 17px; margin: 0; transition: transform .45s var(--ease); }
+#sidebar a.sidebar-gear:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+#sidebar a.sidebar-gear:hover .nav-icon { transform: rotate(45deg); }
+#sidebar a.sidebar-gear.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .sidebar-user .user-avatar {
   width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.02em;

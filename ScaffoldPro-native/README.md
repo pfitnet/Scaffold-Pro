@@ -4268,3 +4268,22 @@ one idea at a time, few words, and pictures that carry the meaning.
 - `install.sh` now signs a clean copy (made with `ditto`, without extended
   attributes) in a temporary folder, puts the signed copy back in `build/`,
   and installs from the clean copy. The in-app updater copies the same way.
+
+## Batch 175 — Settings behind a gear; permissions kept across updates
+
+- **Sidebar:** the Settings tab is gone. A **gear** sits beside your name on
+  the User row at the bottom left. The gear opens Settings at the section
+  last used; your name opens Settings › You. ⌘, still opens Settings.
+- **Permissions kept after updates:** the app was signed "ad hoc", which
+  gives every build a new identity, so macOS treated each update as a new
+  app and asked for file and folder access again. `install.sh` now makes a
+  signing certificate once ("ScaffoldPro Local Signing", in the login
+  keychain, never leaves the Mac) and signs every build with it, so macOS
+  recognises updates as the same app.
+  - macOS asks for each permission **one more time** after this update (it's
+    the first build with the new signature), then remembers it.
+  - If macOS asks to let `codesign` use the certificate, choose **Always
+    Allow**. If it asks for your password to trust the certificate for code
+    signing, that's once too.
+  - If the certificate can't be made or used, it signs ad hoc as before
+    and says so.

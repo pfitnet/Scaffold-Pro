@@ -404,7 +404,7 @@ window.MANUAL_CONTENT = [
   },
   {
     id: 'settings', title: 'Settings', color: '#c0627a', icon: 'gear', keys: '{⌘,}',
-    tag: 'You, the company and this Mac — each in its own section.',
+    tag: 'The gear beside your name, bottom left ({⌘,}). You, the company and this Mac — each in its own section.',
     blocks: [
       { type: 'shot', shot: 'settings', points: [
         [1, 'Search', '{⌘F}'], [2, 'Sections', '{↑} {↓}'], [3, 'The value', ''], [4, 'The pencil', 'Changes just that one'], [5, 'Switches', 'Work at once'],
