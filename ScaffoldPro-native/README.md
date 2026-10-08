@@ -4566,3 +4566,21 @@ one idea at a time, few words, and pictures that carry the meaning.
   their data come over from the office Mac: straight away on the first
   page of a visit ("Connecting to the office Mac…"), and on later pages
   only if they take more than a moment, so quick ones don't blink.
+
+## Batch 200 — Each quotation's folder named, with its own drawings and documents
+
+- A quotation series' folder is named with its number and then its
+  structure (from its BOQ), or else its quotation's subject, e.g.
+  `26219-001 GL∕09 Platform`. When the structure or subject changes, the
+  folder is renamed to match a moment later.
+- Inside it are `Drawings` and `Documents` as well as `BOQ`, `Quotations`,
+  `Delivery Schedules`, `Delivery Notes` and `Invoices`, all shown even
+  while empty.
+- A drawing uploaded to a BOQ or quotation (or linked to one later) goes in
+  that series' `Drawings` folder; a document linked to one goes in its
+  `Documents` folder. Unlinked, they go back to the project's own folder.
+  Drawings and documents already linked are moved there when ScaffoldPro
+  opens.
+- The project's own `Drawings`, `Documents`, `Other` and `Letters` folders
+  are only made when something goes in them, and are removed while
+  they're empty.
