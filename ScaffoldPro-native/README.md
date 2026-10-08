@@ -4638,3 +4638,11 @@ one idea at a time, few words, and pictures that carry the meaning.
   pasting a picture. The Mac reads them (scans too), and the AI also sees
   PDFs and pictures as they are.
 - The conversation is kept on this Mac until "New Chat" (⌘N).
+
+## Batch 204 — The Assistant tab opens
+
+- The Assistant page wasn't being copied into the app when it was built,
+  so its tab opened nothing and the window went blank. Every page is now
+  copied in, so a new page can't be left out again.
+- If a page ever can't be opened, the one you're on comes back after a
+  moment instead of staying blank.

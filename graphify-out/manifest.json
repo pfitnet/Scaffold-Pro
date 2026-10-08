@@ -12,9 +12,9 @@
     "semantic_hash": "202da10c339ae17bf2a6c993e65407b9"
   },
   "ScaffoldPro-native/install.sh": {
-    "mtime": 1791427682.9846966,
-    "seen": 1791427738.3992496,
-    "ast_hash": "e7c6c82aa3ee549d30afa87d01118195",
+    "mtime": 1791447408.4975963,
+    "seen": 1791447436.9827435,
+    "ast_hash": "134279f95279653ab62c05e653bd84a3",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/installer/InstallerUI.swift": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791447034.6042662,
-    "seen": 1791447044.3823183,
-    "ast_hash": "9589a045696c50213d950ea858044db6",
+    "mtime": 1791447429.9513707,
+    "seen": 1791447436.98291,
+    "ast_hash": "a93374e23a3746d19ed49ef15b982083",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -660,9 +660,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/motion.js": {
-    "mtime": 1791441344.312816,
-    "seen": 1791441441.6626816,
-    "ast_hash": "240ae43c4824d010fea6a67065cbfe09",
+    "mtime": 1791447420.699392,
+    "seen": 1791447436.9828358,
+    "ast_hash": "1b1e7fa3024347b69718c0b183d26d25",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/notify.js": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1791447034.6042662,
-    "seen": 1791447044.3823147,
-    "ast_hash": "3d773bcfde1b5408abe8c906819a008f",
+    "mtime": 1791447429.9513707,
+    "seen": 1791447436.9829059,
+    "ast_hash": "c6fb8b30534bdfcccf018b8383ffaedc",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-content.js": {

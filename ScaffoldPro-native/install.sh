@@ -92,11 +92,9 @@ cp "$SCRIPT_DIR/Info.plist"  "$BUILD/Contents/Info.plist"
 # Bundle.main.resourceURL has to be copied in, preserving the same
 # relative layout main.swift expects (Resources/index.html,
 # Resources/css/..., Resources/js/..., Resources/resources/...).
-cp "$SCRIPT_DIR/index.html" "$BUILD/Contents/Resources/index.html"
-for page in price-lists.html clients.html sites.html projects.html project-detail.html stock.html accounts.html boq-editor.html quotation-editor.html invoice-editor.html delivery-note-editor.html letters.html letter-editor.html user.html marketing.html calendar.html tasks.html chat.html team.html admin.html settings.html launch.html manual.html; do
-    if [ -f "$SCRIPT_DIR/$page" ]; then
-        cp "$SCRIPT_DIR/$page" "$BUILD/Contents/Resources/$page"
-    fi
+# Every page, so a new one is never left out.
+for page in "$SCRIPT_DIR"/*.html; do
+    cp "$page" "$BUILD/Contents/Resources/$(basename "$page")"
 done
 cp -R "$SCRIPT_DIR/css"       "$BUILD/Contents/Resources/css"
 cp -R "$SCRIPT_DIR/js"        "$BUILD/Contents/Resources/js"

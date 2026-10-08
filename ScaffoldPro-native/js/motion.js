@@ -39,6 +39,8 @@
     e.preventDefault();
     root.classList.add('page-leave');
     setTimeout(() => { location.href = a.href; }, 120);
+    // Still here (the page couldn't be opened): show this one again.
+    setTimeout(() => root.classList.remove('page-leave'), 2500);
   });
   window.addEventListener('pageshow', () => root.classList.remove('page-leave'));
 

@@ -14728,7 +14728,7 @@
       "file_type": "code",
       "norm_label": "countnew()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L145"
+      "source_location": "L147"
     },
     {
       "id": "scaffoldpro_native_js_motion_countup",
@@ -14740,7 +14740,7 @@
       "file_type": "code",
       "norm_label": "countup()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L116"
+      "source_location": "L118"
     },
     {
       "id": "scaffoldpro_native_js_motion_get",
@@ -14764,7 +14764,7 @@
       "file_type": "code",
       "norm_label": "placeall()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L108"
+      "source_location": "L110"
     },
     {
       "id": "scaffoldpro_native_js_motion_placeink",
@@ -14776,7 +14776,7 @@
       "file_type": "code",
       "norm_label": "placeink()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L78"
+      "source_location": "L80"
     },
     {
       "id": "scaffoldpro_native_js_motion_placenavink",
@@ -14788,7 +14788,7 @@
       "file_type": "code",
       "norm_label": "placenavink()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L46"
+      "source_location": "L48"
     },
     {
       "id": "scaffoldpro_native_js_motion_placespot",
@@ -14800,7 +14800,7 @@
       "file_type": "code",
       "norm_label": "placespot()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L171"
+      "source_location": "L173"
     },
     {
       "id": "scaffoldpro_native_js_motion_refresh",
@@ -14812,7 +14812,7 @@
       "file_type": "code",
       "norm_label": "refresh()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L203"
+      "source_location": "L205"
     },
     {
       "id": "scaffoldpro_native_js_motion_set",
@@ -14836,7 +14836,7 @@
       "file_type": "code",
       "norm_label": "start()",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L210"
+      "source_location": "L212"
     },
     {
       "id": "scaffoldpro_native_js_admin_applyadmindocsearch",
@@ -36145,7 +36145,7 @@
       },
       "norm_label": "has_identity()",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L151"
+      "source_location": "L149"
     },
     {
       "id": "scaffoldpro_native_install_make_identity",
@@ -36160,7 +36160,7 @@
       },
       "norm_label": "make_identity()",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L152"
+      "source_location": "L150"
     },
     {
       "id": "scaffoldpro_native_install_pick_sdk",
@@ -36220,7 +36220,7 @@
       },
       "norm_label": "sign_with_identity()",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L180"
+      "source_location": "L178"
     },
     {
       "id": "scaffoldpro_native_install_trust_identity",
@@ -36235,7 +36235,7 @@
       },
       "norm_label": "trust_identity()",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L183"
+      "source_location": "L181"
     },
     {
       "id": "scaffoldpro_native_js_web_loading",
@@ -37586,14 +37586,14 @@
       "source_location": ""
     },
     {
-      "id": "handoff_5_recent_work_batches_147_203_newest_last",
-      "label": "5. Recent work (Batches 147\u2013203, newest last)",
+      "id": "handoff_5_recent_work_batches_147_204_newest_last",
+      "label": "5. Recent work (Batches 147\u2013204, newest last)",
       "_origin": "ast",
       "community": 42,
       "community_name": "URL",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "5. recent work (batches 147\u2013203, newest last)",
+      "norm_label": "5. recent work (batches 147\u2013204, newest last)",
       "source_file": "HANDOFF.md",
       "source_location": "L173"
     },
@@ -38423,7 +38423,7 @@
       "node_kind": "heading",
       "norm_label": "6. open items and things waiting on the user",
       "source_file": "HANDOFF.md",
-      "source_location": "L278"
+      "source_location": "L279"
     },
     {
       "id": "handoff_7_starting_the_new_chat",
@@ -38435,7 +38435,7 @@
       "node_kind": "heading",
       "norm_label": "7. starting the new chat",
       "source_file": "HANDOFF.md",
-      "source_location": "L307"
+      "source_location": "L308"
     },
     {
       "id": "handoff_scaffoldpro_handoff_for_a_new_chat",
@@ -41628,7 +41628,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L177",
+      "source_location": "L175",
       "weight": 1.0
     },
     {
@@ -41640,7 +41640,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L177",
+      "source_location": "L175",
       "weight": 1.0
     },
     {
@@ -41652,7 +41652,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L187",
+      "source_location": "L185",
       "weight": 1.0
     },
     {
@@ -41664,7 +41664,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L187",
+      "source_location": "L185",
       "weight": 1.0
     },
     {
@@ -50688,7 +50688,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L151",
+      "source_location": "L153",
       "weight": 1.0
     },
     {
@@ -50700,7 +50700,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L109",
+      "source_location": "L111",
       "weight": 1.0
     },
     {
@@ -50712,36 +50712,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L56",
+      "source_location": "L58",
       "weight": 1.0
     },
     {
       "source": "scaffoldpro_native_js_motion_refresh",
       "target": "scaffoldpro_native_js_motion_placenavink",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L205",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_motion_refresh",
-      "target": "scaffoldpro_native_js_motion_placeall",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L206",
-      "weight": 1.0
-    },
-    {
-      "source": "scaffoldpro_native_js_motion_refresh",
-      "target": "scaffoldpro_native_js_motion_countnew",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -50752,6 +50728,30 @@
       "weight": 1.0
     },
     {
+      "source": "scaffoldpro_native_js_motion_refresh",
+      "target": "scaffoldpro_native_js_motion_placeall",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/motion.js",
+      "source_location": "L208",
+      "weight": 1.0
+    },
+    {
+      "source": "scaffoldpro_native_js_motion_refresh",
+      "target": "scaffoldpro_native_js_motion_countnew",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "ScaffoldPro-native/js/motion.js",
+      "source_location": "L209",
+      "weight": 1.0
+    },
+    {
       "source": "scaffoldpro_native_js_motion_start",
       "target": "scaffoldpro_native_js_motion_placenavink",
       "relation": "calls",
@@ -50760,7 +50760,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L211",
+      "source_location": "L213",
       "weight": 1.0
     },
     {
@@ -50772,7 +50772,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L212",
+      "source_location": "L214",
       "weight": 1.0
     },
     {
@@ -50784,7 +50784,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L213",
+      "source_location": "L215",
       "weight": 1.0
     },
     {
@@ -114636,7 +114636,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L46",
+      "source_location": "L48",
       "weight": 1.0
     },
     {
@@ -145793,7 +145793,7 @@
     },
     {
       "source": "handoff_scaffoldpro_handoff_for_a_new_chat",
-      "target": "handoff_5_recent_work_batches_147_203_newest_last",
+      "target": "handoff_5_recent_work_batches_147_204_newest_last",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -145810,7 +145810,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L278",
+      "source_location": "L279",
       "weight": 1.0
     },
     {
@@ -145821,7 +145821,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L307",
+      "source_location": "L308",
       "weight": 1.0
     },
     {
@@ -150474,7 +150474,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L108",
+      "source_location": "L110",
       "weight": 1.0
     },
     {
@@ -150485,7 +150485,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L116",
+      "source_location": "L118",
       "weight": 1.0
     },
     {
@@ -150496,7 +150496,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L145",
+      "source_location": "L147",
       "weight": 1.0
     },
     {
@@ -150529,7 +150529,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L78",
+      "source_location": "L80",
       "weight": 1.0
     },
     {
@@ -160308,7 +160308,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L151",
+      "source_location": "L149",
       "weight": 1.0
     },
     {
@@ -160319,7 +160319,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L152",
+      "source_location": "L150",
       "weight": 1.0
     },
     {
@@ -160330,7 +160330,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L180",
+      "source_location": "L178",
       "weight": 1.0
     },
     {
@@ -160341,7 +160341,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "ScaffoldPro-native/install.sh",
-      "source_location": "L183",
+      "source_location": "L181",
       "weight": 1.0
     },
     {
@@ -177154,7 +177154,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L169",
+      "source_location": "L171",
       "weight": 1.0
     },
     {
@@ -177166,7 +177166,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L209",
+      "source_location": "L211",
       "weight": 1.0
     },
     {
@@ -177178,7 +177178,7 @@
       "confidence_score": 0.85,
       "context": "argument",
       "source_file": "ScaffoldPro-native/js/motion.js",
-      "source_location": "L218",
+      "source_location": "L220",
       "weight": 1.0
     },
     {
@@ -182906,7 +182906,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_documentseries",
       "relation": "references",
       "_origin": "ast",
@@ -182918,7 +182918,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_seriesbyproject",
       "relation": "references",
       "_origin": "ast",
@@ -182930,7 +182930,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_seriestitle",
       "relation": "references",
       "_origin": "ast",
@@ -182942,7 +182942,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdelegate_windowshouldclose",
       "relation": "references",
       "_origin": "ast",
@@ -182966,7 +182966,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_buybackterms",
       "relation": "references",
       "_origin": "ast",
@@ -182978,7 +182978,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_buybackterms_sentences",
       "relation": "references",
       "_origin": "ast",
@@ -182990,7 +182990,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_filestorage_projectfolder",
       "relation": "references",
       "_origin": "ast",
@@ -183038,7 +183038,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_makeseriesfolders",
       "relation": "references",
       "_origin": "ast",
@@ -183050,7 +183050,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_organiseprojectfolders",
       "relation": "references",
       "_origin": "ast",
@@ -183062,7 +183062,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_organiseseriesfolders",
       "relation": "references",
       "_origin": "ast",
@@ -183074,7 +183074,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_ownappearance",
       "relation": "references",
       "_origin": "ast",
@@ -183110,7 +183110,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_quotationai_configure",
       "relation": "references",
       "_origin": "ast",
@@ -183122,7 +183122,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_quotationblock",
       "relation": "references",
       "_origin": "ast",
@@ -183146,7 +183146,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_quotationimportreader",
       "relation": "references",
       "_origin": "ast",
@@ -183158,7 +183158,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_spreadsheetreader",
       "relation": "references",
       "_origin": "ast",
@@ -183182,7 +183182,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_webserver_servestatic",
       "relation": "references",
       "_origin": "ast",
@@ -183214,11 +183214,11 @@
       "confidence_score": 0.95,
       "context": "applicationShouldTerminate",
       "source_file": "HANDOFF.md",
-      "source_location": "L296",
+      "source_location": "L297",
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_applyinlinemarkup",
       "relation": "references",
       "_origin": "ast",
@@ -183230,7 +183230,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_assistantcheck",
       "relation": "references",
       "_origin": "ast",
@@ -183242,7 +183242,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_assistantsystem",
       "relation": "references",
       "_origin": "ast",
@@ -183254,7 +183254,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_baseprice",
       "relation": "references",
       "_origin": "ast",
@@ -183266,7 +183266,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_js_quotation_editor_buybacksentences",
       "relation": "references",
       "_origin": "ast",
@@ -183302,7 +183302,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_createimportedquotation",
       "relation": "references",
       "_origin": "ast",
@@ -183350,7 +183350,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_filedocumentsbyseries",
       "relation": "references",
       "_origin": "ast",
@@ -183362,7 +183362,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_filefolder",
       "relation": "references",
       "_origin": "ast",
@@ -183374,7 +183374,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_filelinkedfiles",
       "relation": "references",
       "_origin": "ast",
@@ -183398,7 +183398,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_handleassistantrun",
       "relation": "references",
       "_origin": "ast",
@@ -183410,7 +183410,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_holdframe",
       "relation": "references",
       "_origin": "ast",
@@ -183422,7 +183422,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_inbasecurrency",
       "relation": "references",
       "_origin": "ast",
@@ -183434,7 +183434,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_inlineruns",
       "relation": "references",
       "_origin": "ast",
@@ -183446,7 +183446,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_linkedfilefolder",
       "relation": "references",
       "_origin": "ast",
@@ -183458,7 +183458,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_filestorage_mergefolder",
       "relation": "references",
       "_origin": "ast",
@@ -183470,7 +183470,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_movedeliveryamounts",
       "relation": "references",
       "_origin": "ast",
@@ -183482,7 +183482,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_filestorage_organiseprojectfolder",
       "relation": "references",
       "_origin": "ast",
@@ -183494,7 +183494,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_js_doc_preview_paginate",
       "relation": "references",
       "_origin": "ast",
@@ -183506,7 +183506,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_plainmarkup",
       "relation": "references",
       "_origin": "ast",
@@ -183518,7 +183518,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_pricenotelabel",
       "relation": "references",
       "_origin": "ast",
@@ -183530,7 +183530,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_projectdocumentnumbers",
       "relation": "references",
       "_origin": "ast",
@@ -183542,7 +183542,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_filestorage_projectsubfolder",
       "relation": "references",
       "_origin": "ast",
@@ -183554,7 +183554,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_releaseframe",
       "relation": "references",
       "_origin": "ast",
@@ -183566,7 +183566,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_removeemptyprojectfolders",
       "relation": "references",
       "_origin": "ast",
@@ -183578,7 +183578,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_safefilename",
       "relation": "references",
       "_origin": "ast",
@@ -183590,7 +183590,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_sameitem",
       "relation": "references",
       "_origin": "ast",
@@ -183602,7 +183602,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdelegate_saveopenwork",
       "relation": "references",
       "_origin": "ast",
@@ -183626,7 +183626,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_filestorage_seriesroot",
       "relation": "references",
       "_origin": "ast",
@@ -183638,7 +183638,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_setaiconnection",
       "relation": "references",
       "_origin": "ast",
@@ -183650,7 +183650,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_setquotationlinepricenote",
       "relation": "references",
       "_origin": "ast",
@@ -183670,7 +183670,7 @@
       "confidence_score": 0.95,
       "context": "setup",
       "source_file": "HANDOFF.md",
-      "source_location": "L282",
+      "source_location": "L283",
       "weight": 1.0
     },
     {
@@ -183710,7 +183710,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_pdfgenerator_styledtext",
       "relation": "references",
       "_origin": "ast",
@@ -183746,7 +183746,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_pdfgenerator_wrapstyled",
       "relation": "references",
       "_origin": "ast",
@@ -183758,7 +183758,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_203_newest_last",
+      "source": "handoff_5_recent_work_batches_147_204_newest_last",
       "target": "scaffoldpro_native_main_filestorage_writegeneratedfile",
       "relation": "references",
       "_origin": "ast",
@@ -186255,5 +186255,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "e43b8ddc4e8ba5821622660d9fb8a06f235717ac"
+  "built_at_commit": "4dca01507c5336dc4d0ed69e07e99494a36756e7"
 }
