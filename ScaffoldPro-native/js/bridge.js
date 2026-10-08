@@ -651,8 +651,14 @@
   window.addEventListener('load', () => {
     let held = false;
     try { held = sessionStorage.getItem(HOLD_KEY) === '1'; sessionStorage.removeItem(HOLD_KEY); } catch (e) { held = false; }
-    // Lists fill in just after loading; let them, then show the page.
-    if (held && !window.__scaffoldProWeb) setTimeout(() => callNative('ui:releaseFrame', {}).catch(() => {}), 650);
+    // The Mac app holds a picture of the previous page over this one until
+    // it has drawn (a reload, or any move from page to page): lists fill in
+    // just after loading, so give them a moment, then show the page.
+    if (!window.__scaffoldProWeb) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        setTimeout(() => callNative('ui:releaseFrame', {}).catch(() => {}), held ? 650 : 220);
+      }));
+    }
   });
 
   function busy() {

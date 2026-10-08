@@ -22,6 +22,7 @@
   if (window.AssistantChat) return;
   const KEY = 'assistant.chat';
   const OPEN_KEY = 'assistant.floatOpen';
+  const RECT_KEY = 'assistant.floatRect';
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const num = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -555,10 +556,101 @@
     let chat = null;
     const isOpen = () => !panel.classList.contains('hidden');
     const remember = (v) => { try { sessionStorage.setItem(OPEN_KEY, v ? '1' : ''); } catch (e) { /* not kept */ } };
+    // ---- where it is and how big: dragged by its top bar, resized from
+    // its corner; kept on this Mac (double-click the bar for the corner) ----
+    const MIN_W = 320, MIN_H = 360, EDGE = 8;
+    // Its place, leaving out the opening animation's scale.
+    const rectOf = () => ({ left: panel.offsetLeft, top: panel.offsetTop, width: panel.offsetWidth, height: panel.offsetHeight,
+      right: panel.offsetLeft + panel.offsetWidth });
+    const readRect = () => { try { return JSON.parse(localStorage.getItem(RECT_KEY) || 'null'); } catch (e) { return null; } };
+    const saveRect = () => {
+      if (panel.classList.contains('hidden')) return;
+      const r = rectOf();
+      try { localStorage.setItem(RECT_KEY, JSON.stringify({ left: r.left, top: r.top, width: r.width, height: r.height })); } catch (e) { /* not kept */ }
+    };
+    // Kept on screen, however the window was resized meanwhile.
+    function place(rect) {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const width = Math.max(MIN_W, Math.min(rect.width, vw - EDGE * 2));
+      const height = Math.max(MIN_H, Math.min(rect.height, vh - EDGE * 2));
+      const left = Math.max(EDGE, Math.min(rect.left, vw - width - EDGE));
+      const top = Math.max(EDGE, Math.min(rect.top, vh - height - EDGE));
+      Object.assign(panel.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`, right: 'auto', bottom: 'auto' });
+    }
+    function placeSaved() {
+      const saved = readRect();
+      if (saved) { place(saved); return; }
+      // First time: by the button, bottom right — then left/top from there on.
+      Object.assign(panel.style, { left: '', top: '', width: '', height: '', right: '', bottom: '' });
+      const r = rectOf();
+      place({ left: r.left, top: r.top, width: r.width, height: r.height });
+    }
+    function startDrag(e) {
+      if (e.button !== 0 || e.target.closest('button, a, input, textarea, select')) return;
+      e.preventDefault();
+      const r = rectOf();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      panel.classList.add('dragging');
+      document.body.classList.add('as-dragging');
+      const move = (ev) => place({ left: ev.clientX - dx, top: ev.clientY - dy, width: r.width, height: r.height });
+      const up = () => {
+        panel.classList.remove('dragging');
+        document.body.classList.remove('as-dragging');
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+        saveRect();
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    }
+    // The corner handle: wider / taller (from the bottom-left corner, as
+    // the chat sits on the right).
+    function startResize(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const r = rectOf();
+      panel.classList.add('dragging');
+      document.body.classList.add('as-dragging', 'as-resizing');
+      const move = (ev) => {
+        const width = Math.max(MIN_W, r.right - ev.clientX);
+        const height = Math.max(MIN_H, ev.clientY - r.top);
+        place({ left: r.right - width, top: r.top, width, height });
+      };
+      const up = () => {
+        panel.classList.remove('dragging');
+        document.body.classList.remove('as-dragging', 'as-resizing');
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+        saveRect();
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
+    }
+    function wireMoving() {
+      const head = panel.querySelector('.as-head');
+      head.classList.add('as-drag-handle');
+      head.title = 'Drag to move · double-click to put it back';
+      head.addEventListener('mousedown', startDrag);
+      head.addEventListener('dblclick', (e) => {
+        if (e.target.closest('button')) return;
+        try { localStorage.removeItem(RECT_KEY); } catch (err) { /* fine */ }
+        placeSaved();
+      });
+      const grip = document.createElement('div');
+      grip.className = 'as-resize';
+      grip.title = 'Drag to resize';
+      grip.setAttribute('aria-hidden', 'true');
+      grip.addEventListener('mousedown', startResize);
+      panel.appendChild(grip);
+      window.addEventListener('resize', () => { if (isOpen()) place(rectOf()); });
+    }
+
     function open(animate = true) {
-      if (!chat) chat = mount(panel, { compact: true, context: pageContext, onClose: close });
+      if (!chat) { chat = mount(panel, { compact: true, context: pageContext, onClose: close }); wireMoving(); }
       else chat.refresh();
       panel.classList.remove('hidden');
+      placeSaved();
       panel.classList.toggle('no-anim', !animate);
       launcher.classList.add('open');
       remember(true);
