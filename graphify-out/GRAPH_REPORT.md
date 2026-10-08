@@ -1,17 +1,17 @@
 # Graph Report - Scaffold-Pro  (2026-10-08)
 
 ## Corpus Check
-- 104 files · ~488,437 words
+- 104 files · ~488,711 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 41 file(s) not represented in the graph (top: .whl 16, .css 9, .ttf 6)
 
 ## Summary
 - 3196 nodes · 12331 edges · 133 communities (111 shown, 22 thin omitted)
-- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 678 edges (avg confidence: 0.86)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 677 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6033314d`
+- Built from commit: `79c661c4`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -155,15 +155,15 @@
 10. `AppDelegate` - 56 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `5. Recent work (Batches 147–206, newest last)` --references--> `placeSaved()`  [INFERRED]
+- `5. Recent work (Batches 147–207, newest last)` --references--> `placeSaved()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/assistant.js
-- `5. Recent work (Batches 147–206, newest last)` --references--> `paginate()`  [INFERRED]
+- `5. Recent work (Batches 147–207, newest last)` --references--> `paginate()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/doc-preview.js
-- `5. Recent work (Batches 147–206, newest last)` --references--> `buyBackSentences()`  [INFERRED]
+- `5. Recent work (Batches 147–207, newest last)` --references--> `buyBackSentences()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/quotation-editor.js
-- `5. Recent work (Batches 147–206, newest last)` --references--> `BuyBackTerms`  [INFERRED]
+- `5. Recent work (Batches 147–207, newest last)` --references--> `BuyBackTerms`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
-- `5. Recent work (Batches 147–206, newest last)` --references--> `applyInlineMarkup()`  [INFERRED]
+- `5. Recent work (Batches 147–207, newest last)` --references--> `applyInlineMarkup()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
 
 ## Import Cycles
@@ -344,7 +344,7 @@ Nodes (104): CoreGraphics, CoreText, CryptoKit, Network, PDFKit, ActivityRow, Ad
 
 ### Community 42 - "URL"
 Cohesion: 0.13
-Nodes (7): 5. Recent work (Batches 147–206, newest last), FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot, .projectsRoot, safeFileName()
+Nodes (7): 5. Recent work (Batches 147–207, newest last), FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot, .projectsRoot, safeFileName()
 
 ### Community 43 - "dashboard.js"
 Cohesion: 0.16
@@ -639,7 +639,7 @@ Nodes (14): Client, materialCategory(), ProjectDetail, UndoResult, WordColumn, W
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `PDFGenerator` connect `PDFGenerator` to `String`, `Set`, `main.swift`, `.append`, `Gen`, `.write`, `JSONStore`, `Quotation (standard Qt26193 style)`, `.handleExportUnitRates`, `word.py`?**
-  _High betweenness centrality (0.199) - this node is a cross-community bridge._
+  _High betweenness centrality (0.195) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `AppDatabase` (e.g. with `1. What ScaffoldPro is` and `.restore()`) actually correct?**
   _`AppDatabase` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `SDKROOT`, `askpass.sh script`, `PATH` to the rest of the system?**
@@ -647,7 +647,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `PDFGenerator` be split into smaller, more focused modules?**
   _Cohesion score 0.05415683189089955 - nodes in this community are weakly interconnected._
 - **Why does `Export Word (.docx) matching PDF layout` connect `word.py` to `PDFGenerator`, `docx-export.js`?**
-  _High betweenness centrality (0.158) - this node is a cross-community bridge._
+  _High betweenness centrality (0.153) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `NativeBridge` (e.g. with `1. What ScaffoldPro is` and `.call()`) actually correct?**
   _`NativeBridge` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Should `String` be split into smaller, more focused modules?**
