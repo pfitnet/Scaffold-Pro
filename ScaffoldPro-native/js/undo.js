@@ -61,7 +61,7 @@
       try {
         sessionStorage.setItem(KEY, JSON.stringify({ text, again, y: scroller().scrollTop, page: location.href }));
       } catch (e) { /* ignore */ }
-      location.reload();
+      window.softReload();
     } finally {
       busy = false;
     }

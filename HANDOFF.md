@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 195.
+"## Batch N" section per change, newest at the bottom, up to Batch 199.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **196**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **200**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -93,6 +93,12 @@ Keep the reply short and plain. Say clearly what was tested and what wasn't
   navigation everywhere, Return / Esc behaving naturally, undo (⌘Z / ⌘Y)
   without a flash or full reload (`window.appRefresh`), and small
   micro-animations that respect Reduce Motion.
+- **No flashing, ever:** the screen must never flash or blank when a page
+  updates (sync from other Macs, undo, settings changes…). Redraw in place
+  with `window.appRefresh` where the page has one; otherwise use
+  `window.softReload()` (js/bridge.js), never `location.reload()`: the Mac
+  app holds a snapshot of the window over it (`ui:holdFrame`) until the
+  reloaded page has drawn (`ui:releaseFrame`). Check this in every fix.
 - **Settings-style editing:** show values as text with a small pencil SVG
   to edit; switches, dropdowns and segmented buttons act immediately with no
   pencil; autosave with a small "Saved".
@@ -164,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–195, newest last)
+## 5. Recent work (Batches 147–199, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -258,6 +264,10 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **193:** Word preview (js/doc-preview.js): `table-layout: fixed !important` (docx-preview sets `auto` inline, which ignored column widths); `paginate()` splits each section into pages (paragraphs move whole, tables split between rows with the heading row repeated, a bold short paragraph moves with what follows).
 - **194:** the sidebar's User and gear are one link (`.sidebar-user` with `.user-gear` inside) to settings.html#you, active on any Settings page.
 - **195:** task/event sheet: When is one field (day | start – end); labels align with the first line; a new event is for "Me" unless someone is chosen (`forChosen`).
+- **196:** split by quantity: `splitQuotation(..., partial: [lineId: PartialSplit])` copies the line with that many (the original keeps the rest; an Amount discount is shared pro rata; BOQ-linked parts both become `boqDetached`) and `moveDeliveryAmounts` moves the chosen days' quantities to the same day numbers on the subsidiary. js/quotation-split.js asks which days only when the part could come off more than one (`.qs-days`).
+- **197:** revert merges: a subsidiary's line that's `sameItem` as one on the parent adds to its quantity (deliveries renamed onto it via `moveDeliveryQuantities(renamed:)`); `boqDetached` is cleared when the merged quantity matches the BOQ line again.
+- **198:** no flash on sync: `__sharedDataChanged` uses `window.appRefresh` (scroll kept), else `window.softReload()`; native `holdFrame`/`releaseFrame` in NativeBridge (snapshot `NSImageView` over the web view, 4 s safety). All `location.reload()` calls replaced.
+- **199:** ScaffoldPro Web loading screen: js/web-loading.js, injected first by `WebServer.serveStatic`; instant on a visit's first page, delayed 0.35 s on later ones so quick pages don't blink.
 
 ---
 

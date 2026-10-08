@@ -216,7 +216,7 @@
       reorderBlocks: (quotationId, ids) => callNative('quotations:reorderBlocks', { quotationId: quotationId, ids: ids }),
       removeBlock: (id) => callNative('quotations:removeBlock', { id: id }),
       // Moves these lines and sections to a new quotation, listed under this one: { ok, error, id, number }.
-      split: (id, lineIds, blockIds) => callNative('quotations:split', { id: id, lineIds: lineIds, blockIds: blockIds }),
+      split: (id, lineIds, blockIds, partial) => callNative('quotations:split', { id: id, lineIds: lineIds, blockIds: blockIds, partial: partial || {} }),
       // A subsidiary's lines and sections back onto its parent; the subsidiary is deleted: { ok, error, id (the parent) }.
       revertSplit: (id) => callNative('quotations:revertSplit', { id: id }),
       addBlockLine: (blockId, line) => callNative('quotations:addBlockLine', Object.assign({ blockId: blockId }, line)),
@@ -621,10 +621,31 @@
   // another Mac's changes have been merged in. The page then refreshes to
   // show them: straight away, or — so nothing being typed is lost — once
   // no field has focus, no dialog is open and nothing is being dragged.
-  // A page can handle it itself by setting window.onSharedDataChanged.
+  // A page can handle it itself by setting window.onSharedDataChanged;
+  // one with window.appRefresh redraws in place; any other is reloaded
+  // behind a still picture of itself (window.softReload), so it never
+  // flashes.
 
   const SCROLL_KEY = 'scaffoldpro.sharedRefresh';
+  const HOLD_KEY = 'scaffoldpro.heldFrame';
   let waiting = null;
+
+  // Reloads the page without a flash: the Mac app keeps a picture of the
+  // window over it until the reloaded page has drawn (ui:holdFrame), then
+  // fades it away. Use this instead of location.reload().
+  window.softReload = async function () {
+    try { sessionStorage.setItem(HOLD_KEY, '1'); } catch (e) { /* still reloads */ }
+    if (!window.__scaffoldProWeb) {
+      try { await Promise.race([callNative('ui:holdFrame', {}), new Promise((r) => setTimeout(r, 400))]); } catch (e) { /* reloads anyway */ }
+    }
+    location.reload();
+  };
+  window.addEventListener('load', () => {
+    let held = false;
+    try { held = sessionStorage.getItem(HOLD_KEY) === '1'; sessionStorage.removeItem(HOLD_KEY); } catch (e) { held = false; }
+    // Lists fill in just after loading; let them, then show the page.
+    if (held && !window.__scaffoldProWeb) setTimeout(() => callNative('ui:releaseFrame', {}).catch(() => {}), 650);
+  });
 
   function busy() {
     const a = document.activeElement;
@@ -652,12 +673,22 @@
       return;
     }
     const content = document.getElementById('content');
+    // A page that can redraw itself in place does: no reload at all.
+    if (typeof window.appRefresh === 'function') {
+      const y = window.scrollY, top = content ? content.scrollTop : 0;
+      Promise.resolve().then(() => window.appRefresh()).then(() => {
+        window.scrollTo(0, y);
+        if (content) content.scrollTop = top;
+        toast(`Updated with changes from ${who}`);
+      }, () => window.softReload());
+      return;
+    }
     try {
       sessionStorage.setItem(SCROLL_KEY, JSON.stringify({
         url: location.href, y: window.scrollY, content: content ? content.scrollTop : 0, who: who,
       }));
     } catch (e) { /* the page still refreshes */ }
-    location.reload();
+    window.softReload();
   }
 
   window.__sharedDataChanged = function (change) {

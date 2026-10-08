@@ -83,6 +83,18 @@
     .qs-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qs-qty { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
     .qs-amt { text-align: right; font-variant-numeric: tabular-nums; }
+    .qs-move-wrap { display: inline-flex; align-items: center; gap: 5px; }
+    .qs-move { width: 66px !important; height: 24px !important; padding: 0 6px !important; text-align: right; font-size: 12px; }
+    .qs-move:disabled { opacity: .5; }
+    /* Part of a line: which days of the schedule its deliveries come off. */
+    .qs-days { margin: 0 10px 8px 128px; padding: 8px 10px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+      background: color-mix(in srgb, var(--accent) 5%, transparent); display: grid; gap: 4px; }
+    .qs-days-head { font-size: 12px; font-weight: 600; display: flex; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+    .qs-days-sum { font-weight: 500; color: var(--danger, #d0453a); }
+    .qs-days-sum.ok { color: var(--success, #2f9e5b); }
+    .qs-day { display: grid; grid-template-columns: 1fr auto 76px; gap: 10px; align-items: center; font-size: 12.5px; }
+    .qs-day-of { color: var(--text-secondary); font-size: 12px; }
+    .qs-day input { height: 24px !important; padding: 0 6px !important; text-align: right; font-size: 12px; }
     .delivery-section .line-desc { white-space: pre-line; min-width: 200px; }
     .extra-section .rate-only { color: var(--text-secondary); font-style: italic; text-align: center; white-space: nowrap; }
     /* The add row is the section table's last row, each box under its column. */

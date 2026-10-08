@@ -476,7 +476,7 @@ function newTaskRowHTML() {
 async function newTaskQuick() {
   const people = await window.api.tasks.people();
   const projects = projectsCache.filter((p) => p.status !== 'Archived');
-  if (await window.editTask(null, { projects, people })) location.reload();
+  if (await window.editTask(null, { projects, people })) window.softReload();
 }
 
 // "New Task" is left out of Quick Actions while My Tasks (which has its
