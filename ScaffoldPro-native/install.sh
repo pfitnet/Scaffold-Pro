@@ -139,7 +139,58 @@ trap 'rm -rf "$SIGN_DIR"' EXIT
 SIGNED="$SIGN_DIR/ScaffoldPro.app"
 ditto --norsrc --noextattr --noacl "$BUILD" "$SIGNED"
 xattr -cr "$SIGNED" 2>/dev/null || true
-codesign --force --deep --sign - "$SIGNED"
+
+# Signed with the same certificate every time, so macOS knows each update
+# is the same app and keeps the permissions already given (files and
+# folders, App Management…). An ad-hoc signature ("-") is new with every
+# build, so macOS would ask again after each update. The certificate is
+# made once, on this Mac, and kept in the login keychain; it never leaves
+# this Mac.
+IDENTITY="ScaffoldPro Local Signing"
+KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+has_identity() { security find-identity -p codesigning 2>/dev/null | grep -q "\"$IDENTITY\""; }
+make_identity() {
+    local dir; dir="$(mktemp -d "${TMPDIR:-/tmp}/scaffoldpro-cert.XXXXXX")"
+    cat > "$dir/cert.cnf" <<CNF
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = $IDENTITY
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+CNF
+    # macOS's own openssl (LibreSSL) writes a .p12 the keychain can read.
+    /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 7300 -config "$dir/cert.cnf" \
+        -keyout "$dir/key.pem" -out "$dir/cert.pem" >/dev/null 2>&1 &&
+    /usr/bin/openssl pkcs12 -export -inkey "$dir/key.pem" -in "$dir/cert.pem" -name "$IDENTITY" \
+        -out "$dir/id.p12" -passout pass:scaffoldpro >/dev/null 2>&1 &&
+    security import "$dir/id.p12" -k "$KEYCHAIN" -P scaffoldpro -T /usr/bin/codesign >/dev/null 2>&1
+    local ok=$?
+    rm -rf "$dir"
+    return $ok
+}
+SIGN_AS="-"
+if has_identity || { echo "   Making this Mac's signing certificate (once)..."; make_identity && has_identity; }; then
+    SIGN_AS="$IDENTITY"
+fi
+sign_with_identity() { codesign --force --deep --sign "$SIGN_AS" "$SIGNED" 2>"$SIGN_DIR/sign.log"; }
+# If macOS won't sign with it until it's trusted for code signing, trust it
+# (asks for your password once), then try again.
+trust_identity() {
+    security find-certificate -c "$IDENTITY" -p "$KEYCHAIN" > "$SIGN_DIR/cert.pem" 2>/dev/null &&
+    security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$SIGN_DIR/cert.pem" >/dev/null 2>&1
+}
+if [ "$SIGN_AS" != "-" ] && { sign_with_identity || { trust_identity && sign_with_identity; }; }; then
+    echo "   Signed as “$IDENTITY” — permissions carry over to updates."
+else
+    [ "$SIGN_AS" != "-" ] && { echo "   ⚠️  Couldn't sign with “$IDENTITY” (macOS may ask once to let codesign use it — choose Always Allow):"; sed 's/^/      /' "$SIGN_DIR/sign.log"; }
+    echo "   Signing ad hoc instead (macOS may ask for permissions again after updates)."
+    codesign --force --deep --sign - "$SIGNED"
+fi
 # The signed copy goes back into build/ (the in-app updater installs from
 # there); extended attributes aren't part of the signature.
 rm -rf "$BUILD"

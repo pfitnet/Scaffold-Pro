@@ -77,7 +77,9 @@
   });
   let saved = null;
   try { saved = localStorage.getItem(KEY); } catch (e) { saved = null; }
-  select(location.hash.slice(1) || saved || 'you');
+  // The gear by the User tab opens Settings with no section named: the
+  // last one used, unless that was You (the User tab's own).
+  select(location.hash.slice(1) || (saved && saved !== 'you' ? saved : 'general'));
   window.addEventListener('hashchange', () => { if (location.hash.slice(1) !== current) select(location.hash.slice(1)); });
 
   // ---- saving ----

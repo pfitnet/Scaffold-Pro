@@ -73,7 +73,6 @@ const NAV_ITEMS = [
   { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '6' },
   { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
   { page: 'admin', label: 'Admin', href: 'admin.html', key: '7' },
-  { page: 'settings', label: 'Settings', href: 'settings.html', key: ',' },
   { page: 'manual', label: 'User Manual', href: 'manual.html' },
 ];
 
@@ -229,17 +228,30 @@ function renderSidebar(activePage) {
   }
   if (window.refreshChatBadge) window.refreshChatBadge();
   setupNavEditing(sidebar);
-  // Pinned to the bottom left: the sharing status, then the User tab.
+  // Pinned to the bottom left: the sharing status, then the User tab with
+  // Settings (the gear) beside it.
   const foot = document.createElement('div');
   foot.className = 'sidebar-foot';
   sidebar.appendChild(foot);
+  const userRow = document.createElement('div');
+  userRow.className = 'sidebar-user-row';
+  foot.appendChild(userRow);
   const user = document.createElement('a');
   user.href = 'settings.html#you';
   user.className = 'sidebar-user';
   user.title = 'You — your name, colour, theme and work (Settings › You, ⌘0)';
   user.innerHTML = `<span class="user-avatar">${icon('user')}</span><span class="user-label">User</span>`;
-  if (activePage === 'user' || (activePage === 'settings' && location.hash === '#you')) { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
-  foot.appendChild(user);
+  const onYou = activePage === 'user' || (activePage === 'settings' && location.hash === '#you');
+  if (onYou) { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
+  userRow.appendChild(user);
+  const gear = document.createElement('a');
+  gear.href = 'settings.html';
+  gear.className = 'sidebar-gear';
+  gear.title = 'Settings (⌘,)';
+  gear.setAttribute('aria-label', 'Settings');
+  gear.innerHTML = '<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+  if (activePage === 'settings' && !onYou) { gear.classList.add('active'); gear.setAttribute('aria-current', 'page'); }
+  userRow.appendChild(gear);
   renderUserTab(user);
   // ScaffoldPro Web: sign out of this browser.
   if (window.__scaffoldProWeb && window.scaffoldProSignOut) {
