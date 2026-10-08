@@ -16093,7 +16093,7 @@ extension NativeBridge: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         // Normally the page has said it has drawn by now.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?.releaseFrame() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.releaseFrame() }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { releaseFrame() }
@@ -18601,8 +18601,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     private func holdFrame(_ done: @escaping () -> Void) {
         guard let webView = webView, let container = webView.superview else { done(); return }
-        webView.takeSnapshot(with: nil) { [weak self] image, _ in
-            guard let self = self, let image = image else { done(); return }
+        // The picture already on screen (no waiting for another draw), and
+        // never more than a moment's wait for it: the page change mustn't lag.
+        var finished = false
+        let finish = { if !finished { finished = true; done() } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: finish)
+        let config = WKSnapshotConfiguration()
+        config.afterScreenUpdates = false
+        webView.takeSnapshot(with: config) { [weak self] image, _ in
+            guard let self = self, let image = image, !finished else { finish(); return }
             self.heldFrame?.removeFromSuperview()
             let view = NSImageView(frame: webView.frame)
             view.image = image
@@ -18614,7 +18621,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self, weak view] in
                 if let view = view, self?.heldFrame === view { self?.releaseFrame() }
             }
-            done()
+            finish()
         }
     }
 
@@ -18627,7 +18634,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         guard let view = heldFrame else { return }
         heldFrame = nil
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.18
+            ctx.duration = 0.12
             view.animator().alphaValue = 0
         }, completionHandler: { view.removeFromSuperview() })
     }

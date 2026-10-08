@@ -557,7 +557,8 @@
     const isOpen = () => !panel.classList.contains('hidden');
     const remember = (v) => { try { sessionStorage.setItem(OPEN_KEY, v ? '1' : ''); } catch (e) { /* not kept */ } };
     // ---- where it is and how big: dragged by its top bar, resized from
-    // its corner; kept on this Mac (double-click the bar for the corner) ----
+    // any edge or corner; kept on this Mac (double-click the bar to put it
+    // back by the button) ----
     const MIN_W = 320, MIN_H = 360, EDGE = 8;
     // Its place, leaving out the opening animation's scale.
     const rectOf = () => ({ left: panel.offsetLeft, top: panel.offsetTop, width: panel.offsetWidth, height: panel.offsetHeight,
@@ -603,23 +604,28 @@
       window.addEventListener('mousemove', move);
       window.addEventListener('mouseup', up);
     }
-    // The corner handle: wider / taller (from the bottom-left corner, as
-    // the chat sits on the right).
-    function startResize(e) {
+    // Resizing from any edge or corner: `dir` is the sides being moved
+    // (n, s, e, w, ne, nw, se, sw).
+    function startResize(e, dir) {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       const r = rectOf();
+      const x0 = e.clientX, y0 = e.clientY;
       panel.classList.add('dragging');
-      document.body.classList.add('as-dragging', 'as-resizing');
+      document.body.classList.add('as-dragging', `as-resizing-${dir}`);
       const move = (ev) => {
-        const width = Math.max(MIN_W, r.right - ev.clientX);
-        const height = Math.max(MIN_H, ev.clientY - r.top);
-        place({ left: r.right - width, top: r.top, width, height });
+        const dx = ev.clientX - x0, dy = ev.clientY - y0;
+        let { left, top, width, height } = r;
+        if (dir.includes('e')) width = Math.max(MIN_W, r.width + dx);
+        if (dir.includes('s')) height = Math.max(MIN_H, r.height + dy);
+        if (dir.includes('w')) { width = Math.max(MIN_W, r.width - dx); left = r.left + r.width - width; }
+        if (dir.includes('n')) { height = Math.max(MIN_H, r.height - dy); top = r.top + r.height - height; }
+        place({ left, top, width, height });
       };
       const up = () => {
         panel.classList.remove('dragging');
-        document.body.classList.remove('as-dragging', 'as-resizing');
+        document.body.classList.remove('as-dragging', `as-resizing-${dir}`);
         window.removeEventListener('mousemove', move);
         window.removeEventListener('mouseup', up);
         saveRect();
@@ -637,12 +643,14 @@
         try { localStorage.removeItem(RECT_KEY); } catch (err) { /* fine */ }
         placeSaved();
       });
-      const grip = document.createElement('div');
-      grip.className = 'as-resize';
-      grip.title = 'Drag to resize';
-      grip.setAttribute('aria-hidden', 'true');
-      grip.addEventListener('mousedown', startResize);
-      panel.appendChild(grip);
+      // A handle on each edge and corner.
+      for (const dir of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) {
+        const grip = document.createElement('div');
+        grip.className = `as-resize as-resize-${dir}`;
+        grip.setAttribute('aria-hidden', 'true');
+        grip.addEventListener('mousedown', (e) => startResize(e, dir));
+        panel.appendChild(grip);
+      }
       window.addEventListener('resize', () => { if (isOpen()) place(rectOf()); });
     }
 

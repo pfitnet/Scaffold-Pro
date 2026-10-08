@@ -4687,3 +4687,10 @@ one idea at a time, few words, and pictures that carry the meaning.
   can be resized from its bottom-left corner. It stays where you put it,
   at that size, on every page; it's always kept on screen. Double-click the
   top bar to put it back by the button.
+
+## Batch 207 — Quicker page changes; resize the chat from any side
+
+- Moving between pages is quick again, still without the black flash: the
+  page you're leaving is held only until the next one first draws, then
+  crossfades into it.
+- The Assistant's floating chat can be resized from any edge or corner.
