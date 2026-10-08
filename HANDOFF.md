@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 184.
+"## Batch N" section per change, newest at the bottom, up to Batch 185.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **185**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **186**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -164,7 +164,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–184, newest last)
+## 5. Recent work (Batches 147–185, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -247,6 +247,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **182:** file names `db.documentFileBase` (number + project name + " - structure", `safeFileName`, "/" → "∕") for PDF, Word, signed copies, letters.
 - **183:** AI connection is the team's: `CompanySettings.aiProvider/aiModel/aiKey` (`setAIConnection`); `QuotationAI.db`; old Keychain key adopted once; `aiKey` stripped from settings:get/update.
 - **184:** `--page-max` / `--page-gutter` on #content centre the page on wide screens; `.sidebar-user-row` is one split button (name | gear), kept out of the nav ink.
+- **185:** `QuotationLineItem.priceNote` ("FOC" / "Included", price 0) for priced-section rows; `setQuotationLinePriceNote`; printed via `priceNoteLabel` (letter `.partial`, BQ sheet `BOQCharge.amountText`).
 
 ---
 

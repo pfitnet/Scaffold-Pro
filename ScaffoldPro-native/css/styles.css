@@ -2601,3 +2601,10 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 .bb-num { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; }
 .bb-num input { width: 64px !important; --control-h: 28px; padding: 0 7px; text-align: right; }
 .bb-num i { font-style: normal; font-size: 12px; color: var(--text-tertiary); }
+
+/* A priced section's row: charged, free of charge, or included (quotation editor). */
+.price-cell { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.price-cell .price-note-select { width: auto !important; max-width: 132px; --control-h: 28px; padding: 0 22px 0 8px; font-size: 12px; }
+.price-cell .row-price, .price-cell .add-price { min-width: 84px; }
+tr.not-charged .price-note-select { color: var(--accent); font-weight: 600; }
+.price-note { font-size: 12px; font-style: italic; color: var(--text-secondary); white-space: nowrap; }

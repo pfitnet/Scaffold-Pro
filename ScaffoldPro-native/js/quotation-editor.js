@@ -642,6 +642,15 @@ async function blockCall(promise) {
   await loadDetail();
 }
 
+// A priced row can be not charged: free of charge, or included in the unit
+// price (its price is 0 and those words print instead of figures).
+const PRICE_NOTES = { FOC: 'Free of charge', Included: 'Included in unit price' };
+function priceNoteSelect(cls, value, dis) {
+  return `<select class="${cls} price-note-select" title="Charged, free of charge, or included in the unit price" ${dis}>
+    <option value=""${value ? '' : ' selected'}>Charged</option>
+    ${Object.entries(PRICE_NOTES).map(([k, t]) => `<option value="${k}"${value === k ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+}
+
 function renderBlocks() {
   const d = currentDetail;
   const container = document.getElementById('extra-sections');
@@ -674,11 +683,12 @@ function renderBlocks() {
               <td class="num"><input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} /></td>
               <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" placeholder="md" ${dis} /></td>
               <td class="rate-only">(Rate Only)</td>${remove}</tr>`
-          : `<tr data-id="${line.id}">${common}
+          : `<tr data-id="${line.id}"${line.priceNote ? ' class="not-charged"' : ''}>${common}
               <td class="num"><input type="number" class="row-qty narrow" min="1" step="1" value="${Math.round(line.quantity)}" ${dis} /></td>
-              <td class="num"><input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} /></td>
+              <td class="num"><div class="price-cell">${line.priceNote ? '' : `<input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} />`}
+                ${priceNoteSelect('row-pricenote', line.priceNote, dis)}</div></td>
               <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" placeholder="optional" ${dis} /></td>
-              <td class="num">${money(d.lineTotals[line.id])}</td>${remove}</tr>`;
+              <td class="num">${line.priceNote ? `<span class="price-note">${esc(PRICE_NOTES[line.priceNote])}</span>` : money(d.lineTotals[line.id])}</td>${remove}</tr>`;
       }).join('');
       body = `
         <div class="extra-title-row">
@@ -694,7 +704,7 @@ function renderBlocks() {
             <td class="num row-no">+</td>
             <td><input type="text" class="add-desc" placeholder="${rates ? 'e.g. Scaffolder CP' : 'e.g. Design and Drawing'}" /></td>
             ${rates ? '' : '<td class="num"><input type="number" class="add-qty narrow" min="1" step="1" value="1" title="Quantity" /></td>'}
-            <td class="num"><input type="number" class="add-price${rates ? ' narrow' : ''}" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" /></td>
+            <td class="num"><div class="price-cell"><input type="number" class="add-price${rates ? ' narrow' : ''}" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" />${rates ? '' : priceNoteSelect('add-pricenote', '', '')}</div></td>
             <td><input type="text" class="add-unit narrow" value="${rates ? 'md' : ''}" placeholder="${rates ? 'md' : 'optional'}" title="${rates ? 'Per, e.g. md (man-day)' : 'Optional — printed after the unit price, e.g. 500.00 /set'}" /></td>
             <td colspan="2" class="add-cell"><button class="add-row">Add Row</button></td>
           </tr></tfoot>`}</table>` : '<p class="small-note">No rows.</p>'}
@@ -743,6 +753,7 @@ function renderBlocks() {
       field('.row-unit', 'unit', (v) => v);
       field('.row-qty', 'quantity', (v) => Math.max(1, Math.round(Number(v) || 1)));
       field('.row-price', 'appliedUnitPrice', (v) => parseFloat(v) || 0);
+      field('.row-pricenote', 'priceNote', (v) => v || null);
       const rm = tr.querySelector('.row-remove');
       if (rm) rm.addEventListener('click', () => removeLine(lineId));
     }
@@ -759,6 +770,7 @@ function renderBlocks() {
           unit: q('.add-unit').value,
           quantity: qtyInput ? Math.max(1, Math.round(Number(qtyInput.value) || 1)) : 1,
           price: Number(q('.add-price').value) || 0,
+          priceNote: (q('.add-pricenote') || {}).value || null,
         }));
       };
       addBtn.addEventListener('click', add);

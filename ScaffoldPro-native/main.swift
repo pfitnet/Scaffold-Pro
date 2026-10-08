@@ -1363,6 +1363,8 @@ struct BOQCharge: Codable {
     var code: String?
     var name: String
     var amount: Double
+    /// Printed instead of the amount, e.g. "Free of Charge".
+    var amountText: String? = nil
 }
 
 struct BOQRatesSection: Codable {
@@ -1762,6 +1764,19 @@ struct QuotationLineItem: Codable {
     /// Taken out of the link on its own ("Unlink from BOQ"): it keeps its
     /// own quantity and price, and the BOQ's line keeps its, until relinked.
     var boqDetached: Bool? = nil
+    /// A priced section's row that isn't charged: "FOC" (free of charge) or
+    /// "Included" (included in the unit price). Its price is 0 and the
+    /// words are printed instead of figures.
+    var priceNote: String? = nil
+}
+
+/// How a priced row that isn't charged is printed.
+func priceNoteLabel(_ note: String?) -> String? {
+    switch note {
+    case "FOC": return "Free of Charge"
+    case "Included": return "Included in Unit Price"
+    default: return nil
+    }
 }
 
 /// A letter on the letterhead, written in the letter editor. The app prints
@@ -8403,7 +8418,24 @@ final class AppDatabase {
 
     /// A row of a priced or rates section: description, unit, quantity
     /// (always 1 for a rate) and unit price / rate.
-    func addQuotationBlockLine(blockId: String, description: String, unit: String, quantity: Double, price: Double) -> String? {
+    /// A priced section's row as charged (nil), free of charge ("FOC") or
+    /// included in the unit price ("Included"); not charged = a price of 0.
+    func setQuotationLinePriceNote(id: String, note rawNote: String?) -> String? {
+        var items = quotationLineItemsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+        if case .failure(let e) = draftQuotation(items[i].quotationId) { return e.message }
+        let note = ["FOC", "Included"].contains(rawNote ?? "") ? rawNote : nil
+        items[i].priceNote = note
+        if note != nil {
+            items[i].appliedUnitPrice = 0
+            items[i].priceFormula = nil
+        }
+        quotationLineItemsStore.writeAll(items)
+        touchQuotation(items[i].quotationId)
+        return nil
+    }
+
+    func addQuotationBlockLine(blockId: String, description: String, unit: String, quantity: Double, price: Double, priceNote: String? = nil) -> String? {
         guard let block = quotationBlocksStore.readAll().first(where: { $0.id == blockId }) else { return "Section not found." }
         guard block.kind != "Note", block.kind != "BuyBack" else { return block.kind == "Note" ? "A note has no rows." : "The buy-back offer's row is written from its figures." }
         if case .failure(let e) = draftQuotation(block.quotationId) { return e.message }
@@ -8418,6 +8450,10 @@ final class AppDatabase {
             appliedUnitPrice: doubleOf(roundToCents(decimalOf(price))), section: nil, sortOrder: nextSortOrder
         )
         line.blockId = block.id
+        if block.kind == "Priced", ["FOC", "Included"].contains(priceNote ?? "") {
+            line.priceNote = priceNote
+            line.appliedUnitPrice = 0
+        }
         quotationLineItemsStore.insert(line)
         touchQuotation(block.quotationId)
         return nil
@@ -13307,7 +13343,8 @@ enum BQSheet {
                 rows.append(SheetRow(kind: "charge", height: 18.75 + extra, fill: nil, cells: [
                     cell(edges[0], edges[1], nonBlank(charge.code) ?? "D\(i + 1)", 12, "left", 5.625 + extra),
                     cell(edges[1], edges[n - 2], charge.name, 12, "left", 5.625),
-                    cell(edges[n - 2], edges[n - 1], formatMoney(charge.amount), 12, "money", 5.625),
+                    charge.amountText.map { cell(edges[n - 2], edges[n - 1], $0, 12, "center", 5.625) }
+                        ?? cell(edges[n - 2], edges[n - 1], formatMoney(charge.amount), 12, "money", 5.625),
                     cell(edges[n - 1], edges[n], "N/a", 12, "center", 5.625),
                 ], repeats: false))
             }
@@ -17679,6 +17716,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleAddQuotationLineItem(id: id, payload: payload)
         case "quotations:updateLineItem":
             let lineId = (payload["id"] as? String) ?? ""
+            if payload.keys.contains("priceNote") {
+                let error = db.setQuotationLinePriceNote(id: lineId, note: payload["priceNote"] as? String)
+                respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+                return
+            }
             let quantity = payload["quantity"] as? Double
             let appliedUnitPrice = payload["appliedUnitPrice"] as? Double
             if let error = db.updateQuotationLineItem(id: lineId, quantity: quantity, appliedUnitPrice: appliedUnitPrice,
@@ -17725,7 +17767,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let error = db.addQuotationBlockLine(
                 blockId: (payload["blockId"] as? String) ?? "", description: (payload["description"] as? String) ?? "",
                 unit: (payload["unit"] as? String) ?? "", quantity: (payload["quantity"] as? Double) ?? 1,
-                price: (payload["price"] as? Double) ?? 0)
+                price: (payload["price"] as? Double) ?? 0, priceNote: payload["priceNote"] as? String)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
         case "quotations:updateLineDiscount":
             let error = db.updateQuotationLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
@@ -19615,6 +19657,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             if block.kind == "Rates" {
                 rows.append(.partial([number, line.itemDescription, "\(formatMoney(line.appliedUnitPrice))\(unit.isEmpty ? "" : " / \(unit)")"],
                                      tail: "(Rate Only)"))
+            } else if let label = priceNoteLabel(line.priceNote) {
+                // Not charged: the words across the price columns.
+                rows.append(.partial([number, line.itemDescription], tail: label))
             } else {
                 let note = lineDiscountNote(discountType: line.discountType, discountValue: line.discountValue, currencySymbol: currency)
                 let description = note.map { "\(line.itemDescription)\n\($0)" } ?? line.itemDescription
@@ -19971,7 +20016,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             for (i, l) in detail.lineItems.filter({ $0.blockId == block.id }).sorted(by: { $0.sortOrder < $1.sortOrder }).enumerated() {
                 let title = nonBlank(block.title).map { "\($0)\(per): " } ?? ""
                 charges.append(BOQCharge(code: "\(block.prefix)\(i + 1)", name: "\(title)\(l.itemDescription.replacingOccurrences(of: "\n", with: " "))",
-                                         amount: detail.lineTotals[l.id] ?? l.appliedUnitPrice * l.quantity.rounded()))
+                                         amount: detail.lineTotals[l.id] ?? l.appliedUnitPrice * l.quantity.rounded(),
+                                         amountText: priceNoteLabel(l.priceNote)))
             }
         }
         if detail.discountAmount > 0 {
