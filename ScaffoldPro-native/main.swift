@@ -16068,6 +16068,40 @@ final class QuotationAI {
 }
 
 // =====================================================================
+// MARK: - Moving between pages without a flash
+// =====================================================================
+
+/// While the window goes from one page to the next, a picture of the page
+/// being left is laid over it (`holdFrame`), and taken away once the new
+/// page has drawn — the page says so (ui:releaseFrame, js/bridge.js), or,
+/// failing that, a moment after it has loaded. Without it the window shows
+/// an empty (in Dark Mode, black) web view between the two.
+extension NativeBridge: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        let toThisWindow = navigationAction.targetFrame?.isMainFrame ?? false
+        let from = webView.url, to = navigationAction.request.url
+        // Only a jump within the same page (#section): nothing to cover.
+        let samePage = from != nil && to != nil && from!.path == to!.path && from!.query == to!.query
+            && to!.fragment != nil && navigationAction.navigationType != .reload
+        guard toThisWindow, from != nil, !samePage, !holdingFrame, to?.isFileURL == true || to?.scheme == "about" || to?.scheme == from?.scheme else {
+            decisionHandler(.allow)
+            return
+        }
+        holdFrameForNavigation { decisionHandler(.allow) }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Normally the page has said it has drawn by now.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?.releaseFrame() }
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { releaseFrame() }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { releaseFrame() }
+}
+
+// =====================================================================
 // MARK: - The assistant (assistant.html): a chat with the team's AI that
 // can look things up and propose work (a quotation, items, a task)
 // =====================================================================
@@ -18584,7 +18618,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         }
     }
 
-    private func releaseFrame() {
+    /// Whether a picture of the page is being held over it.
+    var holdingFrame: Bool { heldFrame != nil }
+
+    func holdFrameForNavigation(_ done: @escaping () -> Void) { holdFrame(done) }
+
+    func releaseFrame() {
         guard let view = heldFrame else { return }
         heldFrame = nil
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -24677,6 +24716,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         webView.uiDelegate = self
         bridge.webView = webView
         bridge.window = window
+        // Moving between pages without a blank (black) flash: see
+        // NativeBridge's WKNavigationDelegate.
+        webView.navigationDelegate = bridge
         // ScaffoldPro Web: the same pages, for the team's browsers.
         WebServer.shared.bridge = bridge
         WebServer.shared.db = db

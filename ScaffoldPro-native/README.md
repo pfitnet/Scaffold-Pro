@@ -4677,3 +4677,13 @@ one idea at a time, few words, and pictures that carry the meaning.
   - make a new project (with its client and site, found or made new);
   - add a client;
   - add a calendar event as well as a task, and mark a task done.
+
+## Batch 206 — No black flash between pages; the Assistant chat moves
+
+- Going from one tab or page to another no longer flashes the window black.
+  The page you're leaving stays on screen until the next one has drawn,
+  then it fades straight into it.
+- The Assistant's floating chat can be moved: drag it by its top bar. It
+  can be resized from its bottom-left corner. It stays where you put it,
+  at that size, on every page; it's always kept on screen. Double-click the
+  top bar to put it back by the button.

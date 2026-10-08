@@ -207,3 +207,13 @@
 .as-chat.compact .as-drop { border-radius: 18px; }
 @media (prefers-reduced-motion: reduce) { .as-float, .as-launcher, .as-launcher svg { animation: none; transition: none; } }
 @media print { .as-launcher, .as-float { display: none !important; } }
+
+/* Moving and resizing the floating chat. */
+.as-float .as-drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; }
+.as-float.dragging { animation: none; box-shadow: 0 30px 70px rgba(0, 0, 0, .28), 0 8px 22px rgba(0, 0, 0, .14); }
+.as-float.dragging .as-drag-handle, body.as-dragging, body.as-dragging * { cursor: grabbing !important; user-select: none !important; }
+body.as-resizing, body.as-resizing * { cursor: nesw-resize !important; }
+.as-resize { position: absolute; left: 0; bottom: 0; width: 18px; height: 18px; cursor: nesw-resize; z-index: 3; }
+.as-resize::before { content: ''; position: absolute; left: 5px; bottom: 5px; width: 7px; height: 7px; border-left: 2px solid var(--text-tertiary);
+  border-bottom: 2px solid var(--text-tertiary); border-bottom-left-radius: 3px; opacity: .55; transition: opacity .15s; }
+.as-float:hover .as-resize::before { opacity: 1; }
