@@ -4258,3 +4258,13 @@ one idea at a time, few words, and pictures that carry the meaning.
   from several quotations (a name declared twice in `createInvoice`). Fixed.
 - Two unused values left in Marketing after it began counting only agreed or
   signed quotations are removed (compiler warnings).
+
+## Batch 174 — Signing works when the project is in iCloud
+
+- Installing stopped at "Ad-hoc signing" with "resource fork, Finder
+  information, or similar detritus not allowed" on a Mac whose Documents
+  folder is kept in iCloud: macOS puts Finder information back on the files
+  as fast as it's removed.
+- `install.sh` now signs a clean copy (made with `ditto`, without extended
+  attributes) in a temporary folder, puts the signed copy back in `build/`,
+  and installs from the clean copy. The in-app updater copies the same way.

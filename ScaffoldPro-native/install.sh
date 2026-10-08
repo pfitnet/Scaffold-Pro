@@ -126,10 +126,24 @@ echo "🔍 Validating Info.plist..."
 plutil -lint "$BUILD/Contents/Info.plist"
 
 echo "🔓 Removing quarantine..."
-xattr -cr "$BUILD"
+xattr -cr "$BUILD" 2>/dev/null || true
 
 echo "🔏 Ad-hoc signing..."
-codesign --force --deep --sign - "$BUILD"
+# Signed as a clean copy in a temporary folder: when the project is in a
+# folder kept in iCloud (Desktop & Documents), macOS puts Finder
+# information back on the files as fast as it's removed, and codesign
+# refuses to sign with it there ("resource fork, Finder information, or
+# similar detritus not allowed"). ditto copies without it.
+SIGN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/scaffoldpro-sign.XXXXXX")"
+trap 'rm -rf "$SIGN_DIR"' EXIT
+SIGNED="$SIGN_DIR/ScaffoldPro.app"
+ditto --norsrc --noextattr --noacl "$BUILD" "$SIGNED"
+xattr -cr "$SIGNED" 2>/dev/null || true
+codesign --force --deep --sign - "$SIGNED"
+# The signed copy goes back into build/ (the in-app updater installs from
+# there); extended attributes aren't part of the signature.
+rm -rf "$BUILD"
+ditto --norsrc --noextattr --noacl "$SIGNED" "$BUILD"
 
 # When ScaffoldPro updates itself it only needs the build: it then closes
 # itself and a small helper puts the new copy in place and opens it.
@@ -150,8 +164,8 @@ fi
 
 echo "📦 Installing to /Applications..."
 rm -rf "$DEST"
-cp -R "$BUILD" "$DEST"
-xattr -cr "$DEST"
+ditto --norsrc --noextattr --noacl "$SIGNED" "$DEST"
+xattr -cr "$DEST" 2>/dev/null || true
 
 echo "🔄 Refreshing LaunchServices..."
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
