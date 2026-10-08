@@ -193,6 +193,10 @@ async function renderWorkerDetail() {
     </div>
     <div class="worker-detail-fields">
       <div class="field"><label>Name</label><input type="text" data-field="name" value="${escapeAttr(worker.name)}" /></div>
+      <div class="field"><label>Chinese name</label><span class="name-pair"><input type="text" data-field="chineseName" value="${escapeAttr(worker.chineseName)}" placeholder="e.g. 陳大文" />
+        <select data-field="honorific" title="On the employment agreement">${['先生', '女士'].map((h) => `<option ${(worker.honorific || '先生') === h ? 'selected' : ''}>${h}</option>`).join('')}</select></span></div>
+      <div class="field"><label>ID card no.</label><input type="text" data-field="idNumber" value="${escapeAttr(worker.idNumber)}" placeholder="e.g. A123456(7)" /></div>
+      <div class="field"><label>Daily wage (HK$)</label><input type="number" min="0" step="10" data-field="dailyWage" value="${escapeAttr(worker.dailyWage)}" placeholder="e.g. 1300" /></div>
       <div class="field"><label>Position</label><input type="text" data-field="position" value="${escapeAttr(worker.position)}" /></div>
       <div class="field"><label>Phone</label><input type="text" data-field="phone" value="${escapeAttr(worker.phone)}" /></div>
       <div class="field"><label>Email</label><input type="text" data-field="email" value="${escapeAttr(worker.email)}" /></div>
@@ -200,6 +204,7 @@ async function renderWorkerDetail() {
       <div class="field"><label>End Date</label><input type="date" data-field="endDate" value="${escapeAttr(worker.endDate)}" /></div>
       <div class="field full"><label>Notes</label><textarea data-field="notes" rows="2">${escapeAttr(worker.notes)}</textarea></div>
     </div>
+    <div id="worker-agreement"></div>
     <div class="section-toolbar">
       <h2 style="font-size:14px;">Documents</h2>
       <div class="controls">
@@ -241,6 +246,7 @@ async function renderWorkerDetail() {
   });
 
   await refreshWorkerDocs(worker.id);
+  if (window.workerAgreement) await window.workerAgreement.render(document.getElementById('worker-agreement'), worker);
 }
 
 async function refreshWorkerDocs(workerId) {
@@ -253,7 +259,7 @@ async function refreshWorkerDocs(workerId) {
 }
 
 function openWorkerModal() {
-  for (const id of ['w-name', 'w-position', 'w-phone', 'w-email', 'w-startDate']) {
+  for (const id of ['w-name', 'w-chineseName', 'w-idNumber', 'w-dailyWage', 'w-position', 'w-phone', 'w-email', 'w-startDate']) {
     document.getElementById(id).value = '';
   }
   document.getElementById('w-error').classList.add('hidden');
@@ -268,6 +274,10 @@ function closeWorkerModal() {
 async function saveNewWorker() {
   const result = await window.api.workers.create({
     name: document.getElementById('w-name').value,
+    chineseName: document.getElementById('w-chineseName').value,
+    honorific: document.getElementById('w-honorific').value,
+    idNumber: document.getElementById('w-idNumber').value,
+    dailyWage: document.getElementById('w-dailyWage').value,
     position: document.getElementById('w-position').value,
     phone: document.getElementById('w-phone').value,
     email: document.getElementById('w-email').value,

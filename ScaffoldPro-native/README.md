@@ -4774,3 +4774,27 @@ one idea at a time, few words, and pictures that carry the meaning.
 - A line in the chat marks where the summary starts ("20 earlier messages
   summarised for the AI"). Click it to read what the AI remembers. The
   older messages stay on screen for you.
+
+## Batch 213 — Employment agreements for workers
+
+- Adding a worker (Admin › Workers › + New Worker) now also makes their
+  Simple Employment Agreement (簡易僱傭合約), laid out like your template:
+  a cover page, the terms, and a page to sign, on the letterhead.
+- It fills in the worker's name (and Chinese name, with 先生 or 女士), ID
+  card number, start date, position and daily wage. The wage is written
+  out in words too, e.g. 壹仟叁佰元正 (HK$1,300.00).
+- New worker details: Chinese name, 先生/女士, ID card no. and daily wage.
+- Each worker's page has an Employment Agreement card:
+  - Its terms can be changed there: dates, position, wage, hours, pay day,
+    notice, and who signs for the company.
+  - Preview PDF, Word and Print work as they do for quotations. Files go
+    into the worker's Contracts folder.
+  - Sign & Chop puts your signature and the company chop on it.
+  - Upload Signed Copy (or drop the scan or photo on the card) keeps the
+    copy the worker signed.
+  - Three steps show where it is: Made → Signed & chopped → Signed by the
+    worker.
+- Team page: "Signs and chops" is now two ticks, Quotations and Worker
+  agreements. Someone who signs agreements can have their ID card number
+  printed under their name.
+- Workers added before this get a "Make Agreement" button.
