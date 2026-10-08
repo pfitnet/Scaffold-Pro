@@ -5972,6 +5972,30 @@ final class AppDatabase {
         return nil
     }
 
+    /// Every project's quotation series ("26219-001"…) by its number, as
+    /// documentSeries finds them (each store read once).
+    func seriesByProject() -> [String: Set<String>] {
+        let numberOf = Dictionary(projectsStore.readAll().map { ($0.id, $0.projectNumber) }, uniquingKeysWith: { a, _ in a })
+        func series(_ num: String, _ projectId: String) -> String? {
+            guard let projectNumber = numberOf[projectId] else { return nil }
+            let pattern = NSRegularExpression.escapedPattern(for: projectNumber) + "-[0-9]+"
+            return (num.range(of: pattern, options: .regularExpression) ?? num.range(of: "[0-9]+-[0-9]+", options: .regularExpression))
+                .map { String(num[$0]) }
+        }
+        let quotes = quotationsStore.readAll()
+        var quoteSeries: [String: String] = [:]
+        for q in quotes { if let s = series(q.quotationNumber, q.projectId) { quoteSeries[q.id] = s } }
+        var out: [String: Set<String>] = [:]
+        func add(_ projectId: String, _ found: String?) {
+            if let found = found, let projectNumber = numberOf[projectId] { out[projectNumber, default: []].insert(found) }
+        }
+        for b in boqsStore.readAll() { add(b.projectId, series(b.boqNumber, b.projectId)) }
+        for q in quotes { add(q.projectId, quoteSeries[q.id]) }
+        for d in deliveryNotesStore.readAll() { add(d.projectId, d.sourceQuotationId.flatMap { quoteSeries[$0] } ?? series(d.deliveryNoteNumber, d.projectId)) }
+        for i in invoicesStore.readAll() { add(i.projectId, i.sourceQuotationId.flatMap { quoteSeries[$0] } ?? series(i.invoiceNumber, i.projectId)) }
+        return out
+    }
+
     /// A project's BOQs, quotations, delivery notes and invoices as
     /// (kind, number), longest numbers first (so Qt26001-002-s1 is found
     /// before Qt26001-002 in a file's name).
@@ -17637,12 +17661,41 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             moves += fileDocumentsBySeries(number)
         }
         db.rebaseFilePaths(moves: moves)
+        makeSeriesFolders(numbers)
     }
 
     /// The project folders kept for each kind of document. Inside a
     /// quotation series' folder they're "26001-002 BOQ", "26001-002
     /// Quotations"…, plus "26001-002 Delivery Schedules".
     private static let documentKindFolders = ["BOQ", "Quotations", "Invoices", "Delivery Notes"]
+    /// What's in each quotation series' folder, made even while empty.
+    private static let seriesKindFolders = ["BOQ", "Quotations", "Delivery Schedules", "Delivery Notes", "Invoices"]
+    /// Actions after which a project may have a new quotation series.
+    private static let seriesCreatingActions: Set<String> = ["boq:create", "quotations:create", "quotations:duplicate", "quotations:importCreate",
+                                                             "quotations:importFromBOQ", "deliveryNotes:create", "deliveryNotes:importQuotation", "invoices:create"]
+
+    /// A project's quotation series ("26219-001", "26219-002"…), from its
+    /// BOQs, quotations, delivery notes and invoices.
+    private func projectSeries(_ projectNumber: String) -> [String] {
+        (db.seriesByProject()[projectNumber] ?? []).sorted()
+    }
+
+    /// Each series' folder with its BOQ, Quotations, Delivery Schedules,
+    /// Delivery Notes and Invoices folders inside, for one project or all.
+    func makeSeriesFolders(_ numbers: [String]? = nil) {
+        guard FileManager.default.fileExists(atPath: storage.projectsRoot.path) else { return }
+        let all = db.seriesByProject()
+        for number in numbers ?? db.allProjectNumbers() where !number.isEmpty {
+            for series in (all[number] ?? []).sorted() {
+                for kind in NativeBridge.seriesKindFolders {
+                    let folder = storage.seriesFolder(number, series, kind)
+                    if !FileManager.default.fileExists(atPath: folder.path) {
+                        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                    }
+                }
+            }
+        }
+    }
 
     /// Where a project's file goes: the folder of its quotation series and
     /// kind ("26001-002/26001-002 Quotations"; delivery schedules in
@@ -17661,6 +17714,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
                 series = db.documentSeries(docTypeTag: match.tag, number: match.number)
             }
         }
+        // A project with one series: anything of its kind goes there.
+        if series == nil {
+            let all = projectSeries(projectNumber)
+            if all.count == 1 { series = all.first }
+        }
         guard let found = series else { return storage.projectSubfolder(projectNumber, subfolder) }
         return storage.seriesFolder(projectNumber, found, schedule ? "Delivery Schedules" : subfolder)
     }
@@ -17674,8 +17732,12 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         for sub in NativeBridge.documentKindFolders {
             let folder = storage.projectSubfolder(projectNumber, sub)
             guard let items = try? fm.contentsOfDirectory(atPath: folder.path) else { continue }
-            for item in items where item != ".DS_Store" && !item.hasPrefix(".") {
-                let target = fileFolder(projectNumber: projectNumber, subfolder: sub, name: item)
+            for item in items where item != ".DS_Store" {
+                // A file not downloaded from iCloud: ".<name>.icloud".
+                let placeholder = item.hasPrefix(".") && item.hasSuffix(".icloud")
+                guard !item.hasPrefix(".") || placeholder else { continue }
+                let name = placeholder ? String(item.dropFirst().dropLast(".icloud".count)) : item
+                let target = fileFolder(projectNumber: projectNumber, subfolder: sub, name: name)
                 guard target.standardizedFileURL.path != folder.standardizedFileURL.path else { continue }
                 let from = folder.appendingPathComponent(item)
                 try? fm.createDirectory(at: target, withIntermediateDirectories: true)
@@ -17749,6 +17811,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// Answers a page's request — from this Mac's window, or a browser.
     func handle(id: String, action: String, payload: [String: Any]) {
+        // A new BOQ or quotation: its series' folders, once it's saved.
+        if NativeBridge.seriesCreatingActions.contains(action) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.makeSeriesFolders() }
+        }
         switch action {
         case "history:undo", "history:redo":
             // Undo / Redo: the latest step's records put back (UndoJournal).
@@ -21180,6 +21246,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             respondNull(id: id)
             return
         }
+        makeSeriesFolders([project.projectNumber])
         let detail = ProjectDetail(
             id: project.id, projectNumber: project.projectNumber, name: project.name, status: project.status,
             projectDescription: project.projectDescription, startDate: project.startDate,

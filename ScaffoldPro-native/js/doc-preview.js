@@ -235,8 +235,9 @@
         letterheadBands(holder);
         shareFonts(shadow);
         // docx-preview only breaks pages where the document itself does;
-        // Word works out the rest, so each document reads as one long page.
-        return `${fileName || ''} · each document shown as one continuous page — Word splits it into pages`;
+        // the rest are worked out here, as Word would (near enough).
+        const count = paginate(holder);
+        return `${fileName || ''} · ${count} page${count === 1 ? '' : 's'} (Word may break them slightly differently)`;
       },
       save: () => save(false),
     });
@@ -248,7 +249,8 @@
     .docx-wrapper { background: transparent !important; padding: 0 !important; display: flex; flex-direction: column; align-items: center; }
     .docx-wrapper > section.docx { position: relative; margin: 0 0 22px !important; color: #000;
       box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 8px 26px rgba(0, 0, 0, .14) !important; }
-    table { table-layout: fixed; }
+    table { table-layout: fixed !important; }
+    section.dp-paged { overflow: hidden; }
     section.dp-lettered > header, section.dp-lettered > footer { display: none; }
     .dp-band { position: absolute; left: 0; overflow: hidden; pointer-events: none; }
     .dp-band.top { top: 0; }
@@ -284,6 +286,68 @@
       section.classList.add('dp-lettered');
       section.style.paddingBottom = `${bottom + 14}pt`;
     }
+  }
+
+  // Splits each section that's longer than its page into pages: whole
+  // paragraphs move to the next page, long tables are split between rows
+  // (the heading row repeated), and a heading stays with what follows it.
+  // Each page keeps the letterhead bands. Returns the number of pages.
+  function paginate(holder) {
+    const px = (pt) => parseFloat(pt) * 4 / 3;
+    let count = 0;
+    for (const first of [...holder.querySelectorAll('section.docx')]) {
+      const pageH = px(first.style.minHeight);
+      const css = getComputedStyle(first);
+      const limit = pageH - parseFloat(css.paddingBottom);
+      if (!pageH) { count++; continue; }
+      let page = first;
+      for (let guard = 0; guard < 200; guard++) {
+        count++;
+        page.style.height = `${pageH}px`;
+        page.classList.add('dp-paged');
+        const article = page.querySelector(':scope > article');
+        if (!article) break;
+        const blocks = [...article.children];
+        const over = blocks.findIndex((b) => b.offsetTop + b.offsetHeight > limit + 0.5);
+        if (over < 0) break;
+        let moving = blocks.slice(over);
+        const block = blocks[over];
+        // A table: the rows that fit stay, the rest (under a copy of its
+        // heading row) go on.
+        let rest = null;
+        if (block.tagName === 'TABLE' && block.rows.length > 3) {
+          const rows = [...block.rows];
+          const cut = rows.findIndex((r, i) => i > 0 && block.offsetTop + r.offsetTop + r.offsetHeight > limit + 0.5);
+          if (cut > 1) {
+            rest = block.cloneNode(false);
+            for (const c of block.querySelectorAll(':scope > colgroup')) rest.appendChild(c.cloneNode(true));
+            rest.appendChild(rows[0].cloneNode(true));
+            for (const r of rows.slice(cut)) rest.appendChild(r);
+            moving = [rest, ...blocks.slice(over + 1)];
+          }
+        }
+        if (!rest) {
+          // Nothing fits on this page any more; a block taller than a whole
+          // page stays where it is.
+          if (over === 0) break;
+          // A short paragraph just before (a heading) goes with what follows.
+          const prev = blocks[over - 1];
+          if (over > 1 && prev.tagName === 'P' && prev.offsetHeight < 30 && /bold/.test(prev.innerHTML)) moving = [prev, ...moving];
+        }
+        const next = page.cloneNode(false);
+        next.style.minHeight = first.style.minHeight;
+        for (const part of page.children) {
+          if (part === article) {
+            const body = article.cloneNode(false);
+            for (const m of moving) body.appendChild(m);
+            next.appendChild(body);
+          } else next.appendChild(part.cloneNode(true));
+        }
+        page.after(next);
+        page = next;
+      }
+    }
+    return count;
   }
 
   window.docPreview = { pdf, word };

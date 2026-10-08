@@ -45,7 +45,7 @@
   // ---------- Sidebar marker ----------
   function placeNavInk(animate) {
     const bar = document.getElementById('sidebar');
-    const active = bar && bar.querySelector('a.active:not(.sidebar-brand):not(.sidebar-user):not(.sidebar-gear)');
+    const active = bar && bar.querySelector('a.active:not(.sidebar-brand):not(.sidebar-user)');
     if (!bar || !active) return false;
     let ink = bar.querySelector('.nav-ink');
     if (!ink) {

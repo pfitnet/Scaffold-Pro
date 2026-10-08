@@ -79,6 +79,9 @@
         ? (task.assignee ? { person: task.assignee } : task.team ? { team: task.team } : {})
         : (opts.assignee ? { person: opts.assignee } : opts.team ? { team: opts.team } : {});
       const me = teamsCache.me || '';
+      // A new event is yours unless someone (or a team) is chosen.
+      let forChosen = !!(task || opts.assignee || opts.team);
+      if (!forChosen && kind === 'event' && me) forWho = { person: me };
       const people = [...new Set([...(opts.people || []), forWho.person].filter(Boolean))];
 
       const drawKind = () => {
@@ -106,11 +109,12 @@
           b.addEventListener('click', () => {
             const v = b.dataset.for;
             forWho = v.startsWith('p:') ? { person: v.slice(2) } : v.startsWith('t:') ? { team: v.slice(2) } : {};
+            forChosen = true;
             drawFor();
           });
         }
         const sel = $('te-for').querySelector('.te-person');
-        if (sel) sel.addEventListener('change', () => { forWho = sel.value ? { person: sel.value } : {}; drawFor(); });
+        if (sel) sel.addEventListener('change', () => { forWho = sel.value ? { person: sel.value } : {}; forChosen = true; drawFor(); });
       };
 
       $('tk-text').value = task ? task.title : (opts.title || '');
@@ -133,7 +137,11 @@
       $('tk-text').focus();
 
       const kindButtons = [...modal.querySelectorAll('.te-kind button')];
-      const onKind = (e) => { kind = e.currentTarget.dataset.kind; drawKind(); };
+      const onKind = (e) => {
+        kind = e.currentTarget.dataset.kind;
+        if (!forChosen && me) { forWho = kind === 'event' ? { person: me } : {}; drawFor(); }
+        drawKind();
+      };
       // Moving the start keeps the event's length.
       let lastStart = $('tk-time').value;
       const onStart = () => {

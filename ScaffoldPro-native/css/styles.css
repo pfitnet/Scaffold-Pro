@@ -210,7 +210,7 @@ a:hover { text-decoration: underline; }
 #sidebar a:hover .nav-icon { transform: scale(1.12) rotate(-4deg); color: var(--accent); }
 #sidebar a.active .nav-icon { color: var(--accent); }
 /* The selection marker slides from item to item (js/motion.js). */
-#sidebar.has-ink a.active:not(.sidebar-brand):not(.sidebar-user):not(.sidebar-gear) { background: transparent; box-shadow: none; }
+#sidebar.has-ink a.active:not(.sidebar-brand):not(.sidebar-user) { background: transparent; box-shadow: none; }
 .nav-ink { position: absolute; z-index: 0; left: 12px; right: 12px; height: 0; border-radius: 9px; pointer-events: none;
   background: var(--sidebar-selected); box-shadow: var(--shadow-control), inset 0 0 0 .5px var(--hairline);
   transition: top .38s var(--spring), height .3s var(--ease), opacity .2s; }
@@ -921,20 +921,18 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
   margin-top: auto; position: sticky; bottom: -16px; background: var(--sidebar);
   padding: 8px 0 0; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 4px;
 }
-/* You and Settings: one button in two parts — your name on the left,
-   the gear on the right, a hairline between. */
+/* You and Settings: one button — your name, the gear at its right. */
 .sidebar-user-row { display: flex; align-items: stretch; border: 1px solid var(--hairline); border-radius: 11px; overflow: hidden;
   background: color-mix(in srgb, var(--text) 3%, transparent); box-shadow: var(--shadow-control); }
 .sidebar-user-row .sidebar-user { flex: 1; min-width: 0; }
 #sidebar .sidebar-user-row a { border-radius: 0; box-shadow: none; }
-#sidebar a.sidebar-user { padding: 7px 10px; }
-#sidebar a.sidebar-gear { flex: none; width: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary);
-  border-left: 1px solid var(--hairline); }
-#sidebar a.sidebar-gear .nav-icon { width: 17px; height: 17px; margin: 0; transition: transform .45s var(--ease); }
-#sidebar a.sidebar-gear:hover { color: var(--text); }
-#sidebar a.sidebar-gear:hover .nav-icon { transform: rotate(45deg); }
+#sidebar a.sidebar-user { padding: 7px 8px 7px 10px; }
+.sidebar-user .user-gear { flex: none; display: inline-flex; color: var(--text-secondary); }
+.sidebar-user .user-gear svg { width: 17px; height: 17px; transition: transform .45s var(--ease); }
+#sidebar a.sidebar-user:hover .user-gear { color: var(--text); }
+#sidebar a.sidebar-user:hover .user-gear svg { transform: rotate(45deg); }
 #sidebar .sidebar-user-row a.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text); }
-#sidebar a.sidebar-gear.active { color: var(--accent); }
+#sidebar a.sidebar-user.active .user-gear { color: var(--accent); }
 .sidebar-user .user-avatar {
   width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
@@ -1228,20 +1226,26 @@ a.chain-doc:hover { background: var(--accent-soft); color: var(--accent); text-d
 .te-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .te-head h2 { margin: 0; }
 .te-title { width: 100%; font-size: 16px; font-weight: 600; padding: 10px 12px; margin-bottom: 14px; }
-.te-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; margin-bottom: 10px; }
-.te-label { font-size: 12px; color: var(--text-secondary); }
-.te-when { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.te-when input[type="date"], .te-when input[data-date] { width: 150px !important; flex: none; }
-.te-when input[type="time"] { width: 112px !important; flex: none; }
+.te-row { display: grid; grid-template-columns: 64px 1fr; align-items: start; gap: 10px; margin-bottom: 12px; }
+.te-label { font-size: 12px; color: var(--text-secondary); min-height: var(--control-h); display: flex; align-items: center; }
+/* When: one field — the day, then the start and end times, side by side. */
+.te-when { display: flex; align-items: stretch; height: var(--control-h); border: 1px solid var(--field-border); border-radius: 9px;
+  background: var(--field-bg); box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03); overflow: hidden; transition: box-shadow 0.2s var(--ease), border-color 0.15s ease; }
+.te-when:hover:not(:focus-within) { border-color: var(--field-hover); }
+.te-when:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.te-when input { height: auto !important; border: 0 !important; border-radius: 0 !important; background-color: transparent !important; box-shadow: none !important; }
+.te-when input[type="date"], .te-when input[data-date] { flex: 1 1 auto; min-width: 0; width: auto !important; }
+.te-when input[type="time"] { flex: none; width: 104px !important; text-align: center; padding: 0 8px; }
+.te-when #tk-time { border-left: 1px solid var(--hairline) !important; }
 .te-modal:not(.is-event) #tk-end, .te-modal:not(.is-event) .te-dash { display: none; }
 .te-modal.is-event .te-task-only { display: none; }
-.te-dash { color: var(--text-tertiary, var(--text-secondary)); }
-.te-for { display: flex; flex-wrap: wrap; gap: 6px; }
-.te-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; box-shadow: none;
+.te-dash { color: var(--text-tertiary, var(--text-secondary)); align-self: center; padding: 0 2px; }
+.te-for { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0; }
+.te-chip { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; box-shadow: none;
   border: 1px solid var(--hairline); background: transparent; color: var(--text-secondary); }
 .te-chip:hover:not(.on) { color: var(--text); background: color-mix(in srgb, var(--text) 5%, transparent); }
 .te-chip.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; }
-.te-person { width: auto !important; min-width: 0; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; }
+.te-person { width: auto !important; min-width: 0; height: 28px; padding: 0 28px 0 12px; border-radius: 999px; font-size: 12.5px; box-shadow: none; }
 .te-person.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); font-weight: 600; }
 .te-more { margin-top: 4px; border-top: 1px solid var(--hairline); padding-top: 10px; }
 .te-more summary { cursor: pointer; font-size: 12.5px; color: var(--text-secondary); list-style: none; }
