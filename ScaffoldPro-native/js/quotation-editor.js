@@ -802,17 +802,31 @@ function renderLetterFields() {
 // until changed here. The preview is the wording printed.
 const BUYBACK_FIELDS = ['buyBackPercent', 'buyBackAfterMonths', 'buyBackReductionPercent', 'buyBackEndMonths'];
 const BUYBACK_KEYS = { buyBackPercent: 'percent', buyBackAfterMonths: 'afterMonths', buyBackReductionPercent: 'reductionPercent', buyBackEndMonths: 'endMonths' };
+// BO1 as printed: Settings' wording with the figures put in (as in
+// main.swift, BuyBackTerms.sentences). Without a unit price the brackets
+// holding one are left out; without a monthly reduction, its lines are.
 function buyBackSentences(b) {
-  const pc = (v) => `${Number.isInteger(v) ? v : v.toFixed(1)}%`;
-  const months = (n) => `${n} month${n === 1 ? '' : 's'}`;
-  const amount = (p) => (b.basePrice > 0 ? ` (${currencyLabel} ${money(b.basePrice * p / 100)})` : '');
-  const out = [`We offer to buy back the equipment at ${pc(b.percent)} of its price${amount(b.percent)} after ${months(b.afterMonths)}.`];
-  if (b.reductionPercent > 0 && b.endMonths > b.afterMonths) {
-    const last = Math.max(0, b.percent - b.reductionPercent * (b.endMonths - b.afterMonths));
-    out.push(`For each month beyond ${months(b.afterMonths)}, the buy-back price is reduced by ${pc(b.reductionPercent)} of the price — ${pc(last)}${amount(last)} after ${months(b.endMonths)}.`);
-  }
-  out.push(`No buy-back is offered after ${months(Math.max(b.endMonths, b.afterMonths))}.`);
-  return out;
+  const pc = (v) => `${Number.isInteger(v) ? v : Number(v).toFixed(1)}%`;
+  const price = b.unitPrice > 0 ? b.unitPrice : null;
+  const amount = (p) => (price ? `${currencyLabel} ${money(price * p / 100)}` : '');
+  const end = Math.max(b.endMonths, b.afterMonths);
+  const last = Math.max(0, b.percent - b.reductionPercent * (end - b.afterMonths));
+  const reduces = b.reductionPercent > 0 && b.endMonths > b.afterMonths;
+  const values = { '{PERCENT}': pc(b.percent), '{UNIT_PRICE}': amount(b.percent), '{MONTHS}': String(b.afterMonths), '{LESS}': pc(b.reductionPercent),
+    '{END_MONTHS}': String(end), '{END_PERCENT}': pc(last), '{END_UNIT_PRICE}': amount(last) };
+  return String(b.wording || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    .filter((l) => reduces || !/\{(LESS|END_PERCENT|END_UNIT_PRICE)\}/.test(l))
+    .map((l) => {
+      let line = price ? l : l.replace(/\s*\([^()]*\{(END_)?UNIT_PRICE\}[^()]*\)/g, '').replace(/\{(END_)?UNIT_PRICE\}/g, '');
+      for (const [k, v] of Object.entries(values)) line = line.split(k).join(v);
+      return line;
+    });
+}
+// Where the offer would reach 0% before its last month, say so.
+function buyBackWarning(b) {
+  if (!(b.reductionPercent > 0) || b.endMonths <= b.afterMonths) return '';
+  const zeroAt = b.afterMonths + Math.ceil(b.percent / b.reductionPercent);
+  return zeroAt < b.endMonths ? `It reaches 0% after ${zeroAt} months, before the ${b.endMonths}-month cut-off.` : '';
 }
 // The Buy-back Offer section's body: its four figures, then BO1 as printed.
 function buyBackBody(d, locked) {
@@ -827,7 +841,9 @@ function buyBackBody(d, locked) {
       less ${num('buyBackReductionPercent', 0.5, 100, '%', '% less each month beyond')} for each month beyond;
       none after ${num('buyBackEndMonths', 1, 0, 'months', 'No offer after months')}.
       <span class="small-note">Blank = Settings › Quotations.</span></div>
-    <table class="compact bb-row"><tbody><tr><td class="num row-no">BO1</td><td>${buyBackSentences(b).map((t) => `<p>${esc(t)}</p>`).join('')}</td></tr></tbody></table>`;
+    <table class="compact bb-row"><tbody><tr><td class="num row-no">BO1</td><td>${buyBackSentences(b).map((t) => `<p>${esc(t)}</p>`).join('')}</td></tr></tbody></table>
+    ${buyBackWarning(b) ? `<p class="bb-warn">${esc(buyBackWarning(b))}</p>` : ''}
+    <p class="small-note">The wording is in Settings › Quotations › Crane jobs.${b.unitPrice > 0 ? ' “Per unit”: one of the dearest item, as charged.' : ''}</p>`;
 }
 
 async function saveLetterField(field, value) {

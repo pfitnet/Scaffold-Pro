@@ -4320,3 +4320,22 @@ one idea at a time, few words, and pictures that carry the meaning.
   it off. It's no longer added to every crane quotation by itself, and the
   separate "Buy-back Offer" heading before the terms is gone. The standard
   figures stay in Settings › Quotations › Crane jobs.
+
+## Batch 179 — Buy-back wording in Settings, priced per unit
+
+- **Settings › Quotations › Crane jobs › Buy-back wording:** the wording of
+  row BO1, a line a paragraph, with the figures put in where these are:
+  `{PERCENT}` `{UNIT_PRICE}` `{MONTHS}` `{LESS}` `{END_MONTHS}`
+  `{END_PERCENT}` `{END_UNIT_PRICE}`. Blank goes back to the standard
+  wording:
+  > We offer to buy back the equipment at {PERCENT} of its price (i.e.
+  > {UNIT_PRICE} per unit) after {MONTHS} months.
+  > For each month beyond {MONTHS} months, the buy-back price is reduced by
+  > {LESS} of the price.
+  > No buy-back is offered after {END_MONTHS} months.
+- **Per unit:** the amount is now for one unit — of the dearest item on the
+  quotation, as charged — not a share of the whole total.
+- On a rental quotation (no price to work from) the brackets with the
+  amount are left out; with no monthly reduction, the lines about it are.
+- The section card warns when the offer would reach 0% before its last
+  month (e.g. 20% less 2% a month reaches 0% after 16 months).
