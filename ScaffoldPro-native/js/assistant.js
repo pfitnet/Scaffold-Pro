@@ -503,8 +503,13 @@
       else if (!r || r.ok === false) chat.messages.push({ role: 'assistant', error: (r && r.error) || 'Something went wrong.', steps, ms, at });
       else {
         const questions = Array.isArray(r.questions) ? r.questions.filter((q) => q && q.text) : [];
-        chat.messages.push({ role: 'assistant', text: r.reply || (r.proposals && r.proposals.length ? '' : questions.length ? '' : 'Done.'),
-          proposals: r.proposals || [], questions, steps, ms, at });
+        const proposals = r.proposals || [];
+        // Nothing came back: said so, never a made-up "Done".
+        if (!String(r.reply || '').trim() && !proposals.length && !questions.length) {
+          chat.messages.push({ role: 'assistant', error: 'The AI came back with nothing. Say exactly what you’d like, or press Try Again.', steps, ms, at });
+        } else {
+          chat.messages.push({ role: 'assistant', text: r.reply || '', proposals, questions, steps, ms, at });
+        }
       }
       save(chat);
       draw();
@@ -790,9 +795,12 @@
     function place(rect) {
       const vw = window.innerWidth, vh = window.innerHeight;
       const width = Math.max(MIN_W, Math.min(rect.width, vw - EDGE * 2));
-      const height = Math.max(MIN_H, Math.min(rect.height, vh - EDGE * 2));
+      const height = Math.max(MIN_H, Math.min(rect.height, vh - EDGE - (window.__scaffoldProWeb ? EDGE : 44)));
       const left = Math.max(EDGE, Math.min(rect.left, vw - width - EDGE));
-      const top = Math.max(EDGE, Math.min(rect.top, vh - height - EDGE));
+      // In the Mac app the top 40px is the window's title bar (drag strip):
+      // the chat's own bar is kept below it, where its buttons can be clicked.
+      const topEdge = window.__scaffoldProWeb ? EDGE : 44;
+      const top = Math.max(topEdge, Math.min(rect.top, vh - height - EDGE));
       Object.assign(panel.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`, right: 'auto', bottom: 'auto' });
     }
     function placeSaved() {
