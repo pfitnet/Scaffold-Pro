@@ -38,7 +38,7 @@
     const el = sheet();
     const $ = (id) => el.querySelector(`#${id}`);
     $('sr-title').textContent = `Send ${number} to Sign`;
-    $('sr-about').textContent = 'They’re told on their Dashboard. Once they’ve signed and chopped it, the signed PDF is saved in the project’s Quotations folder and you’re told.';
+    $('sr-about').textContent = 'They’re told on their Dashboard. Once they’ve signed and chopped it, the signed PDF is saved with the quotation in the project’s folder and you’re told.';
     $('sr-signers').innerHTML = signers.map((n, i) => `<label class="choice-card"><input type="radio" name="sr-signer" value="${esc(n)}" ${i === 0 ? 'checked' : ''} /><span>${window.personTag ? window.personTag(n) : esc(n)}</span></label>`).join('');
     $('sr-note').value = '';
     $('sr-error').classList.add('hidden');
@@ -75,7 +75,7 @@
     if (!window.docPreview) { await window.api.signatures.openFile(path); return false; }
     const r = await window.docPreview.pdf(() => window.api.signatures.previewSigned(path), {
       title: `${number || 'Quotation'} — Signed & Chopped`,
-      note: 'Saved in the project’s Quotations folder.',
+      note: 'Saved with the quotation in the project’s folder.',
       actions: [{ key: 'withdraw', label: 'Withdraw Sign & Chop', danger: true }, { key: 'done', label: 'Done', primary: true }],
     });
     if (r && r.ok === false) { await window.appAlert(r.error); return false; }

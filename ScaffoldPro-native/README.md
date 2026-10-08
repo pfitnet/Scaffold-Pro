@@ -4460,3 +4460,26 @@ one idea at a time, few words, and pictures that carry the meaning.
   folder.
 - The local copy kept beside a shared folder never deletes anything, so it
   will hold the old folder names as well as the new.
+
+## Batch 190 — Documents filed by quotation series
+
+- Inside a project's folder, each quotation series has its own folder,
+  named by its number without the prefix: `26219-002` for BQ26219-002,
+  Qt26219-002 and its subsidiaries (Qt26219-002-s1…). In it, a folder per
+  kind of document:
+  - `26219-002 BOQ`
+  - `26219-002 Quotations` (with the signed copies)
+  - `26219-002 Delivery Notes`
+  - `26219-002 Invoices`
+  - `26219-002 Delivery Schedules` (the schedule's PDFs and Excel files,
+    from the BOQ or the quotation)
+- Delivery notes and invoices go in the series of the quotation they were
+  made from.
+- PDFs and Word files of several documents at once go in `26219 Other`.
+- Drawings, Documents, Other and Letters stay where they were, at the top
+  of the project's folder.
+- Files already saved are moved into their series' folders a couple of
+  seconds after ScaffoldPro opens, and the app's records follow them, so
+  Open and Locate File keep working. Empty `26219 BOQ`, `26219 Quotations`…
+  folders are removed. A file with no document number in its name stays
+  where it is.

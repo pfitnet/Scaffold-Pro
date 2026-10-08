@@ -171,7 +171,7 @@ async function refreshQuotationList() {
     tr.innerHTML = `${selections.quotation.cell(q.id)}
       <td${depth ? ` class="subsidiary" style="--depth:${depth}"` : ''}>${esc(q.quotationNumber)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}${splitFrom}</td>
       <td>${q.boqNumber ? `${esc(q.boqNumber)}${q.boqLinked ? ' <span class="status-pill pill-success" title="Kept the same as the BOQ, both ways">Linked</span>' : ''}` : '<span class="muted">—</span>'}</td>
-      <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is in the project’s Quotations folder">Signed</span>' : ''}</td>
+      <td><span class="status-pill">${q.status}</span>${q.signed ? ' <span class="status-pill pill-success" title="The client’s signed copy is with the quotation in the project’s folder">Signed</span>' : ''}</td>
       ${window.createdByCell(q)}
       <td>${q.itemCount}</td>
       <td class="num">${q.pricingMode === 'Sale' || !split(q).monthly ? '<span class="muted">—</span>' : money(split(q).monthly)}</td>

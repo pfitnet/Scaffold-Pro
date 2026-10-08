@@ -159,7 +159,7 @@
     out.push(['Notes', '', '', ...data.days.map((d) => d.note || ''), '', '']);
     if (internal) out.push(['Internal notes', '', '', ...data.days.map((d) => d.internalNote || ''), '', '']);
     const name = `${isBOQ() ? detail.boqNumber : detail.quotationNumber} Delivery Schedule${internal ? ' (Internal)' : ''}.xlsx`;
-    // Saved in the project's Quotations (or BOQ) folder, then opened.
+    // Saved in its quotation series' Delivery Schedules folder, then opened.
     const r = await window.api.accounts.saveCSV(name, out.map((row) => row.map(cell).join(',')).join('\r\n'),
       { projectNumber: detail.projectNumber, subfolder: isBOQ() ? 'BOQ' : 'Quotations' });
     if (r && r.ok === false) alert(r.error);
