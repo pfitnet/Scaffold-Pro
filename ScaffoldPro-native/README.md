@@ -4442,3 +4442,21 @@ one idea at a time, few words, and pictures that carry the meaning.
     postal code, country and notes.
 - It's saved the same way, and the new client or site is chosen in the
   project at once.
+
+## Batch 189 — Project folders named by number and name
+
+- **Project folders** are named with the project's number then its name,
+  e.g. `26219 NOL Ancilliary Works`, and the folders inside with the
+  number too: `26219 BOQ`, `26219 Quotations`, `26219 Invoices`,
+  `26219 Delivery Notes`, `26219 Drawings`, `26219 Documents`,
+  `26219 Other` (and `26219 Letters`).
+- Existing folders are renamed once, a couple of seconds after ScaffoldPro
+  opens; every file the app keeps track of (drawings, documents, exported
+  PDFs, signed copies, letters) is re-pointed to its new place, so Open
+  and Locate File keep working.
+- Renaming a project, or changing its code, renames its folders to match.
+- If a folder can't be renamed (a file in it is open), it's tried again
+  the next time ScaffoldPro opens; until then files still go to the old
+  folder.
+- The local copy kept beside a shared folder never deletes anything, so it
+  will hold the old folder names as well as the new.

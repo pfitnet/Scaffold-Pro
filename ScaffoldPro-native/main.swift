@@ -3771,8 +3771,82 @@ final class FileStorage {
         }
     }
 
+    /// A project's name from its number (set by the app), for its folder's name.
+    var projectName: ((String) -> String?)?
+
+    /// "26219 NOL Ancilliary Works": a project's folder — its number, then its name.
+    func projectFolderName(_ projectNumber: String) -> String {
+        guard let name = projectName?(projectNumber).flatMap({ nonBlank($0) }) else { return projectNumber }
+        return safeFileName("\(projectNumber) \(name)")
+    }
+
+    /// The folders already there for a project's number ("26219", "26219 …").
+    func existingProjectFolders(_ projectNumber: String) -> [URL] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: projectsRoot.path)) ?? [])
+            .filter { $0 == projectNumber || $0.hasPrefix(projectNumber + " ") }.sorted()
+            .map { projectsRoot.appendingPathComponent($0, isDirectory: true) }
+    }
+
+    /// A project's folder: named as above, or the one already there for its
+    /// number until it's renamed (organiseProjectFolder).
     func projectFolder(_ projectNumber: String) -> URL {
-        projectsRoot.appendingPathComponent(projectNumber, isDirectory: true)
+        let wanted = projectsRoot.appendingPathComponent(projectFolderName(projectNumber), isDirectory: true)
+        if FileManager.default.fileExists(atPath: wanted.path) { return wanted }
+        return existingProjectFolders(projectNumber).first ?? wanted
+    }
+
+    /// "26219 BOQ", "26219 Quotations"…: a folder inside a project's folder
+    /// (the old plain name until it's renamed).
+    func projectSubfolder(_ projectNumber: String, _ sub: String) -> URL {
+        let folder = projectFolder(projectNumber)
+        let wanted = folder.appendingPathComponent("\(projectNumber) \(sub)", isDirectory: true)
+        let plain = folder.appendingPathComponent(sub, isDirectory: true)
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: wanted.path) && fm.fileExists(atPath: plain.path) { return plain }
+        return wanted
+    }
+
+    /// Renames a project's folder to "<number> <name>" and the folders in it
+    /// to "<number> BOQ", "<number> Quotations"… (also after its name or
+    /// number changes). Returns the moves (old path → new), and the old
+    /// names' paths, so the file paths kept in the database can follow.
+    func organiseProjectFolder(_ projectNumber: String) -> [(String, String)] {
+        let fm = FileManager.default
+        var moves: [(String, String)] = []
+        let target = projectsRoot.appendingPathComponent(projectFolderName(projectNumber), isDirectory: true)
+        let others = existingProjectFolders(projectNumber).filter { $0.lastPathComponent != target.lastPathComponent }
+        if !fm.fileExists(atPath: target.path), let current = others.first, (try? fm.moveItem(at: current, to: target)) != nil {
+            moves.append((current.path, target.path))
+        }
+        // Paths saved under its earlier names (another Mac may have renamed it).
+        for old in [projectsRoot.appendingPathComponent(projectNumber, isDirectory: true)] + others where old.lastPathComponent != target.lastPathComponent {
+            moves.append((old.path, target.path))
+        }
+        guard fm.fileExists(atPath: target.path) else { return moves }
+        let names = (try? fm.contentsOfDirectory(atPath: target.path)) ?? []
+        for sub in projectSubfolders + ["Letters"] {
+            let wantedName = "\(projectNumber) \(sub)"
+            let wanted = target.appendingPathComponent(wantedName, isDirectory: true)
+            // The plain name, or another number's (after the number changed).
+            let words = sub.split(separator: " ").count
+            let legacy = names.filter { $0 != wantedName && ($0 == sub || ($0.hasSuffix(" \(sub)") && $0.split(separator: " ").count == words + 1)) }
+            for name in legacy {
+                let old = target.appendingPathComponent(name, isDirectory: true)
+                if !fm.fileExists(atPath: wanted.path) {
+                    if (try? fm.moveItem(at: old, to: wanted)) != nil { moves.append((old.path, wanted.path)) }
+                } else {
+                    // Both there: what's in the old one moves in.
+                    for item in (try? fm.contentsOfDirectory(atPath: old.path)) ?? [] where item != ".DS_Store" {
+                        let from = old.appendingPathComponent(item)
+                        let to = uniqueDestination(wanted.appendingPathComponent(item))
+                        if (try? fm.moveItem(at: from, to: to)) != nil { moves.append((from.path, to.path)) }
+                    }
+                    if ((try? fm.contentsOfDirectory(atPath: old.path)) ?? []).allSatisfy({ $0 == ".DS_Store" }) { try? fm.removeItem(at: old) }
+                }
+            }
+            moves.append((target.appendingPathComponent(sub, isDirectory: true).path, wanted.path))
+        }
+        return moves
     }
 
     @discardableResult
@@ -3780,13 +3854,13 @@ final class FileStorage {
         let folder = projectFolder(projectNumber)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         for sub in projectSubfolders {
-            try? FileManager.default.createDirectory(at: folder.appendingPathComponent(sub, isDirectory: true), withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(at: projectSubfolder(projectNumber, sub), withIntermediateDirectories: true)
         }
         return folder
     }
 
     func copyFileIntoProject(source: URL, projectNumber: String, subfolder: String, meaningfulFilename: String) throws -> URL {
-        let destFolder = projectFolder(projectNumber).appendingPathComponent(subfolder, isDirectory: true)
+        let destFolder = projectSubfolder(projectNumber, subfolder)
         try FileManager.default.createDirectory(at: destFolder, withIntermediateDirectories: true)
         let destination = uniqueDestination(destFolder.appendingPathComponent(meaningfulFilename))
         try FileManager.default.copyItem(at: source, to: destination)
@@ -3824,7 +3898,7 @@ final class FileStorage {
     /// A document's PDF always has the same name (its number), so a new
     /// export replaces the previous one rather than piling up copies.
     func writeGeneratedFile(data: Data, projectNumber: String, subfolder: String, meaningfulFilename: String) throws -> URL {
-        let destFolder = projectFolder(projectNumber).appendingPathComponent(subfolder, isDirectory: true)
+        let destFolder = projectSubfolder(projectNumber, subfolder)
         try FileManager.default.createDirectory(at: destFolder, withIntermediateDirectories: true)
         let destination = destFolder.appendingPathComponent(meaningfulFilename)
         try data.write(to: destination, options: .atomic)
@@ -10925,12 +10999,29 @@ final class AppDatabase {
     /// Mac's location. A no-op when restoring on the same Mac/account.
     func rebaseFilePaths(from oldRoot: String, to newRoot: String) {
         guard oldRoot != newRoot, !oldRoot.isEmpty else { return }
+        rebaseFilePaths(moves: [(oldRoot, newRoot)])
+    }
+
+    /// Every stored file path under a moved folder or file (old path → new),
+    /// applied in order, re-pointed at where it is now: drawings, documents,
+    /// exported PDFs, signed copies, letters, signing requests, the logo.
+    func rebaseFilePaths(moves: [(String, String)]) {
+        let moves = moves.filter { !$0.0.isEmpty && $0.0 != $0.1 }
+        guard !moves.isEmpty else { return }
+        func moved(_ path: String) -> String {
+            var p = path
+            for (old, new) in moves {
+                if p == old { p = new } else if p.hasPrefix(old + "/") { p = new + String(p.dropFirst(old.count)) }
+            }
+            return p
+        }
+        func movedOptional(_ path: String?) -> String? { path.map(moved) }
         func rebase<T: Codable & HasFilePath>(_ store: JSONStore<T>) {
             var items = store.readAll()
             var changed = false
-            for i in items.indices where items[i].filePath.hasPrefix(oldRoot + "/") {
-                items[i].filePath = newRoot + String(items[i].filePath.dropFirst(oldRoot.count))
-                changed = true
+            for i in items.indices {
+                let p = moved(items[i].filePath)
+                if p != items[i].filePath { items[i].filePath = p; changed = true }
             }
             if changed { store.writeAll(items) }
         }
@@ -10938,25 +11029,31 @@ final class AppDatabase {
         rebase(documentsStore)
         rebase(workerDocumentsStore)
         rebase(adminDocumentsStore)
-        func rebasePDF(_ path: String?) -> String? {
-            guard let p = path, p.hasPrefix(oldRoot + "/") else { return path }
-            return newRoot + String(p.dropFirst(oldRoot.count))
+        func update<T>(_ store: JSONStore<T>, _ change: (inout T) -> Bool) {
+            var items = store.readAll()
+            var changed = false
+            for i in items.indices where change(&items[i]) { changed = true }
+            if changed { store.writeAll(items) }
         }
-        var boqs = boqsStore.readAll()
-        for i in boqs.indices { boqs[i].pdfPath = rebasePDF(boqs[i].pdfPath) }
-        boqsStore.writeAll(boqs)
-        var quotations = quotationsStore.readAll()
-        for i in quotations.indices { quotations[i].pdfPath = rebasePDF(quotations[i].pdfPath) }
-        quotationsStore.writeAll(quotations)
-        var invoices = invoicesStore.readAll()
-        for i in invoices.indices { invoices[i].pdfPath = rebasePDF(invoices[i].pdfPath) }
-        invoicesStore.writeAll(invoices)
-        var notes = deliveryNotesStore.readAll()
-        for i in notes.indices { notes[i].pdfPath = rebasePDF(notes[i].pdfPath) }
-        deliveryNotesStore.writeAll(notes)
+        update(boqsStore) { b in let p = movedOptional(b.pdfPath); defer { b.pdfPath = p }; return p != b.pdfPath }
+        update(quotationsStore) { q in
+            let pdf = movedOptional(q.pdfPath), signed = movedOptional(q.signedCopyPath), director = movedOptional(q.directorSignedPath)
+            let changed = pdf != q.pdfPath || signed != q.signedCopyPath || director != q.directorSignedPath
+            q.pdfPath = pdf; q.signedCopyPath = signed; q.directorSignedPath = director
+            return changed
+        }
+        update(invoicesStore) { v in let p = movedOptional(v.pdfPath); defer { v.pdfPath = p }; return p != v.pdfPath }
+        update(deliveryNotesStore) { d in
+            let pdf = movedOptional(d.pdfPath), signed = movedOptional(d.signedCopyPath)
+            let changed = pdf != d.pdfPath || signed != d.signedCopyPath
+            d.pdfPath = pdf; d.signedCopyPath = signed
+            return changed
+        }
+        update(lettersStore) { l in let p = movedOptional(l.pdfPath); defer { l.pdfPath = p }; return p != l.pdfPath }
+        update(signRequestsStore) { r in let p = movedOptional(r.filePath); defer { r.filePath = p }; return p != r.filePath }
         var settings = getCompanySettings()
-        if let logo = settings.logoPath, logo.hasPrefix(oldRoot + "/") {
-            settings.logoPath = newRoot + String(logo.dropFirst(oldRoot.count))
+        if let logo = settings.logoPath, moved(logo) != logo {
+            settings.logoPath = moved(logo)
             settingsStore.writeAll([settings])
         }
     }
@@ -17468,6 +17565,19 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         self.localCopy = LocalCopyManager(db: db, storage: storage)
         self.sheets = GoogleSheetsSync(db: db)
         QuotationAI.shared.db = db
+        storage.projectName = { [weak db] number in db?.getProjectByNumber(number)?.name }
+    }
+
+    /// Project folders named "<number> <name>", with "<number> BOQ",
+    /// "<number> Quotations"… inside (renaming older ones), and the stored
+    /// file paths moved with them. All projects when `numbers` is nil.
+    func organiseProjectFolders(_ numbers: [String]? = nil) {
+        guard FileManager.default.fileExists(atPath: storage.projectsRoot.path) else { return }
+        var moves: [(String, String)] = []
+        for number in numbers ?? db.allProjectNumbers() where !number.isEmpty {
+            moves += storage.organiseProjectFolder(number)
+        }
+        db.rebaseFilePaths(moves: moves)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -17649,6 +17759,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             var error = db.updateProject(id: (payload["id"] as? String) ?? "", payload: payload)
             if error == nil, let maker = nonBlank(payload["createdBy"] as? String) {
                 error = db.setCreator(file: "projects.json", id: (payload["id"] as? String) ?? "", name: maker)
+            }
+            // A new name: its folder follows ("26219 New name").
+            if error == nil, payload["name"] != nil, let project = db.getProject(id: (payload["id"] as? String) ?? "") {
+                organiseProjectFolders([project.projectNumber])
             }
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:setLineLink":
@@ -19240,7 +19354,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // subfolder (a quotation's delivery schedule) or an Administration one.
         var folder = storage.administrationCategoryFolder("Accounts")
         if let project = nonBlank(payload["projectNumber"] as? String) {
-            folder = storage.projectFolder(project).appendingPathComponent(nonBlank(payload["subfolder"] as? String) ?? "Other", isDirectory: true)
+            folder = storage.projectSubfolder(project, nonBlank(payload["subfolder"] as? String) ?? "Other")
         } else if let admin = nonBlank(payload["adminFolder"] as? String), !admin.contains("/"), !admin.hasPrefix(".") {
             folder = storage.administrationCategoryFolder(admin)
         }
@@ -19506,7 +19620,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         default: return nil
         }
         guard !number.isEmpty, let project = db.getProject(id: projectId) else { return nil }
-        let folder = storage.projectFolder(project.projectNumber).appendingPathComponent(subfolder, isDirectory: true)
+        let folder = storage.projectSubfolder(project.projectNumber, subfolder)
         if let path = pdfPath, fileIsPresent(path) { return (URL(fileURLWithPath: path), folder, number) }
         let fm = FileManager.default
         let safeNumber = number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
@@ -20659,7 +20773,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             guard response == .OK, !panel.urls.isEmpty else { self.respondNull(id: id); return }
             let safe = letter.letterNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
             let project = letter.projectId.flatMap { self.db.getProject(id: $0) }
-            let folder = (project.map { self.storage.projectFolder($0.projectNumber).appendingPathComponent("Letters", isDirectory: true) }
+            let folder = (project.map { self.storage.projectSubfolder($0.projectNumber, "Letters") }
                 ?? self.storage.administrationCategoryFolder("Letters")).appendingPathComponent("\(safe) Attachments", isDirectory: true)
             var copied: [String] = []
             do {
@@ -20882,6 +20996,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             db.rebaseFilePaths(from: oldFolder.path, to: newFolder.path)
         }
         db.setProjectNumber(id: project.id, to: newNumber)
+        // "<new number> <name>", and its folders "<new number> BOQ"…
+        organiseProjectFolders([newNumber])
         respond(id: id, encodable: SimpleResult(ok: true, error: nil))
     }
 
@@ -21780,8 +21896,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let fm = FileManager.default
             do {
                 if fm.fileExists(atPath: oldPath) {
-                    let superseded = self.storage.projectFolder(project.projectNumber)
-                        .appendingPathComponent("Other", isDirectory: true)
+                    let superseded = self.storage.projectSubfolder(project.projectNumber, "Other")
                         .appendingPathComponent("Superseded", isDirectory: true)
                     _ = try self.storage.copyFile(source: URL(fileURLWithPath: oldPath), into: superseded,
                                                   meaningfulFilename: URL(fileURLWithPath: oldPath).lastPathComponent)
@@ -21942,7 +22057,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         guard let type = UTType(filenameExtension: ext), NativeBridge.signedCopyTypes.contains(where: { type.conforms(to: $0) }) else {
             return SimpleResult(ok: false, error: "Use a PDF, or a photo or scan (JPEG, PNG, HEIC or TIFF), of the signed \(doc.noun).")
         }
-        let folder = storage.projectFolder(project.projectNumber).appendingPathComponent(doc.folder, isDirectory: true)
+        let folder = storage.projectSubfolder(project.projectNumber, doc.folder)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let safe = doc.number.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
@@ -23009,6 +23124,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         bridge.sheets.start()
         // A local backup every day at 12:00 a.m. and 12:00 p.m. (kept 3 days).
         bridge.startScheduledBackups()
+        // Project folders as "<number> <name>" with "<number> BOQ"… inside
+        // (renames older ones once; stored file paths follow).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.bridge.organiseProjectFolders() }
         // If the last update couldn't be put in place, say why.
         Updater.reportPreviousFailure(in: window)
         // Keep checking for updates while it's open.
