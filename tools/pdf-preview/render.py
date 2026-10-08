@@ -67,8 +67,8 @@ class Gen:
         return out
     def letterhead(s):
         f=s.fitted; f('P',VERD,ORANGE,42.75,28.5,57.75,46.5); f('ROFICIENCY',VERD,GREY,60.0,31.5,200.25,47.25); s.fill(6.0,51.0,209.25,2.25,ORANGE)
-        # Noto Sans TC 15pt, natural shape (bundled subset in resources/fonts)
-        s.inktext('建機 (香港) 有限公司',72.25,ImageFont.truetype(EBG+'ScaffoldPro-LetterheadTC.ttf',15*S),DGREY,left=41.25)
+        # Noto Sans TC 11.5pt, natural shape (bundled subset in resources/fonts)
+        s.inktext('建機（香港）設備有限公司',72.25,ImageFont.truetype(EBG+'ScaffoldPro-LetterheadTC.ttf',round(11.5*S)),DGREY,left=41.25)
         f('(HK)',VERD,ORANGE,190.5,58.5,240.75,77.25); f('LIMITED',VERD,GREY,251.25,61.5,331.5,74.25); s.fill(189.0,78.0,W-6.53-189.0,2.25,ORANGE)
     def footer(s):
         s.fill(42.75,792.75,510.0,2.25,ORANGE)

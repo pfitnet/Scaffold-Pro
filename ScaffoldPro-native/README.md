@@ -4810,3 +4810,18 @@ one idea at a time, few words, and pictures that carry the meaning.
 - The update log (~/Library/Logs/ScaffoldPro Update.log) now says how long
   the build took and notes any parts of the code that are slow to build,
   so they can be sped up.
+
+## Batch 215 — Updates build in parallel; the full Chinese name on the letterhead
+
+- The app's code is now in many smaller files instead of one very large
+  one. Updates build them side by side, one per core, and after the first
+  build only the files that changed are rebuilt. The first update after
+  this one is still a full build; the ones after it are much quicker.
+- The build's details go to ScaffoldPro Build.log: in Finder, Go › Go to
+  Folder…, type ~/Library/Logs and press Return. (That's the Library in
+  your home folder, which is hidden; it isn't the Library at the top of the
+  disk.)
+- Fixed: adding a worker could make ScaffoldPro quit (the date of the new
+  employment agreement wasn't ready).
+- The letterhead's Chinese name is now 建機（香港）設備有限公司, in a smaller
+  size so it takes the same room as before, on PDFs and Word copies alike.
