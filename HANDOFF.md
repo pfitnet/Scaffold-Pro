@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 181.
+"## Batch N" section per change, newest at the bottom, up to Batch 183.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **182**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **184**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -164,7 +164,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–181, newest last)
+## 5. Recent work (Batches 147–183, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -244,6 +244,8 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **179:** buy-back wording is a template in Settings (`buyBackWording`, tokens {PERCENT} {UNIT_PRICE} {MONTHS} {LESS} {END_MONTHS} {END_PERCENT} {END_UNIT_PRICE}); amounts per unit (dearest item); `BuyBackTerms.sentences` = js `buyBackSentences`.
 - **180:** buy-back tokens {NEXT_MONTHS} {NEXT_PERCENT} {NEXT_UNIT_PRICE} (first month beyond); in the standard wording.
 - **181:** `LetterTableRow.wide(number:text:)` (number, then text across the other columns; Word type "wide") for BO1; narrow drawings panel laid out as blocks.
+- **182:** file names `db.documentFileBase` (number + project name + " - structure", `safeFileName`, "/" → "∕") for PDF, Word, signed copies, letters.
+- **183:** AI connection is the team's: `CompanySettings.aiProvider/aiModel/aiKey` (`setAIConnection`); `QuotationAI.db`; old Keychain key adopted once; `aiKey` stripped from settings:get/update.
 
 ---
 

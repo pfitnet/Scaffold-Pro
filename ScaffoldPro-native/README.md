@@ -4359,3 +4359,28 @@ one idea at a time, few words, and pictures that carry the meaning.
 - **Drawings beside Key Terms:** each drawing is a small block — number,
   name, type — with its buttons on their own line underneath, so nothing
   runs off the panel's edge; long file names wrap.
+
+## Batch 182 — File names: number, project, structure
+
+- Every document's file is now named **its number, the project's name and,
+  if there is one, the structure**: e.g.
+  `Qt26001-001 NOL Ancilliary Works - GL∕09 Platform.pdf`.
+  - BOQs, quotations, invoices, delivery notes and letters, as PDF and Word;
+    the structure is the BOQ's (a quotation's, invoice's or delivery note's
+    comes through its quotation's BOQ).
+  - Signed copies: `… - Signed.pdf`; signed and chopped: `… - Signed &
+    Chopped.pdf`. A delivery schedule: `… (Delivery Schedule).pdf`.
+  - A slash in a name (GL/09) is written with "∕", which looks the same and
+    is allowed in file names on Macs, Windows and cloud drives; other
+    characters files can't have become "-".
+- Files already saved keep their names; Locate File finds old and new.
+
+## Batch 183 — One AI connection for the whole team
+
+- Settings › AI Import (now under **Company**): the provider, model and key
+  are the team's — set once, used on every Mac and in ScaffoldPro Web.
+  They're kept with the company's settings (so they're in backups too);
+  the key is never sent back to the pages.
+- A key already saved on a Mac (in its Keychain) becomes the team's the
+  first time AI Import is opened or used, and is taken out of the Keychain.
+- Remove Key removes it for everyone.

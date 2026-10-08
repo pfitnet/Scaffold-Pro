@@ -1,7 +1,8 @@
 'use strict';
 
 // Settings › AI Import: which free cloud AI reads quotations the app can't
-// make out itself, and its key (kept in this Mac's Keychain).
+// make out itself, its model and key: the whole team's, kept with the
+// company's settings (the key never comes back to the page).
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -23,12 +24,12 @@
     $('ai-state').className = `ai-state${on ? ' on' : ''}`;
     $('ai-state').innerHTML = on
       ? `<span class="dot"></span><span>Ready — <b>${NAMES[status.provider]}</b> reads what the app can’t (${status.model || status.defaultModel}).
-          <small>To use another key, provider or model, remove this key first.</small></span>
+          <small>Used on every Mac. To use another key, provider or model, remove this key first.</small></span>
           <button type="button" class="danger-btn" id="ai-remove" data-no-icon>Remove Key</button>`
-      : '<span class="dot"></span><span>Not set up. Imports are read on this Mac only.</span>';
+      : '<span class="dot"></span><span>Not set up. Imports are read on each Mac only.</span>';
     const remove = $('ai-remove');
     if (remove) remove.addEventListener('click', async () => {
-      if (await window.appConfirm('Remove the AI key from this Mac? Imports are then read on this Mac only until a key is added again.')) save(true);
+      if (await window.appConfirm('Remove the AI key for the whole team? Imports are then read on each Mac only until a key is added again.')) save(true);
     });
     if (on) return;
     $('ai-key-help').innerHTML = `${HELP[p]} <button type="button" class="link-btn" id="ai-get-key" data-no-icon>Open the page</button>`;
