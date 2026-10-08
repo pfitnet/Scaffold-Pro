@@ -2482,6 +2482,7 @@ body.crane-job #tabs [data-tab="boq"], body.crane-job .pd-stat[data-tab="boq"], 
 .ci-editor .pf-strip { display: flex; align-items: center; gap: 4px; margin: 0; padding: 6px 8px; border-radius: 10px 10px 0 0; border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--text) 3%, transparent); flex-wrap: nowrap; }
 /* Toolbar buttons as in Google Docs: an icon in a square, its name on hover. */
 .ci-editor .pf-strip button { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; min-width: 0; padding: 0; border: none; background: none; box-shadow: none; border-radius: 8px; color: var(--text-secondary); }
+.ci-editor .pf-strip button.pf-style { font-family: Georgia, "Times New Roman", serif; font-size: 15px; color: var(--text); }
 .ci-editor .pf-strip button:hover { background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--text); }
 .ci-editor .pf-strip button:active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .ci-editor .pf-strip button[data-tip]:hover::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 30; white-space: nowrap;
@@ -2602,9 +2603,7 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 .bb-num input { width: 64px !important; --control-h: 28px; padding: 0 7px; text-align: right; }
 .bb-num i { font-style: normal; font-size: 12px; color: var(--text-tertiary); }
 
-/* A priced section's row: charged, free of charge, or included (quotation editor). */
-.price-cell { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
-.price-cell .price-note-select { width: auto !important; max-width: 132px; --control-h: 28px; padding: 0 22px 0 8px; font-size: 12px; }
-.price-cell .row-price, .price-cell .add-price { min-width: 84px; }
-tr.not-charged .price-note-select { color: var(--accent); font-weight: 600; }
+/* A priced section's unit price: a number, or words printed instead (quotation editor). */
+.price-or-words { text-align: right; }
+.price-or-words.is-words { text-align: left; font-style: italic; color: var(--accent); }
 .price-note { font-size: 12px; font-style: italic; color: var(--text-secondary); white-space: nowrap; }

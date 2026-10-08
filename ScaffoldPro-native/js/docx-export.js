@@ -53,6 +53,20 @@
 
   // "\t" and "\n" in the text become a tab and a line break.
   function run(text, o = {}) {
+    // Bold / italic / underline marks from a description (main.swift's
+    // applyInlineMarkup): one run for each stretch of the same style.
+    const t = String(text ?? '');
+    if (/[\uE010-\uE012]/.test(t)) {
+      let out = '';
+      const st = { bold: false, italic: false, underline: false };
+      for (const part of t.split(/([\uE010-\uE012])/)) {
+        if (part === '\uE010') st.bold = !st.bold;
+        else if (part === '\uE011') st.italic = !st.italic;
+        else if (part === '\uE012') st.underline = !st.underline;
+        else if (part) out += run(part, Object.assign({}, o, { bold: o.bold || st.bold, italic: o.italic || st.italic, underline: o.underline || st.underline }));
+      }
+      return out;
+    }
     let inner = '';
     for (const part of String(text ?? '').split(/(\t|\n)/)) {
       if (part === '\t') inner += '<w:tab/>';

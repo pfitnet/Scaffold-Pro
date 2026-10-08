@@ -1705,6 +1705,52 @@ func amountInWords(_ amount: Double, currency: String) -> String {
     return text + " ONLY"
 }
 
+// ---- Bold, italic and underline in descriptions ----
+// Typed as **bold**, *italic* and __underline__ (the custom item box's
+// B / I / U). For laying out and drawing they become private marks that
+// switch the style on and off: \u{E010} bold, \u{E011} italic, \u{E012}
+// underline. Styles stay within a line.
+
+let inlineBoldMark: Character = "\u{E010}"
+let inlineItalicMark: Character = "\u{E011}"
+let inlineUnderlineMark: Character = "\u{E012}"
+
+func hasInlineMarks(_ s: String) -> Bool {
+    s.unicodeScalars.contains { $0.value >= 0xE010 && $0.value <= 0xE012 }
+}
+
+/// The typed markers as style marks.
+func applyInlineMarkup(_ s: String) -> String {
+    guard s.contains("*") || s.contains("__") else { return s }
+    var out = s
+    out = out.replacingOccurrences(of: #"\*\*(?=\S)(.+?)(?<=\S)\*\*"#, with: "\u{E010}$1\u{E010}", options: .regularExpression)
+    out = out.replacingOccurrences(of: #"__(?=\S)(.+?)(?<=\S)__"#, with: "\u{E012}$1\u{E012}", options: .regularExpression)
+    out = out.replacingOccurrences(of: #"(^|[^*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])"#, with: "$1\u{E011}$2\u{E011}", options: [.regularExpression, .anchorsMatchLines])
+    return out
+}
+
+/// The text without any styling (where it can't be shown, e.g. the BQ sheet).
+func plainMarkup(_ s: String) -> String {
+    String(applyInlineMarkup(s).unicodeScalars.filter { !($0.value >= 0xE010 && $0.value <= 0xE012) })
+}
+
+/// Text with style marks as runs of plain text and their styles.
+func inlineRuns(_ s: String) -> [(text: String, bold: Bool, italic: Bool, underline: Bool)] {
+    var runs: [(text: String, bold: Bool, italic: Bool, underline: Bool)] = []
+    var bold = false, italic = false, underline = false
+    var current = ""
+    for ch in s {
+        if ch == inlineBoldMark || ch == inlineItalicMark || ch == inlineUnderlineMark {
+            if !current.isEmpty { runs.append((current, bold, italic, underline)); current = "" }
+            if ch == inlineBoldMark { bold.toggle() } else if ch == inlineItalicMark { italic.toggle() } else { underline.toggle() }
+        } else {
+            current.append(ch)
+        }
+    }
+    if !current.isEmpty { runs.append((current, bold, italic, underline)) }
+    return runs
+}
+
 /// A name a file can have on a Mac, Windows and in the cloud: a slash
 /// (as in "GL/09") becomes "∕", which looks the same; \ : * ? " < > |
 /// become "-"; at most 200 characters.
@@ -1764,18 +1810,18 @@ struct QuotationLineItem: Codable {
     /// Taken out of the link on its own ("Unlink from BOQ"): it keeps its
     /// own quantity and price, and the BOQ's line keeps its, until relinked.
     var boqDetached: Bool? = nil
-    /// A priced section's row that isn't charged: "FOC" (free of charge) or
-    /// "Included" (included in the unit price). Its price is 0 and the
-    /// words are printed instead of figures.
+    /// A priced section's row that isn't charged: the words typed in its
+    /// unit price ("(Included)", "(Free of Charge)"…; older rows "FOC" or
+    /// "Included"). Its price is 0 and the words print instead of figures.
     var priceNote: String? = nil
 }
 
-/// How a priced row that isn't charged is printed.
+/// How a priced row that isn't charged is printed: the words typed.
 func priceNoteLabel(_ note: String?) -> String? {
     switch note {
     case "FOC": return "Free of Charge"
     case "Included": return "Included in Unit Price"
-    default: return nil
+    default: return nonBlank(note)
     }
 }
 
@@ -8427,13 +8473,18 @@ final class AppDatabase {
 
     /// A row of a priced or rates section: description, unit, quantity
     /// (always 1 for a rate) and unit price / rate.
-    /// A priced section's row as charged (nil), free of charge ("FOC") or
-    /// included in the unit price ("Included"); not charged = a price of 0.
+    /// A priced section's row as charged (nil) or not, with the words typed
+    /// in its unit price ("(Included)", "(Free of Charge)"); not charged =
+    /// a price of 0. Only rows of priced sections.
     func setQuotationLinePriceNote(id: String, note rawNote: String?) -> String? {
         var items = quotationLineItemsStore.readAll()
         guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
         if case .failure(let e) = draftQuotation(items[i].quotationId) { return e.message }
-        let note = ["FOC", "Included"].contains(rawNote ?? "") ? rawNote : nil
+        let note = nonBlank(rawNote).map { String($0.prefix(60)) }
+        if note != nil {
+            let block = items[i].blockId.flatMap { bid in quotationBlocksStore.readAll().first { $0.id == bid } }
+            guard block?.kind == "Priced" else { return "Words in place of a price are for priced sections only." }
+        }
         items[i].priceNote = note
         if note != nil {
             items[i].appliedUnitPrice = 0
@@ -8459,8 +8510,8 @@ final class AppDatabase {
             appliedUnitPrice: doubleOf(roundToCents(decimalOf(price))), section: nil, sortOrder: nextSortOrder
         )
         line.blockId = block.id
-        if block.kind == "Priced", ["FOC", "Included"].contains(priceNote ?? "") {
-            line.priceNote = priceNote
+        if block.kind == "Priced", let note = nonBlank(priceNote) {
+            line.priceNote = String(note.prefix(60))
             line.appliedUnitPrice = 0
         }
         quotationLineItemsStore.insert(line)
@@ -11160,11 +11211,26 @@ final class PDFGenerator {
     }
 
     private func makeLine(_ string: String, _ font: NSFont, _ color: NSColor) -> CTLine {
+        if hasInlineMarks(string) { return CTLineCreateWithAttributedString(styledText(string, font, color)) }
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             NSAttributedString.Key(kCTForegroundColorAttributeName as String): color.cgColor,
         ]
         return CTLineCreateWithAttributedString(NSAttributedString(string: string, attributes: attributes))
+    }
+
+    /// Text with style marks (bold, italic, underline) in `font`'s family
+    /// and size; the marks themselves take no room.
+    private func styledText(_ string: String, _ font: NSFont, _ color: NSColor) -> NSAttributedString {
+        let traits = NSFontManager.shared.traits(of: font)
+        let baseBold = traits.contains(.boldFontMask), baseItalic = traits.contains(.italicFontMask)
+        let out = NSMutableAttributedString()
+        for run in inlineRuns(string) {
+            let f = (run.bold || run.italic) ? body(font.pointSize, bold: baseBold || run.bold, italic: baseItalic || run.italic) : font
+            out.append(NSAttributedString(string: run.text, attributes: [
+                .font: f, NSAttributedString.Key(kCTForegroundColorAttributeName as String): color.cgColor]))
+        }
+        return out
     }
 
     private func lineWidth(_ line: CTLine) -> CGFloat {
@@ -11194,6 +11260,18 @@ final class PDFGenerator {
         }
         draw(line, x: startX, baseline: baseline)
         if underline { underlineRun(x: startX, width: width, baseline: baseline, font: font, color: color) }
+        // Underlined runs (__text__ in a description).
+        if hasInlineMarks(string) {
+            var index = 0
+            for run in inlineRuns(string) {
+                let length = (run.text as NSString).length
+                if run.underline {
+                    let from = CTLineGetOffsetForStringIndex(line, index, nil), to = CTLineGetOffsetForStringIndex(line, index + length, nil)
+                    underlineRun(x: startX + from, width: to - from, baseline: baseline, font: font, color: color)
+                }
+                index += length
+            }
+        }
         return width
     }
 
@@ -11248,6 +11326,7 @@ final class PDFGenerator {
 
     /// Breaks text into lines no wider than `width`; "\n" always breaks.
     private func wrap(_ string: String, _ font: NSFont, _ width: CGFloat) -> [String] {
+        if hasInlineMarks(string) { return wrapStyled(string, font, width) }
         var result: [String] = []
         for paragraph in string.components(separatedBy: "\n") {
             let trimmed = paragraph.trimmingCharacters(in: .whitespaces)
@@ -11259,6 +11338,59 @@ final class PDFGenerator {
             while start < ns.length {
                 let count = max(1, CTTypesetterSuggestLineBreak(typesetter, start, Double(max(width, 10))))
                 result.append(ns.substring(with: NSRange(location: start, length: min(count, ns.length - start))).trimmingCharacters(in: .whitespaces))
+                start += count
+            }
+        }
+        return result
+    }
+
+    /// `wrap` for text with style marks: measured as drawn (bold is wider),
+    /// each line starting with the styles still on from the line before.
+    private func wrapStyled(_ string: String, _ font: NSFont, _ width: CGFloat) -> [String] {
+        let marks: [unichar] = [0xE010, 0xE011, 0xE012]
+        var result: [String] = []
+        for paragraph in string.components(separatedBy: "\n") {
+            let ns = paragraph as NSString
+            // The visible text, and each of its characters' styles.
+            let plain = NSMutableString()
+            var styles: [[Bool]] = []
+            var on = [false, false, false]
+            var i = 0
+            while i < ns.length {
+                if let m = marks.firstIndex(of: ns.character(at: i)) { on[m].toggle(); i += 1; continue }
+                let r = ns.rangeOfComposedCharacterSequence(at: i)
+                plain.append(ns.substring(with: r))
+                for _ in 0..<r.length { styles.append(on) }
+                i += r.length
+            }
+            guard plain.length > 0, !(plain as String).trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+            let attributed = NSMutableAttributedString(string: plain as String, attributes: [.font: font])
+            for i in 0..<styles.count where styles[i][0] || styles[i][1] {
+                attributed.addAttribute(.font, value: body(font.pointSize, bold: styles[i][0], italic: styles[i][1]), range: NSRange(location: i, length: 1))
+            }
+            let typesetter = CTTypesetterCreateWithAttributedString(attributed)
+            var start = 0
+            while start < plain.length {
+                let count = max(1, CTTypesetterSuggestLineBreak(typesetter, start, Double(max(width, 10))))
+                var a = start, b = min(start + count, plain.length)
+                while a < b && plain.character(at: a) == 32 { a += 1 }
+                while b > a && plain.character(at: b - 1) == 32 { b -= 1 }
+                if a < b {
+                    var line = ""
+                    var state = [false, false, false]
+                    let markChars: [Character] = [inlineBoldMark, inlineItalicMark, inlineUnderlineMark]
+                    var k = a
+                    while k < b {
+                        for m in 0..<3 where styles[k][m] != state[m] {
+                            line.append(markChars[m])
+                            state[m] = styles[k][m]
+                        }
+                        let r = plain.rangeOfComposedCharacterSequence(at: k)
+                        line += plain.substring(with: r)
+                        k += r.length
+                    }
+                    result.append(line)
+                }
                 start += count
             }
         }
@@ -11478,12 +11610,14 @@ final class PDFGenerator {
         top + height / 2 + baselineBelowMiddle - CGFloat(lines - 1) * cellPitch / 2 + CGFloat(line) * cellPitch
     }
 
-    private func cellLines(_ value: String, column: LetterColumn, font: NSFont, currencyWidth: CGFloat) -> [String] {
+    private func cellLines(_ rawValue: String, column: LetterColumn, font: NSFont, currencyWidth: CGFloat) -> [String] {
+        // **bold**, *italic*, __underline__ in a description.
+        let value = column.kind == .left ? applyInlineMarkup(rawValue) : rawValue
         let available = column.width - 10.5 - (column.kind == .money ? currencyWidth + 4 : 0)
             - (column.kind == .weight ? weightSuffixRoom(font) : 0)
         // A description written with bullets, numbering or hanging indents.
         if column.kind == .left && isFormattedDescription(value) {
-            let measure = { (s: String) -> Double in Double(NSAttributedString(string: s, attributes: [.font: font]).size().width) }
+            let measure = { (s: String) -> Double in Double(self.lineWidth(self.makeLine(s, font, .black))) }
             return formattedCellLines(value, width: Double(available), measure: measure, wrap: { self.wrap($0, font, CGFloat($1)) }).map(encodeCellLine)
         }
         return wrap(value, font, available)
@@ -13276,7 +13410,7 @@ enum BQSheet {
         let kg: (Double) -> String = { String(format: "%.1f kg", $0) }
         for (i, line) in lines.enumerated() {
             let qty = line.quantity.rounded()
-            let name = line.itemDescription.replacingOccurrences(of: "\n", with: " ")
+            let name = plainMarkup(line.itemDescription).replacingOccurrences(of: "\n", with: " ")
             let weight = line.weightKg.map(kg) ?? ""
             let totalWeight = line.weightKg.map { kg($0 * qty) } ?? ""
             var texts: [(String, String)] = [(String(i + 1), "center"), (name, "left"), (weight, "right"), (formatQuantity(qty), "center")]
@@ -13290,14 +13424,15 @@ enum BQSheet {
             // in rows joined under it, 14.25pt apart.
             let pad = 2.625
             let nameLines: [CellTextLine] = {
-                guard line.itemDescription.contains("\n") || line.itemDescription.contains("\t") else { return [] }
+                let description = plainMarkup(line.itemDescription)
+                guard description.contains("\n") || description.contains("\t") else { return [] }
                 let font = bodyFont(12)
                 let room = edges[2] - edges[1] - 2 * pad
-                if isFormattedDescription(line.itemDescription) {
-                    return formattedCellLines(line.itemDescription, width: room, measure: { Double(($0 as NSString).size(withAttributes: [.font: font]).width) },
+                if isFormattedDescription(description) {
+                    return formattedCellLines(description, width: room, measure: { Double(($0 as NSString).size(withAttributes: [.font: font]).width) },
                                               wrap: { wrap($0, width: $1, size: 12) })
                 }
-                return wrap(line.itemDescription, width: room, size: 12).map { CellTextLine(marker: nil, markerX: 0, text: $0, textX: 0, colon: false) }
+                return wrap(description, width: room, size: 12).map { CellTextLine(marker: nil, markerX: 0, text: $0, textX: 0, colon: false) }
             }()
             func nameCell(_ l: CellTextLine, up: Double) -> SheetCell {
                 var c = cell(edges[1], edges[2], l.text, 12, "left", up)
@@ -13560,7 +13695,7 @@ enum BQSheet {
                 totalQty += qty
                 totalKg += qty * unitKg
                 var cells = [cell(edges[0], edges[1], String(i + 1), 11, "center", 4.875),
-                             cell(edges[1], edges[2], line.name.replacingOccurrences(of: "\n", with: " "), 11, "left", 4.875),
+                             cell(edges[1], edges[2], plainMarkup(line.name).replacingOccurrences(of: "\n", with: " "), 11, "left", 4.875),
                              cell(edges[2], edges[3], line.unit, 11, "center", 4.875),
                              cell(edges[3], edges[4], formatQuantity(qty), 11, "center", 4.875)]
                 for (j, d) in chunk.enumerated() {
@@ -17726,9 +17861,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         case "quotations:updateLineItem":
             let lineId = (payload["id"] as? String) ?? ""
             if payload.keys.contains("priceNote") {
-                let error = db.setQuotationLinePriceNote(id: lineId, note: payload["priceNote"] as? String)
-                respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
-                return
+                if let error = db.setQuotationLinePriceNote(id: lineId, note: payload["priceNote"] as? String) {
+                    respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
+                    return
+                }
+                // Words only: nothing else to change.
+                if payload["appliedUnitPrice"] == nil && payload["quantity"] == nil {
+                    respond(id: id, encodable: QuotationActionResult(ok: true, error: nil))
+                    return
+                }
             }
             let quantity = payload["quantity"] as? Double
             let appliedUnitPrice = payload["appliedUnitPrice"] as? Double

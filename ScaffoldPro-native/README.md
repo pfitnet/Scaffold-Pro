@@ -4416,3 +4416,17 @@ one idea at a time, few words, and pictures that carry the meaning.
   before.
 - The same on the PDF, the landscape BQ sheet, Word and "As printed".
   Terms and Conditions are unchanged.
+
+## Batch 187 — Bold, italic, underline in custom items; words as a price
+
+- **Bold, italic and underline** in custom items: **B**, *I* and U on the
+  box's toolbar (or ⌘B, ⌘I, ⌘U) wrap the selected words in `**…**`,
+  `*…*` or `__…__` (pressed again, they come off). "As printed", the
+  editor's item list, the portrait PDF and the Word copy show the styling;
+  the markers themselves never print. (The landscape BQ sheet prints the
+  words plain for now.)
+- **Priced sections: words in the unit price.** The Charged / Free of
+  charge / Included dropdown is gone. Type a number to charge it, or words
+  — `(Included)`, `(Free of Charge)`, anything — to print those words in
+  place of the price and total; the row then isn't charged. Only rows of
+  priced sections take words; line items' prices stay numbers.

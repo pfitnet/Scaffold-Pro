@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/docx-export.js": {
-    "mtime": 1791430479.0310152,
-    "seen": 1791430527.367241,
-    "ast_hash": "d8012042eef9eb329f5b10a68f1f819c",
+    "mtime": 1791433411.9522629,
+    "seen": 1791433498.2492585,
+    "ast_hash": "ee40306b8d8ebd04d7fb30ca85082c12",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/drag-reorder.js": {
@@ -120,9 +120,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/paragraph-format.js": {
-    "mtime": 1791432793.367326,
-    "seen": 1791432823.329803,
-    "ast_hash": "bd1147ef2e793580c47a6298ae21274b",
+    "mtime": 1791433411.9332237,
+    "seen": 1791433498.2492893,
+    "ast_hash": "42505f4f9ba3db8972a6ddf280841f83",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/party-page.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-editor.js": {
-    "mtime": 1791432442.1596434,
-    "seen": 1791432474.6932864,
-    "ast_hash": "f803c39c388f3aa27e65def007582dd2",
+    "mtime": 1791433446.514431,
+    "seen": 1791433498.249298,
+    "ast_hash": "bdf7f9113d99c4726a2a9f1361dd4714",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/settings.js": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791432793.3613489,
-    "seen": 1791432823.3298318,
-    "ast_hash": "6e3d6730d2cdc194820c30892656afc2",
+    "mtime": 1791433446.5125265,
+    "seen": 1791433498.2493198,
+    "ast_hash": "6dadc1c690e4012693e38f68b443568d",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791432815.7933502,
-    "seen": 1791432823.329846,
-    "ast_hash": "74b20bc2928434f3bbd245ecde0eb65e",
+    "mtime": 1791433490.282097,
+    "seen": 1791433498.249335,
+    "ast_hash": "becba4a76003e7c68e13f7229d3ed21f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1791432815.8149858,
-    "seen": 1791432823.329843,
-    "ast_hash": "685089142574a699cf173bc2b1102bbc",
+    "mtime": 1791433490.2983098,
+    "seen": 1791433498.2493317,
+    "ast_hash": "5bb2fd77a5f032d0aab16ba93b3d9342",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-content.js": {

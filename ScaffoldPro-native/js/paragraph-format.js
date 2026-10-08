@@ -26,6 +26,18 @@
     return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // **bold**, *italic*, __underline__ (as main.swift's applyInlineMarkup):
+  // escaped, then shown styled.
+  const MARKUP_RE = /\*\*|__|(^|[^*\w])\*(?=[^\s*])/;
+  function hasMarkup(text) { return MARKUP_RE.test(String(text || '')); }
+  function inline(value) {
+    return esc(value)
+      .replace(/\*\*(\S(?:.*?\S)?)\*\*/g, '<b>$1</b>')
+      .replace(/__(\S(?:.*?\S)?)__/g, '<u>$1</u>')
+      .replace(/(^|[^*\w])\*([^\s*](?:.*?[^\s*])?)\*(?![*\w])/g, '$1<i>$2</i>');
+  }
+  window.inlineMarkupHTML = inline;
+
   function labelSplit(line) {
     const colon = line.indexOf(':');
     if (colon < 0) return null;
@@ -109,11 +121,11 @@
   function previewHTML(text, fit) {
     if (fit) return fittedHTML(text);
     return parse(text).map((p) => {
-      const body = p.lines.map(esc).join('<br>');
+      const body = p.lines.map(inline).join('<br>');
       if (p.kind === 'text') return `<p class="pf-text">${body}</p>`;
       const cls = p.style === 'label' ? 'pf-label' : p.style === 'bullet' ? 'pf-bullet' : 'pf-marker';
       // 11pt text previewed at 14px: 1pt ≈ 1.27px.
-      return `<div class="pf-hang ${cls}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${esc(p.marker)}${p.style === 'label' ? '<span class="pf-colon">:</span>' : ''}</span><span class="pf-t">${body}</span></div>`;
+      return `<div class="pf-hang ${cls}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${inline(p.marker)}${p.style === 'label' ? '<span class="pf-colon">:</span>' : ''}</span><span class="pf-t">${body}</span></div>`;
     }).join('');
   }
 
@@ -125,14 +137,14 @@
       let labels = '';
       const endLabels = () => { if (labels) { html += `<div class="pf-labels">${labels}</div>`; labels = ''; } };
       for (const p of parse(block, true)) {
-        const body = p.lines.map(esc).join('<br>');
+        const body = p.lines.map(inline).join('<br>');
         if (p.kind === 'hanging' && p.style === 'label') {
-          labels += `<span class="pf-m" style="margin-left:${Math.round(p.left * 1.27)}px">${esc(p.marker)}</span><span class="pf-colon">:</span><span class="pf-t">${body}</span>`;
+          labels += `<span class="pf-m" style="margin-left:${Math.round(p.left * 1.27)}px">${inline(p.marker)}</span><span class="pf-colon">:</span><span class="pf-t">${body}</span>`;
           continue;
         }
         endLabels();
         if (p.kind === 'text') html += `<p class="pf-text">${body}</p>`;
-        else html += `<div class="pf-hang ${p.style === 'bullet' ? 'pf-bullet' : 'pf-marker'}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${esc(p.marker)}</span><span class="pf-t">${body}</span></div>`;
+        else html += `<div class="pf-hang ${p.style === 'bullet' ? 'pf-bullet' : 'pf-marker'}" style="margin-left:${Math.round(p.left * 1.27)}px"><span class="pf-m">${inline(p.marker)}</span><span class="pf-t">${body}</span></div>`;
       }
       endLabels();
       return `<div class="pf-block">${html}</div>`;
@@ -145,7 +157,7 @@
   window.descriptionHTML = function descriptionHTML(text) {
     const t = String(text ?? '');
     const formatted = /[\n\t]/.test(t) && t.split('\n').some((l) => hangingItem(l));
-    if (!formatted) return `<span class="line-desc-text">${t}</span>`;
+    if (!formatted) return `<span class="line-desc-text">${hasMarkup(t) ? inline(t) : t}</span>`;
     addStyles();
     return `<div class="pf-desc">${fittedHTML(t)}</div>`;
   };
@@ -257,11 +269,39 @@
     if (!preview) return;
     const fallback = !ta.value.trim() && ta.pfFallback ? ta.pfFallback() : '';
     // A line item's box: the preview only once there's formatting to see.
-    const plain = ta.pfFit && !(/[\n\t]/.test(ta.value) && ta.value.split('\n').some((l) => hangingItem(l)));
+    const plain = ta.pfFit && !hasMarkup(ta.value) && !(/[\n\t]/.test(ta.value) && ta.value.split('\n').some((l) => hangingItem(l)));
     preview.innerHTML = plain ? '' : previewHTML(ta.value.trim() ? ta.value : fallback, ta.pfFit);
     ta.pfPreviewLabel.hidden = plain;
     ta.pfPreviewLabel.textContent = fallback ? 'As printed (standard terms from Settings):' : 'As printed:';
   };
+
+  // Bold, italic, underline: the selection wrapped in **…**, *…* or __…__
+  // (or unwrapped if it already is); with nothing selected, the markers
+  // go in with the cursor between them.
+  const STYLE_MARKS = { bold: '**', italic: '*', underline: '__' };
+  function wrapStyle(ta, mark) {
+    const { selectionStart: s, selectionEnd: e, value } = ta;
+    let a = s, b = e;
+    // Leave out spaces at the ends of the selection.
+    while (a < b && /\s/.test(value[a])) a++;
+    while (b > a && /\s/.test(value[b - 1])) b--;
+    const before = value.slice(a - mark.length, a), after = value.slice(b, b + mark.length);
+    const single = mark === '*' && (value[a - mark.length - 1] === '*' || value[b + mark.length] === '*');
+    if (before === mark && after === mark && !single) {
+      ta.value = value.slice(0, a - mark.length) + value.slice(a, b) + value.slice(b + mark.length);
+      ta.setSelectionRange(a - mark.length, b - mark.length);
+    } else if (a === b) {
+      ta.value = value.slice(0, a) + mark + mark + value.slice(a);
+      ta.setSelectionRange(a + mark.length, a + mark.length);
+    } else {
+      // Each line on its own: styles don't run over a line break.
+      const text = value.slice(a, b).split('\n').map((l) => (l.trim() ? l.replace(/^(\s*)(.*?)(\s*)$/, `$1${mark}$2${mark}$3`) : l)).join('\n');
+      ta.value = value.slice(0, a) + text + value.slice(b);
+      ta.setSelectionRange(a, a + text.length);
+    }
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    window.refreshParagraphPreview(ta);
+  }
 
   window.attachParagraphFormatting = function attachParagraphFormatting(ta, options) {
     // Terms boxes are a table of labelled terms and paragraphs (js/terms-table.js).
@@ -274,6 +314,10 @@
       // A slim strip of buttons along the top of the box (custom items).
       bar.className = 'pf-toolbar pf-strip';
       bar.innerHTML = `
+        <button type="button" data-pf="bold" data-no-icon data-tip="Bold ⌘B" aria-label="Bold" class="pf-style"><b>B</b></button>
+        <button type="button" data-pf="italic" data-no-icon data-tip="Italic ⌘I" aria-label="Italic" class="pf-style"><i>I</i></button>
+        <button type="button" data-pf="underline" data-no-icon data-tip="Underline ⌘U" aria-label="Underline" class="pf-style"><u>U</u></button>
+        <span class="pf-sep"></span>
         <button type="button" data-pf="hang" data-no-icon data-tip="Label : value" aria-label="Label and value, colons lined up" title="Label and value, colons lined up — type “Model”, press this, then its value"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5h4.5M2.5 10h4.5M2.5 15h4.5M11.5 5h6M11.5 10h6M11.5 15h4"/><circle cx="9.25" cy="4" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="6" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="9" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="11" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="14" r=".55" fill="currentColor" stroke="none"/><circle cx="9.25" cy="16" r=".55" fill="currentColor" stroke="none"/></svg></button>
         <span class="pf-sep"></span>
         <button type="button" data-pf="bullet" data-no-icon data-tip="Bulleted list" aria-label="Bulleted list"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="15" r="1.2" fill="currentColor" stroke="none"/><path d="M8 5h9M8 10h9M8 15h9"/></svg></button>
@@ -307,13 +351,19 @@
     bar.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-pf]');
       if (!b || ta.disabled) return;
-      if (b.dataset.pf === 'hang') hangingIndent(ta);
+      if (STYLE_MARKS[b.dataset.pf]) wrapStyle(ta, STYLE_MARKS[b.dataset.pf]);
+      else if (b.dataset.pf === 'hang') hangingIndent(ta);
       else if (b.dataset.pf === 'bullet') bullets(ta);
       else if (b.dataset.pf === 'indent' || b.dataset.pf === 'outdent') indent(ta, b.dataset.pf === 'outdent');
       else numbering(ta, b.dataset.pf === 'roman');
     });
     ta.addEventListener('input', () => window.refreshParagraphPreview(ta));
     ta.addEventListener('keydown', (e) => {
+      // ⌘B / ⌘I / ⌘U in a custom item's box.
+      if (options && options.strip && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        const mark = { b: '**', i: '*', u: '__' }[e.key.toLowerCase()];
+        if (mark) { e.preventDefault(); wrapStyle(ta, mark); return; }
+      }
       if (e.key !== 'Tab' || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return;
       e.preventDefault();
       const { selectionStart: s, selectionEnd: end, value } = ta;

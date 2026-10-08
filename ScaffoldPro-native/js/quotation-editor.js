@@ -642,13 +642,16 @@ async function blockCall(promise) {
   await loadDetail();
 }
 
-// A priced row can be not charged: free of charge, or included in the unit
-// price (its price is 0 and those words print instead of figures).
-const PRICE_NOTES = { FOC: 'Free of charge', Included: 'Included in unit price' };
-function priceNoteSelect(cls, value, dis) {
-  return `<select class="${cls} price-note-select" title="Charged, free of charge, or included in the unit price" ${dis}>
-    <option value=""${value ? '' : ' selected'}>Charged</option>
-    ${Object.entries(PRICE_NOTES).map(([k, t]) => `<option value="${k}"${value === k ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+// A priced section's unit price takes a number (charged) or words, such
+// as "(Included)" or "(Free of Charge)", printed instead of figures (the
+// row is then not charged). Older rows keep "FOC" / "Included".
+const PRICE_NOTES = { FOC: 'Free of Charge', Included: 'Included in Unit Price' };
+const priceNoteText = (note) => PRICE_NOTES[note] || note;
+function priceOrWords(value) {
+  const v = String(value || '').trim();
+  if (!v) return { price: 0, words: null };
+  const n = Number(v.replace(/[,$\s]|HK\$/g, ''));
+  return Number.isFinite(n) && /\d/.test(v) ? { price: Math.max(0, n), words: null } : { price: 0, words: v };
 }
 
 function renderBlocks() {
@@ -685,10 +688,9 @@ function renderBlocks() {
               <td class="rate-only">(Rate Only)</td>${remove}</tr>`
           : `<tr data-id="${line.id}"${line.priceNote ? ' class="not-charged"' : ''}>${common}
               <td class="num"><input type="number" class="row-qty narrow" min="1" step="1" value="${Math.round(line.quantity)}" ${dis} /></td>
-              <td class="num"><div class="price-cell">${line.priceNote ? '' : `<input type="number" class="row-price" min="0" step="0.01" value="${line.appliedUnitPrice}" ${dis} />`}
-                ${priceNoteSelect('row-pricenote', line.priceNote, dis)}</div></td>
+              <td class="num"><input type="text" class="row-price price-or-words${line.priceNote ? ' is-words' : ''}" value="${esc(line.priceNote ? priceNoteText(line.priceNote) : line.appliedUnitPrice)}" title="A price — or words such as (Included) or (Free of Charge), printed instead of figures" ${dis} /></td>
               <td><input type="text" class="row-unit narrow" value="${esc(line.unit)}" placeholder="optional" ${dis} /></td>
-              <td class="num">${line.priceNote ? `<span class="price-note">${esc(PRICE_NOTES[line.priceNote])}</span>` : money(d.lineTotals[line.id])}</td>${remove}</tr>`;
+              <td class="num">${line.priceNote ? `<span class="price-note">${esc(priceNoteText(line.priceNote))}</span>` : money(d.lineTotals[line.id])}</td>${remove}</tr>`;
       }).join('');
       body = `
         <div class="extra-title-row">
@@ -704,7 +706,9 @@ function renderBlocks() {
             <td class="num row-no">+</td>
             <td><input type="text" class="add-desc" placeholder="${rates ? 'e.g. Scaffolder CP' : 'e.g. Design and Drawing'}" /></td>
             ${rates ? '' : '<td class="num"><input type="number" class="add-qty narrow" min="1" step="1" value="1" title="Quantity" /></td>'}
-            <td class="num"><div class="price-cell"><input type="number" class="add-price${rates ? ' narrow' : ''}" min="0" step="0.01" placeholder="${rates ? 'Rate' : 'Unit price'}" />${rates ? '' : priceNoteSelect('add-pricenote', '', '')}</div></td>
+            <td class="num">${rates
+              ? '<input type="number" class="add-price narrow" min="0" step="0.01" placeholder="Rate" />'
+              : '<input type="text" class="add-price price-or-words" placeholder="Price or (Included)" title="A price — or words such as (Included) or (Free of Charge), printed instead of figures" />'}</td>
             <td><input type="text" class="add-unit narrow" value="${rates ? 'md' : ''}" placeholder="${rates ? 'md' : 'optional'}" title="${rates ? 'Per, e.g. md (man-day)' : 'Optional — printed after the unit price, e.g. 500.00 /set'}" /></td>
             <td colspan="2" class="add-cell"><button class="add-row">Add Row</button></td>
           </tr></tfoot>`}</table>` : '<p class="small-note">No rows.</p>'}
@@ -752,8 +756,15 @@ function renderBlocks() {
       field('.row-desc', 'itemDescription', (v) => v);
       field('.row-unit', 'unit', (v) => v);
       field('.row-qty', 'quantity', (v) => Math.max(1, Math.round(Number(v) || 1)));
-      field('.row-price', 'appliedUnitPrice', (v) => parseFloat(v) || 0);
-      field('.row-pricenote', 'priceNote', (v) => v || null);
+      if (rates) field('.row-price', 'appliedUnitPrice', (v) => parseFloat(v) || 0);
+      else {
+        // A priced section's unit price: a number is charged; words print instead.
+        const el = tr.querySelector('.row-price');
+        if (el) el.addEventListener('change', () => {
+          const p = priceOrWords(el.value);
+          updateLine(lineId, p.words !== null ? { priceNote: p.words } : { priceNote: null, appliedUnitPrice: p.price });
+        });
+      }
       const rm = tr.querySelector('.row-remove');
       if (rm) rm.addEventListener('click', () => removeLine(lineId));
     }
@@ -769,8 +780,10 @@ function renderBlocks() {
           description: desc.value,
           unit: q('.add-unit').value,
           quantity: qtyInput ? Math.max(1, Math.round(Number(qtyInput.value) || 1)) : 1,
-          price: Number(q('.add-price').value) || 0,
-          priceNote: (q('.add-pricenote') || {}).value || null,
+          ...(rates ? { price: Number(q('.add-price').value) || 0 } : (() => {
+            const p = priceOrWords(q('.add-price').value);
+            return { price: p.price, priceNote: p.words };
+          })()),
         }));
       };
       addBtn.addEventListener('click', add);
