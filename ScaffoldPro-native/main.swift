@@ -1447,7 +1447,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             i.target = self
             go.addItem(i)
         }
-        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Assistant", "assistant.html"), ("Chat", "chat.html"), ("Team", "team.html"), ("Marketing", "marketing.html")] {
+        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Assistant", "assistant.html"), ("Chat", "chat.html"), ("Team", "team.html"), ("Workers", "workers.html"), ("Marketing", "marketing.html")] {
             let extra = item(title, #selector(goToPage(_:)), "", page: page)
             extra.target = self
             go.addItem(extra)

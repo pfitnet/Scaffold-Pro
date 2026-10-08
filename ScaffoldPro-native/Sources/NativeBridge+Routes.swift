@@ -1163,6 +1163,8 @@ extension NativeBridge {
 
         case let route where route.hasPrefix("workerAgreements:"):
             handleWorkerAgreement(id: id, action: String(route.dropFirst("workerAgreements:".count)), payload: payload)
+        case "workers:roster":
+            respond(id: id, encodable: db.workerRoster(includeArchived: (payload["includeArchived"] as? Bool) ?? false))
         case "workers:list":
             let includeArchived = (payload["includeArchived"] as? Bool) ?? false
             respond(id: id, encodable: db.listWorkers(includeArchived: includeArchived))

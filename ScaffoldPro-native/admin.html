@@ -4,24 +4,15 @@
   <meta charset="UTF-8" />
   <title>Admin — ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/worker-agreement.css" />
   <style>
     .admin-section { margin-top: 28px; }
     .admin-section:first-of-type { margin-top: 16px; }
     .section-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .section-toolbar h2 { margin: 0; }
     .section-toolbar .controls { display: flex; gap: 8px; align-items: center; }
-    .workers-grid { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 24px; align-items: start; }
     tr.selected td { background: var(--row-selected, rgba(47, 111, 237, 0.10)); }
     .expiry-expired { color: var(--danger); font-weight: 600; }
     .expiry-soon { color: #b26a00; font-weight: 600; }
-    .worker-detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 14px; }
-    .worker-detail-fields .field { display: flex; flex-direction: column; gap: 4px; }
-    .worker-detail-fields .field.full { grid-column: 1 / -1; }
-    .worker-detail-fields label { font-size: 11px; color: var(--text-secondary); }
-    .name-pair { display: flex; gap: 6px; }
-    .name-pair input { flex: 1; min-width: 0; }
-    .name-pair select { width: 72px; flex: none; }
     .date-input { width: 130px; }
     .small-note { font-size: 12px; color: var(--text-secondary); }
     @media (prefers-color-scheme: dark) { .expiry-soon { color: #f0a53a; } }
@@ -47,10 +38,10 @@
   <nav id="sidebar"></nav>
   <main id="content">
     <h1>Admin</h1>
-    <div class="subtitle">Workers, their documents, company paperwork, and the employees on the payroll. Company details and currency live in Settings.</div>
+    <div class="subtitle">Company paperwork with its expiry reminders, and the employees on the payroll. Site workers have their own page (Workers); company details and currency live in Settings.</div>
 
     <div class="tabs" id="admin-tabs">
-      <button data-tab="workers" class="active">Workers &amp; Documents</button>
+      <button data-tab="workers" class="active">Company Documents</button>
       <button data-tab="employees">Employees</button>
     </div>
 
@@ -59,23 +50,6 @@
     <section class="admin-section">
       <div class="section-toolbar"><h2>Needs Attention</h2></div>
       <div id="expiring-list"></div>
-    </section>
-
-    <!-- Workers (sections 41-42) -->
-    <section class="admin-section">
-      <div class="section-toolbar">
-        <h2>Workers</h2>
-        <div class="controls">
-          <label class="small-note"><input type="checkbox" id="show-archived-workers" /> Show archived</label>
-          <button class="primary" id="new-worker-btn">+ New Worker</button>
-        </div>
-      </div>
-      <div class="workers-grid">
-        <div id="worker-list"></div>
-        <div id="worker-detail">
-          <div class="empty-state"><h2>No worker selected</h2><p>Select a worker to see their details and documents.</p></div>
-        </div>
-      </div>
     </section>
 
     <!-- Company / administrative documents (section 43) -->
@@ -159,40 +133,12 @@
     </div>
   </div>
 
-  <div class="modal-backdrop hidden" id="worker-modal">
-    <div class="modal">
-      <h2>New Worker</h2>
-      <div class="field"><label>Name</label><input type="text" id="w-name" /></div>
-      <div class="form-row cols-2">
-        <div class="field"><label for="w-chineseName">Chinese name</label><input type="text" id="w-chineseName" placeholder="e.g. 陳大文" /></div>
-        <div class="field"><label for="w-honorific">On the agreement</label><select id="w-honorific"><option>先生</option><option>女士</option></select></div>
-      </div>
-      <div class="form-row cols-2">
-        <div class="field"><label for="w-idNumber">ID card no.</label><input type="text" id="w-idNumber" placeholder="e.g. A123456(7)" /></div>
-        <div class="field"><label for="w-dailyWage">Daily wage (HK$)</label><input type="number" id="w-dailyWage" min="0" step="10" placeholder="1300" /></div>
-      </div>
-      <div class="field"><label>Position</label><input type="text" id="w-position" placeholder="Scaffolder" /></div>
-      <div class="field"><label>Phone</label><input type="text" id="w-phone" /></div>
-      <div class="field"><label>Email</label><input type="text" id="w-email" /></div>
-      <div class="field"><label>Start Date</label><input type="date" id="w-startDate" /></div>
-      <p class="small-note">Their employment agreement is made with these details, ready to print and sign.</p>
-      <div class="error-text hidden" id="w-error"></div>
-      <div class="actions">
-        <button id="w-cancel-btn">Cancel</button>
-        <button class="primary" id="w-save-btn">Save</button>
-      </div>
-    </div>
-  </div>
-
   <script src="js/dialogs.js"></script>
   <script src="js/sidebar.js"></script>
   <script src="js/undo.js"></script>
   <script src="js/hover-menu.js"></script>
   <script src="js/controls.js"></script>
   <script src="js/icons.js"></script>
-  <script src="js/docx-export.js"></script>
-  <script src="js/doc-preview.js"></script>
-  <script src="js/worker-agreement.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/employees.js"></script>
 </body>

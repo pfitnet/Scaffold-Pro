@@ -426,7 +426,7 @@ async function loadDashboard() {
   const expiring = await window.api.adminDocuments.expiring(30);
   if (expiring.length > 0) {
     document.getElementById('attention-block').classList.remove('hidden');
-    table('attention-list', expiring.map((i) => Object.assign({ url: 'admin.html' }, i)), [
+    table('attention-list', expiring.map((i) => Object.assign({ url: i.kind === 'Worker' ? 'workers.html' : 'admin.html' }, i)), [
       { value: (i) => `<strong>${esc(i.originalName)}</strong><div class="sub">${esc(i.ownerName)} · ${esc(i.category)}</div>` },
       { cls: 'num', value: (i) => i.daysLeft < 0 ? `<span class="status-pill pill-danger">Expired ${-i.daysLeft} day(s) ago</span>`
         : i.daysLeft === 0 ? '<span class="status-pill pill-danger">Expires today</span>' : `<span class="muted">Expires in ${i.daysLeft} day(s)</span>` },

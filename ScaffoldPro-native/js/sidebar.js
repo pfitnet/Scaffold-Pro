@@ -15,6 +15,8 @@ const ICONS = {
   stock: '<path d="M3 7.5 10 4l7 3.5v5L10 16l-7-3.5z"/><path d="M3 7.5 10 11l7-3.5M10 11v5"/>',
   accounts: '<rect x="4" y="2.5" width="12" height="15" rx="1.5"/><rect x="6.5" y="5" width="7" height="3" rx=".5"/><path d="M7 11h.01M10 11h.01M13 11h.01M7 14h.01M10 14h.01M13 14h.01"/>',
   admin: '<circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16c.4-2.8 2.3-4.3 4.7-4.3s4.3 1.5 4.7 4.3"/><circle cx="14" cy="8" r="2"/><path d="M13 11.9c2.2-.2 3.8 1 4.2 3.6"/>',
+  // A hard hat: the people on site.
+  workers: '<path d="M3 14.5h14"/><path d="M4.5 14.5V12a5.5 5.5 0 0 1 11 0v2.5"/><path d="M8.5 7V5.2a1.5 1.5 0 0 1 3 0V7"/><path d="M3.5 14.5v1.5h13v-1.5"/>',
   calendar: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 3v3M13 3v3"/>',
   tasks: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>',
   marketing: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>',
@@ -71,6 +73,7 @@ const NAV_ITEMS = [
   { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },
+  { page: 'workers', label: 'Workers', href: 'workers.html' },
   { section: 'Company' },
   { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '6' },
   { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
@@ -603,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'assistant.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'assistant.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'workers.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

@@ -1,10 +1,7 @@
 'use strict';
 
-const WORKER_DOC_CATEGORIES = ['Employment Contract', 'Certification', 'Training Certificate', 'Identification', 'Other'];
 const ADMIN_DOC_CATEGORIES = ['Contracts', 'Insurance', 'Licenses', 'Certificates', 'Company Documents', 'Other'];
 
-let workers = [];
-let selectedWorkerId = null;
 let adminDocs = [];
 
 function escapeAttr(value) {
@@ -49,6 +46,11 @@ async function refreshExpiring() {
   const tbody = table.querySelector('tbody');
   for (const item of items) {
     const tr = document.createElement('tr');
+    if (item.kind === 'Worker') {
+      tr.classList.add('clickable');
+      tr.title = 'Open on the Workers page';
+      tr.addEventListener('click', () => (window.appNavigate || ((h) => { location.href = h; }))('workers.html'));
+    }
     tr.innerHTML = `
       <td>${item.ownerName}</td>
       <td>${item.originalName}</td>
@@ -137,163 +139,6 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
   container.appendChild(table);
 }
 
-// ---------- Workers ----------
-
-async function refreshWorkers() {
-  const includeArchived = document.getElementById('show-archived-workers').checked;
-  workers = await window.api.workers.list(includeArchived);
-  const container = document.getElementById('worker-list');
-
-  if (workers.length === 0) {
-    container.innerHTML = '<div class="empty-state"><h2>No workers yet</h2><p>Add a worker to store their contracts and certificates.</p></div>';
-    selectedWorkerId = null;
-    renderWorkerDetail();
-    return;
-  }
-
-  const table = document.createElement('table');
-  table.innerHTML = '<thead><tr><th>No.</th><th>Name</th><th>Position</th></tr></thead><tbody></tbody>';
-  const tbody = table.querySelector('tbody');
-  for (const w of workers) {
-    const tr = document.createElement('tr');
-    tr.style.cursor = 'pointer';
-    if (w.id === selectedWorkerId) tr.classList.add('selected');
-    tr.innerHTML = `
-      <td>${w.workerNumber}</td>
-      <td>${w.name}${w.isArchived ? ' <span class="status-pill">Archived</span>' : ''}</td>
-      <td>${w.position || '—'}</td>`;
-    tr.addEventListener('click', () => {
-      selectedWorkerId = w.id;
-      refreshWorkers();
-    });
-    tbody.appendChild(tr);
-  }
-  container.innerHTML = '';
-  container.appendChild(table);
-
-  if (selectedWorkerId && !workers.some((w) => w.id === selectedWorkerId)) selectedWorkerId = null;
-  await renderWorkerDetail();
-}
-
-async function renderWorkerDetail() {
-  const container = document.getElementById('worker-detail');
-  const worker = workers.find((w) => w.id === selectedWorkerId);
-  if (!worker) {
-    container.innerHTML = '<div class="empty-state"><h2>No worker selected</h2><p>Select a worker to see their details and documents.</p></div>';
-    return;
-  }
-
-  container.innerHTML = `
-    <div class="section-toolbar">
-      <h2>${worker.workerNumber} — ${worker.name}</h2>
-      <div class="controls">
-        <button id="worker-reveal-btn">Show Folder</button>
-        <button id="worker-archive-btn">${worker.isArchived ? 'Restore' : 'Archive'}</button>
-      </div>
-    </div>
-    <div class="worker-detail-fields">
-      <div class="field"><label>Name</label><input type="text" data-field="name" value="${escapeAttr(worker.name)}" /></div>
-      <div class="field"><label>Chinese name</label><span class="name-pair"><input type="text" data-field="chineseName" value="${escapeAttr(worker.chineseName)}" placeholder="e.g. 陳大文" />
-        <select data-field="honorific" title="On the employment agreement">${['先生', '女士'].map((h) => `<option ${(worker.honorific || '先生') === h ? 'selected' : ''}>${h}</option>`).join('')}</select></span></div>
-      <div class="field"><label>ID card no.</label><input type="text" data-field="idNumber" value="${escapeAttr(worker.idNumber)}" placeholder="e.g. A123456(7)" /></div>
-      <div class="field"><label>Daily wage (HK$)</label><input type="number" min="0" step="10" data-field="dailyWage" value="${escapeAttr(worker.dailyWage)}" placeholder="e.g. 1300" /></div>
-      <div class="field"><label>Position</label><input type="text" data-field="position" value="${escapeAttr(worker.position)}" /></div>
-      <div class="field"><label>Phone</label><input type="text" data-field="phone" value="${escapeAttr(worker.phone)}" /></div>
-      <div class="field"><label>Email</label><input type="text" data-field="email" value="${escapeAttr(worker.email)}" /></div>
-      <div class="field"><label>Start Date</label><input type="date" data-field="startDate" value="${escapeAttr(worker.startDate)}" /></div>
-      <div class="field"><label>End Date</label><input type="date" data-field="endDate" value="${escapeAttr(worker.endDate)}" /></div>
-      <div class="field full"><label>Notes</label><textarea data-field="notes" rows="2">${escapeAttr(worker.notes)}</textarea></div>
-    </div>
-    <div id="worker-agreement"></div>
-    <div class="section-toolbar">
-      <h2 style="font-size:14px;">Documents</h2>
-      <div class="controls">
-        <select id="worker-doc-category">${WORKER_DOC_CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('')}</select>
-        <input type="date" id="worker-doc-expiry" class="date-input" title="Expiry date (optional)" />
-        <button class="primary" id="upload-worker-doc-btn" title="You can choose several files at once">Upload…</button>
-      </div>
-    </div>
-    <div id="worker-doc-list"></div>`;
-
-  for (const input of container.querySelectorAll('[data-field]')) {
-    input.addEventListener('change', async () => {
-      const payload = {};
-      for (const el of container.querySelectorAll('[data-field]')) payload[el.dataset.field] = el.value;
-      const result = await window.api.workers.update(worker.id, payload);
-      if (!result.ok) { alert(result.error); }
-      await refreshWorkers();
-    });
-  }
-
-  document.getElementById('worker-reveal-btn').addEventListener('click', () => window.api.workers.revealFolder(worker.id));
-  document.getElementById('worker-archive-btn').addEventListener('click', async () => {
-    const archiving = !worker.isArchived;
-    if (archiving && !await appConfirm(`Archive ${worker.name}? Their record and files are kept; they just won't show in the list.`)) return;
-    await window.api.workers.setArchived(worker.id, archiving);
-    await refreshWorkers();
-    await refreshExpiring();
-  });
-  document.getElementById('upload-worker-doc-btn').addEventListener('click', async () => {
-    const category = document.getElementById('worker-doc-category').value;
-    const expiry = document.getElementById('worker-doc-expiry').value;
-    try {
-      await window.api.workerDocuments.upload(worker.id, category, expiry);
-    } catch (e) {
-      alert(`Not every document could be added.\n\n${e.message}`);
-    }
-    await refreshWorkerDocs(worker.id);
-    await refreshExpiring();
-  });
-
-  await refreshWorkerDocs(worker.id);
-  if (window.workerAgreement) await window.workerAgreement.render(document.getElementById('worker-agreement'), worker);
-}
-
-async function refreshWorkerDocs(workerId) {
-  const docs = await window.api.workerDocuments.list(workerId);
-  const container = document.getElementById('worker-doc-list');
-  if (!container) return;
-  renderDocTable(container, docs, window.api.workerDocuments,
-    'No documents yet', 'Upload a contract, certificate, or ID for this worker.',
-    () => refreshWorkerDocs(workerId));
-}
-
-function openWorkerModal() {
-  for (const id of ['w-name', 'w-chineseName', 'w-idNumber', 'w-dailyWage', 'w-position', 'w-phone', 'w-email', 'w-startDate']) {
-    document.getElementById(id).value = '';
-  }
-  document.getElementById('w-error').classList.add('hidden');
-  document.getElementById('worker-modal').classList.remove('hidden');
-  document.getElementById('w-name').focus();
-}
-
-function closeWorkerModal() {
-  document.getElementById('worker-modal').classList.add('hidden');
-}
-
-async function saveNewWorker() {
-  const result = await window.api.workers.create({
-    name: document.getElementById('w-name').value,
-    chineseName: document.getElementById('w-chineseName').value,
-    honorific: document.getElementById('w-honorific').value,
-    idNumber: document.getElementById('w-idNumber').value,
-    dailyWage: document.getElementById('w-dailyWage').value,
-    position: document.getElementById('w-position').value,
-    phone: document.getElementById('w-phone').value,
-    email: document.getElementById('w-email').value,
-    startDate: document.getElementById('w-startDate').value,
-  });
-  if (!result.ok) {
-    const err = document.getElementById('w-error');
-    err.textContent = result.error;
-    err.classList.remove('hidden');
-    return;
-  }
-  closeWorkerModal();
-  selectedWorkerId = result.worker.id;
-  await refreshWorkers();
-}
-
 // ---------- Company documents ----------
 
 async function refreshAdminDocs() {
@@ -319,10 +164,6 @@ async function init() {
   document.getElementById('admin-doc-category').innerHTML =
     ADMIN_DOC_CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('');
 
-  document.getElementById('new-worker-btn').addEventListener('click', openWorkerModal);
-  document.getElementById('w-cancel-btn').addEventListener('click', closeWorkerModal);
-  document.getElementById('w-save-btn').addEventListener('click', saveNewWorker);
-  document.getElementById('show-archived-workers').addEventListener('change', refreshWorkers);
 
   document.getElementById('upload-admin-doc-btn').addEventListener('click', async () => {
     const category = document.getElementById('admin-doc-category').value;
@@ -339,17 +180,11 @@ async function init() {
   });
   document.getElementById('admin-doc-search').addEventListener('input', applyAdminDocSearch);
 
-  // Arriving from global search (⌘K): admin.html?worker=<id> opens that worker.
+  // Workers have their own page now: an old link to one goes there.
   const wantedWorker = new URLSearchParams(location.search).get('worker');
-  if (wantedWorker) selectedWorkerId = wantedWorker;
+  if (wantedWorker) { location.replace(`workers.html?worker=${encodeURIComponent(wantedWorker)}`); return; }
 
   await refreshExpiring();
-  await refreshWorkers();
-  if (wantedWorker && !workers.some((w) => w.id === wantedWorker)) {
-    document.getElementById('show-archived-workers').checked = true;
-    selectedWorkerId = wantedWorker;
-    await refreshWorkers();
-  }
   await refreshAdminDocs();
 }
 

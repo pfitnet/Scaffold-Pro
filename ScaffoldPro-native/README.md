@@ -4825,3 +4825,30 @@ one idea at a time, few words, and pictures that carry the meaning.
   employment agreement wasn't ready).
 - The letterhead's Chinese name is now 建機（香港）設備有限公司, in a smaller
   size so it takes the same room as before, on PDFs and Word copies alike.
+
+## Batch 216 — Workers get their own page, redesigned
+
+- Workers now has its own place in the sidebar (Operations › Workers).
+  Admin keeps the company's documents, the expiry reminders and employees.
+- At the top, the crew at a glance: how many workers there are, how many
+  agreements are waiting to be signed and chopped, how many are waiting for
+  the worker's signed copy, and documents that expire within 30 days.
+  Click one to show only those workers.
+- On the left, everyone as cards: initials, name, number, position and
+  daily wage, three small bars for where their agreement is, and a red
+  badge for documents expiring soon. Search with / ; ↑ and ↓ move through
+  the list.
+- On the right, the chosen worker, with a "Next step" that tells you what
+  to do now (Sign & Chop, add the signed copy, add their ID number…) with
+  a button that does it. Three tabs:
+  - Agreement: where it is (written → signed & chopped → signed by the
+    worker), its terms, and a live preview of the agreement that changes
+    as you type, with the worker's details highlighted. Preview PDF, Word
+    and Print sit under it. Drop the signed copy anywhere on the page.
+  - Details: identity, work and contact, saved as you type. A Hong Kong
+    ID card number is checked as you type it.
+  - Documents: certificates and ID as cards, with when they expire.
+- New Worker opens a sheet that shows the agreement it will write as you
+  fill it in.
+- Fixed: agreements made with the last version could have blank dates; they
+  are filled in (the day it was made, and the start date) when opened.

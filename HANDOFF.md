@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 215.
+"## Batch N" section per change, newest at the bottom, up to Batch 216.
 
 ---
 
@@ -76,7 +76,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **216**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **217**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -181,7 +181,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–215, newest last)
+## 5. Recent work (Batches 147–216, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -295,6 +295,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **213:** Worker employment agreements (簡易僱傭合約, from the user's "Simple Employment Agreement" PDF). `Worker` gains `chineseName`, `honorific` (先生/女士), `idNumber`, `dailyWage`; new store `worker_agreements.json` (`WorkerAgreement`: dates, position, daily wage, hours, pay day, notice days, signatory, employer-signed path, signed-copy path), one per worker, made in `workers:create` (or "Make Agreement" for older workers). Routes `workerAgreements:<action>` → `NativeBridge.handleWorkerAgreement` (get, create, update, exportPDF with preview, print, exportWord, sign, unsign, uploadSigned [Mac only], saveSignedFile, file). Words built once in `AppDatabase.agreementContent` (template text, with `chineseCapitalAmount` 壹仟叁佰元正, `chineseClockTime`, `chineseDate`) and drawn by `PDFGenerator.employmentAgreement` (cover between rules, terms with aligned colons, signing page; Times + Songti TC cascade) and by `docx-export.js` `agreementParts` (layout `kind: 'agreement'`; `sectionXML` split out of `letterParts`; `files:saveWord` takes `workerId` → the worker's Contracts folder). Files: Administration/Workers/W001/Contracts/"W001-EA Employment Agreement - <name>[ - Signed & Chopped | - Signed].pdf". Team permission split: `TeamMembership.canSign` = quotations, new `canSignAgreements` = worker agreements, plus `idNumber` printed under the signer's name. Changing terms after the employer signed takes the signature off (asked first). UI: `js/worker-agreement.js` + `css/worker-agreement.css` on Admin › Workers (steps Made → Signed & chopped → Signed by the worker; drop the signed copy on the card).
 - **214:** Faster updates. `install.sh` keeps a build cache (since Batch 215 in `~/Library/Caches/ScaffoldPro Build`, falling back to `ScaffoldPro-native/.build-cache/`, gitignored): `sdk` (the SDK that worked + `swiftc --version`; reused without the probe, re-picked once with `SDKROOT` unset if a compile fails with it) and `ScaffoldPro-<fingerprint>` (the last binary; fingerprint = sha256 of main.swift + compiler + SDK + flags). Same fingerprint → no compile ("…so that build is used." in the log; the in-app updater shows "Using the last build…"). Otherwise `swiftc -O -wmo -num-threads <cores>` (LLVM work spread over every core) with `-warn-long-function-bodies=400` / `-warn-long-expression-type-checking=200` so slow spots show in ~/Library/Logs/ScaffoldPro Update.log, plus "Compiled in Ns.". Bigger next step if still slow: split main.swift into several files and build them in parallel (incremental).
 - **215:** main.swift split into `Sources/*.swift` (22 files) by `split.py`-style cuts at the MARK sections; every `private`/`fileprivate`/`private(set)` dropped; `AppDatabase` and `NativeBridge` methods moved into extensions (NativeBridge's scattered stored properties — webReplies, servingWeb, webOpenURL, pendingPreviews, pricedColumns, scheduleTimer, lastAttempt, teamFolderMissing — moved up into the class). This also fixes Batch 213's `agreementDayFormatter`, which was declared after `app.run()` in main.swift and so never initialised. `install.sh` builds non-WMO with `-j <cores>`, `-incremental` and an output-file-map in the cache's `objects` folder (falls back to a clean build unless the log has a real `file.swift:L:C: error:`), and tees the compiler's output to `~/Library/Logs/ScaffoldPro Build.log`. Letterhead: the Chinese name is now 建機（香港）設備有限公司 at 11.5pt (was 建機 (香港) 有限公司 at 15pt), ending where the old one did; `resources/fonts/ScaffoldPro-LetterheadTC.ttf` re-subset from Noto Sans TC 2.004 (wght 400) with 設備 and the full-width brackets; `tools/pdf-preview/render.py` follows.
+- **216:** Workers get their own page, `workers.html` + `js/workers.js` + `css/workers.css` (sidebar: Operations › Workers, hard-hat icon; Go menu). Hero with a live summary and search (`/`, ⌘N new); four tiles (workers / to sign & chop / waiting for the worker / expiring documents) that filter the roster; roster cards (avatar from a name hash, agreement pips by stage, expiring badge, ↑/↓); profile with cover, chips, a "Next step" call to action, tabs Agreement (steps, terms saved on change, a live HTML "paper" preview with the worker's details marked — `paperHTML` mirrors `agreementContent`, incl. `capitalAmount`/`clock` JS ports — exports, Sign & Chop, drop the signed copy), Details (identity/work/contact cards saved on change, HK ID check-digit validation `hkid()`), Documents (tiles with expiry badges and inline expiry dates). New worker: a sheet with a live avatar and a preview of the agreement it writes. Native: `workers:roster` (`AppDatabase.workerRoster`: worker, stage 0–3, documents, expiring ≤30 days); `repairedDates` fills in agreement/start dates left empty by Batch 213's uninitialised formatter. Admin keeps Needs Attention, Company Documents and Employees; `admin.html?worker=` redirects; search, calendar and dashboard links go to workers.html. `js/worker-agreement.js` / `css/worker-agreement.css` removed.
 
 ---
 

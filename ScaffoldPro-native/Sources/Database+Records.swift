@@ -581,7 +581,7 @@ extension AppDatabase {
         let workers = Dictionary(workersStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for d in workerDocumentsStore.readAll() where !d.isArchived {
             guard let day = inRange(d.expiryDate), let w = workers[d.workerId], !w.isArchived else { continue }
-            events.append(CalendarEvent(date: day, kind: "Expiry", title: "\(d.category) expires — \(w.name)", detail: d.originalName, url: "admin.html?worker=\(w.id)"))
+            events.append(CalendarEvent(date: day, kind: "Expiry", title: "\(d.category) expires — \(w.name)", detail: d.originalName, url: "workers.html?worker=\(w.id)"))
         }
         for d in adminDocumentsStore.readAll() where !d.isArchived {
             guard let day = inRange(d.expiryDate) else { continue }
@@ -1460,7 +1460,7 @@ extension AppDatabase {
                                         url: "letter-editor.html?id=\(l.id)"))
         }
         for w in workersStore.readAll() where matches(w.name, w.workerNumber, w.position, w.phone) {
-            results.append(SearchResult(kind: "Worker", title: "\(w.workerNumber) \(w.name)", subtitle: w.position ?? "", url: "admin.html?worker=\(w.id)"))
+            results.append(SearchResult(kind: "Worker", title: "\(w.workerNumber) \(w.name)", subtitle: w.position ?? "", url: "workers.html?worker=\(w.id)"))
         }
         for d in drawingsStore.readAll() where !d.isArchived && matches(d.originalName, d.description) {
             if let p = projectOf(d.projectId) {

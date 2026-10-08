@@ -94,11 +94,51 @@ extension AppDatabase {
     }
 
     func workerAgreement(workerId: String) -> WorkerAgreement? {
-        workerAgreementsStore.readAll().filter { $0.workerId == workerId }.max { $0.createdAt < $1.createdAt }
+        workerAgreementsStore.readAll().filter { $0.workerId == workerId }.max { $0.createdAt < $1.createdAt }.map { repairedDates($0) }
+    }
+
+    /// Agreements made by Batch 213 could have no dates (its date formatter
+    /// was never set up): the day it was made, and the worker's start date
+    /// (or that day), are filled in and kept.
+    func repairedDates(_ agreement: WorkerAgreement) -> WorkerAgreement {
+        let isDay = { (s: String) in s.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil }
+        guard !isDay(agreement.agreementDate) || !isDay(agreement.startDate) else { return agreement }
+        var a = agreement
+        let made = String(a.createdAt.prefix(10))
+        let day = isDay(made) ? made : agreementDayFormatter.string(from: Date())
+        if !isDay(a.agreementDate) { a.agreementDate = day }
+        if !isDay(a.startDate) {
+            let start = getWorker(id: a.workerId).flatMap { nonBlank($0.startDate) }.map { String($0.prefix(10)) }
+            a.startDate = start.flatMap { isDay($0) ? $0 : nil } ?? a.agreementDate
+        }
+        var all = workerAgreementsStore.readAll()
+        if let i = all.firstIndex(where: { $0.id == a.id }) { all[i] = a; workerAgreementsStore.writeAll(all) }
+        return a
+    }
+
+    /// The Workers page's list: each worker with where their agreement is
+    /// (0 none, 1 made, 2 signed & chopped for the employer, 3 signed by
+    /// the worker too), their documents, and how many expire within 30 days.
+    func workerRoster(includeArchived: Bool) -> [WorkerRosterEntry] {
+        let agreements = workerAgreementsStore.readAll()
+        let docs = workerDocumentsStore.readAll().filter { !$0.isArchived }
+        let today = Calendar.current.startOfDay(for: Date())
+        let soon = Calendar.current.date(byAdding: .day, value: 30, to: today) ?? today
+        return listWorkers(includeArchived: includeArchived).map { w in
+            let a = agreements.filter { $0.workerId == w.id }.max { $0.createdAt < $1.createdAt }
+            let stage = a == nil ? 0 : a?.signedCopyPath != nil ? 3 : a?.employerSignedBy != nil ? 2 : 1
+            let mine = docs.filter { $0.workerId == w.id }
+            let expiring = mine.filter { d in
+                guard let e = d.expiryDate, let date = agreementDayFormatter.date(from: String(e.prefix(10))) else { return false }
+                return date <= soon
+            }.count
+            return WorkerRosterEntry(worker: w, agreementNumber: workerAgreementNumber(w), stage: stage,
+                                     signedBy: a?.employerSignedBy, documents: mine.count, expiring: expiring)
+        }
     }
 
     func getWorkerAgreement(id: String) -> WorkerAgreement? {
-        workerAgreementsStore.readAll().first { $0.id == id }
+        workerAgreementsStore.readAll().first { $0.id == id }.map { repairedDates($0) }
     }
 
     func workerAgreementNumber(_ worker: Worker) -> String { "\(worker.workerNumber)-EA" }
