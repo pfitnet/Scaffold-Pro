@@ -210,7 +210,7 @@ a:hover { text-decoration: underline; }
 #sidebar a:hover .nav-icon { transform: scale(1.12) rotate(-4deg); color: var(--accent); }
 #sidebar a.active .nav-icon { color: var(--accent); }
 /* The selection marker slides from item to item (js/motion.js). */
-#sidebar.has-ink a.active:not(.sidebar-brand) { background: transparent; box-shadow: none; }
+#sidebar.has-ink a.active:not(.sidebar-brand):not(.sidebar-user):not(.sidebar-gear) { background: transparent; box-shadow: none; }
 .nav-ink { position: absolute; z-index: 0; left: 12px; right: 12px; height: 0; border-radius: 9px; pointer-events: none;
   background: var(--sidebar-selected); box-shadow: var(--shadow-control), inset 0 0 0 .5px var(--hairline);
   transition: top .38s var(--spring), height .3s var(--ease), opacity .2s; }
@@ -220,14 +220,21 @@ a:hover { text-decoration: underline; }
 
 /* ---------- Main content ---------- */
 
+/* The page is a column up to --page-max wide. On a big screen it grows a
+   little and sits in the middle of the space beside the sidebar, rather
+   than leaving an empty strip on the right. */
+:root { --page-max: 1340px; }
+@media (min-width: 1800px) { :root { --page-max: 1480px; } }
+@media (min-width: 2200px) { :root { --page-max: 1640px; } }
 #content {
   flex: 1;
   overflow-y: auto;
-  padding: 42px 44px 56px;
+  --page-gutter: max(44px, calc((100vw - var(--sidebar-width) - var(--page-max)) / 2));
+  padding: 42px var(--page-gutter) 56px;
   min-width: 0;
   scroll-behavior: smooth;
 }
-#content > * { max-width: 1340px; }
+#content > * { max-width: var(--page-max); }
 /* The page rises in as it opens, a block at a time; it fades as you
    leave by a link (js/motion.js). */
 html.page-enter #content > * { animation: page-rise .6s var(--ease) both; }
@@ -914,14 +921,20 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
   margin-top: auto; position: sticky; bottom: -16px; background: var(--sidebar);
   padding: 8px 0 0; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 4px;
 }
-#sidebar a.sidebar-user { padding: 5px 8px; }
-.sidebar-user-row { display: flex; align-items: center; gap: 4px; }
+/* You and Settings: one button in two parts — your name on the left,
+   the gear on the right, a hairline between. */
+.sidebar-user-row { display: flex; align-items: stretch; border: 1px solid var(--hairline); border-radius: 11px; overflow: hidden;
+  background: color-mix(in srgb, var(--text) 3%, transparent); box-shadow: var(--shadow-control); }
 .sidebar-user-row .sidebar-user { flex: 1; min-width: 0; }
-#sidebar a.sidebar-gear { flex: none; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--text-secondary); }
+#sidebar .sidebar-user-row a { border-radius: 0; box-shadow: none; }
+#sidebar a.sidebar-user { padding: 7px 10px; }
+#sidebar a.sidebar-gear { flex: none; width: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary);
+  border-left: 1px solid var(--hairline); }
 #sidebar a.sidebar-gear .nav-icon { width: 17px; height: 17px; margin: 0; transition: transform .45s var(--ease); }
-#sidebar a.sidebar-gear:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+#sidebar a.sidebar-gear:hover { color: var(--text); }
 #sidebar a.sidebar-gear:hover .nav-icon { transform: rotate(45deg); }
-#sidebar a.sidebar-gear.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+#sidebar .sidebar-user-row a.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text); }
+#sidebar a.sidebar-gear.active { color: var(--accent); }
 .sidebar-user .user-avatar {
   width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.02em;

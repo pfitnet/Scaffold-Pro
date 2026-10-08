@@ -4384,3 +4384,13 @@ one idea at a time, few words, and pictures that carry the meaning.
 - A key already saved on a Mac (in its Keychain) becomes the team's the
   first time AI Import is opened or used, and is taken out of the Keychain.
 - Remove Key removes it for everyone.
+
+## Batch 184 — Wide screens; You and Settings as one button
+
+- **Wide screens:** pages no longer stop at a fixed width with an empty
+  strip on the right. The page column grows a little on big screens
+  (1,340 → 1,480 → 1,640 points wide) and sits in the middle of the space
+  beside the sidebar. The User Manual does the same.
+- **You and Settings** at the bottom of the sidebar are one button in two
+  parts: your name on the left (Settings › You), the gear on the right
+  (Settings), with a hairline between; the part you're on is highlighted.

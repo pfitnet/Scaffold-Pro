@@ -4,7 +4,9 @@
    own colour (--c). Light and dark follow the app; prints cleanly. */
 
 .mx { --c: var(--accent); }
-#content.mx > * { max-width: 1260px; }
+#content.mx { --page-max: 1260px; }
+@media (min-width: 1800px) { #content.mx { --page-max: 1400px; } }
+#content.mx > * { max-width: var(--page-max); }
 
 /* ---------------------------------------------------------------- cover */
 .mx-cover { position: relative; overflow: hidden; isolation: isolate; border-radius: 28px; padding: 56px 56px 40px; margin-bottom: 56px; color: #fff;
