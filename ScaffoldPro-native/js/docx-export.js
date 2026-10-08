@@ -40,7 +40,7 @@
 
   function rPr(o) {
     let s = '';
-    if (o.font) s += `<w:rFonts w:ascii="${o.font}" w:hAnsi="${o.font}" w:cs="${o.font}"/>`;
+    if (o.font) s += `<w:rFonts w:ascii="${o.font}" w:hAnsi="${o.font}" w:cs="${o.font}"${o.eastAsia ? ` w:eastAsia="${o.eastAsia}"` : ''}/>`;
     if (o.bold) s += '<w:b/><w:bCs/>';
     if (o.italic) s += '<w:i/><w:iCs/>';
     if (o.color) s += `<w:color w:val="${o.color}"/>`;
@@ -428,8 +428,7 @@
   function letterParts(d, n = '') {
     const L = d;
     // The body starts where continuation pages do on the PDF (first baseline
-    // 95.25pt); the first page's opening starts 9pt lower (104.25pt).
-    const top = 82.0;
+    // 95.25pt, the top margin 82pt); the first page's opening starts 9pt lower (104.25pt).
     const body = [para('', { line: 9.75 })];
     const open = opening(d, L);
     body.push(open.xml);
@@ -439,6 +438,13 @@
     body.push(receipt(d, L));
     body.push(closing(d));
     body.push(para('', { line: 1 })); // Word expects the body to end with a paragraph
+    return { body: body.join(''), sect: sectionXML(d, n) };
+  }
+
+  // The page, margins, letterhead (header) and page number (footer).
+  function sectionXML(d, n = '') {
+    const L = d;
+    const top = 82.0;
     const letter = d.paperSize === 'Letter';
     const pageW = letter ? 12240 : 11906;
     const pageH = letter ? 15840 : 16838;
@@ -446,11 +452,67 @@
       `<w:pgSz w:w="${pageW}" w:h="${pageH}"/>` +
       `<w:pgMar w:top="${TW(top)}" w:right="${TW(L.pageWidth - L.textRight)}" w:bottom="${TW(L.pageHeight - L.contentBottom - 4)}" ` +
       `w:left="${TW(L.textLeft)}" w:header="0" w:footer="${TW(12.4)}" w:gutter="0"/></w:sectPr>`;
-    return { body: body.join(''), sect };
+    return sect;
+  }
+
+  // ---------- a worker's employment agreement (main.swift, employmentAgreement) ----------
+  //
+  // As the PDF: a cover page (the title between two rules), the terms —
+  // number, label, a colon lined up, the value wrapping under itself —
+  // and a page to sign, the employer on the left and the employee on the
+  // right. Times New Roman, with PMingLiU for the Chinese.
+
+  const CJK = 'PMingLiU';
+  function agreementParts(d) {
+    const c = d.content;
+    const width = d.textRight - d.textLeft;
+    const f = { font: 'Times New Roman', eastAsia: CJK, size: 11 };
+    const P = 16.5;
+    const out = [para('', { line: Math.max(10, d.pageHeight * 0.47 - 82 - 78) })];
+    // The rules are narrower than the title (as on the template): each is a
+    // paragraph's border, indented from both sides.
+    const inset = TW((width - 232) / 2);
+    const rule = (side) => `<w:p><w:pPr><w:pBdr>${border(side, 0.9).replace('w:space="0"', 'w:space="1"')}</w:pBdr>` +
+      `<w:spacing w:before="0" w:after="0" w:line="${TW(8)}" w:lineRule="exact"/><w:ind w:left="${inset}" w:right="${inset}"/></w:pPr></w:p>`;
+    out.push(rule('bottom'));
+    out.push(para(run(c.coverTitle, { font: 'Times New Roman', bold: true, size: 20 }), { line: 30, align: 'center', before: 22 }));
+    out.push(para(run(c.coverSubtitle, { font: 'Times New Roman', eastAsia: CJK, size: 20 }), { line: 34, align: 'center', before: 10 }));
+    out.push(para('', { line: 14 }));
+    out.push(rule('top'));
+    out.push(para(run(c.intro, f), { line: P, before: 12, align: 'both', pageBreakBefore: true }));
+    const labelX = 34, colonX = labelX + 70, valueX = colonX + 12;
+    for (const s of c.sections) {
+      out.push(para(run(`${s.letter}.\t${s.title}`, f), { line: P, before: 9, tabs: [{ pos: labelX }], keepNext: true }));
+      for (const t of s.terms) {
+        if (t.value) {
+          out.push(para(run(`${t.number}.\t${t.label}\t：\t${t.value}`, f), { line: P, before: 6,
+            tabs: [{ pos: labelX }, { pos: colonX }, { pos: valueX }], indLeft: valueX, hanging: valueX }));
+        } else {
+          out.push(para(run(`${t.number}.\t${t.label}：`, f), { line: P, before: 6, tabs: [{ pos: labelX }], keepNext: (t.lines || []).length > 0 }));
+        }
+        for (const line of t.lines || []) out.push(para(run(line, f), { line: P, indLeft: labelX }));
+      }
+    }
+    c.closing.forEach((text, i) => out.push(para(run(text, f), { line: P, before: i ? 8 : 14, align: 'both' })));
+    // Signing, on its own page.
+    const gap = 348 - 42.75 - 205;
+    const colW = [205, gap, width - 205 - gap];
+    const sign = { font: 'Times New Roman', eastAsia: CJK, size: 10.5, bold: true, italic: true };
+    const cell = (i, content, o = {}) => tc(colW[i], content, Object.assign({ vAlign: 'top' }, o));
+    const blank = (i) => cell(i, para('', { line: 1 }));
+    const party = (p) => p.lines.filter(Boolean).map((l, j) => para(run(l, sign), { line: 14, before: j ? 0 : 3 })).join('');
+    out.push(para('', { line: 30, pageBreakBefore: true }));
+    out.push(tbl(colW, [
+      tr([cell(0, para(run(c.employer.heading, f), { line: P })), blank(1), cell(2, para(run(c.employee.heading, f), { line: P }))]),
+      tr([blank(0), blank(1), blank(2)], { height: 62, exact: true }),
+      tr([cell(0, party(c.employer), { borders: border('top', 0.75) }), blank(1), cell(2, party(c.employee), { borders: border('top', 0.75) })]),
+    ], { indent: 0 }));
+    out.push(para('', { line: 1 }));
+    return { body: out.join(''), sect: sectionXML(d) };
   }
 
   function documentXML(d) {
-    const p = letterParts(d);
+    const p = d.kind === 'agreement' ? agreementParts(d) : letterParts(d);
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${NS}><w:body>${p.body}${p.sect}</w:body></w:document>`;
   }
 
@@ -942,7 +1004,7 @@
       : layout.kind === 'sheet' ? buildSheetDocx(layout) : buildLetterDocx(layout);
     const save = (open) => root.api.files.saveWord({
       projectNumber: layout.projectNumber, subfolder: layout.subfolder, fileName: layout.fileName,
-      reference: layout.number, data: toBase64(bytes), open: open !== false,
+      reference: layout.number, data: toBase64(bytes), open: open !== false, workerId: layout.workerId || null,
     });
     if (root.docPreview && root.docPreview.word) return root.docPreview.word({ bytes, fileName: layout.fileName, title: `${layout.title || 'Document'} ${layout.number || ''}`.trim(), save });
     return save(true);

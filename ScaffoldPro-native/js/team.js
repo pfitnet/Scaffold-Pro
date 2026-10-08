@@ -89,7 +89,7 @@ function personRow(p) {
       <button class="tree-toggle${open ? ' open' : ''}" data-no-icon aria-label="${open ? 'Close' : 'Open'}">${CHEVRON}</button>
       <span class="tree-avatar" style="background:${colour}">${esc(initials(p.name))}</span>
       <span class="tree-label"><b>${esc(p.name)}</b>${p.title ? ` <span class="tree-title">— ${esc(p.title)}</span>` : ''}${p.isMe ? ' <span class="you-pill">You</span>' : ''}
-        ${p.canSign ? `<span class="signer-pill small">${PEN} Signs &amp; chops${p.isMe && !p.hasSignature ? ' — <b>add your signature</b>' : ''}</span>` : ''}</span>
+        ${p.canSign || p.canSignAgreements ? `<span class="signer-pill small">${PEN} Signs &amp; chops ${p.canSign && p.canSignAgreements ? 'quotations &amp; agreements' : p.canSign ? 'quotations' : 'worker agreements'}${p.isMe && !p.hasSignature ? ' — <b>add your signature</b>' : ''}</span>` : ''}</span>
       <span class="tree-meta">${facts}${facts ? ' · ' : ''}${p.devices.length} device${p.devices.length === 1 ? '' : 's'}</span>
       ${p.isMe ? '' : `<a class="person-chat" href="chat.html?with=${encodeURIComponent(p.name)}" title="Message ${esc(p.name)}" aria-label="Message">💬</a>`}
       <button class="person-edit" data-no-icon title="Team, title, signing" aria-label="Edit">${EDIT}</button>
@@ -190,6 +190,9 @@ function openPerson(p) {
   document.getElementById('pm-team').value = p.team || '';
   document.getElementById('pm-title-input').value = p.title || '';
   document.getElementById('pm-cansign').checked = !!p.canSign;
+  document.getElementById('pm-cansign-agreements').checked = !!p.canSignAgreements;
+  document.getElementById('pm-id').value = p.idNumber || '';
+  document.getElementById('pm-id-field').classList.toggle('hidden', !p.canSignAgreements);
   document.getElementById('pm-teams').innerHTML = (team.teams || []).map((t) => `<option value="${esc(t)}"></option>`).join('');
   document.getElementById('pm-images').classList.toggle('hidden', !p.isMe);
   document.getElementById('pm-error').classList.add('hidden');
@@ -203,6 +206,8 @@ async function savePerson() {
     team: document.getElementById('pm-team').value.trim(),
     title: document.getElementById('pm-title-input').value.trim(),
     canSign: document.getElementById('pm-cansign').checked,
+    canSignAgreements: document.getElementById('pm-cansign-agreements').checked,
+    idNumber: document.getElementById('pm-id').value.trim(),
   });
   if (r && r.ok === false) {
     document.getElementById('pm-error').textContent = r.error;
@@ -347,6 +352,9 @@ async function load() {
   showTab(q || saved || 'people');
   document.getElementById('pm-cancel').addEventListener('click', () => document.getElementById('person-modal').classList.add('hidden'));
   document.getElementById('pm-save').addEventListener('click', savePerson);
+  document.getElementById('pm-cansign-agreements').addEventListener('change', (e) => {
+    document.getElementById('pm-id-field').classList.toggle('hidden', !e.target.checked);
+  });
   document.getElementById('person-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') document.getElementById('person-modal').classList.add('hidden'); });
   for (const slot of document.querySelectorAll('.sig-slot')) {
     const which = slot.dataset.which;

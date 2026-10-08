@@ -591,6 +591,22 @@
       setArchived: (id, archived) => callNative('workers:setArchived', { id: id, archived: archived }),
       revealFolder: (id) => callNative('workers:revealFolder', { id: id }),
     },
+    // A worker's employment agreement (made when they're added): its terms,
+    // PDF / Word / Print, signed and chopped for the employer, and the copy
+    // signed by both. file(id, 'employer' | 'signed', 'open' | 'reveal' | 'remove').
+    workerAgreements: {
+      get: (workerId) => callNative('workerAgreements:get', { workerId: workerId }),
+      create: (workerId) => callNative('workerAgreements:create', { workerId: workerId }),
+      update: (id, changes) => callNative('workerAgreements:update', Object.assign({ id: id }, changes)),
+      exportPDF: (id, opts) => callNative('workerAgreements:exportPDF', Object.assign({ id: id }, opts || {})),
+      print: (id) => callNative('workerAgreements:print', { id: id }),
+      exportWord: (id) => callNative('workerAgreements:exportWord', { id: id }),
+      sign: (id) => callNative('workerAgreements:sign', { id: id }),
+      unsign: (id) => callNative('workerAgreements:unsign', { id: id }),
+      uploadSigned: (id) => callNative('workerAgreements:uploadSigned', { id: id }),
+      saveSignedFile: (id, fileName, base64) => callNative('workerAgreements:saveSignedFile', { id: id, fileName: fileName, base64: base64 }),
+      file: (id, which, action) => callNative('workerAgreements:file', { id: id, which: which, action: action }),
+    },
     workerDocuments: {
       list: (workerId) => callNative('workerDocuments:list', { workerId: workerId }),
       upload: (workerId, category, expiryDate) => callNative('workerDocuments:upload', { workerId: workerId, category: category, expiryDate: expiryDate || null }),
