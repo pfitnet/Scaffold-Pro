@@ -4694,3 +4694,13 @@ one idea at a time, few words, and pictures that carry the meaning.
   page you're leaving is held only until the next one first draws, then
   crossfades into it.
 - The Assistant's floating chat can be resized from any edge or corner.
+
+## Batch 208 — Instant page changes; the Assistant takes a picture when you send
+
+- Moving between pages is instant again: nothing is held on screen while
+  the next page loads. The black flash stays gone in a different way: the
+  window behind the pages is now the same colour as the pages, light or
+  dark, so there's nothing dark to show between them.
+- The floating Assistant now takes a picture of your screen at the moment
+  you send a message, and the AI sees it along with the page's text. It's
+  taken only then, never while you work.

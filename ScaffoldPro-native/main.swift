@@ -16071,26 +16071,31 @@ final class QuotationAI {
 // MARK: - Moving between pages without a flash
 // =====================================================================
 
-/// While the window goes from one page to the next, a picture of the page
-/// being left is laid over it (`holdFrame`), and taken away once the new
-/// page has drawn — the page says so (ui:releaseFrame, js/bridge.js), or,
-/// failing that, a moment after it has loaded. Without it the window shows
-/// an empty (in Dark Mode, black) web view between the two.
-extension NativeBridge: WKNavigationDelegate {
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        let toThisWindow = navigationAction.targetFrame?.isMainFrame ?? false
-        let from = webView.url, to = navigationAction.request.url
-        // Only a jump within the same page (#section): nothing to cover.
-        let samePage = from != nil && to != nil && from!.path == to!.path && from!.query == to!.query
-            && to!.fragment != nil && navigationAction.navigationType != .reload
-        guard toThisWindow, from != nil, !samePage, !holdingFrame, to?.isFileURL == true || to?.scheme == "about" || to?.scheme == from?.scheme else {
-            decisionHandler(.allow)
-            return
-        }
-        holdFrameForNavigation { decisionHandler(.allow) }
+/// The window's content view: filled with the pages' background colour
+/// (css/styles.css --content), light or dark with the appearance.
+final class PageBackdropView: NSView {
+    static let color = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0x10 / 255, green: 0x11 / 255, blue: 0x15 / 255, alpha: 1)
+            : NSColor(srgbRed: 0xf4 / 255, green: 0xf5 / 255, blue: 0xf8 / 255, alpha: 1)
     }
+    override func draw(_ dirtyRect: NSRect) {
+        PageBackdropView.color.setFill()
+        dirtyRect.fill()
+    }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+}
 
+/// A reload behind a picture of the page (window.softReload, js/bridge.js):
+/// taken away once the page has drawn — the page says so (ui:releaseFrame),
+/// or, failing that, a moment after it has loaded. Moving between pages
+/// holds nothing (it must be instant); the window behind the page is the
+/// page's own background colour, so there's nothing dark to flash
+/// (PageBackdropView).
+extension NativeBridge: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         // Normally the page has said it has drawn by now.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.releaseFrame() }
@@ -16282,8 +16287,11 @@ extension NativeBridge {
             return
         }
         let attachments = (payload["attachments"] as? [[String: Any]]) ?? []
-        // The floating chat: what the person is looking at, with the newest message.
-        let screen = (payload["context"] as? [String: Any]).map { assistantScreen($0) } ?? ""
+        // The floating chat: what the person is looking at, with the newest message
+        // — its text, and a picture of the screen taken now.
+        let context = payload["context"] as? [String: Any]
+        let screen = context.map { assistantScreen($0) } ?? ""
+        let wantsPicture = context != nil && webView != nil
         let history = turns
         // The newest message's files: read (OCR if need be) off the main thread.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -16314,17 +16322,20 @@ extension NativeBridge {
             }
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                var all = history
-                if var last = all.popLast() {
-                    last.text += extra + screen
-                    last.files = files
-                    all.append(last)
+                let go = { (picture: QuotationAI.ChatFile?) in
+                    var all = history
+                    if var last = all.popLast() {
+                        last.text += extra + screen + (picture == nil ? "" : "\n[A picture of their screen is attached.]")
+                        last.files = files + (picture.map { [$0] } ?? [])
+                        all.append(last)
+                    }
+                    self.runAssistant(turns: all, round: 0) { reply in
+                        var out = reply
+                        out["files"] = read
+                        self.callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
+                    }
                 }
-                self.runAssistant(turns: all, round: 0) { reply in
-                    var out = reply
-                    out["files"] = read
-                    self.callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
-                }
+                if wantsPicture { self.screenPicture(go) } else { go(nil) }
             }
         }
     }
@@ -16350,6 +16361,20 @@ extension NativeBridge {
                 return
             }
             done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }])
+        }
+    }
+
+    /// A picture of the window's page, as a JPEG at most 1,600 pixels wide
+    /// (nil if it can't be taken).
+    private func screenPicture(_ done: @escaping (QuotationAI.ChatFile?) -> Void) {
+        guard let webView = webView else { done(nil); return }
+        let config = WKSnapshotConfiguration()
+        config.afterScreenUpdates = false
+        if webView.bounds.width > 1600 { config.snapshotWidth = NSNumber(value: 1600) }
+        webView.takeSnapshot(with: config) { image, _ in
+            guard let image = image, let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+                  let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.72]) else { done(nil); return }
+            done(QuotationAI.ChatFile(mime: "image/jpeg", data: jpeg))
         }
     }
 
@@ -18627,8 +18652,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
 
     /// Whether a picture of the page is being held over it.
     var holdingFrame: Bool { heldFrame != nil }
-
-    func holdFrameForNavigation(_ done: @escaping () -> Void) { holdFrame(done) }
 
     func releaseFrame() {
         guard let view = heldFrame else { return }
@@ -24735,8 +24758,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         // view would swallow title-bar drags. A thin native strip on top
         // restores normal title-bar behaviour: drag to move, double-click
         // to zoom. The window buttons sit above it and stay clickable.
-        let container = NSView(frame: contentRect)
+        // Behind the page, the page's own background colour: between two
+        // pages the window shows that, not an empty (black) web view.
+        let container = PageBackdropView(frame: contentRect)
         container.autoresizingMask = [.width, .height]
+        webView.setValue(false, forKey: "drawsBackground")
         webView.frame = container.bounds
         container.addSubview(webView)
         let stripHeight: CGFloat = 38

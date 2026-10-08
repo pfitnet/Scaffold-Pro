@@ -648,15 +648,15 @@
     }
     location.reload();
   };
-  // The Mac app holds a picture of the previous page over this one until it
-  // has drawn (a reload, or any move from page to page): shown as soon as
-  // its first frame is drawn — a reload a little later, for its lists.
+  // After window.softReload the Mac app holds a picture of the page over it
+  // until it has drawn: taken away once its lists have had a moment.
   const releaseHeldFrame = () => {
     if (window.__scaffoldProWeb) return;
     let held = false;
     try { held = sessionStorage.getItem(HOLD_KEY) === '1'; sessionStorage.removeItem(HOLD_KEY); } catch (e) { held = false; }
+    if (!held) return;
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      setTimeout(() => callNative('ui:releaseFrame', {}).catch(() => {}), held ? 300 : 0);
+      setTimeout(() => callNative('ui:releaseFrame', {}).catch(() => {}), 300);
     }));
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', releaseHeldFrame, { once: true });
