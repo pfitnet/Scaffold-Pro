@@ -156,18 +156,6 @@
               <label class="option-check" title="The monthly rental charge is at least this amount (Settings › Quotations)"><input type="checkbox" id="q-minimumMonthlyChargeEnabled" /><span><b>Minimum monthly rental charge</b><small id="q-min-monthly-label">Apply (HK$ 1,000.00)</small></span></label>
             </div>
           </div>
-          <!-- A crane job's buy-back offer (js/quotation-editor.js); the
-               standard one is in Settings › Quotations. -->
-          <div class="bb-tile hidden" id="q-buyback">
-            <label class="option-check"><input type="checkbox" id="q-buyBackEnabled" /><span><b>Buy-back offer</b><small>Printed on the quotation, before the terms</small></span></label>
-            <div class="bb-sentence" id="q-buyback-fields">
-              We buy it back at <span class="bb-num"><input type="number" id="q-buyBackPercent" min="0" max="100" step="0.5" aria-label="Buy-back %" /><i>%</i></span>
-              after <span class="bb-num"><input type="number" id="q-buyBackAfterMonths" min="0" step="1" aria-label="After months" /><i>months</i></span>,
-              less <span class="bb-num"><input type="number" id="q-buyBackReductionPercent" min="0" max="100" step="0.5" aria-label="% less each month beyond" /><i>%</i></span> for each month beyond;
-              none after <span class="bb-num"><input type="number" id="q-buyBackEndMonths" min="0" step="1" aria-label="No offer after months" /><i>months</i></span>.
-            </div>
-            <div class="bb-preview" id="q-buyback-preview"></div>
-          </div>
         </section>
         <div class="q-top-side">
           <section class="form-card">
@@ -295,6 +283,7 @@
               <button id="add-priced-btn">+ Priced Section</button>
               <button id="add-standard-rates-btn">+ Standard Manpower Rates</button>
               <button id="add-note-btn">+ Note</button>
+              <button id="add-buyback-btn">+ Buy-back Offer</button>
             </span>
           </div>
           <div class="totals-box" id="totals-box"></div>

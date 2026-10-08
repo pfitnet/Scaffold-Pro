@@ -397,9 +397,12 @@ struct LeadSaveResult: Codable {
 struct UserProfile: Codable {
     var id: String
     var name: String
-    /// "#RRGGBB".
+    /// "#RRGGBB"; "" = the automatic colour.
     var color: String
     var updatedAt: String
+    /// Their own Light / Dark ("System", "Light" or "Dark"), on any Mac
+    /// and in ScaffoldPro Web; nil = not chosen.
+    var appearance: String? = nil
 }
 
 /// The team a person is in (e.g. "Office", "Site"), set on their User
@@ -4709,7 +4712,13 @@ final class AppDatabase {
         let key = name.lowercased()
         var all = userProfilesStore.readAll()
         guard let color = nonBlank(rawColor) else {
-            all.removeAll { $0.id == key }
+            // Back to the automatic colour (their theme, if chosen, stays).
+            if let i = all.firstIndex(where: { $0.id == key }), all[i].appearance != nil {
+                all[i].color = ""
+                all[i].updatedAt = nowISO()
+            } else {
+                all.removeAll { $0.id == key }
+            }
             userProfilesStore.writeAll(all)
             return nil
         }
@@ -4725,14 +4734,35 @@ final class AppDatabase {
         return nil
     }
 
-    /// A new name for this Mac's user; their colour goes with them.
+    /// A person's own Light / Dark, or nil if they haven't chosen.
+    func userAppearance(name: String) -> String? {
+        userProfilesStore.readAll().first { $0.id == name.lowercased() }?.appearance
+    }
+
+    /// Keeps a person's Light / Dark with their colour (shared by every Mac).
+    func setUserAppearance(name rawName: String, appearance: String) {
+        guard let name = nonBlank(rawName), ["System", "Light", "Dark"].contains(appearance) else { return }
+        let key = name.lowercased()
+        var all = userProfilesStore.readAll()
+        if let i = all.firstIndex(where: { $0.id == key }) {
+            all[i].appearance = appearance
+            all[i].updatedAt = nowISO()
+        } else {
+            all.append(UserProfile(id: key, name: name, color: "", updatedAt: nowISO(), appearance: appearance))
+        }
+        userProfilesStore.writeAll(all)
+    }
+
+    /// A new name for this Mac's user; their colour and theme go with them.
     func renameUser(to rawName: String) -> String? {
         guard let name = nonBlank(rawName) else { return "Enter your name." }
         let old = TeamSync.memberName
         if let sync = TeamSync.current { sync.setMemberName(name) } else { TeamSync.memberName = name }
-        if old.lowercased() != name.lowercased(), let color = userProfilesStore.readAll().first(where: { $0.id == old.lowercased() })?.color,
-           !userProfilesStore.readAll().contains(where: { $0.id == name.lowercased() }) {
-            _ = setUserColor(name: name, color: color)
+        let profiles = userProfilesStore.readAll()
+        if old.lowercased() != name.lowercased(), let was = profiles.first(where: { $0.id == old.lowercased() }),
+           !profiles.contains(where: { $0.id == name.lowercased() }) {
+            if nonBlank(was.color) != nil { _ = setUserColor(name: name, color: was.color) }
+            if let look = was.appearance { setUserAppearance(name: name, appearance: look) }
         }
         return nil
     }
@@ -4753,7 +4783,7 @@ final class AppDatabase {
         }
         let sync = TeamSync.current
         return UserPage(name: me, computer: TeamSync.computerName,
-                        color: userProfilesStore.readAll().first { $0.id == me.lowercased() }?.color,
+                        color: userProfilesStore.readAll().first { $0.id == me.lowercased() }.flatMap { nonBlank($0.color) },
                         sharing: sync != nil, members: sync?.members() ?? [],
                         myProjects: myRecentProjects(rows: rows, limit: 12),
                         myDocuments: Array(mine.prefix(15)),
@@ -5332,7 +5362,7 @@ final class AppDatabase {
     func sheetsPeopleColours() -> [String: String] {
         let palette = ["#5B7DB1", "#B07A5E", "#5E8C6A", "#8E72A8", "#A8677C", "#4F8A8F", "#9A8458", "#6D6BA6", "#4E8472", "#A66A6A", "#6B7078", "#4F6F96"]
         var chosen: [String: String] = [:]
-        for p in userProfilesStore.readAll() { chosen[p.name.lowercased()] = p.color }
+        for p in userProfilesStore.readAll() where nonBlank(p.color) != nil { chosen[p.name.lowercased()] = p.color }
         var names = Set(teamNames())
         for e in activityStore.readAll().suffix(2000) { if let by = nonBlank(e.by) { names.insert(by) } }
         var out: [String: String] = [:]
@@ -7355,13 +7385,15 @@ final class AppDatabase {
         for id in boqIds { refreshQuotationSubjects(boqId: id) }
     }
 
-    /// A crane quotation's buy-back offer: its own figures, else Settings'
-    /// (60% after 6 months, 2% less a month beyond, none after 24 months,
-    /// unless changed there).
+    /// A quotation's buy-back offer (+ Add Section › Buy-back Offer): its
+    /// own figures, else Settings' (60% after 6 months, 2% less a month
+    /// beyond, none after 24 months, unless changed there). On while it
+    /// has a Buy-back Offer section.
     func buyBackTerms(for q: Quotation, basePrice: Double?) -> BuyBackTerms {
         let s = getCompanySettings()
         let after = q.buyBackAfterMonths ?? s.buyBackAfterMonths ?? 6
-        return BuyBackTerms(enabled: q.buyBackEnabled ?? true,
+        let offered = quotationBlocks(for: q.id).contains { $0.kind == "BuyBack" }
+        return BuyBackTerms(enabled: offered,
                             percent: q.buyBackPercent ?? s.buyBackPercent ?? 60,
                             afterMonths: after,
                             reductionPercent: q.buyBackReductionPercent ?? s.buyBackReductionPercent ?? 2,
@@ -8124,7 +8156,7 @@ final class AppDatabase {
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
-        if detail.jobType == "Crane" { detail.buyBack = buyBackTerms(for: q, basePrice: q.pricingMode == "Sale" ? detail.materialsSubtotal : nil) }
+        detail.buyBack = buyBackTerms(for: q, basePrice: q.pricingMode == "Sale" ? detail.materialsSubtotal : nil)
         detail.orientation = q.orientation == "Landscape" && detail.jobType != "Crane" ? "Landscape" : "Portrait"
         detail.defaultLanguage = getCompanySettings().documentLanguage ?? "English"
         let sourceBOQ = q.sourceBOQId.flatMap { getBOQ(id: $0) }
@@ -8155,9 +8187,19 @@ final class AppDatabase {
     /// (D is taken by delivery charges); rates sections R, S, T…; a rates
     /// section starts with the usual note about labour rates.
     func addQuotationBlock(quotationId: String, kind: String) -> Result<QuotationBlock, WorkerError> {
-        guard ["Priced", "Rates", "Note"].contains(kind) else { return .failure(WorkerError(message: "Unknown kind of section.")) }
+        guard ["Priced", "Rates", "Note", "BuyBack"].contains(kind) else { return .failure(WorkerError(message: "Unknown kind of section.")) }
         if case .failure(let e) = draftQuotation(quotationId) { return .failure(e) }
         let existing = quotationBlocks(for: quotationId)
+        // The buy-back offer: one row, BO1, worded from the quotation's
+        // figures (Settings' until changed), under "Buy Back Offer".
+        if kind == "BuyBack" {
+            guard !existing.contains(where: { $0.kind == "BuyBack" }) else { return .failure(WorkerError(message: "This quotation already has a buy-back offer.")) }
+            let block = QuotationBlock(id: makeId("qblock"), quotationId: quotationId, kind: kind, title: "Buy Back Offer", prefix: "BO",
+                                       note: nil, sortOrder: (existing.map { $0.sortOrder }.max() ?? -1) + 1)
+            quotationBlocksStore.insert(block)
+            touchQuotation(quotationId)
+            return .success(block)
+        }
         let used = Set(existing.map { $0.prefix.uppercased() })
         let letters: [String]
         switch kind {
@@ -8277,7 +8319,7 @@ final class AppDatabase {
     /// (always 1 for a rate) and unit price / rate.
     func addQuotationBlockLine(blockId: String, description: String, unit: String, quantity: Double, price: Double) -> String? {
         guard let block = quotationBlocksStore.readAll().first(where: { $0.id == blockId }) else { return "Section not found." }
-        guard block.kind != "Note" else { return "A note has no rows." }
+        guard block.kind != "Note", block.kind != "BuyBack" else { return block.kind == "Note" ? "A note has no rows." : "The buy-back offer's row is written from its figures." }
         if case .failure(let e) = draftQuotation(block.quotationId) { return e.message }
         let description = description.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !description.isEmpty else { return "Enter a description." }
@@ -18136,19 +18178,20 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleExportDeliveryNotePDF(id: id, deliveryNoteId: (payload["id"] as? String) ?? "", mode: .print)
 
         case "settings:get":
-            // Light / Dark is each person's own (this Mac's), not the company's.
+            // Light / Dark is each person's own, not the company's.
             var current = db.getCompanySettings()
-            current.appearance = NativeBridge.ownAppearance ?? current.appearance
+            current.appearance = ownAppearance()
             respond(id: id, encodable: current)
         case "settings:update":
-            // Appearance is this Mac's own; everything else is the company's.
+            // Appearance is the person's own; everything else is the company's.
             var changes = payload
             if let look = changes.removeValue(forKey: "appearance") as? String, ["System", "Light", "Dark"].contains(look) {
-                NativeBridge.ownAppearance = look
-                applyAppearance(look)
+                db.setUserAppearance(name: TeamSync.memberName, appearance: look)
+                // Someone in ScaffoldPro Web doesn't change this Mac's look.
+                if TeamSync.actingAs == nil { applyAppearance(look) }
             }
             var updated = db.updateCompanySettings(changes)
-            updated.appearance = NativeBridge.ownAppearance ?? updated.appearance
+            updated.appearance = ownAppearance()
             respond(id: id, encodable: updated)
         case "settings:chooseLogo":
             handleChooseLogo(id: id)
@@ -19380,12 +19423,6 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         return LetterSignature(heading: "For and on Behalf of", subheading: nameUnderHeading ? company.companyName : nil, lines: lines)
     }
 
-    /// A crane quotation's buy-back offer, when it's on.
-    private func buyBackSection(_ detail: QuotationDetail, currency: String) -> [LetterSection] {
-        guard let offer = detail.buyBack, offer.enabled else { return [] }
-        return [LetterSection(heading: "Buy-back Offer", paragraphs: offer.sentences(currency: currency).map { LetterParagraph.text($0, link: nil) }, keepTogether: true)]
-    }
-
     private func remarks(_ notes: String?) -> [LetterSection] {
         guard let notes = nonBlank(notes) else { return [] }
         return [LetterSection(heading: "Remarks", paragraphs: [.text(notes, link: nil)])]
@@ -19422,6 +19459,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // A section charged per day / week / month says so in its title.
         let per = block.kind == "Priced" ? block.chargePeriod.map { " (per \($0.lowercased()))" } ?? "" : ""
         if let title = nonBlank(block.title) { rows.append(.section(title + per)) } else if !per.isEmpty { rows.append(.section("Charged\(per)")) }
+        // The buy-back offer: one row, BO1, worded from its figures.
+        if block.kind == "BuyBack" {
+            if let offer = detail.buyBack {
+                rows.append(.item(["\(block.prefix)1", offer.sentences(currency: currency).joined(separator: "\n"), "", "", ""]))
+            }
+            if let note = nonBlank(block.note) { rows.append(.note(note)) }
+            return rows
+        }
         let lines = detail.lineItems.filter { $0.blockId == block.id }.sorted { $0.sortOrder < $1.sortOrder }
         for (i, line) in lines.enumerated() {
             let number = "\(block.prefix)\(i + 1)"
@@ -19917,7 +19962,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
             intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
-            sections: remarks(detail.notes) + buyBackSection(detail, currency: currencySymbol(company)) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
+            sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
                                                                       alwaysNewPage: company.termsNewPage == "Always")],
             // The company's name right under "For and on Behalf of" (who
             // signs under the line); the client's side is "Accepted By".
@@ -20846,10 +20891,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// Section 5/57: Follow System (default), or force Light / Dark. The
     /// web view's prefers-color-scheme follows the app's appearance, so
     /// the pages switch instantly.
-    /// This Mac's Light / Dark choice (Settings › You › Theme).
-    static var ownAppearance: String? {
-        get { UserDefaults.standard.string(forKey: "ScaffoldPro.appearance") }
-        set { UserDefaults.standard.set(newValue, forKey: "ScaffoldPro.appearance") }
+    /// The Light / Dark of whoever is using ScaffoldPro (Settings › You ›
+    /// Theme): kept with their colour, so it's theirs on any Mac. Before
+    /// they choose: what this Mac had, else System — never someone else's.
+    func ownAppearance() -> String {
+        if let look = db.userAppearance(name: TeamSync.memberName) { return look }
+        if TeamSync.actingAs == nil, let mine = UserDefaults.standard.string(forKey: "ScaffoldPro.appearance") { return mine }
+        return "System"
     }
 
     func applyAppearance(_ value: String?) {
@@ -22971,7 +23019,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             webView.loadFileURL(indexURL, allowingReadAccessTo: resourceURL)
         }
 
-        bridge.applyAppearance(NativeBridge.ownAppearance ?? db.getCompanySettings().appearance)
+        bridge.applyAppearance(bridge.ownAppearance())
         setupMenuBar()
 
         window.makeKeyAndOrderFront(nil)
