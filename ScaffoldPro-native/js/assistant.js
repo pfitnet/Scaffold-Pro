@@ -34,7 +34,7 @@
     send: '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15.5v-11M5 9l5-4.5L15 9"/></svg>',
     expand: '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 3.5h5v5M16.5 3.5 11 9M8.5 16.5h-5v-5M3.5 16.5 9 11"/></svg>',
     close: '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg>',
-    stop: '<svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2.2" fill="currentColor"/></svg>',
+    stop: '<svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><rect x="5.5" y="5.5" width="9" height="9" rx="2.2" fill="currentColor"/></svg>',
   };
   const SUGGESTIONS = [
     { title: 'Quotation from a file', text: 'Make a quotation for project ', hint: 'Attach a quotation, BOQ or list, then say which project.', attach: true },
@@ -57,6 +57,40 @@
     calendar: ['What’s on this week?', 'Add an event tomorrow at 10:00'],
     default: ['What can you do?', 'Explain what’s on this page', 'Which invoices are unpaid?'],
   };
+
+  // ---- when sent, and copying ----
+  function sentAt(iso) {
+    const d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d)) return '';
+    const time = d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(' ', '\u202f');
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return time;
+    return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }).replace('Sept', 'Sep')}, ${time}`;
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* the old way below */ }
+    const t = document.createElement('textarea');
+    t.value = text;
+    t.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(t);
+    t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    t.remove();
+    return ok;
+  }
+  // A message as plain text, for copying (its cards summed up).
+  function plainOf(m) {
+    const lines = [m.text || ''];
+    for (const p of m.proposals || []) {
+      lines.push(`\n${KIND_TITLE[p.type] || p.type}${p.projectNumber ? ` · ${p.projectNumber}` : ''}${p.quotationNumber ? ` · ${p.quotationNumber}` : ''}`);
+      for (const it of p.items || []) lines.push(`- ${String(it.description).split('\n')[0]} — ${it.quantity} ${it.unit || ''} × ${money(it.unitPrice)}`);
+    }
+    for (const q of m.questions || []) lines.push(`\n${q.text}${m.answers && m.answers[q.id] ? ` — ${m.answers[q.id]}` : ''}`);
+    return lines.join('\n').trim();
+  }
+  const COPY_ICON = '<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9.5" height="9.5" rx="2"/><path d="M13 7V5.2A1.7 1.7 0 0 0 11.3 3.5H5.2A1.7 1.7 0 0 0 3.5 5.2v6.1A1.7 1.7 0 0 0 5.2 13H7"/></svg>';
+  const metaHTML = (m, mi) => `<div class="as-meta">${m.at ? `<span class="as-time" title="${esc(new Date(m.at).toLocaleString('en-GB'))}">${esc(sentAt(m.at))}</span>` : ''}<button type="button" class="as-copy" data-copy="${mi}" data-no-icon title="Copy">${COPY_ICON}<span>Copy</span></button></div>`;
 
   // ---- the conversation, shared by both places ----
   function load() {
@@ -245,11 +279,56 @@
       </div>`;
     }
 
+    // Its questions as buttons. One question: a click answers it. Several:
+    // pick each, then Send. "Other…" for an answer of your own.
+    const picks = {}; // message index → { question id: answer } (not yet sent)
+    function questionsHTML(m, mi) {
+      const qs = m.questions || [];
+      if (!qs.length) return '';
+      const answered = m.answers || null;
+      const mine = picks[mi] || {};
+      const live = !answered && mi === chat.messages.length - 1 && !busy;
+      const blocks = qs.map((q, qi) => {
+        const chosen = answered ? answered[q.id] : mine[q.id];
+        const opts = (q.options || []).map((o) => `<button type="button" class="as-opt${chosen === o ? ' on' : ''}" data-q="${esc(q.id)}" data-opt="${esc(o)}" ${live ? '' : 'disabled'} data-no-icon>${esc(o)}</button>`).join('');
+        const other = live ? `<button type="button" class="as-opt other${chosen && !(q.options || []).includes(chosen) ? ' on' : ''}" data-q="${esc(q.id)}" data-other data-no-icon>${chosen && !(q.options || []).includes(chosen) ? esc(chosen) : 'Other…'}</button>`
+          : (chosen && !(q.options || []).includes(chosen) ? `<button type="button" class="as-opt on" disabled data-no-icon>${esc(chosen)}</button>` : '');
+        return `<div class="as-q${chosen ? ' done' : ''}" style="--i:${qi}">
+          <div class="as-q-text"><span class="as-q-no">${qs.length > 1 ? qi + 1 : '?'}</span>${esc(q.text)}</div>
+          <div class="as-opts">${opts}${other}</div>
+          <div class="as-other-row hidden" data-other-row="${esc(q.id)}"><input type="text" placeholder="Your answer…" data-other-input="${esc(q.id)}" /><button type="button" class="primary" data-other-ok="${esc(q.id)}" data-no-icon>OK</button></div>
+        </div>`;
+      }).join('');
+      const count = qs.filter((q) => mine[q.id]).length;
+      const footer = live && qs.length > 1
+        ? `<div class="as-q-foot"><span>${count} of ${qs.length} answered</span><button type="button" class="primary" data-answers ${count === qs.length ? '' : 'disabled'} data-no-icon>Send Answers</button></div>`
+        : '';
+      return `<div class="as-questions${answered ? ' answered' : ''}" data-qmi="${mi}">${blocks}${footer}</div>`;
+    }
+    // The answers, sent as the person's next message.
+    function sendAnswers(mi) {
+      const m = chat.messages[mi];
+      const mine = picks[mi] || {};
+      m.answers = { ...mine };
+      delete picks[mi];
+      save(chat);
+      const qs = m.questions || [];
+      const text = qs.length === 1 ? mine[qs[0].id] : qs.map((q) => `${q.text} — ${mine[q.id]}`).join('\n');
+      send(text);
+    }
+    function pick(mi, qid, answer) {
+      const m = chat.messages[mi];
+      picks[mi] = { ...(picks[mi] || {}), [qid]: answer };
+      if ((m.questions || []).length === 1) { sendAnswers(mi); return; }
+      const box = $('messages').querySelector(`[data-qmi="${mi}"]`);
+      if (box) box.outerHTML = questionsHTML(m, mi);
+    }
+
     function messageHTML(m, mi) {
       if (m.role === 'user') {
         const files = (m.files || []).map((f) => `<span class="as-file-chip sent">${fileIcon(f.name)}${esc(f.name)}</span>`).join('');
         const where = m.where ? `<div class="as-where">${esc(m.where)}</div>` : '';
-        return `<div class="as-msg user" data-mi="${mi}">${files ? `<div class="as-msg-files">${files}</div>` : ''}${m.text ? `<div class="as-bubble">${rich(m.text)}</div>` : ''}${where}</div>`;
+        return `<div class="as-msg user" data-mi="${mi}">${files ? `<div class="as-msg-files">${files}</div>` : ''}${m.text ? `<div class="as-bubble">${rich(m.text)}</div>` : ''}${where}${metaHTML(m, mi)}</div>`;
       }
       if (m.error) {
         return `<div class="as-msg bot error" data-mi="${mi}"><span class="as-avatar">${MARK}</span><div class="as-body">
@@ -262,7 +341,7 @@
         return `<div class="as-msg bot interrupted" data-mi="${mi}"><span class="as-avatar">${MARK}</span><div class="as-body">${steps}<div class="as-interrupted">Interrupted</div></div></div>`;
       }
       return `<div class="as-msg bot" data-mi="${mi}"><span class="as-avatar">${MARK}</span><div class="as-body">
-        ${steps}${m.text ? `<div class="as-text">${rich(m.text)}</div>` : ''}${cards}</div></div>`;
+        ${steps}${m.text ? `<div class="as-text">${rich(m.text)}</div>` : ''}${questionsHTML(m, mi)}${cards}${metaHTML(m, mi)}</div></div>`;
     }
 
     function emptyHTML() {
@@ -341,6 +420,9 @@
     function history() {
       return chat.messages.filter((m) => !m.error && !m.interrupted).map((m) => {
         let text = m.text || '';
+        if (m.role === 'assistant' && (m.questions || []).length) {
+          text += '\n\n(Asked: ' + m.questions.map((q) => `${q.text} [${(q.options || []).join(' / ')}]`).join('; ') + ')';
+        }
         if (m.role === 'assistant' && (m.proposals || []).length) {
           text += '\n\n(Proposed: ' + m.proposals.map((p) => `${p.type}${p.projectNumber ? ` for ${p.projectNumber}` : ''}${p.quotationNumber ? ` to ${p.quotationNumber}` : ''}${p.items ? ` with ${p.items.length} items` : ''}${p._state === 'done' ? ` — done: ${(p._result && p._result.message) || ''}` : p._state === 'dismissed' ? ' — dismissed' : ''}`).join('; ') + ')';
         }
@@ -362,7 +444,7 @@
       autosize();
       chat = load(); // the other place may have added to it
       const ctx = opts.context ? opts.context() : null;
-      chat.messages.push({ role: 'user', text, files: files.map((f) => ({ name: f.name })), where: ctx ? `On ${ctx.label}` : undefined });
+      chat.messages.push({ role: 'user', text, files: files.map((f) => ({ name: f.name })), where: ctx ? `On ${ctx.label}` : undefined, at: new Date().toISOString() });
       save(chat);
       await ask(files, ctx);
     }
@@ -416,9 +498,14 @@
       const steps = finished.steps.slice(), ms = Date.now() - finished.started;
       const last = [...chat.messages].reverse().find((m) => m.role === 'user');
       if (last && r && Array.isArray(r.files) && r.files.length) last.files = r.files.map((f) => ({ name: f.name, text: f.text }));
-      if (r && r.interrupted) chat.messages.push({ role: 'assistant', interrupted: true, steps, ms });
-      else if (!r || r.ok === false) chat.messages.push({ role: 'assistant', error: (r && r.error) || 'Something went wrong.', steps, ms });
-      else chat.messages.push({ role: 'assistant', text: r.reply || (r.proposals && r.proposals.length ? '' : 'Done.'), proposals: r.proposals || [], steps, ms });
+      const at = new Date().toISOString();
+      if (r && r.interrupted) chat.messages.push({ role: 'assistant', interrupted: true, steps, ms, at });
+      else if (!r || r.ok === false) chat.messages.push({ role: 'assistant', error: (r && r.error) || 'Something went wrong.', steps, ms, at });
+      else {
+        const questions = Array.isArray(r.questions) ? r.questions.filter((q) => q && q.text) : [];
+        chat.messages.push({ role: 'assistant', text: r.reply || (r.proposals && r.proposals.length ? '' : questions.length ? '' : 'Done.'),
+          proposals: r.proposals || [], questions, steps, ms, at });
+      }
       save(chat);
       draw();
       updateSend();
@@ -490,6 +577,13 @@
       if (files.length) { e.preventDefault(); addFiles(files); }
     });
     input.addEventListener('focus', drawContext);
+    $('messages').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('[data-other-input]')) {
+        e.preventDefault();
+        const ok = e.target.parentElement.querySelector('[data-other-ok]');
+        if (ok) ok.click();
+      }
+    });
     $('send').addEventListener('click', () => send());
     $('attach').addEventListener('click', () => $('file').click());
     $('file').addEventListener('change', (e) => { addFiles([...e.target.files]); e.target.value = ''; });
@@ -548,6 +642,36 @@
       const open = e.target.closest('.as-open');
       if (open) { (window.appNavigate || ((h) => { location.href = h; }))(open.dataset.href); return; }
       if (e.target.closest('[data-act="stop"]')) { interrupt(); return; }
+      const copy = e.target.closest('[data-copy]');
+      if (copy) {
+        const m = chat.messages[Number(copy.dataset.copy)];
+        copyText(m.role === 'user' ? (m.text || '') : plainOf(m)).then((ok) => {
+          copy.classList.add('copied');
+          copy.querySelector('span').textContent = ok ? 'Copied' : 'Couldn’t copy';
+          setTimeout(() => { copy.classList.remove('copied'); copy.querySelector('span').textContent = 'Copy'; }, 1400);
+        });
+        return;
+      }
+      const qbox = e.target.closest('[data-qmi]');
+      if (qbox) {
+        const mi = Number(qbox.dataset.qmi);
+        const opt = e.target.closest('[data-opt]');
+        if (opt) { pick(mi, opt.dataset.q, opt.dataset.opt); return; }
+        const other = e.target.closest('[data-other]');
+        if (other) {
+          const row = qbox.querySelector(`[data-other-row="${CSS.escape(other.dataset.q)}"]`);
+          row.classList.remove('hidden');
+          row.querySelector('input').focus();
+          return;
+        }
+        const ok = e.target.closest('[data-other-ok]');
+        if (ok) {
+          const v = qbox.querySelector(`[data-other-input="${CSS.escape(ok.dataset.otherOk)}"]`).value.trim();
+          if (v) pick(mi, ok.dataset.otherOk, v);
+          return;
+        }
+        if (e.target.closest('[data-answers]')) { sendAnswers(mi); return; }
+      }
       const stepsBtn = e.target.closest('[data-act="steps"]');
       if (stepsBtn) {
         const msg = stepsBtn.closest('.as-msg');

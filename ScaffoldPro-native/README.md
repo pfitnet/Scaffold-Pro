@@ -4725,3 +4725,18 @@ one idea at a time, few words, and pictures that carry the meaning.
   - type something else and send it, and it drops what it was doing and
     starts on that;
   - press Stop, Esc, or the ■ button (the send button while it works).
+
+## Batch 210 — The Assistant asks with buttons, copies, and never shows code
+
+- When it needs you to decide something, it asks with buttons instead of a
+  long paragraph, e.g. "Rental or sale prices?" [Rental] [Sale]. With one
+  question, a click answers it; with several, pick each and press Send
+  Answers. "Other…" lets you type your own answer.
+- Every message shows when it was sent and has a Copy button (on hover).
+- It never shows raw code any more. If the AI's answer comes back broken,
+  the app mends it (the BOQ from your example now comes up as a proper
+  card), or asks the AI again, or just shows its words.
+- It no longer says it has "created" something it has only proposed.
+- The stop button is redone: while it works, the send button becomes a
+  soft circle with a turning ring and a stop square; the small Stop on the
+  "Working…" line matches.

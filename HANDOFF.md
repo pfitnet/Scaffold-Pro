@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 209.
+"## Batch N" section per change, newest at the bottom, up to Batch 210.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **210**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **211**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -170,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–209, newest last)
+## 5. Recent work (Batches 147–210, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -278,6 +278,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **207:** page changes quicker (the snapshot uses what's on screen and waits at most 0.12 s; the new page is shown two frames after DOMContentLoaded, a reload 0.3 s later; 0.12 s crossfade). The floating chat resizes from every edge and corner (`.as-resize-n/s/e/w/ne/nw/se/sw`, `startResize(e, dir)`).
 - **208:** no picture held on page changes any more (instant again); `PageBackdropView` behind a transparent web view stops the black flash. The floating chat sends a JPEG of the screen (≤ 1,600 px wide, `screenPicture`) with each message, besides the page's text.
 - **209:** Assistant reliability. Per-request timeout 75 s; `runAssistant` stops after 4 lookup rounds or 150 s with a clear error. `assistantAnswer` also reads tool-call syntax (`<|tool_call_start|>[createProject(name='…')]…`) via `toolArguments`. New proposal `createBOQ` (blank BOQ, structure, items priced like the BOQ editor). Live steps: each run has a `runId`; `assistantStep` pushes `window.__assistantStep({runId, text})` (Mac window only) — lookups summarised by `lookupSummary`; the page shows "Working… 12s ›" opening into the steps, then "Took N steps ›". Interrupt: typing and sending while it works (or Stop / Esc / the ■ send button) calls `assistant:cancel` (`assistantCancelled`) and drops the old run's answer; interrupted turns are left out of the history.
+- **210:** never shows raw JSON: `assistantAnswer` mends broken JSON (`repairedJSON`: lists in quotes, trailing commas) and `normalisedAnswer` takes a lone top-level proposal/lookup; anything still unreadable that looks like code gets one "answer again as JSON" round, then only its reply (`replyOnly`) or a short note. The prompt forbids claiming anything was made. Questions: the AI's `questions: [{id, text, options}]` show as option buttons (one question answers on a click; several → Send Answers; "Other…" for your own), sent as the next message and kept as `m.answers`. Messages have `at` (sent time) and Copy on hover. The stop button is an accent circle with a turning ring.
 
 ---
 

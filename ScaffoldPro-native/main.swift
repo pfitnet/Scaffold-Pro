@@ -16218,7 +16218,14 @@ extension NativeBridge {
         ALWAYS answer with ONLY one JSON object, no other text — never tool-call syntax or function calls:
         {"reply": "what you say to the person (plain text; short; use - for lists)",
          "lookups": [ ... things to look up first ... ],
-         "proposals": [ ... actions for the person to confirm ... ]}
+         "proposals": [ ... actions for the person to confirm ... ],
+         "questions": [ ... choices for the person to make, shown as buttons ... ]}
+
+        Questions (when you need the person to decide something before you can go on):
+        {"id": "pricing", "text": "Rental or sale prices?", "options": ["Rental", "Sale"]}
+        {"id": "standard", "text": "No “2m standard” in the material list", "options": ["Search for 2.0m standard", "Add it without a price", "Leave it out"]}
+        Keep each question's text to a few words and give 2–5 short options (the person can also type their own). Ask everything \
+        you need at once, put nothing else in "reply" than one short line, and make no proposals until they've answered.
 
         Lookups (the app runs them and sends you the results; then answer again). Use them before proposing:
         {"type": "findProjects", "query": "number, name or client words, or empty for the latest"}
@@ -16252,9 +16259,10 @@ extension NativeBridge {
         {"type": "open", "page": "project" | "quotation", "number": "26219 or Qt26219-001"}
 
         Rules:
+        - You can't make or change anything yourself: never say you have ("Created…", "Done"). Propose it, and say what the card will do.
         - Never invent prices. Take prices from the person, from an attached file, or from findItems (Sale or Rental to match the \
         quotation); if none, set "unitPrice": null and say so. Put the item code from findItems in "itemCode" when an item matches.
-        - Never guess a project: look it up with findProjects; if it's unclear which, ask in "reply" with no proposals.
+        - Never guess a project: look it up with findProjects; if it's unclear which, ask with "questions" (the likely projects as options).
         - Quantities are whole numbers. Keep descriptions as written on the file or by the person.
         - Read attached files carefully: every priced row, in order; leave out totals, discounts and terms.
         - To change a quotation's lines, getQuotation first and use the lines' ids. Only draft quotations can be changed.
@@ -16363,7 +16371,20 @@ extension NativeBridge {
             guard let self = self, !self.assistantStopped(run) else { return }
             if let error = error { done(["ok": false, "error": error]); return }
             guard let json = self.assistantAnswer(text) else {
-                done(["ok": true, "reply": (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines), "proposals": [Any]()])
+                let raw = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                // Plain words: its answer. Something like JSON or code that
+                // couldn't be read: never shown — asked for once more.
+                let looksLikeCode = raw.contains("{\"") || raw.contains("\"reply\"") || raw.contains("<|") || raw.hasPrefix("{") || raw.hasPrefix("[")
+                if !looksLikeCode { done(["ok": true, "reply": raw, "proposals": [Any]()]); return }
+                if round < 4, Date() < deadline {
+                    self.assistantStep(run, "Its answer came back garbled — asking again")
+                    var next = turns
+                    next.append(QuotationAI.ChatTurn(role: "assistant", text: raw))
+                    next.append(QuotationAI.ChatTurn(role: "user", text: "That answer couldn't be read: it wasn't valid JSON. Answer again with ONLY the one JSON object {\"reply\", \"lookups\", \"proposals\", \"questions\"} — proposals go inside \"proposals\", lists are real JSON lists (not in quotes)."))
+                    self.runAssistant(turns: next, round: round + 1, deadline: deadline, run: run, done: done)
+                    return
+                }
+                done(["ok": true, "reply": self.replyOnly(raw) ?? "Its answer came back garbled. Please try again — or choose another model in Settings › AI Import.", "proposals": [Any]()])
                 return
             }
             let reply = (json["reply"] as? String) ?? ""
@@ -16386,7 +16407,14 @@ extension NativeBridge {
                 return
             }
             if !proposals.isEmpty { self.assistantStep(run, "Preparing \(min(6, proposals.count)) card\(proposals.count == 1 ? "" : "s") to confirm") }
-            done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }])
+            // Its questions, as buttons: a few words each, a few options each.
+            let questions: [[String: Any]] = ((json["questions"] as? [[String: Any]]) ?? []).prefix(4).enumerated().compactMap { pair -> [String: Any]? in
+                let (i, q) = pair
+                guard let text = nonBlank(q["text"] as? String) else { return nil }
+                let options = ((q["options"] as? [Any]) ?? []).compactMap { nonBlank(($0 as? String) ?? ($0 as? NSNumber)?.stringValue) }.prefix(6)
+                return ["id": nonBlank(q["id"] as? String) ?? "q\(i + 1)", "text": text, "options": Array(options)]
+            }
+            done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }, "questions": questions])
         }
     }
 
@@ -16437,7 +16465,7 @@ extension NativeBridge {
     /// those calls, read into the same shape. nil: plain text.
     private func assistantAnswer(_ text: String?) -> [String: Any]? {
         guard let text = text else { return nil }
-        if let json = jsonObject(in: text), json["reply"] != nil || json["lookups"] != nil || json["proposals"] != nil { return json }
+        if let json = jsonObject(in: text) ?? jsonObject(in: repairedJSON(text)), let answer = normalisedAnswer(json) { return answer }
         // name(key='value', key2=12, key3=[{…}]) — as many as there are.
         guard let call = try? NSRegularExpression(pattern: #"([A-Za-z]+)\(((?:[^()'"]|'[^']*'|"[^"]*"|\([^()]*\))*)\)"#) else { return nil }
         var lookups: [[String: Any]] = [], proposals: [[String: Any]] = []
@@ -16460,6 +16488,55 @@ extension NativeBridge {
         reply = reply.replacingOccurrences(of: #"<\|[^|>]*\|>"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: "[]", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
         return ["reply": reply, "lookups": lookups, "proposals": proposals]
+    }
+
+    /// Every kind of proposal the app knows.
+    private static let assistantProposalTypes: Set<String> = ["createQuotation", "addQuotationItems", "createTask", "open", "editQuotationItems",
+                                                             "updateQuotationDetails", "duplicateQuotation", "createProject", "createClient",
+                                                             "completeTask", "createBOQ"]
+
+    /// The usual ways a model's JSON comes out broken, mended: a list or
+    /// object wrapped in quotes ("items": "[…]"), and trailing commas.
+    private func repairedJSON(_ text: String) -> String {
+        var t = text
+        for (pattern, template) in [(#":\s*"(\[|\{)"#, ": $1"), (#"(\]|\})"\s*([,}\]])"#, "$1$2"), (#",\s*([\]}])"#, "$1")] {
+            t = t.replacingOccurrences(of: pattern, with: template, options: .regularExpression)
+        }
+        return t
+    }
+
+    /// {reply, lookups, proposals, questions} from whatever object the model
+    /// gave: as asked, or one proposal (or lookup) on its own at the top.
+    private func normalisedAnswer(_ json: [String: Any]) -> [String: Any]? {
+        var out = json
+        if let type = json["type"] as? String {
+            var item = json
+            for k in ["reply", "lookups", "proposals", "questions"] { item.removeValue(forKey: k) }
+            if NativeBridge.assistantProposalTypes.contains(type) {
+                out["proposals"] = [item] + ((json["proposals"] as? [[String: Any]]) ?? [])
+            } else if NativeBridge.assistantLookupTypes.contains(type) {
+                out["lookups"] = [item] + ((json["lookups"] as? [[String: Any]]) ?? [])
+            }
+        }
+        // A list sent as text ("items": "[…]") read as the list.
+        if var proposals = out["proposals"] as? [[String: Any]] {
+            for i in proposals.indices {
+                for key in ["items", "changes"] {
+                    if let raw = proposals[i][key] as? String, let data = repairedJSON(raw).data(using: .utf8),
+                       let list = try? JSONSerialization.jsonObject(with: data) as? [Any] { proposals[i][key] = list }
+                }
+            }
+            out["proposals"] = proposals
+        }
+        guard out["reply"] != nil || out["lookups"] != nil || out["proposals"] != nil || out["questions"] != nil else { return nil }
+        return out
+    }
+
+    /// Just the "reply" of an answer that couldn't be read, if it has one.
+    private func replyOnly(_ text: String) -> String? {
+        guard let r = text.range(of: #""reply"\s*:\s*"((?:[^"\\]|\\.)*)""#, options: .regularExpression) else { return nil }
+        let quoted = String(text[r]).replacingOccurrences(of: #"^"reply"\s*:\s*"#, with: "", options: .regularExpression)
+        return (try? JSONSerialization.jsonObject(with: Data(quoted.utf8), options: [.fragmentsAllowed])) as? String
     }
 
     /// key='text', key="text", key=12.5, key=true, key=null, key=[…json…].
