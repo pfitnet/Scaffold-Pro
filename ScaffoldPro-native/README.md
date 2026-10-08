@@ -4394,3 +4394,14 @@ one idea at a time, few words, and pictures that carry the meaning.
 - **You and Settings** at the bottom of the sidebar are one button in two
   parts: your name on the left (Settings › You), the gear on the right
   (Settings), with a hairline between; the part you're on is highlighted.
+
+## Batch 185 — Free of charge / included in priced sections
+
+- Each row of a priced section (design fees, erection…) has a choice next
+  to its unit price: **Charged**, **Free of charge** or **Included in unit
+  price**. The last two set the row's price to 0 (it adds nothing to the
+  total) and hide the price box; the Total column says which.
+- Printed: the row's number and description, then "Free of Charge" or
+  "Included in Unit Price" across the price columns (portrait letter and
+  Word); on the landscape BQ sheet the words take the amount's place.
+- The same choice is on the "+" row, so a row can be added already free.
