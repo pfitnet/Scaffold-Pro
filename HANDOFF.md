@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 172.
+"## Batch N" section per change, newest at the bottom, up to Batch 173.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **173**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **174**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -164,7 +164,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–172, newest last)
+## 5. Recent work (Batches 147–173, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -228,6 +228,9 @@ only by reading the code. Ask the user to check one PDF after updating.
   Fixed `extension Quotation { init(from:) }` not reading fields added since
   (currency, clientAgreedAt, importedFromDocumentId, parentQuotationId):
   **every new Quotation field must be added to that decoder.**
+- **173:** build fix from the user's first compile of 170–171 (Swift 6.4,
+  arm64): `all` redeclared in `createInvoice(deliveryNoteIds:)`; two unused
+  values in Marketing.
 
 ---
 

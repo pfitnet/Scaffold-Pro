@@ -4482,7 +4482,6 @@ final class AppDatabase {
     func clientQuoteReport(clientId: String?, from: String, to: String) -> ClientQuoteReport {
         let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let boqById = Dictionary(boqsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let invoiced = Set(invoicesStore.readAll().filter { $0.status != "Cancelled" && $0.status != "Draft" }.compactMap { $0.sourceQuotationId })
         let qLines = Dictionary(grouping: quotationLineItemsStore.readAll(), by: { $0.quotationId })
         var rows: [ClientQuoteRow] = []
         var total = Decimal(0), wonValue = Decimal(0), wonCount = 0
@@ -4579,7 +4578,6 @@ final class AppDatabase {
         let boqs = boqsStore.readAll()
         let boqById = Dictionary(boqs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let invoices = invoicesStore.readAll().filter { $0.status != "Cancelled" }
-        let invoicedQuotations = Set(invoices.filter { $0.status != "Draft" }.compactMap { $0.sourceQuotationId })
         let qLines = Dictionary(grouping: quotationLineItemsStore.readAll(), by: { $0.quotationId })
         let iLines = Dictionary(grouping: invoiceLineItemsStore.readAll(), by: { $0.invoiceId })
         // Quotations sent (not drafts, not cancelled, not for a combined count).
@@ -9133,11 +9131,11 @@ final class AppDatabase {
             }
         }
         invoiceLineItemsStore.insertMany(lines)
-        var all = invoicesStore.readAll()
-        if let i = all.firstIndex(where: { $0.id == invoice.id }) {
-            all[i].sourceDeliveryNoteIds = notes.map { $0.id }
-            invoicesStore.writeAll(all)
-            invoice = all[i]
+        var allInvoices = invoicesStore.readAll()
+        if let i = allInvoices.firstIndex(where: { $0.id == invoice.id }) {
+            allInvoices[i].sourceDeliveryNoteIds = notes.map { $0.id }
+            invoicesStore.writeAll(allInvoices)
+            invoice = allInvoices[i]
         }
         logActivity(projectId: projectId, "Invoice also bills \(quotations.dropFirst().map { $0.quotationNumber }.joined(separator: ", "))", reference: invoice.invoiceNumber)
         return .success(invoice)

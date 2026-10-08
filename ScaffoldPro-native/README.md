@@ -4251,3 +4251,10 @@ one idea at a time, few words, and pictures that carry the meaning.
   subsidiary link were not read back when quotations were loaded, so they
   were lost on the next save. They're read now (a currency or agreement
   recorded since Batch 170 may need setting again).
+
+## Batch 173 — Build fix
+
+- The first build on a Mac stopped in the invoice code for delivery notes
+  from several quotations (a name declared twice in `createInvoice`). Fixed.
+- Two unused values left in Marketing after it began counting only agreed or
+  signed quotations are removed (compiler warnings).
