@@ -4219,3 +4219,15 @@ one idea at a time, few words, and pictures that carry the meaning.
 - **User Manual:** every box the same height; the contents rail jumps
   straight to a chapter; new entries for events, teams, import, duplicate,
   invoice sections and AI Import.
+
+## Batch 171 — Fixes found in a check of Batch 170
+
+- **Settings saved nothing** (since Batch 170): every save also carried this
+  Mac's appearance, and the app stopped there. Appearance is now taken out
+  and kept for this Mac, and the rest is saved as before.
+- **Importing a quotation** wouldn't build: a line left over from naming an
+  imported priced section is removed.
+- **Invoices in another currency:** an invoice for a quotation priced in
+  another currency (e.g. a crane job in US$) now shows and prints that
+  currency, including the "SAY US DOLLARS … ONLY" row. Delivery notes for
+  quotations in different currencies can't be put on one invoice.

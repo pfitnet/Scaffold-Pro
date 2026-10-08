@@ -2168,6 +2168,8 @@ struct InvoiceDetail: Codable {
     /// (it hasn't been given terms of its own); the Settings text.
     var paymentTermsFromSettings: Bool? = nil
     var defaultPaymentTerms: String? = nil
+    /// Its quotation's own currency (a crane job in US$); nil = Settings'.
+    var currency: String? = nil
     /// The delivery notes it bills, and whether each has a signed copy
     /// (attached after the invoice's own pages).
     var deliveryNotes: [InvoiceNoteRef] = []
@@ -7399,7 +7401,6 @@ final class AppDatabase {
             } else if kind == "Other" {
                 let title = nonBlank(l.section) ?? "Other Charges"
                 if blocks[title] == nil, case .success(let block) = addQuotationBlock(quotationId: q.id, kind: "Priced") {
-                    block.title = title
                     var bs = quotationBlocksStore.readAll()
                     if let bi = bs.firstIndex(where: { $0.id == block.id }) { bs[bi].title = title; quotationBlocksStore.writeAll(bs) }
                     blocks[title] = block.id
@@ -9007,6 +9008,9 @@ final class AppDatabase {
         if Set(quotations.map { $0.pricingMode }).count > 1 {
             return .failure(WorkerError(message: "Those delivery notes are for a rental quotation and a sale quotation. Invoice the rental and the sale separately."))
         }
+        if Set(quotations.map { nonBlank($0.currency)?.uppercased() ?? "" }).count > 1 {
+            return .failure(WorkerError(message: "Those delivery notes are for quotations in different currencies. Invoice each currency separately."))
+        }
         let result = createInvoice(projectId: projectId, projectNumber: projectNumber, sourceQuotationId: primary.id, rentalMonths: rentalMonths,
                                    includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges,
                                    deliveryNotes: notes.filter { $0.sourceQuotationId == primary.id })
@@ -9214,6 +9218,7 @@ final class AppDatabase {
         )
         detail.paymentTermsFromSettings = inv.paymentTerms == nil && inv.status == "Draft"
         detail.defaultPaymentTerms = settingsTerms
+        detail.currency = inv.sourceQuotationId.flatMap { getQuotation(id: $0)?.currency }
         let notes = deliveryNotesStore.readAll()
         detail.deliveryNotes = (inv.sourceDeliveryNoteIds ?? []).compactMap { nid in notes.first { $0.id == nid } }.map { n in
             InvoiceNoteRef(id: n.id, number: n.deliveryNoteNumber, status: n.status,
@@ -18041,15 +18046,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             current.appearance = NativeBridge.ownAppearance ?? current.appearance
             respond(id: id, encodable: current)
         case "settings:update":
-            if let look = payload["appearance"] as? String, ["System", "Light", "Dark"].contains(look) {
+            // Appearance is this Mac's own; everything else is the company's.
+            var changes = payload
+            if let look = changes.removeValue(forKey: "appearance") as? String, ["System", "Light", "Dark"].contains(look) {
                 NativeBridge.ownAppearance = look
                 applyAppearance(look)
-                var current = db.getCompanySettings()
-                current.appearance = look
-                respond(id: id, encodable: current)
-                return
             }
-            var updated = db.updateCompanySettings(payload)
+            var updated = db.updateCompanySettings(changes)
             updated.appearance = NativeBridge.ownAppearance ?? updated.appearance
             respond(id: id, encodable: updated)
         case "settings:chooseLogo":
@@ -19919,6 +19922,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
         let isRental = detail.pricingMode == "Rental"
         let quotation = detail.sourceQuotationId.flatMap { db.getQuotation(id: $0) }
+        // Billed in its quotation's currency (a crane job may be in US$).
+        var company = company
+        if let code = nonBlank(quotation?.currency) { company.currency = code }
 
         func rowsFor(_ lines: [InvoiceLineItem]) -> (materials: [LetterTableRow], delivery: [LetterTableRow]) {
             pricedRows(lines.map { (description: $0.itemDescription, unit: $0.unit, quantity: $0.quantity,
