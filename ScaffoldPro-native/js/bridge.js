@@ -586,6 +586,8 @@
     },
     workers: {
       list: (includeArchived) => callNative('workers:list', { includeArchived: !!includeArchived }),
+      // Each worker with where their agreement is (stage 0–3) and their documents (Workers page).
+      roster: (includeArchived) => callNative('workers:roster', { includeArchived: !!includeArchived }),
       create: (input) => callNative('workers:create', input),
       update: (id, input) => callNative('workers:update', Object.assign({ id: id }, input)),
       setArchived: (id, archived) => callNative('workers:setArchived', { id: id, archived: archived }),

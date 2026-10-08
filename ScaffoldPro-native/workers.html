@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Workers — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/workers.css" />
+</head>
+<body data-page="workers">
+  <nav id="sidebar"></nav>
+  <main id="content" class="wk-content">
+    <!-- The crew at a glance -->
+    <section class="wk-hero">
+      <div class="wk-hero-glow" aria-hidden="true"></div>
+      <div class="wk-hero-text">
+        <div class="wk-kicker">Site crew</div>
+        <h1>Workers</h1>
+        <p class="wk-summary" id="wk-summary">The people on site, their employment agreements and their certificates.</p>
+      </div>
+      <div class="wk-hero-actions">
+        <label class="wk-search">
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.2"/><path d="m13 13 3.5 3.5"/></svg>
+          <input type="search" id="wk-search" placeholder="Search name, ID, number…" autocomplete="off" spellcheck="false" />
+          <kbd>/</kbd>
+        </label>
+        <button type="button" class="primary wk-new" id="wk-new" data-no-icon title="Add a worker (⌘N)">
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 4.5v11M4.5 10h11"/></svg>New Worker
+        </button>
+      </div>
+    </section>
+
+    <div class="wk-stats" id="wk-stats" role="group" aria-label="Show only"></div>
+
+    <div class="wk-layout">
+      <aside class="wk-roster" aria-label="Workers">
+        <div class="wk-roster-head">
+          <span id="wk-roster-title">Everyone</span>
+          <label class="wk-archived"><input type="checkbox" id="wk-show-archived" /> Archived</label>
+        </div>
+        <div class="wk-list" id="wk-list" role="listbox" tabindex="0" aria-label="Workers"></div>
+      </aside>
+      <section class="wk-profile" id="wk-profile" aria-live="polite"></section>
+    </div>
+  </main>
+
+  <!-- A new worker -->
+  <div class="wk-sheet-backdrop hidden" id="wk-sheet">
+    <div class="wk-sheet" role="dialog" aria-modal="true" aria-labelledby="wk-sheet-title">
+      <div class="wk-sheet-main">
+        <div class="wk-sheet-head">
+          <span class="wk-avatar xl" id="ns-avatar">?</span>
+          <div>
+            <h2 id="wk-sheet-title">New worker</h2>
+            <p>Their employment agreement is made from these details, ready to print and sign.</p>
+          </div>
+        </div>
+        <div class="wk-form">
+          <label class="wk-f span-2"><span>Name</span><input type="text" id="ns-name" placeholder="As on their ID card, e.g. Chan Tai Man" autocomplete="off" /></label>
+          <label class="wk-f"><span>Chinese name</span><input type="text" id="ns-chineseName" placeholder="e.g. 陳大文" autocomplete="off" /></label>
+          <div class="wk-f"><span>On the agreement</span>
+            <div class="wk-seg" id="ns-honorific" role="radiogroup"><button type="button" data-v="先生" class="on" data-no-icon>先生 Mr</button><button type="button" data-v="女士" data-no-icon>女士 Ms</button></div></div>
+          <label class="wk-f"><span>ID card no.</span><input type="text" id="ns-idNumber" placeholder="A123456(7)" autocomplete="off" spellcheck="false" /><em class="wk-hint" id="ns-id-hint"></em></label>
+          <label class="wk-f"><span>Daily wage</span><span class="wk-money"><i>HK$</i><input type="number" id="ns-dailyWage" min="0" step="10" placeholder="1300" /><i>/ day</i></span></label>
+          <label class="wk-f"><span>Position</span><input type="text" id="ns-position" list="wk-positions" placeholder="Scaffolder" /></label>
+          <label class="wk-f"><span>Starts</span><input type="date" id="ns-startDate" /></label>
+          <label class="wk-f"><span>Phone</span><input type="tel" id="ns-phone" placeholder="Optional" /></label>
+          <label class="wk-f"><span>Email</span><input type="email" id="ns-email" placeholder="Optional" /></label>
+        </div>
+        <div class="wk-sheet-error hidden" id="ns-error"></div>
+      </div>
+      <aside class="wk-sheet-side">
+        <div class="wk-mini-paper" id="ns-paper"></div>
+        <div class="wk-sheet-actions">
+          <button type="button" id="ns-cancel" data-no-icon>Cancel</button>
+          <button type="button" class="primary" id="ns-save" data-no-icon>Add Worker</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <datalist id="wk-positions">
+    <option value="Scaffolder"></option><option value="Foreman"></option><option value="General Worker"></option>
+    <option value="Rigger"></option><option value="Driver"></option><option value="Safety Supervisor"></option>
+  </datalist>
+  <div class="wk-toast" id="wk-toast" role="status" aria-live="polite"></div>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/undo.js"></script>
+  <script src="js/hover-menu.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/docx-export.js"></script>
+  <script src="js/doc-preview.js"></script>
+  <script src="js/workers.js"></script>
+</body>
+</html>

@@ -1035,7 +1035,19 @@ struct WorkerAgreement: Codable {
     var updatedAt: String
 }
 
-/// The Admin page's agreement card for a worker.
+/// A worker on the Workers page's list.
+struct WorkerRosterEntry: Codable {
+    var worker: Worker
+    var agreementNumber: String
+    /// 0 no agreement, 1 made, 2 signed & chopped for the employer, 3 signed by the worker too.
+    var stage: Int
+    var signedBy: String?
+    var documents: Int
+    /// Documents expired or expiring within 30 days.
+    var expiring: Int
+}
+
+/// The Workers page's agreement card for a worker.
 struct WorkerAgreementPage: Codable {
     var agreement: WorkerAgreement?
     /// "W001-EA"

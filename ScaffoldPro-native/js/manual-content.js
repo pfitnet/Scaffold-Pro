@@ -393,7 +393,7 @@ window.MANUAL_CONTENT = [
   },
   {
     id: 'admin', title: 'Admin', color: '#c0627a', icon: 'id', keys: '{⌘7}',
-    tag: 'Workers, their documents, company papers and payroll.',
+    tag: 'Company papers and payroll. Site workers have their own page (Workers): details, employment agreements and certificates.',
     blocks: [
       { type: 'shot', shot: 'admin', points: [[2, 'Needs Attention', 'Expiring within 30 days'], [3, '+ New Worker', ''], [4, 'Company documents', 'With expiry dates']] },
       { type: 'shot', title: 'Employees and payroll', shot: 'admin-employees', points: [
