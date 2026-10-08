@@ -181,6 +181,10 @@
         for (let i = 0; i < count; i++) cells.push(tc(widths[i], cellParagraph(r.cells[i] || [], cols[i], widths[i], { currency: d.currencySymbol })));
         cells.push(tc(sum(count, n), para(run(r.text), { line: CELL_LINE, align: 'center' }), { span: n - count }));
         rows.push(tr(cells, { height: r.height }));
+      } else if (r.type === 'wide') {
+        // A row number, then text across every other column (a buy-back offer's BO1).
+        rows.push(tr([tc(widths[0], para(run((r.cells[0] || [''])[0]), { line: CELL_LINE, align: 'center' })),
+          tc(sum(1, n), para(run(r.text), { line: CELL_LINE, align: 'left' }), { span: n - 1 })], { height: r.height }));
       } else if (r.type === 'note') {
         rows.push(tr([tc(sum(0, n), para(run(r.text, { italic: true, size: 9.5, color: DARK_GREY }), { line: 13 }),
           { span: n, mar: { left: 6, right: 6 } })], { height: r.height }));

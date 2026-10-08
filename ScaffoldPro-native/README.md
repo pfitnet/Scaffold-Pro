@@ -4339,3 +4339,23 @@ one idea at a time, few words, and pictures that carry the meaning.
   amount are left out; with no monthly reduction, the lines about it are.
 - The section card warns when the offer would reach 0% before its last
   month (e.g. 20% less 2% a month reaches 0% after 16 months).
+
+## Batch 180 — Buy-back: the price at the first month beyond
+
+- The standard wording's second line now gives the price one month past
+  the limit: "For each month beyond 36 months, the buy-back price is
+  reduced by 1% of the price (i.e. HK$ 62,643.00 at 37 months and so on)."
+- New figures for the wording: `{NEXT_MONTHS}`, `{NEXT_PERCENT}` and
+  `{NEXT_UNIT_PRICE}` (the first month beyond the limit). Left out with the
+  rest of the line when there's no monthly reduction, and the bracket when
+  there's no price.
+
+## Batch 181 — BO1 across the row; drawings panel fits
+
+- **Buy-back row on the PDF and Word copy:** BO1's wording now runs across
+  every column after the number (one merged cell, left-aligned), instead of
+  being squeezed into the description column with empty cells beside it.
+  "BO1" stays on one line in the first column (a little smaller if it must).
+- **Drawings beside Key Terms:** each drawing is a small block — number,
+  name, type — with its buttons on their own line underneath, so nothing
+  runs off the panel's edge; long file names wrap.

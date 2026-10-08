@@ -1611,13 +1611,14 @@ struct BuyBackTerms: Codable {
     /// leaves the amounts out.
     var unitPrice: Double? = nil
     /// The wording (Settings › Quotations › Crane jobs), with the figures
-    /// as {PERCENT}, {UNIT_PRICE}, {MONTHS}, {LESS}, {END_MONTHS},
-    /// {END_PERCENT} and {END_UNIT_PRICE}; a line a paragraph.
+    /// as {PERCENT}, {UNIT_PRICE}, {MONTHS}, {LESS}, {NEXT_MONTHS},
+    /// {NEXT_PERCENT}, {NEXT_UNIT_PRICE} (the first month beyond),
+    /// {END_MONTHS}, {END_PERCENT} and {END_UNIT_PRICE}; a line a paragraph.
     var wording: String = BuyBackTerms.defaultWording
 
     static let defaultWording = """
     We offer to buy back the equipment at {PERCENT} of its price (i.e. {UNIT_PRICE} per unit) after {MONTHS} months.
-    For each month beyond {MONTHS} months, the buy-back price is reduced by {LESS} of the price.
+    For each month beyond {MONTHS} months, the buy-back price is reduced by {LESS} of the price (i.e. {NEXT_UNIT_PRICE} at {NEXT_MONTHS} months and so on).
     No buy-back is offered after {END_MONTHS} months.
     """
 
@@ -1638,17 +1639,20 @@ struct BuyBackTerms: Codable {
         let money: (Double) -> String = { p in price.map { "\(currency) \(formatMoney($0 * p / 100))" } ?? "" }
         let end = max(endMonths, afterMonths)
         let last = share(atMonths: end) ?? 0
+        let next = afterMonths + 1
+        let nextShare = share(atMonths: next) ?? 0
         let reduces = reductionPercent > 0 && endMonths > afterMonths
         var lines: [String] = []
         for raw in wording.components(separatedBy: .newlines) {
             var line = raw.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
-            if !reduces && (line.contains("{LESS}") || line.contains("{END_PERCENT}") || line.contains("{END_UNIT_PRICE}")) { continue }
+            if !reduces && ["{LESS}", "{NEXT_", "{END_PERCENT}", "{END_UNIT_PRICE}"].contains(where: { line.contains($0) }) { continue }
             if price == nil {
-                line = line.replacingOccurrences(of: #"\s*\([^()]*\{(END_)?UNIT_PRICE\}[^()]*\)"#, with: "", options: .regularExpression)
-                line = line.replacingOccurrences(of: "{UNIT_PRICE}", with: "").replacingOccurrences(of: "{END_UNIT_PRICE}", with: "")
+                line = line.replacingOccurrences(of: #"\s*\([^()]*\{(END_|NEXT_)?UNIT_PRICE\}[^()]*\)"#, with: "", options: .regularExpression)
+                for token in ["{UNIT_PRICE}", "{NEXT_UNIT_PRICE}", "{END_UNIT_PRICE}"] { line = line.replacingOccurrences(of: token, with: "") }
             }
             let values = ["{PERCENT}": pc(percent), "{UNIT_PRICE}": money(percent), "{MONTHS}": String(afterMonths), "{LESS}": pc(reductionPercent),
+                          "{NEXT_MONTHS}": String(next), "{NEXT_PERCENT}": pc(nextShare), "{NEXT_UNIT_PRICE}": money(nextShare),
                           "{END_MONTHS}": String(end), "{END_PERCENT}": pc(last), "{END_UNIT_PRICE}": money(last)]
             for (token, value) in values { line = line.replacingOccurrences(of: token, with: value) }
             lines.append(line)
@@ -2804,6 +2808,9 @@ enum LetterTableRow {
     /// Values for the first columns, then `tail` centred across the rest,
     /// e.g. a rates-only row: No, description, rate, "(Rate Only)".
     case partial([String], tail: String)
+    /// A row number in the first column, then text across all the others,
+    /// left-aligned and wrapped, e.g. a buy-back offer's BO1.
+    case wide(number: String, text: String)
     /// A note across the whole table in small grey italics, e.g. "* Please
     /// note that labour rates are subject to a price increase…".
     case note(String)
@@ -11402,10 +11409,18 @@ final class PDFGenerator {
             return (emphasized ? 37.5 : 29.25) + CGFloat(max(1, lines) - 1) * cellPitch
         case .partial(let cells, _):
             return height(of: .item(cells), in: doc)
+        case .wide(_, let text):
+            return rowHeight + CGFloat(max(1, wideLines(text, doc: doc).count) - 1) * 14.9
         case .note(let note):
             let lines = wrap(note, noteFont, noteWidth(doc)).count
             return 29.25 + CGFloat(max(1, lines) - 1) * notePitch
         }
+    }
+
+    /// A wide row's text, wrapped across every column but the first.
+    private func wideLines(_ text: String, doc: LetterDocument) -> [String] {
+        let width = doc.columns.dropFirst().reduce(CGFloat(0)) { $0 + $1.width } - 10
+        return wrap(text, body(11), max(60, width))
     }
 
     // Table notes: 9.5pt italic, grey, 13pt apart.
@@ -11520,6 +11535,18 @@ final class PDFGenerator {
                 }
                 text(tail, x: (edges[count] + edges[last] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0),
                      font: font, align: .center)
+            case .wide(let number, let wideText):
+                vRule(edges[0], top, h)
+                if last > 1 { vRule(edges[1], top, h) }
+                vRule(edges[last], top, h)
+                // The number on one line ("BO1"), a little smaller if it must.
+                var numberFont = body(11)
+                if lineWidth(makeLine(number, numberFont, .black)) > (edges[1] - edges[0]) - 3 { numberFont = body(9) }
+                text(number, x: (edges[0] + edges[1] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: numberFont, align: .center)
+                let lines = wideLines(wideText, doc: doc)
+                for (j, line) in lines.enumerated() {
+                    text(line, x: edges[1] + 5.0, baseline: cellBaseline(top: top, height: h, lines: lines.count, line: j), font: body(11))
+                }
             case .note(let note):
                 vRule(edges[0], top, h)
                 vRule(edges[last], top, h)
@@ -11850,6 +11877,7 @@ final class PDFGenerator {
             case .summary(let label, let value, let emphasized):
                 return WordRow(type: "summary", height: h, label: label, value: value, emphasized: emphasized)
             case .partial(let cells, let tail): return WordRow(type: "partial", height: h, cells: lines(cells), text: tail)
+            case .wide(let number, let wideText): return WordRow(type: "wide", height: h, cells: [[number]], text: wideLines(wideText, doc: doc).joined(separator: "\n"))
             case .note(let note): return WordRow(type: "note", height: h, text: note)
             }
         }
@@ -19496,7 +19524,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // The buy-back offer: one row, BO1, worded from its figures.
         if block.kind == "BuyBack" {
             if let offer = detail.buyBack {
-                rows.append(.item(["\(block.prefix)1", offer.sentences(currency: currency).joined(separator: "\n"), "", "", ""]))
+                rows.append(.wide(number: "\(block.prefix)1", text: offer.sentences(currency: currency).joined(separator: "\n")))
             }
             if let note = nonBlank(block.note) { rows.append(.note(note)) }
             return rows

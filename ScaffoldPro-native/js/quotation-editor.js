@@ -811,13 +811,16 @@ function buyBackSentences(b) {
   const amount = (p) => (price ? `${currencyLabel} ${money(price * p / 100)}` : '');
   const end = Math.max(b.endMonths, b.afterMonths);
   const last = Math.max(0, b.percent - b.reductionPercent * (end - b.afterMonths));
+  const next = b.afterMonths + 1;
+  const nextShare = Math.max(0, b.percent - b.reductionPercent);
   const reduces = b.reductionPercent > 0 && b.endMonths > b.afterMonths;
   const values = { '{PERCENT}': pc(b.percent), '{UNIT_PRICE}': amount(b.percent), '{MONTHS}': String(b.afterMonths), '{LESS}': pc(b.reductionPercent),
+    '{NEXT_MONTHS}': String(next), '{NEXT_PERCENT}': pc(nextShare), '{NEXT_UNIT_PRICE}': amount(nextShare),
     '{END_MONTHS}': String(end), '{END_PERCENT}': pc(last), '{END_UNIT_PRICE}': amount(last) };
   return String(b.wording || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-    .filter((l) => reduces || !/\{(LESS|END_PERCENT|END_UNIT_PRICE)\}/.test(l))
+    .filter((l) => reduces || !/\{(LESS|NEXT_[A-Z_]+|END_PERCENT|END_UNIT_PRICE)\}/.test(l))
     .map((l) => {
-      let line = price ? l : l.replace(/\s*\([^()]*\{(END_)?UNIT_PRICE\}[^()]*\)/g, '').replace(/\{(END_)?UNIT_PRICE\}/g, '');
+      let line = price ? l : l.replace(/\s*\([^()]*\{(END_|NEXT_)?UNIT_PRICE\}[^()]*\)/g, '').replace(/\{(END_|NEXT_)?UNIT_PRICE\}/g, '');
       for (const [k, v] of Object.entries(values)) line = line.split(k).join(v);
       return line;
     });

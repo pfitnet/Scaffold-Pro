@@ -2507,6 +2507,15 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 .q-terms-row .q-terms { margin: 0; }
 .q-terms-row .linked-drawings-panel { margin-top: 0; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-card); }
 @media (max-width: 1000px) { .q-terms-row { grid-template-columns: minmax(0, 1fr); } }
+/* Beside the key terms the drawings panel is narrow: each drawing is a
+   small block — number, name (and where it's from), type — with its
+   buttons on a line of their own underneath, so nothing runs off the edge. */
+.q-terms-row #linked-drawings table, .q-terms-row #linked-drawings tbody { display: block; width: 100%; }
+.q-terms-row #linked-drawings tr { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 8px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+.q-terms-row #linked-drawings tr:last-child { border-bottom: none; }
+.q-terms-row #linked-drawings td { display: block; padding: 0; border: none; min-width: 0; overflow-wrap: anywhere; }
+.q-terms-row #linked-drawings td.row-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-start; white-space: normal; }
+.q-terms-row #linked-drawings td.row-actions .ld-remove { margin-left: auto; }
 
 /* An invoice billing several quotations' deliveries: a heading per quotation. */
 .inv-group-row td { padding: 14px 8px 6px !important; border-bottom: none !important; background: none !important; }
