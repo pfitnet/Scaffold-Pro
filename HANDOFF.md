@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 211.
+"## Batch N" section per change, newest at the bottom, up to Batch 212.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **212**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **213**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -170,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–211, newest last)
+## 5. Recent work (Batches 147–212, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -280,6 +280,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **209:** Assistant reliability. Per-request timeout 75 s; `runAssistant` stops after 4 lookup rounds or 150 s with a clear error. `assistantAnswer` also reads tool-call syntax (`<|tool_call_start|>[createProject(name='…')]…`) via `toolArguments`. New proposal `createBOQ` (blank BOQ, structure, items priced like the BOQ editor). Live steps: each run has a `runId`; `assistantStep` pushes `window.__assistantStep({runId, text})` (Mac window only) — lookups summarised by `lookupSummary`; the page shows "Working… 12s ›" opening into the steps, then "Took N steps ›". Interrupt: typing and sending while it works (or Stop / Esc / the ■ send button) calls `assistant:cancel` (`assistantCancelled`) and drops the old run's answer; interrupted turns are left out of the history.
 - **210:** never shows raw JSON: `assistantAnswer` mends broken JSON (`repairedJSON`: lists in quotes, trailing commas) and `normalisedAnswer` takes a lone top-level proposal/lookup; anything still unreadable that looks like code gets one "answer again as JSON" round, then only its reply (`replyOnly`) or a short note. The prompt forbids claiming anything was made. Questions: the AI's `questions: [{id, text, options}]` show as option buttons (one question answers on a click; several → Send Answers; "Other…" for your own), sent as the next message and kept as `m.answers`. Messages have `at` (sent time) and Copy on hover. The stop button is an accent circle with a turning ring.
 - **211:** the window's close / minimise / full-screen buttons are re-armed after every page load (`refreshTitlebarButtons` at `didCommit` / `didFinish`: tracking areas updated and a synthetic mouseMoved), and the floating chat is kept below the 44 px title-bar strip in the Mac app. Assistant: an empty (or just "Done") answer gets one "answer properly" round, then an error with Try Again — the page never fills in "Done." itself; "continue / yes / go ahead" means propose the discussed action as a card.
+- **212:** Assistant chat history and context window. Chats live in localStorage `assistant.chats` (array of `{id, title, createdAt, updatedAt, messages, summary, summarisedUpTo}`, max 60, 400 messages each; on a quota error older chats lose their file text, then the oldest go) plus `assistant.current`; the old single `assistant.chat` is migrated on first load. Full page: a chats column (search, grouped by day, rename, delete; toggled by the sidebar button, hidden state in `assistant.sideHidden`); floating chat: a clock button opens the same list over it. New Chat keeps the old one. A ring in the bar estimates tokens (chars ÷ 3.5 + 3k instructions, + 2.5k screen in the float) against a window guessed from the provider/model (Gemini 128k, small OpenRouter models 32k); its card shows the split and "Summarise Earlier Messages Now". Before a send, past 70% (or more than 60 unsent messages) everything but the newest 4 (cut at a user message) goes to new native `assistant:summarise` (`handleAssistantSummarise`, `QuotationAI.chat(json: false)`, notes under 350 words, previous summary folded in); `history()` then sends the summary first and messages from `summarisedUpTo`. A divider "N earlier messages summarised for the AI" opens to show the summary. Native history backstop raised to the last 80 turns.
 
 ---
 

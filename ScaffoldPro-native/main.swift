@@ -16143,7 +16143,9 @@ extension QuotationAI {
     struct ChatTurn { var role: String; var text: String; var files: [ChatFile] = [] }
 
     /// Sends a conversation; the AI's answer (its text), or why not (main thread).
-    func chat(system: String, turns: [ChatTurn], completion: @escaping (String?, String?) -> Void) {
+    /// `json`: Gemini is told to answer with JSON (the assistant); false for
+    /// plain text (a summary).
+    func chat(system: String, turns: [ChatTurn], json: Bool = true, completion: @escaping (String?, String?) -> Void) {
         adoptThisMacsKey()
         guard let key = sharedKey else { completion(nil, "No AI is set up yet. Add a key in Settings › AI Import."); return }
         var request: URLRequest
@@ -16175,7 +16177,7 @@ extension QuotationAI {
                 return ["role": t.role == "assistant" ? "model" : "user", "parts": parts]
             }
             let systemPart: [String: Any] = ["parts": [["text": system]]]
-            let config: [String: Any] = ["temperature": 0.2, "responseMimeType": "application/json"]
+            let config: [String: Any] = json ? ["temperature": 0.2, "responseMimeType": "application/json"] : ["temperature": 0.2]
             let body: [String: Any] = ["systemInstruction": systemPart, "contents": contents, "generationConfig": config]
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         }
@@ -16310,7 +16312,9 @@ extension NativeBridge {
             return
         }
         var turns: [QuotationAI.ChatTurn] = []
-        for m in ((payload["messages"] as? [[String: Any]]) ?? []).suffix(30) {
+        // The page keeps the conversation within the AI's context window
+        // (older messages summarised); this is only a backstop.
+        for m in ((payload["messages"] as? [[String: Any]]) ?? []).suffix(80) {
             var text = (m["text"] as? String) ?? ""
             // Files sent earlier: their text, as read then.
             for f in (m["files"] as? [[String: Any]]) ?? [] {
@@ -16381,6 +16385,32 @@ extension NativeBridge {
                     self.screenPicture(go)
                 } else { go(nil) }
             }
+        }
+    }
+
+    /// The older part of a conversation condensed (the page's context
+    /// window): what was asked, decided, made and still to do — numbers kept.
+    func handleAssistantSummarise(id: String, payload: [String: Any]) {
+        let previous = nonBlank(payload["summary"] as? String)
+        var transcript = previous.map { "Summary so far:\n\($0)\n\nThen:\n" } ?? ""
+        for m in (payload["messages"] as? [[String: Any]]) ?? [] {
+            let who = (m["role"] as? String) == "assistant" ? "Assistant" : "Person"
+            var text = (m["text"] as? String) ?? ""
+            for f in (m["files"] as? [[String: Any]]) ?? [] {
+                if let t = nonBlank(f["text"] as? String) { text += "\n[File “\((f["name"] as? String) ?? "file")”:]\n\(String(t.prefix(6000)))" }
+            }
+            transcript += "\(who): \(text)\n\n"
+        }
+        let system = "You condense a conversation between a person at Proficiency (HK) Limited and the ScaffoldPro assistant, so it can go on "
+            + "without the full text. Write plain text (no JSON), under 350 words, as short notes: what they asked for; project, quotation, "
+            + "BOQ and item numbers; items with quantities and prices; choices made (Rental/Sale, which items); what was made or changed "
+            + "(and its number); what is still waiting or was proposed but not confirmed. Keep every number exactly. Leave out chit-chat."
+        QuotationAI.shared.chat(system: system, turns: [QuotationAI.ChatTurn(role: "user", text: String(transcript.prefix(120_000)))], json: false) { [weak self] text, error in
+            let summary = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let out: [String: Any] = error != nil || summary.isEmpty
+                ? ["ok": false, "error": error ?? "The AI couldn't summarise it."]
+                : ["ok": true, "summary": summary]
+            self?.callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
         }
     }
 
@@ -19538,6 +19568,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleAssistantSend(id: id, payload: payload)
         case "assistant:run":
             handleAssistantRun(id: id, payload: payload)
+        case "assistant:summarise":
+            handleAssistantSummarise(id: id, payload: payload)
         case "assistant:cancel":
             if let run = nonBlank(payload["runId"] as? String) { assistantCancelled.insert(run) }
             respond(id: id, encodable: SimpleResult(ok: true, error: nil))

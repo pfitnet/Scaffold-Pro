@@ -440,6 +440,8 @@
       // and cancel(runId) interrupts it.
       send: (messages, attachments, context, runId) => callNative('assistant:send', { messages: messages, attachments: attachments || [], context: context || null, runId: runId || null }),
       cancel: (runId) => callNative('assistant:cancel', { runId: runId }),
+      // The older part of a conversation condensed: { ok, summary }.
+      summarise: (messages, summary) => callNative('assistant:summarise', { messages: messages, summary: summary || null }),
       run: (proposal) => callNative('assistant:run', { proposal: proposal }),
     },
     ai: {

@@ -295,3 +295,91 @@ body.as-resizing-nw, body.as-resizing-nw *, body.as-resizing-se, body.as-resizin
 .as-other-row input { flex: 1; min-width: 0; height: 30px !important; }
 .as-other-row button { height: 30px; }
 .as-q-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 2px; font-size: 12px; color: var(--text-tertiary); }
+
+/* ---- The chats (Batch 212): a column on the Assistant page, a list over the floating chat ---- */
+.as-shell.with-side { flex-direction: row; }
+.as-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.as-head { position: relative; }
+.as-chat:not(.compact) .as-head-text { align-items: center; gap: 10px; }
+.as-side-toggle { margin-left: -6px; }
+.as-icon-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.as-side { flex: none; width: 264px; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--text) 2.5%, var(--content)); }
+.as-shell.side-hidden .as-side { display: none; }
+.as-side-head { display: flex; align-items: baseline; gap: 8px; padding: 36px 18px 10px; font-size: 13px; }
+.as-side-count { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.as-side-search { display: flex; align-items: center; gap: 7px; margin: 0 12px 6px; height: 30px; padding: 0 10px; border-radius: 9px;
+  color: var(--text-tertiary); background: color-mix(in srgb, var(--text) 5.5%, transparent); border: 1px solid transparent; transition: border-color .15s, background-color .15s; }
+.as-side-search:focus-within { border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--field-bg); }
+.as-side-search input { flex: 1; min-width: 0; height: 28px !important; padding: 0 !important; border: none !important; box-shadow: none !important;
+  background: transparent !important; font-size: 12.5px; outline: none; }
+.as-side-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 16px; }
+.as-side-group { padding: 14px 8px 4px; font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+.as-side-empty { padding: 16px 10px; font-size: 12px; line-height: 1.5; color: var(--text-tertiary); }
+.as-hist { display: flex; align-items: center; border-radius: 9px; transition: background-color .12s; }
+.as-hist:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.as-hist.on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.as-hist-open { flex: 1; min-width: 0; height: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 7px 4px 7px 10px;
+  border: none; box-shadow: none; background: transparent; text-align: left; font-weight: 400; }
+.as-hist-open:hover:not(:disabled), .as-hist-open:active:not(:disabled) { background: transparent; box-shadow: none; transform: none; }
+.as-hist-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--text); }
+.as-hist.on .as-hist-title { color: var(--accent); font-weight: 600; }
+.as-hist-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-tertiary); }
+.as-hist-acts { display: none; gap: 1px; padding-right: 5px; }
+.as-hist:hover .as-hist-acts, .as-hist:focus-within .as-hist-acts { display: flex; }
+.as-hist.renaming .as-hist-acts { display: none; }
+.as-hist-act { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border-radius: 6px; border: none; box-shadow: none;
+  background: transparent; color: var(--text-tertiary); }
+.as-hist-act:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); box-shadow: none; }
+.as-hist-act.del:hover:not(:disabled) { color: var(--danger, #d0453a); background: color-mix(in srgb, var(--danger, #d0453a) 10%, transparent); }
+.as-hist-input { flex: 1; min-width: 0; height: 28px !important; margin: 6px; font-size: 13px; }
+@media (max-width: 960px) { .as-side { width: 224px; } }
+/* Over the floating chat: a list under its bar. */
+.as-chat.compact .as-side { position: absolute; left: 0; right: 0; bottom: 0; z-index: 12; width: auto; border-right: none; background: var(--content);
+  animation: as-in .18s var(--ease) both; }
+.as-chat.compact .as-side-head { padding: 12px 16px 8px; }
+
+/* ---- The context window: a ring in the bar, opening into what fills it ---- */
+.as-ctx { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; box-shadow: none; color: var(--text-secondary); font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.as-ctx svg { color: var(--accent); flex: none; }
+.as-ctx.high svg { color: #d99a00; }
+.as-ctx.full svg { color: var(--danger, #d0453a); }
+.as-ctx:hover:not(:disabled), .as-ctx.on { color: var(--text); background: transparent; box-shadow: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.as-chat.compact .as-ctx { height: 28px; padding: 0 7px 0 5px; border-color: transparent; font-size: 11px; }
+.as-chat.compact .as-ctx:hover:not(:disabled), .as-chat.compact .as-ctx.on { background: color-mix(in srgb, var(--text) 7%, transparent); border-color: transparent; }
+.as-ctx-pop { position: absolute; top: calc(100% - 4px); right: 14px; z-index: 30; width: 296px; padding: 14px 15px; border-radius: 14px;
+  border: 1px solid var(--border); background: var(--panel); box-shadow: 0 18px 44px rgba(0, 0, 0, .18), 0 3px 10px rgba(0, 0, 0, .08); animation: as-in .16s var(--ease) both; }
+.as-chat.compact .as-ctx-pop { right: 8px; width: min(296px, calc(100% - 16px)); }
+.as-pop-title { margin-bottom: 10px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.as-bar { height: 8px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.as-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s var(--ease); }
+.as-bar.high i { background: #e0a100; }
+.as-bar.full i { background: var(--danger, #d0453a); }
+.as-pop-big { display: flex; align-items: baseline; gap: 5px; margin: 10px 0 8px; font-size: 12.5px; color: var(--text-secondary); }
+.as-pop-big b { font-size: 19px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.as-pop-big span { margin-left: auto; font-size: 12px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.as-pop-rows { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); font-size: 12px; }
+.as-pop-rows div { display: flex; justify-content: space-between; gap: 10px; }
+.as-pop-rows span { color: var(--text-secondary); }
+.as-pop-rows b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.as-pop-note { margin: 10px 0; font-size: 11.5px; line-height: 1.45; color: var(--text-secondary); }
+.as-pop-note.small { margin: 8px 0 0; font-size: 10.5px; color: var(--text-tertiary); }
+.as-pop-btn { width: 100%; justify-content: center; }
+
+/* Where the summarised messages end; opens into the summary the AI is sent. */
+.as-summ { display: flex; flex-direction: column; gap: 8px; }
+.as-summ-head { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; padding: 2px 0; border: none; box-shadow: none; background: none;
+  color: var(--text-tertiary); font-size: 11.5px; font-weight: 500; }
+.as-summ-head:hover:not(:disabled), .as-summ-head:active:not(:disabled) { background: none; box-shadow: none; transform: none; color: var(--text-secondary); }
+.as-summ-rule { flex: 1; height: 0; border-top: 1px dashed var(--border); }
+.as-summ-label { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--text) 4.5%, transparent); }
+.as-summ.open .as-steps-chev { transform: rotate(90deg); }
+.as-summ-body { display: none; padding: 12px 14px; border-radius: 12px; border: 1px dashed var(--border); background: var(--panel);
+  font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.as-summ.open .as-summ-body { display: block; animation: as-in .2s var(--ease) both; }
+.as-summ-kicker { margin-bottom: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
+.as-summ-body p { margin: 0 0 6px; }
+.as-summ-body ul { margin: 4px 0 6px; padding-left: 18px; }
+@media (prefers-reduced-motion: reduce) { .as-chat.compact .as-side, .as-ctx-pop, .as-summ.open .as-summ-body { animation: none; } }

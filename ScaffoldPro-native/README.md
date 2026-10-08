@@ -4752,3 +4752,25 @@ one idea at a time, few words, and pictures that carry the meaning.
   back empty it's asked once more; if it's still empty you're told so, with
   Try Again. "Continue", "yes" or "go ahead" now bring up the card for what
   you were discussing.
+
+## Batch 212 — Assistant: chat history and a context window
+
+- Every conversation is kept. On the Assistant page, a Chats column on the
+  left lists them by day (Today, Yesterday, Previous 7 Days, then by
+  month). Click one to go back to it, search them, rename one (pencil or
+  double-click) or delete one. The button beside the title hides or shows
+  the column.
+- In the floating chat, the clock button opens the same list over the chat.
+- New Chat no longer clears anything: the chat you were in stays in the list.
+  Your earlier single conversation is moved into the list as the first chat.
+- A small ring in the bar shows roughly how much of the AI's context window
+  the chat is using (e.g. "9k / 32k"). Click it for the breakdown: messages,
+  files it has read, and its instructions.
+- When a chat gets past 70% of the window, the older messages are summarised
+  before your next message is sent, so the AI keeps the gist (numbers,
+  items, what was made or still waiting) and stays quick. The newest four
+  messages always go in full. You can also summarise straight away from the
+  ring's card.
+- A line in the chat marks where the summary starts ("20 earlier messages
+  summarised for the AI"). Click it to read what the AI remembers. The
+  older messages stay on screen for you.
