@@ -4305,3 +4305,18 @@ one idea at a time, few words, and pictures that carry the meaning.
 - Now the window stays open while what's being typed is saved (the page
   is still awake), then ScaffoldPro quits straight away, within 1.5 seconds
   at most. ⌘Q and Quit work the same way.
+
+## Batch 178 — Each person's own theme; buy-back as a section
+
+- **Light / Dark is each person's own.** It's kept with their name colour
+  (shared by every Mac), so it follows them to any Mac and into
+  ScaffoldPro Web. Someone choosing a theme in ScaffoldPro Web no longer
+  changes the office Mac's. Before someone chooses, they get what their
+  Mac had, else System — never the company's or someone else's.
+- **Buy-back offer is a section:** on a crane quotation, **+ Add Section ›
+  Buy-back Offer** adds it after the total, printed as a merged row
+  "Buy Back Offer" with row **BO1** holding the offer's wording. The
+  section card has the four figures and shows BO1 as printed; Remove takes
+  it off. It's no longer added to every crane quotation by itself, and the
+  separate "Buy-back Offer" heading before the terms is gone. The standard
+  figures stay in Settings › Quotations › Crane jobs.

@@ -633,6 +633,7 @@ const BLOCK_KINDS = {
   Priced: 'Priced · added to the total',
   Rates: 'Rates only · shown after the total',
   Note: 'Note · shown after the total',
+  BuyBack: 'Buy-back offer · shown after the total',
 };
 
 async function blockCall(promise) {
@@ -646,7 +647,7 @@ function renderBlocks() {
   const container = document.getElementById('extra-sections');
   const locked = d.status !== 'Draft';
   container.innerHTML = '';
-  for (const btn of ['add-section-btn', 'add-priced-btn', 'add-standard-rates-btn', 'add-note-btn']) document.getElementById(btn).disabled = locked;
+  for (const btn of ['add-section-btn', 'add-priced-btn', 'add-standard-rates-btn', 'add-note-btn', 'add-buyback-btn']) document.getElementById(btn).disabled = locked;
 
   d.blocks.forEach((block) => {
     const lines = d.lineItems.filter((i) => i.blockId === block.id).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -656,7 +657,9 @@ function renderBlocks() {
     card.dataset.id = block.id;
 
     let body = '';
-    if (block.kind !== 'Note') {
+    if (block.kind === 'BuyBack') {
+      body = buyBackBody(d, locked);
+    } else if (block.kind !== 'Note') {
       // Priced rows: Qty, Unit Price and its unit ("Per", optional) — printed "500.00 /set".
       const head = rates
         ? '<th class="num row-no">No.</th><th>Description</th><th class="num">Rate</th><th>Per</th><th></th><th></th>'
@@ -717,9 +720,17 @@ function renderBlocks() {
     if (period) period.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { chargePeriod: period.value || null })));
     const note = q('.block-note');
     note.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { note: note.value })));
+    for (const input of card.querySelectorAll('.bb-input')) {
+      input.addEventListener('change', () => {
+        const v = input.value.trim();
+        const f = input.dataset.f;
+        // Blank: back to Settings' figure.
+        saveLetterField(f, v === '' ? null : Math.max(0, f.endsWith('Months') ? Math.round(Number(v)) : Number(v)) || 0);
+      });
+    }
     const remove = q('.block-remove');
     if (remove) remove.addEventListener('click', async () => {
-      const what = block.kind === 'Note' ? 'this note' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;
+      const what = block.kind === 'Note' ? 'this note' : block.kind === 'BuyBack' ? 'the buy-back offer' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;
       if (await appConfirm(`Remove ${what}?`)) blockCall(window.api.quotations.removeBlock(block.id));
     });
     for (const tr of card.querySelectorAll('tr[data-id]')) {
@@ -785,7 +796,6 @@ function renderLetterFields() {
   minOn.disabled = locked;
   document.getElementById('q-min-monthly-label').textContent = `Apply (${currencyLabel} ${money(d.minimumMonthlyCharge ?? 1000)})`;
   document.getElementById('add-delivery-btn').disabled = locked;
-  renderBuyBack(d, locked);
 }
 
 // A crane job's buy-back offer: on by default, with Settings' figures
@@ -804,23 +814,20 @@ function buyBackSentences(b) {
   out.push(`No buy-back is offered after ${months(Math.max(b.endMonths, b.afterMonths))}.`);
   return out;
 }
-function renderBuyBack(d, locked) {
-  const tile = document.getElementById('q-buyback');
-  const b = d.buyBack;
-  tile.classList.toggle('hidden', !b);
-  if (!b) return;
-  const on = document.getElementById('q-buyBackEnabled');
-  on.checked = !!b.enabled;
-  on.disabled = locked;
-  for (const f of BUYBACK_FIELDS) {
-    const el = document.getElementById(`q-${f}`);
-    if (document.activeElement !== el) el.value = b[BUYBACK_KEYS[f]];
-    el.disabled = locked || !b.enabled;
-  }
-  document.getElementById('q-buyback-fields').classList.toggle('off', !b.enabled);
-  const preview = document.getElementById('q-buyback-preview');
-  preview.classList.toggle('hidden', !b.enabled);
-  preview.innerHTML = b.enabled ? buyBackSentences(b).map((t) => `<p>${esc(t)}</p>`).join('') : '';
+// The Buy-back Offer section's body: its four figures, then BO1 as printed.
+function buyBackBody(d, locked) {
+  const b = d.buyBack || { percent: 60, afterMonths: 6, reductionPercent: 2, endMonths: 24 };
+  const num = (f, step, max, unit, label) => `<span class="bb-num"><input type="number" class="bb-input" data-f="${f}" min="0"${max ? ` max="${max}"` : ''} step="${step}" value="${esc(b[BUYBACK_KEYS[f]])}" aria-label="${label}" ${locked ? 'disabled' : ''} /><i>${unit}</i></span>`;
+  return `
+    <div class="extra-title-row">
+      <input type="text" class="block-title" placeholder="Title row, e.g. Buy Back Offer" value="${esc(d.blocks.find((x) => x.kind === 'BuyBack').title)}" ${locked ? 'disabled' : ''} />
+    </div>
+    <div class="bb-sentence">We buy it back at ${num('buyBackPercent', 0.5, 100, '%', 'Buy-back %')}
+      after ${num('buyBackAfterMonths', 1, 0, 'months', 'After months')},
+      less ${num('buyBackReductionPercent', 0.5, 100, '%', '% less each month beyond')} for each month beyond;
+      none after ${num('buyBackEndMonths', 1, 0, 'months', 'No offer after months')}.
+      <span class="small-note">Blank = Settings › Quotations.</span></div>
+    <table class="compact bb-row"><tbody><tr><td class="num row-no">BO1</td><td>${buyBackSentences(b).map((t) => `<p>${esc(t)}</p>`).join('')}</td></tr></tbody></table>`;
 }
 
 async function saveLetterField(field, value) {
@@ -1171,20 +1178,13 @@ async function init() {
     saveLetterField('minimumMonthlyChargeEnabled', e.target.checked));
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
-  document.getElementById('q-buyBackEnabled').addEventListener('change', (e) => saveLetterField('buyBackEnabled', e.target.checked));
-  for (const f of BUYBACK_FIELDS) {
-    document.getElementById(`q-${f}`).addEventListener('change', (e) => {
-      const v = e.target.value.trim();
-      // Blank: back to Settings' figure.
-      saveLetterField(f, v === '' ? null : Math.max(0, f.endsWith('Months') ? Math.round(Number(v)) : Number(v)) || 0);
-    });
-  }
+
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('split-btn').addEventListener('click', splitQuotation);
   document.getElementById('revert-split-btn').addEventListener('click', revertSplit);
   document.getElementById('add-standard-rates-btn').addEventListener('click', () =>
     blockCall(window.api.quotations.addStandardRates(quotationId, null)));
-  for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note']]) {
+  for (const [btn, kind] of [['add-priced-btn', 'Priced'], ['add-note-btn', 'Note'], ['add-buyback-btn', 'BuyBack']]) {
     document.getElementById(btn).addEventListener('click', () => blockCall(window.api.quotations.addBlock(quotationId, kind)));
   }
   window.hoverMenu.attach(document.getElementById('add-section-btn'), {
@@ -1194,6 +1194,9 @@ async function init() {
       { label: 'Priced Sections', sub: 'Rows added to the total, e.g. Design Fees', value: 'add-priced-btn' },
       { label: 'Standard Manpower Rates', sub: 'Rates after the total, from Settings › Standard Quotation', value: 'add-standard-rates-btn' },
       { label: 'Notes', sub: 'A note across the table, after the total', value: 'add-note-btn' },
+      // Crane jobs: one buy-back offer (row BO1), after the total.
+      ...(currentDetail && currentDetail.jobType === 'Crane' && !currentDetail.blocks.some((b) => b.kind === 'BuyBack')
+        ? [{ label: 'Buy-back Offer', sub: 'Row BO1 under “Buy Back Offer”, after the total', value: 'add-buyback-btn' }] : []),
     ],
     onPick: (id) => document.getElementById(id).click(),
   });

@@ -266,7 +266,7 @@ window.MANUAL_CONTENT = [
       { type: 'flow', title: 'Import an old quotation', chain: 'grey|Import…|PDF, scan, photo, Word > qt|Read on this Mac || team|Or the free AI|When it can’t make it out > qt|Check every row|A new draft, the original kept with it',
         note: 'On the project’s **Quotations** tab. Set up the AI once in **Settings › AI Import**.' },
       { type: 'example', title: 'Crane jobs: a buy-back offer', parts: [['60%', 'Of the price'], ['6 months', 'Returned after'], ['−2% a month', 'Beyond that'], ['none after 24', 'Months']],
-        note: 'On every crane quotation, printed before the terms. Change it, or switch it off, in the quotation; the standard offer is in **Settings › Quotations**.' },
+        note: 'On a crane quotation: **+ Add Section › Buy-back Offer** — row BO1 under “Buy Back Offer”, after the total. The standard figures are in **Settings › Quotations**.' },
       { type: 'tip', icon: 'stack', text: '**Duplicate…** copies a quotation — items, sections and delivery schedule — as a new draft, in this project or another.' },
     ],
   },
