@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 204.
+"## Batch N" section per change, newest at the bottom, up to Batch 205.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **205**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **206**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -170,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–204, newest last)
+## 5. Recent work (Batches 147–205, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -273,6 +273,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **202:** prices converted from another currency (`basePrice`, `inBaseCurrency`) round to the nearest 0.1 via the global `convertedPrice(_:rate:)`; rate 1 leaves a price untouched.
 - **203:** the Assistant tab (assistant.html, js/assistant.js, css/assistant.css; nav item in Overview). Native side in `extension QuotationAI` (`chat(system:turns:)`, Gemini or OpenRouter) and `extension NativeBridge` (`assistant:send` / `assistant:run`). The AI answers JSON `{reply, lookups, proposals}`; lookups (findProjects, findItems, getQuotation, listQuotations) run natively for up to 4 rounds; proposals (createQuotation, addQuotationItems, createTask, open) are checked/filled by `assistantCheck` (list prices by item code via `inBaseCurrency`) and only carried out by `assistant:run` when the person presses the card's button. Attachments are read with `QuotationImportReader` / `SpreadsheetReader` (text kept in the conversation; PDFs and pictures also sent as they are). Conversation kept per Mac in localStorage `assistant.chat`. New proposal types: add to the prompt in `assistantSystem`, `assistantCheck`, `handleAssistantRun` and `card()` in js/assistant.js.
 - **204:** install.sh copies every `*.html` (assistant.html had been left out of the bundle by the old fixed list, so the tab opened nothing); js/motion.js takes the page out of its leaving fade after 2.5 s if the link didn't open.
+- **205:** Assistant, more abilities and a floating chat. Lookups added: getProject, findClients, listTasks, listInvoices, stock (getQuotation now gives line ids, totals, refs). Proposals added: editQuotationItems (by line id/code/words; card shows before → after), updateQuotationDetails, duplicateQuotation, createProject (matches or makes client/site; next number), createClient, completeTask; createTask takes endTime/team (an event). Up to 6 lookup rounds. js/assistant.js is now a component (`AssistantChat.mount(el, { compact, context, onClose })`): assistant.html mounts it full size; sidebar.js loads it on every other page as a floating chat (`.as-launcher` / `#as-float`, ⌘J, stays open across pages via sessionStorage). The floating chat sends `context` (page, id/number, selection, the page's text ≤ 8,000 chars) → `assistantScreen` adds "On screen: …" to the newest message; after a card runs, the page's `appRefresh()` redraws it in place.
 
 ---
 

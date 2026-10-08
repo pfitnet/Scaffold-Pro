@@ -4646,3 +4646,34 @@ one idea at a time, few words, and pictures that carry the meaning.
   copied in, so a new page can't be left out again.
 - If a page ever can't be opened, the one you're on comes back after a
   moment instead of staying blank.
+
+## Batch 205 — The Assistant: more it can do, and a floating chat beside your work
+
+- **A floating chat on every page.** The sparkle button at the bottom right
+  (or ⌘J) opens a small chat over the page you're working on.
+  - It sees what's on screen: the page, the quotation, BOQ, invoice,
+    delivery note or project open on it, any text you've selected, and what
+    the page shows. So "check this quotation for mistakes", "what's still
+    open here?" or "make the standards 250" just work.
+  - It suggests things to ask about the page you're on.
+  - When it changes something, the page underneath updates at once.
+  - It stays open as you move between pages, and it's the same
+    conversation as the Assistant tab. The ⤢ button opens that tab; × or
+    Esc closes the chat.
+- **It can find out more:**
+  - a project's overview (client, site, BOQs, quotations with totals,
+    delivery notes, invoices, open tasks);
+  - clients and sites;
+  - tasks and events;
+  - invoices, with what's still owed;
+  - stock: how many are in the yard and on hire, and on which projects;
+  - a quotation's lines, totals and references.
+- **It can do more** (each shown on a card first, done only when you press
+  its button):
+  - change a draft quotation's lines (quantity, price or wording), or
+    remove lines; the card shows before → after;
+  - change a quotation's subject, your ref., site ref. or key terms;
+  - copy a quotation, to the same project or another;
+  - make a new project (with its client and site, found or made new);
+  - add a client;
+  - add a calendar event as well as a task, and mark a task done.

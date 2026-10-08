@@ -16184,8 +16184,13 @@ extension NativeBridge {
         Lookups (the app runs them and sends you the results; then answer again). Use them before proposing:
         {"type": "findProjects", "query": "number, name or client words, or empty for the latest"}
         {"type": "findItems", "query": "words of an item, e.g. 2.0m standard", "limit": 12}  → the material list with item codes, units and Sale / Rental prices in \(company.currency)
-        {"type": "getQuotation", "number": "Qt26219-001"}
+        {"type": "getQuotation", "number": "Qt26219-001"}  → its lines (with ids), totals and letter details
         {"type": "listQuotations", "projectNumber": "26219"}
+        {"type": "getProject", "number": "26219"}  → client, site, BOQs, quotations, delivery notes, invoices, open tasks
+        {"type": "findClients", "query": "company, contact or site words"}  → clients and sites
+        {"type": "listTasks", "projectNumber": "26219 or null", "includeDone": false, "events": false}
+        {"type": "listInvoices", "projectNumber": "26219 or null", "unpaidOnly": true}  → totals, paid and balance due
+        {"type": "stock", "query": "item words"}  → how many are in the yard, on hire, and on which projects
 
         Proposals (shown as cards; nothing happens until the person confirms):
         {"type": "createQuotation", "projectNumber": "26219", "pricingMode": "Rental" or "Sale", "subject": "short subject or null",
@@ -16195,6 +16200,14 @@ extension NativeBridge {
         {"type": "addQuotationItems", "quotationNumber": "Qt26219-001", "items": [ same as above ]}
         {"type": "createTask", "title": "...", "dueDate": "yyyy-mm-dd or null", "dueTime": "HH:mm or null", "notes": null,
          "projectNumber": "26219 or null", "assignee": "a person's name or null"}
+        {"type": "editQuotationItems", "quotationNumber": "Qt26219-001",
+         "changes": [{"lineId": "id from getQuotation", "quantity": number or null, "unitPrice": number or null, "description": "new text or null", "remove": false}]}
+        {"type": "updateQuotationDetails", "quotationNumber": "Qt26219-001", "subject": "...", "clientRef": "...", "siteRef": "...", "keyTerms": "..."}  (only the fields to change)
+        {"type": "duplicateQuotation", "quotationNumber": "Qt26219-001", "toProjectNumber": "26220 or null for the same project"}
+        {"type": "createProject", "name": "project name", "clientName": "client company", "siteName": "site name", "jobType": "Scaffolding" or "Crane"}
+        {"type": "createClient", "companyName": "...", "contactPerson": null, "phone": null, "email": null, "address": "line 1", "addressLine2": null, "addressLine3": null}
+        {"type": "completeTask", "taskId": "id from listTasks"}
+        An event on the calendar is a createTask with "dueTime" and "endTime" ("HH:mm").
         {"type": "open", "page": "project" | "quotation", "number": "26219 or Qt26219-001"}
 
         Rules:
@@ -16203,7 +16216,11 @@ extension NativeBridge {
         - Never guess a project: look it up with findProjects; if it's unclear which, ask in "reply" with no proposals.
         - Quantities are whole numbers. Keep descriptions as written on the file or by the person.
         - Read attached files carefully: every priced row, in order; leave out totals, discounts and terms.
+        - To change a quotation's lines, getQuotation first and use the lines' ids. Only draft quotations can be changed.
+        - For a new project, findClients first: use the client's and site's names exactly as found; a name not found makes a new one.
         - Use lookups only when you need them, at most a few at once. When you propose, say briefly in "reply" what you prepared.
+        - You can propose several things at once (e.g. a new project and its quotation: create the project first; the quotation \
+        card can name the project once it's made — or ask the person to confirm the project, then propose the quotation).
         - If you're asked something you can answer directly, just answer in "reply" with empty "lookups" and "proposals".
         """
     }
@@ -16231,6 +16248,8 @@ extension NativeBridge {
             return
         }
         let attachments = (payload["attachments"] as? [[String: Any]]) ?? []
+        // The floating chat: what the person is looking at, with the newest message.
+        let screen = (payload["context"] as? [String: Any]).map { assistantScreen($0) } ?? ""
         let history = turns
         // The newest message's files: read (OCR if need be) off the main thread.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -16263,7 +16282,7 @@ extension NativeBridge {
                 guard let self = self else { return }
                 var all = history
                 if var last = all.popLast() {
-                    last.text += extra
+                    last.text += extra + screen
                     last.files = files
                     all.append(last)
                 }
@@ -16288,8 +16307,8 @@ extension NativeBridge {
             let reply = (json["reply"] as? String) ?? ""
             let lookups = (json["lookups"] as? [[String: Any]]) ?? []
             let proposals = (json["proposals"] as? [[String: Any]]) ?? []
-            if !lookups.isEmpty && round < 4 {
-                let results: [[String: Any]] = lookups.prefix(6).map { ["lookup": $0, "result": self.assistantLookup($0)] }
+            if !lookups.isEmpty && round < 6 {
+                let results: [[String: Any]] = lookups.prefix(8).map { ["lookup": $0, "result": self.assistantLookup($0)] }
                 var next = turns
                 next.append(QuotationAI.ChatTurn(role: "assistant", text: text ?? ""))
                 next.append(QuotationAI.ChatTurn(role: "user", text: "The app's results for your lookups:\n\(jsonText(results))\n\nNow carry on (more lookups only if you must)."))
@@ -16298,6 +16317,33 @@ extension NativeBridge {
             }
             done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }])
         }
+    }
+
+    /// What's on the person's screen, for the AI: the page, the document
+    /// open on it, what they've selected and the page's text.
+    private func assistantScreen(_ c: [String: Any]) -> String {
+        let page = (c["page"] as? String) ?? ""
+        let id = (c["id"] as? String) ?? ""
+        let number = (c["number"] as? String) ?? ""
+        var what = "the \(page.isEmpty ? "app's" : page) page"
+        switch page {
+        case "quotation-editor":
+            if let q = db.getQuotation(id: id) { what = "quotation \(q.quotationNumber) (\(q.status), \(q.pricingMode)) of project \(db.getProject(id: q.projectId)?.projectNumber ?? "?")" }
+        case "boq-editor":
+            if let b = db.getBOQ(id: id) { what = "BOQ \(b.boqNumber) (\(b.status)) of project \(db.getProject(id: b.projectId)?.projectNumber ?? "?")" }
+        case "invoice-editor":
+            if let i = db.getInvoice(id: id) { what = "invoice \(i.invoiceNumber) (\(i.status)) of project \(db.getProject(id: i.projectId)?.projectNumber ?? "?")" }
+        case "delivery-note-editor":
+            if let d = db.getDeliveryNote(id: id) { what = "delivery note \(d.deliveryNoteNumber) (\(d.status)) of project \(db.getProject(id: d.projectId)?.projectNumber ?? "?")" }
+        case "project-detail":
+            if let p = db.getProjectByNumber(number) { what = "project \(p.projectNumber) \(p.name)" }
+        default:
+            if let t = nonBlank(c["title"] as? String) { what = "the \(t) page" }
+        }
+        var out = "\n\n[On screen: the person is looking at \(what). “This”, “here” and “it” mean that unless they say otherwise. Look it up (getQuotation, getProject…) before changing it.]"
+        if let sel = nonBlank(c["selection"] as? String) { out += "\n[They have selected this text:]\n\(String(sel.prefix(2000)))" }
+        if let text = nonBlank(c["screen"] as? String) { out += "\n[What the page shows, as text:]\n\(String(text.prefix(8000)))" }
+        return out
     }
 
     // ---- lookups ----
@@ -16339,17 +16385,95 @@ extension NativeBridge {
                 return ["error": "No quotation \(number)."]
             }
             let lines = db.quotationLineItemsStore.readAll().filter { $0.quotationId == q.id }.sorted { $0.sortOrder < $1.sortOrder }.map { li -> [String: Any] in
-                ["itemCode": li.itemCode, "description": li.itemDescription, "unit": li.unit, "quantity": li.quantity, "unitPrice": li.appliedUnitPrice,
+                ["lineId": li.id, "itemCode": li.itemCode, "description": li.itemDescription, "unit": li.unit, "quantity": li.quantity, "unitPrice": li.appliedUnitPrice,
                  "kind": li.blockId != nil ? "Other" : li.section == "Delivery" ? "Delivery" : "Material"]
             }
+            let detail = db.getQuotationDetail(id: q.id)
             let out: [String: Any] = ["number": q.quotationNumber, "status": q.status, "pricingMode": q.pricingMode, "subject": q.subject ?? "",
+                                      "clientRef": q.clientRef ?? "", "siteRef": q.siteRef ?? "", "keyTerms": q.keyTerms ?? "",
+                                      "subtotal": detail?.subtotal ?? 0, "total": detail?.total ?? 0,
                                       "project": db.getProject(id: q.projectId)?.projectNumber ?? "", "lines": lines]
             return out
         case "listQuotations":
             let number = ((l["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
             guard let p = db.getProjectByNumber(number) else { return ["error": "No project \(number)."] }
             return db.quotationsStore.readAll().filter { $0.projectId == p.id }.map { q -> [String: Any] in
-                ["number": q.quotationNumber, "status": q.status, "pricingMode": q.pricingMode, "subject": q.subject ?? ""]
+                ["number": q.quotationNumber, "status": q.status, "pricingMode": q.pricingMode, "subject": q.subject ?? "",
+                 "total": db.getQuotationDetail(id: q.id)?.total ?? 0]
+            }
+        case "getProject":
+            let number = ((l["number"] as? String) ?? (l["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let p = db.getProjectByNumber(number) else { return ["error": "No project \(number)."] }
+            let client = db.getClient(id: p.clientId), site = db.getSite(id: p.siteId)
+            let boqs = db.boqsStore.readAll().filter { $0.projectId == p.id }.map { b -> [String: Any] in
+                ["number": b.boqNumber, "status": b.status, "structure": b.structure ?? "", "pricingMode": b.pricingMode]
+            }
+            let quotes = db.quotationsStore.readAll().filter { $0.projectId == p.id }.map { q -> [String: Any] in
+                ["number": q.quotationNumber, "status": q.status, "subject": q.subject ?? "", "pricingMode": q.pricingMode,
+                 "total": db.getQuotationDetail(id: q.id)?.total ?? 0]
+            }
+            let notes = db.deliveryNotesStore.readAll().filter { $0.projectId == p.id }.map { d -> [String: Any] in
+                ["number": d.deliveryNoteNumber, "status": d.status]
+            }
+            let invoices = db.invoicesStore.readAll().filter { $0.projectId == p.id }.map { i -> [String: Any] in
+                let detail = db.getInvoiceDetail(id: i.id)
+                return ["number": i.invoiceNumber, "status": i.status, "date": i.invoiceDate, "total": detail?.total ?? 0, "balanceDue": detail?.balanceDue ?? 0]
+            }
+            let tasks = db.listTasks(projectId: p.id, includeEvents: true).filter { !$0.task.done }.map { t -> [String: Any] in
+                ["id": t.task.id, "title": t.task.title, "dueDate": t.task.dueDate ?? "", "assignee": t.task.assignee ?? t.task.team ?? "anyone"]
+            }
+            let out: [String: Any] = ["projectNumber": p.projectNumber, "name": p.name, "status": p.status, "jobType": normalJobType(p.jobType),
+                                      "client": client?.companyName ?? "", "clientContact": client?.contactPerson ?? "", "site": site?.name ?? "",
+                                      "siteAddress": site?.address ?? "", "description": p.projectDescription ?? "",
+                                      "boqs": boqs, "quotations": quotes, "deliveryNotes": notes, "invoices": invoices, "openTasks": tasks]
+            return out
+        case "findClients":
+            let clients = db.listClients(includeArchived: false).filter { c in
+                let hay = "\(c.companyName) \(c.contactPerson ?? "") \(c.clientReference ?? "")".lowercased()
+                return words.allSatisfy { hay.contains($0) }
+            }.prefix(15).map { c -> [String: Any] in
+                ["companyName": c.companyName, "contactPerson": c.contactPerson ?? "", "phone": c.phone ?? "", "email": c.email ?? "",
+                 "address": [c.address, c.addressLine2, c.addressLine3].compactMap { nonBlank($0) }.joined(separator: ", ")]
+            }
+            let sites = db.listSites(includeArchived: false).filter { st in
+                let hay = "\(st.name) \(st.address ?? "")".lowercased()
+                return words.allSatisfy { hay.contains($0) }
+            }.prefix(15).map { st -> [String: Any] in ["name": st.name, "address": st.address ?? ""] }
+            let out: [String: Any] = ["clients": Array(clients), "sites": Array(sites)]
+            return out
+        case "listTasks":
+            let projectId = nonBlank(l["projectNumber"] as? String).flatMap { db.getProjectByNumber($0)?.id }
+            let includeDone = (l["includeDone"] as? Bool) == true
+            let events = (l["events"] as? Bool) == true
+            return db.listTasks(projectId: projectId, includeEvents: true)
+                .filter { (includeDone || !$0.task.done) && (events ? $0.task.endTime != nil : true) }
+                .prefix(40).map { t -> [String: Any] in
+                    ["id": t.task.id, "title": t.task.title, "done": t.task.done, "dueDate": t.task.dueDate ?? "", "time": t.task.dueTime ?? "",
+                     "endTime": t.task.endTime ?? "", "for": t.task.assignee ?? t.task.team ?? "anyone", "project": t.projectNumber ?? "",
+                     "overdue": t.overdue, "priority": t.task.priority ?? ""]
+                }
+        case "listInvoices":
+            let projectId = nonBlank(l["projectNumber"] as? String).flatMap { db.getProjectByNumber($0)?.id }
+            let unpaid = (l["unpaidOnly"] as? Bool) == true
+            let projects = Dictionary(db.listProjectsRaw().map { ($0.id, $0.projectNumber) }, uniquingKeysWith: { a, _ in a })
+            return db.invoicesStore.readAll().filter { projectId == nil || $0.projectId == projectId }
+                .compactMap { i -> [String: Any]? in
+                    let d = db.getInvoiceDetail(id: i.id)
+                    let balance = d?.balanceDue ?? 0
+                    if unpaid && (balance <= 0.005 || i.status == "Cancelled" || i.status == "Draft") { return nil }
+                    return ["number": i.invoiceNumber, "project": projects[i.projectId] ?? "", "status": i.status, "date": i.invoiceDate,
+                            "dueDate": i.dueDate ?? "", "total": d?.total ?? 0, "paid": i.amountPaid, "balanceDue": balance]
+                }
+                .sorted { (($0["date"] as? String) ?? "") > (($1["date"] as? String) ?? "") }
+                .prefix(40).map { $0 }
+        case "stock":
+            let rows = db.stockData().items.filter { r in
+                let hay = "\(r.itemCode) \(r.itemName)".lowercased()
+                return !words.isEmpty && words.allSatisfy { hay.contains($0) }
+            }
+            return rows.prefix(15).map { r -> [String: Any] in
+                ["itemCode": r.itemCode, "description": r.itemName, "unit": r.unit, "inYard": r.inYard, "onHire": r.onHire, "owned": r.owned,
+                 "onHireByProject": r.onHireByProject.prefix(8).map { ["project": "\($0.projectNumber) \($0.projectName)", "quantity": $0.quantity] as [String: Any] }]
             }
         default:
             return ["error": "Unknown lookup \(type)."]
@@ -16426,11 +16550,95 @@ extension NativeBridge {
         case "open":
             if assistantHref(p) == nil { problems.append("That page couldn't be found.") }
             out["href"] = assistantHref(p) ?? ""
+        case "editQuotationItems":
+            let number = ((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let q = quotation(number) else { problems.append("There's no quotation \(number)."); break }
+            out["quotationNumber"] = q.quotationNumber
+            if q.status != "Draft" { problems.append("\(q.quotationNumber) is \(q.status.lowercased()); only a draft can be changed.") }
+            let lines = db.quotationLineItemsStore.readAll().filter { $0.quotationId == q.id }
+            var changes: [[String: Any]] = []
+            for c in (p["changes"] as? [[String: Any]]) ?? [] {
+                // By its id, else by its code or the words of its description.
+                let key = ((c["lineId"] as? String) ?? (c["match"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+                var found = lines.filter { $0.id == key }
+                if found.isEmpty, !key.isEmpty {
+                    found = lines.filter { $0.itemCode.caseInsensitiveCompare(key) == .orderedSame }
+                    if found.isEmpty {
+                        let ws = key.lowercased().split(separator: " ").map(String.init)
+                        found = lines.filter { l in ws.allSatisfy { l.itemDescription.lowercased().contains($0) } }
+                    }
+                }
+                guard found.count == 1, let line = found.first else {
+                    problems.append(found.isEmpty ? "No line matches “\(key)”." : "“\(key)” matches \(found.count) lines; say which.")
+                    continue
+                }
+                var change: [String: Any] = ["lineId": line.id, "description": line.itemDescription, "unit": line.unit,
+                                             "oldQuantity": line.quantity, "oldUnitPrice": line.appliedUnitPrice]
+                if (c["remove"] as? Bool) == true { change["remove"] = true }
+                if let v = (c["quantity"] as? NSNumber)?.doubleValue { change["quantity"] = max(0, v.rounded()) }
+                if let v = (c["unitPrice"] as? NSNumber)?.doubleValue { change["unitPrice"] = doubleOf(roundToCents(decimalOf(max(0, v)))) }
+                if let d = nonBlank(c["description"] as? String) { change["newDescription"] = d }
+                changes.append(change)
+            }
+            out["changes"] = changes
+            if changes.isEmpty { problems.append("There's nothing to change.") }
+        case "updateQuotationDetails":
+            let number = ((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let q = quotation(number) else { problems.append("There's no quotation \(number)."); break }
+            out["quotationNumber"] = q.quotationNumber
+            if q.status != "Draft" { problems.append("\(q.quotationNumber) is \(q.status.lowercased()); only a draft can be changed.") }
+            let before: [String: String] = ["subject": q.subject ?? "", "clientRef": q.clientRef ?? "", "siteRef": q.siteRef ?? "", "keyTerms": q.keyTerms ?? ""]
+            var fields: [[String: Any]] = []
+            for (key, label) in [("subject", "Subject"), ("clientRef", "Your ref."), ("siteRef", "Site ref."), ("keyTerms", "Key terms")] where p[key] is String {
+                fields.append(["key": key, "label": label, "old": before[key] ?? "", "new": (p[key] as? String) ?? ""])
+            }
+            out["fields"] = fields
+            if fields.isEmpty { problems.append("There's nothing to change.") }
+        case "duplicateQuotation":
+            let number = ((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let q = quotation(number) else { problems.append("There's no quotation \(number)."); break }
+            out["quotationNumber"] = q.quotationNumber
+            if let to = nonBlank(p["toProjectNumber"] as? String) {
+                if let project = db.getProjectByNumber(to) { out["toProjectName"] = project.name } else { problems.append("There's no project \(to).") }
+            }
+        case "createProject":
+            let name = ((p["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty { problems.append("The project has no name.") }
+            out["jobType"] = normalJobType(p["jobType"])
+            out["projectNumber"] = nonBlank(p["projectNumber"] as? String) ?? nextProjectNumber(existingNumbers: db.allProjectNumbers())
+            let clientName = ((p["clientName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let siteName = ((p["siteName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if clientName.isEmpty { problems.append("Say which client it's for.") }
+            if siteName.isEmpty { problems.append("Say which site it's at.") }
+            if let c = db.listClients(includeArchived: false).first(where: { $0.companyName.caseInsensitiveCompare(clientName) == .orderedSame }) {
+                out["clientName"] = c.companyName
+            } else if !clientName.isEmpty { out["clientNew"] = true }
+            if let st = db.listSites(includeArchived: false).first(where: { $0.name.caseInsensitiveCompare(siteName) == .orderedSame }) {
+                out["siteName"] = st.name
+            } else if !siteName.isEmpty { out["siteNew"] = true }
+        case "createClient":
+            let name = ((p["companyName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty { problems.append("The client has no name.") }
+            if db.listClients(includeArchived: true).contains(where: { $0.companyName.caseInsensitiveCompare(name) == .orderedSame }) {
+                problems.append("There's already a client called \(name).")
+            }
+        case "completeTask":
+            let key = ((p["taskId"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            let open = db.tasksStore.readAll().filter { !$0.done }
+            var found = open.filter { $0.id == key }
+            if found.isEmpty, let title = nonBlank(p["title"] as? String) { found = open.filter { $0.title.lowercased().contains(title.lowercased()) } }
+            if found.count == 1, let t = found.first { out["taskId"] = t.id; out["title"] = t.title } else {
+                problems.append(found.isEmpty ? "No open task matches." : "More than one task matches; say which.")
+            }
         default:
             problems.append("The app can't do “\(type)” yet.")
         }
         out["problems"] = problems
         return out
+    }
+
+    private func quotation(_ number: String) -> Quotation? {
+        db.quotationsStore.readAll().first { $0.quotationNumber.caseInsensitiveCompare(number) == .orderedSame }
     }
 
     private func assistantHref(_ p: [String: Any]) -> String? {
@@ -16476,10 +16684,71 @@ extension NativeBridge {
             reply(true, "\(lines().count) line\(lines().count == 1 ? "" : "s") added to \(q.quotationNumber).", href: "quotation-editor.html?id=\(q.id)")
         case "createTask":
             var task: [String: Any] = ["title": p["title"] ?? "", "notes": p["notes"] ?? NSNull(), "dueDate": p["dueDate"] ?? NSNull(),
-                                       "dueTime": p["dueTime"] ?? NSNull(), "assignee": p["assignee"] ?? NSNull()]
+                                       "dueTime": p["dueTime"] ?? NSNull(), "endTime": p["endTime"] ?? NSNull(), "assignee": p["assignee"] ?? NSNull(),
+                                       "team": p["team"] ?? NSNull()]
             if let n = nonBlank(p["projectNumber"] as? String), let project = db.getProjectByNumber(n) { task["projectId"] = project.id }
             let r = db.saveTask(task)
-            if r.ok { reply(true, "Task added.", href: "tasks.html") } else { reply(false, r.error ?? "The task couldn't be added.") }
+            if r.ok { reply(true, nonBlank(p["endTime"] as? String) != nil ? "Event added to the calendar." : "Task added.", href: nonBlank(p["endTime"] as? String) != nil ? "calendar.html" : "tasks.html") } else { reply(false, r.error ?? "The task couldn't be added.") }
+        case "editQuotationItems":
+            guard let q = quotation(((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)) else { reply(false, "Quotation not found."); return }
+            guard q.status == "Draft" else { reply(false, "\(q.quotationNumber) is \(q.status.lowercased()); only a draft can be changed."); return }
+            var done = 0
+            var failed: [String] = []
+            for c in (p["changes"] as? [[String: Any]]) ?? [] {
+                guard let lineId = c["lineId"] as? String else { continue }
+                let error: String?
+                if (c["remove"] as? Bool) == true {
+                    error = db.removeQuotationLineItem(id: lineId)
+                } else {
+                    error = db.updateQuotationLineItem(id: lineId, quantity: (c["quantity"] as? NSNumber)?.doubleValue,
+                                                       appliedUnitPrice: (c["unitPrice"] as? NSNumber)?.doubleValue,
+                                                       description: c["newDescription"] as? String)
+                }
+                if let e = error { failed.append(e) } else { done += 1 }
+            }
+            if done == 0 { reply(false, failed.first ?? "Nothing was changed."); return }
+            reply(true, "\(done) line\(done == 1 ? "" : "s") of \(q.quotationNumber) changed\(failed.isEmpty ? "" : " (\(failed.count) couldn't be)").",
+                  href: "quotation-editor.html?id=\(q.id)")
+        case "updateQuotationDetails":
+            guard let q = quotation(((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)) else { reply(false, "Quotation not found."); return }
+            var fields: [String: Any] = [:]
+            for f in (p["fields"] as? [[String: Any]]) ?? [] { if let k = f["key"] as? String { fields[k] = (f["new"] as? String) ?? "" } }
+            if let error = db.updateQuotationLetterFields(id: q.id, payload: fields) { reply(false, error); return }
+            reply(true, "\(q.quotationNumber) updated.", href: "quotation-editor.html?id=\(q.id)")
+        case "duplicateQuotation":
+            guard let q = quotation(((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)) else { reply(false, "Quotation not found."); return }
+            let to = nonBlank(p["toProjectNumber"] as? String).flatMap { db.getProjectByNumber($0)?.id }
+            switch db.duplicateQuotation(id: q.id, toProjectId: to) {
+            case .success(let copy): reply(true, "\(copy.quotationNumber) made, a copy of \(q.quotationNumber).", href: "quotation-editor.html?id=\(copy.id)")
+            case .failure(let e): reply(false, e.message)
+            }
+        case "createProject":
+            let name = ((p["name"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let clientName = ((p["clientName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let siteName = ((p["siteName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, !clientName.isEmpty, !siteName.isEmpty else { reply(false, "A project needs a name, a client and a site."); return }
+            let existing = db.allProjectNumbers()
+            let number = nonBlank(p["projectNumber"] as? String) ?? nextProjectNumber(existingNumbers: existing)
+            let check = validateProjectNumber(number, existingNumbers: existing)
+            guard check.valid else { reply(false, check.reason ?? "That project number can't be used."); return }
+            let client = db.listClients(includeArchived: false).first { $0.companyName.caseInsensitiveCompare(clientName) == .orderedSame }
+                ?? db.createClient(["companyName": clientName])
+            let site = db.listSites(includeArchived: false).first { $0.name.caseInsensitiveCompare(siteName) == .orderedSame }
+                ?? db.createSite(["name": siteName])
+            let project = db.createProject(projectNumber: number, name: name, clientId: client.id, siteId: site.id)
+            _ = db.updateProject(id: project.id, payload: ["jobType": normalJobType(p["jobType"])], logChange: false)
+            storage.createProjectFolders(number)
+            reply(true, "Project \(number) \(name) made.", href: "project-detail.html?number=\(number.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? number)")
+        case "createClient":
+            let name = ((p["companyName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { reply(false, "The client has no name."); return }
+            var fields: [String: Any] = [:]
+            for k in ["companyName", "contactPerson", "phone", "email", "address", "addressLine2", "addressLine3", "notes"] { if let v = p[k] as? String { fields[k] = v } }
+            let c = db.createClient(fields)
+            reply(true, "Client \(c.companyName) added.", href: "clients.html")
+        case "completeTask":
+            guard let taskId = p["taskId"] as? String else { reply(false, "Task not found."); return }
+            if let error = db.setTaskDone(id: taskId, done: true) { reply(false, error) } else { reply(true, "Marked done.", href: "tasks.html") }
         default:
             reply(false, "That can't be done from here.")
         }
