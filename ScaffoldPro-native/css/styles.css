@@ -2300,7 +2300,7 @@ a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
 /* The project number reads first. */
 a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); }
 .pj-table td.pj-num { font-size: 15px; }
-.qa-backdrop { z-index: 10070; } .qa-sheet { max-width: 520px; }
+.qa-backdrop { z-index: 10070; } .qa-sheet { max-width: 92vw; max-height: 86vh; overflow-y: auto; }
 
 /* Projects › Overview: a bracket per project, its documents in columns
    (each centred in its column), lines from each to what it came from. */

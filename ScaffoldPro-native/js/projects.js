@@ -398,35 +398,53 @@ async function fillParties(select) {
   document.getElementById('f-site').value = (select && select.site) || (keepS !== '__new__' ? keepS : '');
 }
 
-// A small sheet over the New Project one: the essentials of a new client or site.
+// A sheet over the New Project one for a new client or site: the same
+// fields as on Clients & Sites (Address Lines 1–3 and all), saved the same way.
+const QUICK_FIELDS = {
+  client: [
+    ['companyName', 'Company Name', 'span-2'], ['clientReference', 'Client Reference'], ['contactPerson', 'Contact Person'],
+    ['phone', 'Phone'], ['email', 'Email'],
+    ['address', 'Address Line 1', 'span-2', 'e.g. 38th Floor, Dorset House, Taikoo Place'],
+    ['addressLine2', 'Address Line 2', 'span-2', 'e.g. 979 King\'s Road, Quarry Bay'],
+    ['addressLine3', 'Address Line 3', 'span-2'],
+    ['city', 'City'], ['postalCode', 'Postal Code'], ['country', 'Country'],
+    ['defaultMarkupPercent', 'Default Markup (%)', '', 'e.g. 15', 'number'],
+    ['billingInfo', 'Billing Information', 'span-2', 'Replaces the address on quotations and invoices, if filled in', 'textarea'],
+    ['notes', 'Notes', 'span-2', '', 'textarea'],
+  ],
+  site: [
+    ['name', 'Site Name', 'span-2'], ['siteReference', 'Site Reference / Code'], ['contactPerson', 'Contact Person'],
+    ['phone', 'Phone'], ['email', 'Email'], ['address', 'Address', 'span-2'],
+    ['city', 'City'], ['postalCode', 'Postal Code'], ['country', 'Country'],
+    ['notes', 'Notes', 'span-2', '', 'textarea'],
+  ],
+};
+
 function quickAdd(kind) {
   return new Promise((resolve) => {
     const client = kind === 'client';
+    const fields = QUICK_FIELDS[kind];
     const el = document.createElement('div');
     el.className = 'modal-backdrop qa-backdrop';
     el.innerHTML = `
-      <div class="modal qa-sheet" role="dialog" aria-labelledby="qa-title">
+      <div class="modal wide qa-sheet" role="dialog" aria-labelledby="qa-title">
         <h2 id="qa-title">${client ? 'New Client' : 'New Site'}</h2>
         <div class="form-grid">
-          <div class="field span-2"><label for="qa-name">${client ? 'Company Name' : 'Site Name'}</label><input type="text" id="qa-name" autocomplete="off" /></div>
-          <div class="field"><label for="qa-contact">Contact Person</label><input type="text" id="qa-contact" /></div>
-          <div class="field"><label for="qa-phone">Phone</label><input type="text" id="qa-phone" /></div>
-          <div class="field span-2"><label for="qa-address">Address</label><input type="text" id="qa-address" /></div>
-          ${client ? '<div class="field span-2"><label for="qa-email">Email</label><input type="text" id="qa-email" /></div>' : ''}
+          ${fields.map(([key, label, span, placeholder, type]) => `<div class="field ${span || ''}"><label for="qa-${key}">${esc(label)}</label>${type === 'textarea'
+            ? `<textarea id="qa-${key}" rows="${key === 'notes' ? 2 : 3}"${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}></textarea>`
+            : `<input type="${type === 'number' ? 'number' : 'text'}" id="qa-${key}"${type === 'number' ? ' min="0" max="1000" step="0.5"' : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''} autocomplete="off" />`}</div>`).join('')}
         </div>
-        <div class="small-note">More details can be added later on Clients &amp; Sites.</div>
         <div class="error-text hidden" id="qa-error"></div>
         <div class="actions"><button type="button" id="qa-cancel">Cancel</button><button type="button" class="primary" id="qa-save">Add ${client ? 'Client' : 'Site'}</button></div>
       </div>`;
     document.body.appendChild(el);
     const $q = (id) => el.querySelector(`#${id}`);
     const close = (v) => { el.remove(); resolve(v); };
+    const first = fields[0][0];
     const save = async () => {
-      const name = $q('qa-name').value.trim();
-      if (!name) { $q('qa-error').textContent = `Enter the ${client ? 'company' : 'site'} name.`; $q('qa-error').classList.remove('hidden'); $q('qa-name').focus(); return; }
-      const input = client
-        ? { companyName: name, contactPerson: $q('qa-contact').value, phone: $q('qa-phone').value, address: $q('qa-address').value, email: $q('qa-email').value }
-        : { name, contactPerson: $q('qa-contact').value, phone: $q('qa-phone').value, address: $q('qa-address').value };
+      const input = {};
+      for (const [key] of fields) input[key] = $q(`qa-${key}`).value.trim();
+      if (!input[first]) { $q('qa-error').textContent = `Enter the ${client ? 'company' : 'site'} name.`; $q('qa-error').classList.remove('hidden'); $q(`qa-${first}`).focus(); return; }
       const made = await (client ? window.api.clients.create(input) : window.api.sites.create(input));
       if (!made || !made.id) { $q('qa-error').textContent = (made && made.error) || 'It couldn’t be added.'; $q('qa-error').classList.remove('hidden'); return; }
       close(made.id);
@@ -437,7 +455,7 @@ function quickAdd(kind) {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
       if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); save(); }
     });
-    setTimeout(() => $q('qa-name').focus(), 30);
+    setTimeout(() => $q(`qa-${first}`).focus(), 30);
   });
 }
 

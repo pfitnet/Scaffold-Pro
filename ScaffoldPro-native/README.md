@@ -4430,3 +4430,15 @@ one idea at a time, few words, and pictures that carry the meaning.
   — `(Included)`, `(Free of Charge)`, anything — to print those words in
   place of the price and total; the row then isn't charged. Only rows of
   priced sections take words; line items' prices stay numbers.
+
+## Batch 188 — New client / new site from New Project: the full form
+
+- "+ Add New Client…" and "+ Add New Site…" in New Project now open the
+  same form as on Clients & Sites, not a short one with a single address:
+  - client: company name, reference, contact, phone, email, **Address
+    Lines 1–3**, city, postal code, country, default markup, billing
+    information and notes;
+  - site: name, reference / code, contact, phone, email, address, city,
+    postal code, country and notes.
+- It's saved the same way, and the new client or site is chosen in the
+  project at once.
