@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 202.
+"## Batch N" section per change, newest at the bottom, up to Batch 203.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **203**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **204**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -170,7 +170,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–202, newest last)
+## 5. Recent work (Batches 147–203, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -271,6 +271,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **200:** series folders are "<series> <structure or subject>" (`FileStorage.seriesName` → `AppDatabase.seriesTitle`; `seriesRoot` finds the current one; `NativeBridge.organiseSeriesFolders` renames/merges via `mergeFolder`) and hold Drawings and Documents too. Linked drawings/documents are filed there (`linkedFileFolder`; upload, replace, `*:setLink` and `fileLinkedFiles` at organise); project-level folders are no longer made up front and are removed while empty (`removeEmptyProjectFolders`). Opening a project, and a pause after creating documents or changing a BOQ's structure or a quotation's letter fields (`organiseSoon`), run `organiseProjectFolders`.
 - **201:** split sheet redesigned (js/quotation-split.js, styles in quotation-editor.html): modes "Move to new" / "Keep here" (remembered in localStorage), linked "Stays here" / "Goes to new" boxes per line, a find box, "Keep/Move [n] of each ticked item", stays/goes summary cards, the day question per partial line with "All" buttons, Return/↑/↓ between rows. Same payload as before (`lineIds`, `blockIds`, `partial`); no Swift change.
 - **202:** prices converted from another currency (`basePrice`, `inBaseCurrency`) round to the nearest 0.1 via the global `convertedPrice(_:rate:)`; rate 1 leaves a price untouched.
+- **203:** the Assistant tab (assistant.html, js/assistant.js, css/assistant.css; nav item in Overview). Native side in `extension QuotationAI` (`chat(system:turns:)`, Gemini or OpenRouter) and `extension NativeBridge` (`assistant:send` / `assistant:run`). The AI answers JSON `{reply, lookups, proposals}`; lookups (findProjects, findItems, getQuotation, listQuotations) run natively for up to 4 rounds; proposals (createQuotation, addQuotationItems, createTask, open) are checked/filled by `assistantCheck` (list prices by item code via `inBaseCurrency`) and only carried out by `assistant:run` when the person presses the card's button. Attachments are read with `QuotationImportReader` / `SpreadsheetReader` (text kept in the conversation; PDFs and pictures also sent as they are). Conversation kept per Mac in localStorage `assistant.chat`. New proposal types: add to the prompt in `assistantSystem`, `assistantCheck`, `handleAssistantRun` and `card()` in js/assistant.js.
 
 ---
 

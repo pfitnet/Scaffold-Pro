@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Assistant — ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/assistant.css" />
+</head>
+<body data-page="assistant" class="as-page">
+  <nav id="sidebar"></nav>
+  <main id="content" class="as-content">
+    <div class="as-shell">
+      <header class="as-head">
+        <div class="as-head-text">
+          <h1>Assistant</h1>
+          <span class="as-status" id="as-status"></span>
+        </div>
+        <button type="button" id="as-new" class="as-new" data-no-icon title="Start a new conversation (⌘N)">
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 4.5v11M4.5 10h11"/></svg>
+          New Chat
+        </button>
+      </header>
+
+      <div class="as-scroll" id="as-scroll">
+        <div class="as-messages" id="as-messages"></div>
+      </div>
+
+      <div class="as-composer-wrap">
+        <div class="as-composer" id="as-composer">
+          <div class="as-files hidden" id="as-files"></div>
+          <div class="as-input-row">
+            <button type="button" class="as-attach" id="as-attach" data-no-icon title="Attach a file — a quotation, BOQ, list, drawing or photo" aria-label="Attach a file">
+              <svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15.5 9.5-5.6 5.6a3.5 3.5 0 0 1-5-5l6-6a2.3 2.3 0 0 1 3.3 3.3l-5.9 5.9a1.2 1.2 0 0 1-1.7-1.7l5.3-5.3"/></svg>
+            </button>
+            <textarea id="as-input" rows="1" placeholder="Ask, or tell it what to do — e.g. “Make a rental quotation for 26219 with 200 2.0m standards”" autocomplete="off"></textarea>
+            <button type="button" class="as-send" id="as-send" data-no-icon title="Send (Return)" aria-label="Send" disabled>
+              <svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15.5v-11M5 9l5-4.5L15 9"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="as-foot">It proposes; nothing is made or changed until you confirm. Check its work before sending anything to a client.</p>
+        <input type="file" id="as-file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.gif,.tif,.tiff,.xlsx,.xlsm,.csv,.tsv,.txt,.docx,.doc,.rtf" />
+      </div>
+      <div class="as-drop hidden" id="as-drop"><div><b>Drop to attach</b><span>PDF, pictures, Excel, Word or text</span></div></div>
+    </div>
+  </main>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/undo.js"></script>
+  <script src="js/hover-menu.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/assistant.js"></script>
+</body>
+</html>

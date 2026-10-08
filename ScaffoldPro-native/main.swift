@@ -7884,10 +7884,19 @@ final class AppDatabase {
             quotationsStore.writeAll(all)
             q = all[i]
         }
+        appendImportedLines(to: q, lines: lines)
+        return getQuotation(id: q.id) ?? q
+    }
+
+    /// Imported (or the assistant's) lines added after a quotation's own:
+    /// materials found by their code in the material list, delivery charges,
+    /// and other charges in priced sections by their heading.
+    func appendImportedLines(to q: Quotation, lines: [ImportedQuotationLine]) {
         let priceItems = priceListItemsStore.readAll().filter { !$0.isArchived }
         let byCode = Dictionary(priceItems.map { ($0.itemCode.uppercased(), $0) }, uniquingKeysWith: { a, _ in a })
         var blocks: [String: String] = [:]
-        var order = 0
+        for b in quotationBlocks(for: q.id) where b.kind == "Priced" { if let t = nonBlank(b.title), blocks[t] == nil { blocks[t] = b.id } }
+        var order = (quotationLineItemsStore.readAll().filter { $0.quotationId == q.id && $0.blockId == nil }.map { $0.sortOrder }.max() ?? -1) + 1
         var newLines: [QuotationLineItem] = []
         for l in lines {
             let description = l.description.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -7919,7 +7928,6 @@ final class AppDatabase {
         }
         quotationLineItemsStore.writeAll(quotationLineItemsStore.readAll() + newLines)
         touchQuotation(q.id)
-        return getQuotation(id: q.id) ?? q
     }
 
     func setQuotationImportedFile(quotationId: String, documentId: String) {
@@ -16059,6 +16067,425 @@ final class QuotationAI {
     }
 }
 
+// =====================================================================
+// MARK: - The assistant (assistant.html): a chat with the team's AI that
+// can look things up and propose work (a quotation, items, a task)
+// =====================================================================
+
+extension QuotationAI {
+    /// A file shown to the AI as it is (a PDF or a picture).
+    struct ChatFile { var mime: String; var data: Data }
+    /// One message of a conversation: "user" or "assistant".
+    struct ChatTurn { var role: String; var text: String; var files: [ChatFile] = [] }
+
+    /// Sends a conversation; the AI's answer (its text), or why not (main thread).
+    func chat(system: String, turns: [ChatTurn], completion: @escaping (String?, String?) -> Void) {
+        adoptThisMacsKey()
+        guard let key = sharedKey else { completion(nil, "No AI is set up yet. Add a key in Settings › AI Import."); return }
+        var request: URLRequest
+        if provider == "openrouter" {
+            request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/chat/completions")!, timeoutInterval: 180)
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            request.setValue("ScaffoldPro", forHTTPHeaderField: "X-Title")
+            var messages: [[String: Any]] = [["role": "system", "content": system]]
+            for t in turns {
+                var content: [[String: Any]] = [["type": "text", "text": t.text]]
+                for f in t.files where f.mime.hasPrefix("image/") {
+                    let image: [String: Any] = ["url": "data:\(f.mime);base64,\(f.data.base64EncodedString())"]
+                    content.append(["type": "image_url", "image_url": image])
+                }
+                messages.append(["role": t.role == "assistant" ? "assistant" : "user", "content": t.role == "assistant" ? t.text as Any : content as Any])
+            }
+            let body: [String: Any] = ["model": model, "temperature": 0.2, "messages": messages]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        } else {
+            let name = model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "gemini-2.5-flash"
+            request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(name):generateContent")!, timeoutInterval: 180)
+            request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+            let contents: [[String: Any]] = turns.map { t -> [String: Any] in
+                var parts: [[String: Any]] = [["text": t.text.isEmpty ? " " : t.text]]
+                for f in t.files {
+                    let inline: [String: Any] = ["mime_type": f.mime, "data": f.data.base64EncodedString()]
+                    parts.append(["inline_data": inline])
+                }
+                return ["role": t.role == "assistant" ? "model" : "user", "parts": parts]
+            }
+            let systemPart: [String: Any] = ["parts": [["text": system]]]
+            let config: [String: Any] = ["temperature": 0.2, "responseMimeType": "application/json"]
+            let body: [String: Any] = ["systemInstruction": systemPart, "contents": contents, "generationConfig": config]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let isGemini = provider != "openrouter"
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            var result: (String?, String?) = (nil, nil)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let obj = data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+            if let error = error {
+                result = (nil, "The AI couldn’t be reached (\(error.localizedDescription)).")
+            } else if code == 401 || code == 403 || (code == 400 && "\(obj ?? [:])".contains("API_KEY")) {
+                result = (nil, "The AI didn’t accept the key. Check it in Settings › AI.")
+            } else if code == 429 {
+                result = (nil, "The free allowance is used up for the moment. Try again in a minute.")
+            } else if code >= 400 || obj == nil {
+                let message = ((obj?["error"] as? [String: Any])?["message"] as? String) ?? "it answered with an error (\(code))"
+                result = (nil, "The AI couldn’t answer: \(message).")
+            } else if isGemini {
+                let parts = (((obj?["candidates"] as? [[String: Any]])?.first?["content"] as? [String: Any])?["parts"] as? [[String: Any]]) ?? []
+                result = (parts.compactMap { $0["text"] as? String }.joined(), nil)
+            } else {
+                result = (((((obj?["choices"] as? [[String: Any]])?.first)?["message"] as? [String: Any])?["content"] as? String) ?? "", nil)
+            }
+            DispatchQueue.main.async { completion(result.0, result.1) }
+        }.resume()
+    }
+}
+
+/// The JSON object in a piece of text (even inside a code fence).
+func jsonObject(in text: String?) -> [String: Any]? {
+    guard let text = text, let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"), start < end else { return nil }
+    return (try? JSONSerialization.jsonObject(with: Data(text[start...end].utf8))) as? [String: Any]
+}
+
+/// Any JSON value as text (for the AI, and for the page).
+func jsonText(_ value: Any) -> String {
+    guard JSONSerialization.isValidJSONObject(value) || value is [Any],
+          let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) else { return "null" }
+    return String(data: data, encoding: .utf8) ?? "null"
+}
+
+extension NativeBridge {
+    /// What the AI is told about itself, the app and how to answer.
+    private func assistantSystem() -> String {
+        let company = db.getCompanySettings()
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB")
+        f.dateFormat = "EEEE d MMMM yyyy"
+        let iso = DateFormatter()
+        iso.locale = Locale(identifier: "en_US_POSIX")
+        iso.dateFormat = "yyyy-MM-dd"
+        return """
+        You are the assistant inside ScaffoldPro, the office app of Proficiency (HK) Limited, a Hong Kong scaffolding (and crane) \
+        company that rents and sells scaffolding materials and quotes for jobs. You help the team do work in the app. \
+        Today is \(f.string(from: Date())) (\(iso.string(from: Date()))). You are talking to \(nonBlank(TeamSync.memberName) ?? "a member of the team"). \
+        Money is in \(company.currency) unless said otherwise.
+
+        How the app works: projects have numbers such as 26219 and a name. Each project has BOQs (BQ26219-001), quotations \
+        (Qt26219-001; subsidiaries Qt26219-001-s1), delivery notes and invoices. A quotation is "Rental" (prices per month) or "Sale". \
+        Its lines are materials (from the material/price list, by item code), delivery charges, and other charges (labour, design, \
+        erection…) in sections with a heading.
+
+        ALWAYS answer with ONLY one JSON object, no other text:
+        {"reply": "what you say to the person (plain text; short; use - for lists)",
+         "lookups": [ ... things to look up first ... ],
+         "proposals": [ ... actions for the person to confirm ... ]}
+
+        Lookups (the app runs them and sends you the results; then answer again). Use them before proposing:
+        {"type": "findProjects", "query": "number, name or client words, or empty for the latest"}
+        {"type": "findItems", "query": "words of an item, e.g. 2.0m standard", "limit": 12}  → the material list with item codes, units and Sale / Rental prices in \(company.currency)
+        {"type": "getQuotation", "number": "Qt26219-001"}
+        {"type": "listQuotations", "projectNumber": "26219"}
+
+        Proposals (shown as cards; nothing happens until the person confirms):
+        {"type": "createQuotation", "projectNumber": "26219", "pricingMode": "Rental" or "Sale", "subject": "short subject or null",
+         "clientRef": null, "currency": null or e.g. "EUR" if the prices are not in \(company.currency),
+         "items": [{"kind": "Material" | "Delivery" | "Other", "section": heading for "Other" or null, "itemCode": "code from findItems or null",
+                    "description": "as it should read", "unit": "pc", "quantity": 10, "unitPrice": number or null}]}
+        {"type": "addQuotationItems", "quotationNumber": "Qt26219-001", "items": [ same as above ]}
+        {"type": "createTask", "title": "...", "dueDate": "yyyy-mm-dd or null", "dueTime": "HH:mm or null", "notes": null,
+         "projectNumber": "26219 or null", "assignee": "a person's name or null"}
+        {"type": "open", "page": "project" | "quotation", "number": "26219 or Qt26219-001"}
+
+        Rules:
+        - Never invent prices. Take prices from the person, from an attached file, or from findItems (Sale or Rental to match the \
+        quotation); if none, set "unitPrice": null and say so. Put the item code from findItems in "itemCode" when an item matches.
+        - Never guess a project: look it up with findProjects; if it's unclear which, ask in "reply" with no proposals.
+        - Quantities are whole numbers. Keep descriptions as written on the file or by the person.
+        - Read attached files carefully: every priced row, in order; leave out totals, discounts and terms.
+        - Use lookups only when you need them, at most a few at once. When you propose, say briefly in "reply" what you prepared.
+        - If you're asked something you can answer directly, just answer in "reply" with empty "lookups" and "proposals".
+        """
+    }
+
+    // ---- assistant:send ----
+
+    func handleAssistantSend(id: String, payload: [String: Any]) {
+        guard QuotationAI.shared.ready else {
+            let out: [String: Any] = ["ok": false, "error": "No AI is set up yet. Add a key in Settings › AI Import."]
+            callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
+            return
+        }
+        var turns: [QuotationAI.ChatTurn] = []
+        for m in ((payload["messages"] as? [[String: Any]]) ?? []).suffix(30) {
+            var text = (m["text"] as? String) ?? ""
+            // Files sent earlier: their text, as read then.
+            for f in (m["files"] as? [[String: Any]]) ?? [] {
+                if let t = nonBlank(f["text"] as? String) { text += "\n\n[Attached file “\((f["name"] as? String) ?? "file")”, as read:]\n\(t)" }
+            }
+            turns.append(QuotationAI.ChatTurn(role: (m["role"] as? String) == "assistant" ? "assistant" : "user", text: text))
+        }
+        guard !turns.isEmpty else {
+            let out: [String: Any] = ["ok": false, "error": "Say what you'd like done."]
+            callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
+            return
+        }
+        let attachments = (payload["attachments"] as? [[String: Any]]) ?? []
+        let history = turns
+        // The newest message's files: read (OCR if need be) off the main thread.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let temp = FileManager.default.temporaryDirectory.appendingPathComponent("ScaffoldPro-assistant-\(UUID().uuidString)", isDirectory: true)
+            try? FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: temp) }
+            var files: [QuotationAI.ChatFile] = []
+            var read: [[String: Any]] = []
+            var extra = ""
+            for (i, a) in attachments.prefix(5).enumerated() {
+                let name = safeFileName((a["name"] as? String) ?? "file \(i + 1)")
+                guard let data = Data(base64Encoded: (a["base64"] as? String) ?? ""), !data.isEmpty, data.count <= 20_000_000 else { continue }
+                let url = temp.appendingPathComponent("\(i)-\(name)")
+                try? data.write(to: url)
+                let ext = url.pathExtension.lowercased()
+                var text = ""
+                if ["xlsx", "xlsm"].contains(ext), let sheets = try? SpreadsheetReader.readXLSX(url) {
+                    text = sheets.map { s in "Sheet \(s.name):\n" + s.rows.map { $0.joined(separator: "\t") }.joined(separator: "\n") }.joined(separator: "\n\n")
+                } else {
+                    text = QuotationImportReader.text(of: url).text
+                }
+                text = String(text.prefix(40_000))
+                let mime = ext == "pdf" ? "application/pdf" : ext == "png" ? "image/png" : ["jpg", "jpeg"].contains(ext) ? "image/jpeg"
+                    : ext == "webp" ? "image/webp" : ext == "heic" ? "image/heic" : nil
+                if let mime = mime, data.count <= 15_000_000 { files.append(QuotationAI.ChatFile(mime: mime, data: data)) }
+                read.append(["name": name, "text": text])
+                extra += "\n\n[Attached file “\(name)”, as read:]\n" + (text.isEmpty ? "(no text could be read — see the file itself)" : text)
+            }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                var all = history
+                if var last = all.popLast() {
+                    last.text += extra
+                    last.files = files
+                    all.append(last)
+                }
+                self.runAssistant(turns: all, round: 0) { reply in
+                    var out = reply
+                    out["files"] = read
+                    self.callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
+                }
+            }
+        }
+    }
+
+    /// Asks the AI; runs its lookups and asks again (a few rounds at most).
+    private func runAssistant(turns: [QuotationAI.ChatTurn], round: Int, done: @escaping ([String: Any]) -> Void) {
+        QuotationAI.shared.chat(system: assistantSystem(), turns: turns) { [weak self] text, error in
+            guard let self = self else { return }
+            if let error = error { done(["ok": false, "error": error]); return }
+            guard let json = jsonObject(in: text) else {
+                done(["ok": true, "reply": (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines), "proposals": [Any]()])
+                return
+            }
+            let reply = (json["reply"] as? String) ?? ""
+            let lookups = (json["lookups"] as? [[String: Any]]) ?? []
+            let proposals = (json["proposals"] as? [[String: Any]]) ?? []
+            if !lookups.isEmpty && round < 4 {
+                let results: [[String: Any]] = lookups.prefix(6).map { ["lookup": $0, "result": self.assistantLookup($0)] }
+                var next = turns
+                next.append(QuotationAI.ChatTurn(role: "assistant", text: text ?? ""))
+                next.append(QuotationAI.ChatTurn(role: "user", text: "The app's results for your lookups:\n\(jsonText(results))\n\nNow carry on (more lookups only if you must)."))
+                self.runAssistant(turns: next, round: round + 1, done: done)
+                return
+            }
+            done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }])
+        }
+    }
+
+    // ---- lookups ----
+
+    private func assistantLookup(_ l: [String: Any]) -> Any {
+        let type = (l["type"] as? String) ?? ""
+        let query = ((l["query"] as? String) ?? "").lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = query.split(whereSeparator: { $0 == " " || $0 == "," }).map(String.init)
+        switch type {
+        case "findProjects":
+            let clients = Dictionary(db.listClients(includeArchived: true).map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
+            let projects = db.listProjectsRaw().sorted { $0.createdAt > $1.createdAt }
+            let found = projects.filter { p in
+                let hay = "\(p.projectNumber) \(p.name) \(clients[p.clientId] ?? "")".lowercased()
+                return words.allSatisfy { hay.contains($0) }
+            }
+            return found.prefix(25).map { p -> [String: Any] in
+                ["projectNumber": p.projectNumber, "name": p.name, "client": clients[p.clientId] ?? "", "status": p.status, "jobType": normalJobType(p.jobType)]
+            }
+        case "findItems":
+            let limit = max(1, min(30, (l["limit"] as? Int) ?? 12))
+            let items = db.inBaseCurrency(db.allPriceListItems().filter { !$0.isArchived })
+            let scored = items.compactMap { i -> (PriceListItem, Int)? in
+                let hay = "\(i.itemCode) \(i.itemName) \(i.category ?? "")".lowercased()
+                let hits = words.filter { hay.contains($0) }.count
+                return words.isEmpty || hits == words.count ? (i, hits) : nil
+            }
+            return scored.prefix(limit).map { pair -> [String: Any] in
+                let i = pair.0
+                var row: [String: Any] = ["itemCode": i.itemCode, "description": i.itemName, "unit": i.unit]
+                if let c = i.category { row["category"] = c }
+                if let s = i.unitSalePrice { row["salePrice"] = s }
+                if let r = i.unitRentalPrice { row["rentalPrice"] = r }
+                return row
+            }
+        case "getQuotation":
+            let number = ((l["number"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let q = db.quotationsStore.readAll().first(where: { $0.quotationNumber.caseInsensitiveCompare(number) == .orderedSame }) else {
+                return ["error": "No quotation \(number)."]
+            }
+            let lines = db.quotationLineItemsStore.readAll().filter { $0.quotationId == q.id }.sorted { $0.sortOrder < $1.sortOrder }.map { li -> [String: Any] in
+                ["itemCode": li.itemCode, "description": li.itemDescription, "unit": li.unit, "quantity": li.quantity, "unitPrice": li.appliedUnitPrice,
+                 "kind": li.blockId != nil ? "Other" : li.section == "Delivery" ? "Delivery" : "Material"]
+            }
+            let out: [String: Any] = ["number": q.quotationNumber, "status": q.status, "pricingMode": q.pricingMode, "subject": q.subject ?? "",
+                                      "project": db.getProject(id: q.projectId)?.projectNumber ?? "", "lines": lines]
+            return out
+        case "listQuotations":
+            let number = ((l["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let p = db.getProjectByNumber(number) else { return ["error": "No project \(number)."] }
+            return db.quotationsStore.readAll().filter { $0.projectId == p.id }.map { q -> [String: Any] in
+                ["number": q.quotationNumber, "status": q.status, "pricingMode": q.pricingMode, "subject": q.subject ?? ""]
+            }
+        default:
+            return ["error": "Unknown lookup \(type)."]
+        }
+    }
+
+    // ---- proposals: checked and filled in before they're shown ----
+
+    /// The material list's items by code, prices in the base currency.
+    private func priceItemsByCode() -> [String: PriceListItem] {
+        Dictionary(db.inBaseCurrency(db.allPriceListItems().filter { !$0.isArchived }).map { ($0.itemCode.uppercased(), $0) }, uniquingKeysWith: { a, _ in a })
+    }
+
+    /// The lines of a proposal made whole: found items get their code,
+    /// unit and (when none was given) price from the material list.
+    private func assistantItems(_ raw: Any?, mode: String, problems: inout [String]) -> [[String: Any]] {
+        let byCode = priceItemsByCode()
+        var out: [[String: Any]] = []
+        for r in (raw as? [[String: Any]]) ?? [] {
+            var item: [String: Any] = [:]
+            let kind = ["Material", "Delivery", "Other"].contains((r["kind"] as? String) ?? "") ? (r["kind"] as! String) : "Material"
+            var description = ((r["description"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            var unit = nonBlank(r["unit"] as? String) ?? ""
+            var price = (r["unitPrice"] as? NSNumber)?.doubleValue
+            let quantity = max(1, ((r["quantity"] as? NSNumber)?.doubleValue ?? 1).rounded())
+            var code = nonBlank(r["itemCode"] as? String)
+            if kind == "Material", let c = code, let pl = byCode[c.uppercased()] {
+                code = pl.itemCode
+                if description.isEmpty { description = pl.itemName }
+                if unit.isEmpty { unit = pl.unit }
+                let list = mode == "Sale" ? (pl.unitSalePrice ?? pl.unitRentalPrice) : (pl.unitRentalPrice ?? pl.unitSalePrice)
+                if price == nil || price == 0, let list = list { price = list; item["priceFromList"] = true }
+                item["matched"] = true
+            }
+            guard !description.isEmpty else { continue }
+            if price == nil { problems.append("No price for “\(description.split(separator: "\n").first.map(String.init) ?? description)” — it's added at 0.") }
+            item["kind"] = kind
+            if let s = nonBlank(r["section"] as? String), kind == "Other" { item["section"] = s }
+            if let c = code { item["itemCode"] = c }
+            item["description"] = description
+            item["unit"] = unit.isEmpty ? "pc" : unit
+            item["quantity"] = quantity
+            item["unitPrice"] = doubleOf(roundToCents(decimalOf(max(0, price ?? 0))))
+            out.append(item)
+        }
+        return out
+    }
+
+    private func assistantCheck(_ p: [String: Any]) -> [String: Any] {
+        var out = p
+        var problems: [String] = []
+        let type = (p["type"] as? String) ?? ""
+        switch type {
+        case "createQuotation":
+            let number = ((p["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            let mode = (p["pricingMode"] as? String) == "Sale" ? "Sale" : "Rental"
+            out["pricingMode"] = mode
+            if let project = db.getProjectByNumber(number) { out["projectName"] = project.name } else { problems.append("There's no project \(number.isEmpty ? "chosen" : number).") }
+            out["items"] = assistantItems(p["items"], mode: mode, problems: &problems)
+            if ((out["items"] as? [Any]) ?? []).isEmpty { problems.append("There are no items.") }
+        case "addQuotationItems":
+            let number = ((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            let q = db.quotationsStore.readAll().first { $0.quotationNumber.caseInsensitiveCompare(number) == .orderedSame }
+            if let q = q {
+                out["quotationNumber"] = q.quotationNumber
+                if q.status != "Draft" { problems.append("\(q.quotationNumber) is \(q.status.lowercased()); only a draft can be changed.") }
+            } else { problems.append("There's no quotation \(number).") }
+            out["items"] = assistantItems(p["items"], mode: q?.pricingMode ?? "Rental", problems: &problems)
+            if ((out["items"] as? [Any]) ?? []).isEmpty { problems.append("There are no items.") }
+        case "createTask":
+            if nonBlank(p["title"] as? String) == nil { problems.append("The task has no title.") }
+            if let n = nonBlank(p["projectNumber"] as? String), db.getProjectByNumber(n) == nil { problems.append("There's no project \(n).") }
+            if let due = nonBlank(p["dueDate"] as? String), validDay(due) == nil { problems.append("“\(due)” isn't a date.") }
+        case "open":
+            if assistantHref(p) == nil { problems.append("That page couldn't be found.") }
+            out["href"] = assistantHref(p) ?? ""
+        default:
+            problems.append("The app can't do “\(type)” yet.")
+        }
+        out["problems"] = problems
+        return out
+    }
+
+    private func assistantHref(_ p: [String: Any]) -> String? {
+        let number = ((p["number"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+        let enc = { (s: String) in s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s }
+        if (p["page"] as? String) == "project", db.getProjectByNumber(number) != nil { return "project-detail.html?number=\(enc(number))" }
+        if let q = db.quotationsStore.readAll().first(where: { $0.quotationNumber.caseInsensitiveCompare(number) == .orderedSame }) {
+            return "quotation-editor.html?id=\(enc(q.id))"
+        }
+        return nil
+    }
+
+    // ---- assistant:run — a proposal the person confirmed ----
+
+    func handleAssistantRun(id: String, payload: [String: Any]) {
+        let p = (payload["proposal"] as? [String: Any]) ?? [:]
+        func reply(_ ok: Bool, _ message: String, href: String? = nil) {
+            var out: [String: Any] = ["ok": ok, (ok ? "message" : "error"): message]
+            if let h = href { out["href"] = h }
+            callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
+        }
+        let lines: () -> [ImportedQuotationLine] = {
+            ((p["items"] as? [[String: Any]]) ?? []).map { i in
+                ImportedQuotationLine(kind: i["kind"] as? String, section: i["section"] as? String, itemCode: i["itemCode"] as? String,
+                                      description: (i["description"] as? String) ?? "", unit: (i["unit"] as? String) ?? "pc",
+                                      quantity: (i["quantity"] as? NSNumber)?.doubleValue ?? 1, unitPrice: (i["unitPrice"] as? NSNumber)?.doubleValue ?? 0)
+            }
+        }
+        switch (p["type"] as? String) ?? "" {
+        case "createQuotation":
+            guard let project = db.getProjectByNumber(((p["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)) else { reply(false, "Project not found."); return }
+            let q = db.createImportedQuotation(projectId: project.id, projectNumber: project.projectNumber,
+                                               pricingMode: (p["pricingMode"] as? String) == "Sale" ? "Sale" : "Rental",
+                                               subject: p["subject"] as? String, clientRef: p["clientRef"] as? String,
+                                               currency: p["currency"] as? String, lines: lines())
+            db.logActivity(projectId: project.id, "Quotation made by the assistant", reference: q.quotationNumber)
+            reply(true, "\(q.quotationNumber) made, with \(lines().count) line\(lines().count == 1 ? "" : "s").", href: "quotation-editor.html?id=\(q.id)")
+        case "addQuotationItems":
+            let number = ((p["quotationNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let q = db.quotationsStore.readAll().first(where: { $0.quotationNumber.caseInsensitiveCompare(number) == .orderedSame }) else { reply(false, "Quotation not found."); return }
+            guard q.status == "Draft" else { reply(false, "\(q.quotationNumber) is \(q.status.lowercased()); only a draft can be changed."); return }
+            db.appendImportedLines(to: q, lines: lines())
+            reply(true, "\(lines().count) line\(lines().count == 1 ? "" : "s") added to \(q.quotationNumber).", href: "quotation-editor.html?id=\(q.id)")
+        case "createTask":
+            var task: [String: Any] = ["title": p["title"] ?? "", "notes": p["notes"] ?? NSNull(), "dueDate": p["dueDate"] ?? NSNull(),
+                                       "dueTime": p["dueTime"] ?? NSNull(), "assignee": p["assignee"] ?? NSNull()]
+            if let n = nonBlank(p["projectNumber"] as? String), let project = db.getProjectByNumber(n) { task["projectId"] = project.id }
+            let r = db.saveTask(task)
+            if r.ok { reply(true, "Task added.", href: "tasks.html") } else { reply(false, r.error ?? "The task couldn't be added.") }
+        default:
+            reply(false, "That can't be done from here.")
+        }
+    }
+}
+
 final class CloudBackupManager {
     /// Posted by every database save.
     static let dataSaved = Notification.Name("ScaffoldPro.dataSaved")
@@ -17906,7 +18333,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// The folders' tidy-up, waiting for a pause in typing (see handle).
     private var organiseSoon: DispatchWorkItem?
     /// Actions after which a project may have a new quotation series.
-    private static let seriesCreatingActions: Set<String> = ["boq:create", "quotations:create", "quotations:duplicate", "quotations:importCreate",
+    private static let seriesCreatingActions: Set<String> = ["boq:create", "assistant:run", "quotations:create", "quotations:duplicate", "quotations:importCreate",
                                                              "quotations:importFromBOQ", "deliveryNotes:create", "deliveryNotes:importQuotation", "invoices:create"]
 
     /// A project's quotation series ("26219-001", "26219-002"…), from its
@@ -18465,6 +18892,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             let page = (payload["provider"] as? String) == "openrouter" ? "https://openrouter.ai/settings/keys" : "https://aistudio.google.com/apikey"
             if let url = URL(string: page) { NSWorkspace.shared.open(url) }
             respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+        case "assistant:send":
+            handleAssistantSend(id: id, payload: payload)
+        case "assistant:run":
+            handleAssistantRun(id: id, payload: payload)
         case "ai:status":
             respond(id: id, encodable: QuotationAI.shared.status())
         case "ai:configure":
@@ -24156,7 +24587,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             i.target = self
             go.addItem(i)
         }
-        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Chat", "chat.html"), ("Team", "team.html"), ("Marketing", "marketing.html")] {
+        for (title, page) in [("Calendar", "calendar.html"), ("Tasks", "tasks.html"), ("Assistant", "assistant.html"), ("Chat", "chat.html"), ("Team", "team.html"), ("Marketing", "marketing.html")] {
             let extra = item(title, #selector(goToPage(_:)), "", page: page)
             extra.target = self
             go.addItem(extra)
