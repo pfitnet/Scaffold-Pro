@@ -12,7 +12,7 @@ for f in main.swift index.html Info.plist; do
         exit 1
     fi
 done
-for d in css js resources; do
+for d in Sources css js resources; do
     if [ ! -d "$SCRIPT_DIR/$d" ]; then
         echo "❌ Missing $d/ folder in $SCRIPT_DIR"
         exit 1
@@ -64,10 +64,12 @@ pick_sdk() {
 }
 
 # Kept between builds (not in build/, which is cleared each time): the SDK
-# that worked, and the last compiled ScaffoldPro with the fingerprint of
-# what it was built from.
-CACHE="$SCRIPT_DIR/.build-cache"
-mkdir -p "$CACHE"
+# that worked, the compiled pieces, and the last compiled ScaffoldPro with
+# the fingerprint of what it was built from. In this Mac's Caches, not the
+# project folder: that may be in iCloud, which would upload them all (or
+# take them off the Mac to save space).
+CACHE="$HOME/Library/Caches/ScaffoldPro Build"
+mkdir -p "$CACHE" 2>/dev/null || { CACHE="$SCRIPT_DIR/.build-cache"; mkdir -p "$CACHE"; }
 
 echo "🔎 Checking the Swift compiler and macOS SDK..."
 SWIFT_VERSION="$(swiftc --version 2>/dev/null | head -n 1)"
@@ -93,20 +95,50 @@ base_flags() {
            -O)
 }
 base_flags
-# What the program is built from: main.swift, the compiler, the SDK and the
+# The program's code: main.swift (starting the app) and Sources/*.swift.
+SOURCES=("$SCRIPT_DIR/main.swift")
+for f in "$SCRIPT_DIR"/Sources/*.swift; do SOURCES+=("$f"); done
+# What the program is built from: its code, the compiler, the SDK and the
 # settings. When none of these changed (an update to the pages only), the
 # last build is used as it is — no compiling.
 fingerprint() {
-    { shasum -a 256 "$SCRIPT_DIR/main.swift" | cut -d' ' -f1; echo "$SWIFT_VERSION|$SDK_PATH|${FLAGS[*]}"; } | shasum -a 256 | cut -c1-20
+    { cat "${SOURCES[@]}" | shasum -a 256 | cut -d' ' -f1; echo "$SWIFT_VERSION|$SDK_PATH|${FLAGS[*]}"; } | shasum -a 256 | cut -c1-20
 }
-# Whole-module, with the optimising and code generation spread over every
-# core (it's otherwise done on one). Expressions or functions slow to
-# type-check are noted in the log, to be made quicker.
-compile() {
-    swiftc "$SCRIPT_DIR/main.swift" "${FLAGS[@]}" -wmo -num-threads "$CORES" \
+# The files are compiled side by side, one per core, and only those that
+# changed (and what depends on them) since the last build: the compiled
+# pieces are kept in the cache's objects folder. If that ever fails, it's
+# compiled again from nothing. Code that's slow to type-check is noted.
+OBJECTS="$CACHE/objects"
+BUILD_LOG="$HOME/Library/Logs/ScaffoldPro Build.log"
+mkdir -p "$HOME/Library/Logs" 2>/dev/null || true
+output_file_map() {
+    mkdir -p "$OBJECTS"
+    local n=0 f base sep
+    {
+        echo '{'
+        printf '  "": { "swift-dependencies": "%s/module.swiftdeps" },\n' "$OBJECTS"
+        for f in "${SOURCES[@]}"; do
+            n=$((n + 1)); base="$(basename "$f" .swift)"
+            sep=","; [ "$n" -eq "${#SOURCES[@]}" ] && sep=""
+            printf '  "%s": { "object": "%s/%s.o", "swift-dependencies": "%s/%s.swiftdeps" }%s\n' "$f" "$OBJECTS" "$base" "$OBJECTS" "$base" "$sep"
+        done
+        echo '}'
+    } > "$OBJECTS/output-file-map.json"
+}
+swift_build() {
+    swiftc "${SOURCES[@]}" "${FLAGS[@]}" -module-name ScaffoldPro -j "$CORES" "$@" \
         -Xfrontend -warn-long-function-bodies=400 \
-        -Xfrontend -warn-long-expression-type-checking=200 \
-        -o "$1"
+        -Xfrontend -warn-long-expression-type-checking=200 2>&1 | tee -a "$BUILD_LOG"
+    return "${PIPESTATUS[0]}"
+}
+compile() {
+    output_file_map
+    if swift_build -incremental -output-file-map "$OBJECTS/output-file-map.json" -o "$1"; then return 0; fi
+    # A mistake in the code fails the same way from nothing: don't wait twice.
+    grep -Eq '\.swift:[0-9]+:[0-9]+: error:' "$BUILD_LOG" 2>/dev/null && return 1
+    echo "   Compiling everything again..."
+    rm -rf "$OBJECTS"
+    swift_build -o "$1"
 }
 
 CACHED="$CACHE/ScaffoldPro-$(fingerprint)"
@@ -115,12 +147,15 @@ if [ -s "$CACHED" ]; then
     cp "$CACHED" "$BUILD/Contents/MacOS/ScaffoldPro"
 else
     echo "⚙️  Compiling ScaffoldPro for $ARCH (on $CORES cores)..."
+    echo "ScaffoldPro build, $(date)" > "$BUILD_LOG" 2>/dev/null || BUILD_LOG=/dev/null
     STARTED=$(date +%s)
     if ! compile "$BUILD/Contents/MacOS/ScaffoldPro"; then
         # The remembered SDK may not suit any more: choose again, once.
         [ -n "$SDK_FROM_CACHE" ] || exit 1
+        grep -Eq '\.swift:[0-9]+:[0-9]+: error:' "$BUILD_LOG" 2>/dev/null && exit 1
         echo "   Trying the other macOS SDKs..."
         rm -f "$CACHE/sdk"
+        rm -rf "$OBJECTS"
         unset SDKROOT
         SDK_PATH="$(pick_sdk)" || exit 1
         export SDKROOT="$SDK_PATH"
@@ -129,7 +164,7 @@ else
         CACHED="$CACHE/ScaffoldPro-$(fingerprint)"
         compile "$BUILD/Contents/MacOS/ScaffoldPro"
     fi
-    echo "   Compiled in $(( $(date +%s) - STARTED ))s."
+    echo "   Compiled in $(( $(date +%s) - STARTED ))s." | tee -a "$BUILD_LOG"
     # Only the newest build is kept.
     rm -f "$CACHE"/ScaffoldPro-*
     cp "$BUILD/Contents/MacOS/ScaffoldPro" "$CACHED"
