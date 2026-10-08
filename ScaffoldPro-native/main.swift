@@ -16123,7 +16123,7 @@ extension QuotationAI {
         guard let key = sharedKey else { completion(nil, "No AI is set up yet. Add a key in Settings › AI Import."); return }
         var request: URLRequest
         if provider == "openrouter" {
-            request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/chat/completions")!, timeoutInterval: 180)
+            request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/chat/completions")!, timeoutInterval: 75)
             request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
             request.setValue("ScaffoldPro", forHTTPHeaderField: "X-Title")
             var messages: [[String: Any]] = [["role": "system", "content": system]]
@@ -16139,7 +16139,7 @@ extension QuotationAI {
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         } else {
             let name = model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "gemini-2.5-flash"
-            request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(name):generateContent")!, timeoutInterval: 180)
+            request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(name):generateContent")!, timeoutInterval: 75)
             request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
             let contents: [[String: Any]] = turns.map { t -> [String: Any] in
                 var parts: [[String: Any]] = [["text": t.text.isEmpty ? " " : t.text]]
@@ -16215,7 +16215,7 @@ extension NativeBridge {
         Its lines are materials (from the material/price list, by item code), delivery charges, and other charges (labour, design, \
         erection…) in sections with a heading.
 
-        ALWAYS answer with ONLY one JSON object, no other text:
+        ALWAYS answer with ONLY one JSON object, no other text — never tool-call syntax or function calls:
         {"reply": "what you say to the person (plain text; short; use - for lists)",
          "lookups": [ ... things to look up first ... ],
          "proposals": [ ... actions for the person to confirm ... ]}
@@ -16244,6 +16244,8 @@ extension NativeBridge {
         {"type": "updateQuotationDetails", "quotationNumber": "Qt26219-001", "subject": "...", "clientRef": "...", "siteRef": "...", "keyTerms": "..."}  (only the fields to change)
         {"type": "duplicateQuotation", "quotationNumber": "Qt26219-001", "toProjectNumber": "26220 or null for the same project"}
         {"type": "createProject", "name": "project name", "clientName": "client company", "siteName": "site name", "jobType": "Scaffolding" or "Crane"}
+        {"type": "createBOQ", "projectNumber": "26220", "structure": "e.g. 10x20x5m working platform", "pricingMode": "Rental" or "Sale",
+         "items": [ same as a quotation's items ]}
         {"type": "createClient", "companyName": "...", "contactPerson": null, "phone": null, "email": null, "address": "line 1", "addressLine2": null, "addressLine3": null}
         {"type": "completeTask", "taskId": "id from listTasks"}
         An event on the calendar is a createTask with "dueTime" and "endTime" ("HH:mm").
@@ -16287,6 +16289,7 @@ extension NativeBridge {
             return
         }
         let attachments = (payload["attachments"] as? [[String: Any]]) ?? []
+        let run = AssistantRun(id: nonBlank(payload["runId"] as? String), live: !id.hasPrefix("web-"))
         // The floating chat: what the person is looking at, with the newest message
         // — its text, and a picture of the screen taken now.
         let context = payload["context"] as? [String: Any]
@@ -16303,6 +16306,7 @@ extension NativeBridge {
             var extra = ""
             for (i, a) in attachments.prefix(5).enumerated() {
                 let name = safeFileName((a["name"] as? String) ?? "file \(i + 1)")
+                DispatchQueue.main.async { self?.assistantStep(run, "Reading “\(name)”") }
                 guard let data = Data(base64Encoded: (a["base64"] as? String) ?? ""), !data.isEmpty, data.count <= 20_000_000 else { continue }
                 let url = temp.appendingPathComponent("\(i)-\(name)")
                 try? data.write(to: url)
@@ -16329,39 +16333,174 @@ extension NativeBridge {
                         last.files = files + (picture.map { [$0] } ?? [])
                         all.append(last)
                     }
-                    self.runAssistant(turns: all, round: 0) { reply in
+                    self.runAssistant(turns: all, round: 0, run: run) { reply in
+                        if self.assistantStopped(run) { return }
                         var out = reply
                         out["files"] = read
                         self.callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
                     }
                 }
-                if wantsPicture { self.screenPicture(go) } else { go(nil) }
+                if self.assistantStopped(run) { return }
+                if wantsPicture {
+                    self.assistantStep(run, "Looking at your screen")
+                    self.screenPicture(go)
+                } else { go(nil) }
             }
         }
     }
 
-    /// Asks the AI; runs its lookups and asks again (a few rounds at most).
-    private func runAssistant(turns: [QuotationAI.ChatTurn], round: Int, done: @escaping ([String: Any]) -> Void) {
+    /// The lookups the AI can ask for (everything else it names is a proposal).
+    private static let assistantLookupTypes: Set<String> = ["findProjects", "findItems", "getQuotation", "listQuotations", "getProject",
+                                                           "findClients", "listTasks", "listInvoices", "stock"]
+
+    /// Asks the AI; runs its lookups and asks again — a few rounds at most,
+    /// and never past `deadline` (it says what it has instead).
+    private func runAssistant(turns: [QuotationAI.ChatTurn], round: Int, deadline: Date = Date().addingTimeInterval(150),
+                              run: AssistantRun = AssistantRun(id: nil, live: false), done: @escaping ([String: Any]) -> Void) {
+        if assistantStopped(run) { return }
+        assistantStep(run, round == 0 ? "Asking the AI (\(QuotationAI.shared.model))" : "Asking the AI again, with what it found")
         QuotationAI.shared.chat(system: assistantSystem(), turns: turns) { [weak self] text, error in
-            guard let self = self else { return }
+            guard let self = self, !self.assistantStopped(run) else { return }
             if let error = error { done(["ok": false, "error": error]); return }
-            guard let json = jsonObject(in: text) else {
+            guard let json = self.assistantAnswer(text) else {
                 done(["ok": true, "reply": (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines), "proposals": [Any]()])
                 return
             }
             let reply = (json["reply"] as? String) ?? ""
             let lookups = (json["lookups"] as? [[String: Any]]) ?? []
             let proposals = (json["proposals"] as? [[String: Any]]) ?? []
-            if !lookups.isEmpty && round < 6 {
-                let results: [[String: Any]] = lookups.prefix(8).map { ["lookup": $0, "result": self.assistantLookup($0)] }
+            if !lookups.isEmpty && proposals.isEmpty {
+                guard round < 4, Date() < deadline else {
+                    done(["ok": false, "error": "The AI took too long working it out. Try again, perhaps asking for one thing at a time — or choose a quicker model in Settings › AI Import."])
+                    return
+                }
+                let results: [[String: Any]] = lookups.prefix(8).map { l in
+                    let result = self.assistantLookup(l)
+                    self.assistantStep(run, self.lookupSummary(l, result))
+                    return ["lookup": l, "result": result]
+                }
                 var next = turns
-                next.append(QuotationAI.ChatTurn(role: "assistant", text: text ?? ""))
-                next.append(QuotationAI.ChatTurn(role: "user", text: "The app's results for your lookups:\n\(jsonText(results))\n\nNow carry on (more lookups only if you must)."))
-                self.runAssistant(turns: next, round: round + 1, done: done)
+                next.append(QuotationAI.ChatTurn(role: "assistant", text: jsonText(json)))
+                next.append(QuotationAI.ChatTurn(role: "user", text: "The app's results for your lookups:\n\(jsonText(results))\n\nNow answer with the JSON object (proposals if you're ready; more lookups only if you must)."))
+                self.runAssistant(turns: next, round: round + 1, deadline: deadline, run: run, done: done)
                 return
             }
+            if !proposals.isEmpty { self.assistantStep(run, "Preparing \(min(6, proposals.count)) card\(proposals.count == 1 ? "" : "s") to confirm") }
             done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }])
         }
+    }
+
+    /// One run of the assistant: its id (from the page) and whether its
+    /// page is in this window (steps are shown there as they happen).
+    struct AssistantRun { var id: String?; var live: Bool }
+
+    /// Interrupted by the person: stop here.
+    private func assistantStopped(_ run: AssistantRun) -> Bool {
+        guard let id = run.id else { return false }
+        return assistantCancelled.contains(id)
+    }
+
+    /// A step, shown on the page as it happens ("Searched the material list…").
+    private func assistantStep(_ run: AssistantRun, _ text: String) {
+        guard run.live, let id = run.id, let webView = webView, !assistantCancelled.contains(id) else { return }
+        let step: [String: Any] = ["runId": id, "text": text]
+        webView.evaluateJavaScript("window.__assistantStep && window.__assistantStep(\(jsonText(step)))", completionHandler: nil)
+    }
+
+    /// What a lookup did, in a few words.
+    private func lookupSummary(_ l: [String: Any], _ result: Any) -> String {
+        let type = (l["type"] as? String) ?? ""
+        let q = nonBlank(l["query"] as? String) ?? nonBlank(l["number"] as? String) ?? nonBlank(l["projectNumber"] as? String) ?? ""
+        let quoted = q.isEmpty ? "" : " “\(q)”"
+        if let e = (result as? [String: Any])?["error"] as? String { return "Looked for\(quoted) — \(e)" }
+        let n = (result as? [Any])?.count ?? 0
+        let count = { (one: String, many: String) in "\(n) \(n == 1 ? one : many)" }
+        switch type {
+        case "findProjects": return "Searched projects for\(quoted) — \(count("found", "found"))"
+        case "findItems": return "Searched the material list for\(quoted) — \(count("item", "items"))"
+        case "getQuotation": return "Read quotation\(quoted)"
+        case "listQuotations": return "Listed the quotations of project\(quoted) — \(n)"
+        case "getProject": return "Read project\(quoted)"
+        case "findClients":
+            let r = result as? [String: Any]
+            return "Searched clients and sites for\(quoted) — \((r?["clients"] as? [Any])?.count ?? 0) clients, \((r?["sites"] as? [Any])?.count ?? 0) sites"
+        case "listTasks": return "Listed tasks\(quoted.isEmpty ? "" : " of\(quoted)") — \(n)"
+        case "listInvoices": return "Listed invoices\(quoted.isEmpty ? "" : " of\(quoted)") — \(n)"
+        case "stock": return "Checked stock for\(quoted) — \(count("item", "items"))"
+        default: return "Looked up \(type)"
+        }
+    }
+
+    /// The AI's answer as {reply, lookups, proposals}: its JSON object — or,
+    /// from a model that writes tool calls instead
+    /// (<|tool_call_start|>[createProject(name='x', …)]<|tool_call_end|>),
+    /// those calls, read into the same shape. nil: plain text.
+    private func assistantAnswer(_ text: String?) -> [String: Any]? {
+        guard let text = text else { return nil }
+        if let json = jsonObject(in: text), json["reply"] != nil || json["lookups"] != nil || json["proposals"] != nil { return json }
+        // name(key='value', key2=12, key3=[{…}]) — as many as there are.
+        guard let call = try? NSRegularExpression(pattern: #"([A-Za-z]+)\(((?:[^()'"]|'[^']*'|"[^"]*"|\([^()]*\))*)\)"#) else { return nil }
+        var lookups: [[String: Any]] = [], proposals: [[String: Any]] = []
+        let ns = text as NSString
+        var used: [NSRange] = []
+        for m in call.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+            let name = ns.substring(with: m.range(at: 1))
+            let known = NativeBridge.assistantLookupTypes.contains(name)
+                || ["createQuotation", "addQuotationItems", "createTask", "open", "editQuotationItems", "updateQuotationDetails",
+                    "duplicateQuotation", "createProject", "createClient", "completeTask", "createBOQ"].contains(name)
+            guard known else { continue }
+            var item: [String: Any] = ["type": name]
+            for (k, v) in toolArguments(ns.substring(with: m.range(at: 2))) { item[k] = v }
+            if NativeBridge.assistantLookupTypes.contains(name) { lookups.append(item) } else { proposals.append(item) }
+            used.append(m.range)
+        }
+        guard !lookups.isEmpty || !proposals.isEmpty else { return nil }
+        var reply = text
+        for r in used.reversed() { reply = (reply as NSString).replacingCharacters(in: r, with: "") }
+        reply = reply.replacingOccurrences(of: #"<\|[^|>]*\|>"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "[]", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return ["reply": reply, "lookups": lookups, "proposals": proposals]
+    }
+
+    /// key='text', key="text", key=12.5, key=true, key=null, key=[…json…].
+    private func toolArguments(_ raw: String) -> [String: Any] {
+        var out: [String: Any] = [:]
+        let chars = Array(raw)
+        var i = 0
+        func skipSpace() { while i < chars.count, chars[i] == " " || chars[i] == "," || chars[i] == "\n" { i += 1 } }
+        while i < chars.count {
+            skipSpace()
+            var key = ""
+            while i < chars.count, chars[i] != "=" { key.append(chars[i]); i += 1 }
+            i += 1
+            key = key.trimmingCharacters(in: .whitespaces)
+            guard i <= chars.count, !key.isEmpty else { break }
+            skipSpace()
+            guard i < chars.count else { break }
+            var value = ""
+            if chars[i] == "'" || chars[i] == "\"" {
+                let q = chars[i]; i += 1
+                while i < chars.count, chars[i] != q { value.append(chars[i]); i += 1 }
+                i += 1
+                out[key] = value
+            } else if chars[i] == "[" || chars[i] == "{" {
+                var depth = 0
+                repeat {
+                    if chars[i] == "[" || chars[i] == "{" { depth += 1 }
+                    if chars[i] == "]" || chars[i] == "}" { depth -= 1 }
+                    value.append(chars[i]); i += 1
+                } while i < chars.count && depth > 0
+                let json = value.replacingOccurrences(of: "'", with: "\"").replacingOccurrences(of: "None", with: "null")
+                    .replacingOccurrences(of: "True", with: "true").replacingOccurrences(of: "False", with: "false")
+                out[key] = (try? JSONSerialization.jsonObject(with: Data(json.utf8), options: [.fragmentsAllowed])) ?? value
+            } else {
+                while i < chars.count, chars[i] != "," { value.append(chars[i]); i += 1 }
+                let v = value.trimmingCharacters(in: .whitespaces)
+                if let d = Double(v) { out[key] = d } else if ["true", "True"].contains(v) { out[key] = true }
+                else if ["false", "False"].contains(v) { out[key] = false } else if ["null", "None"].contains(v) { out[key] = NSNull() } else { out[key] = v }
+            }
+        }
+        return out
     }
 
     /// A picture of the window's page, as a JPEG at most 1,600 pixels wide
@@ -16675,6 +16814,13 @@ extension NativeBridge {
             if let st = db.listSites(includeArchived: false).first(where: { $0.name.caseInsensitiveCompare(siteName) == .orderedSame }) {
                 out["siteName"] = st.name
             } else if !siteName.isEmpty { out["siteNew"] = true }
+        case "createBOQ":
+            let number = ((p["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            let mode = (p["pricingMode"] as? String) == "Sale" ? "Sale" : "Rental"
+            out["pricingMode"] = mode
+            if let project = db.getProjectByNumber(number) { out["projectName"] = project.name } else { problems.append("There's no project \(number.isEmpty ? "chosen" : number).") }
+            out["items"] = assistantItems(p["items"], mode: mode, problems: &problems)
+            if ((out["items"] as? [Any]) ?? []).isEmpty { problems.append("There are no items.") }
         case "createClient":
             let name = ((p["companyName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if name.isEmpty { problems.append("The client has no name.") }
@@ -16798,6 +16944,41 @@ extension NativeBridge {
             _ = db.updateProject(id: project.id, payload: ["jobType": normalJobType(p["jobType"])], logChange: false)
             storage.createProjectFolders(number)
             reply(true, "Project \(number) \(name) made.", href: "project-detail.html?number=\(number.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? number)")
+        case "createBOQ":
+            guard let project = db.getProjectByNumber(((p["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)) else { reply(false, "Project not found."); return }
+            let mode = (p["pricingMode"] as? String) == "Sale" ? "Sale" : "Rental"
+            let boq = db.createBOQ(projectId: project.id, projectNumber: project.projectNumber, pricingMode: mode, withDefaultItems: false)
+            if let structure = nonBlank(p["structure"] as? String) {
+                _ = db.updateBOQDetails(id: boq.id, pricingMode: nil, markupPercent: nil, structure: structure, updateStructure: true)
+            }
+            // Each item priced as the BOQ prices it: from the material list
+            // (with its markup) when found there, else as given.
+            let byCode = Dictionary(db.allPriceListItems().filter { !$0.isArchived }.map { ($0.itemCode.uppercased(), $0) }, uniquingKeysWith: { a, _ in a })
+            let rates = db.conversionRates()
+            let current = db.getBOQ(id: boq.id) ?? boq
+            var added = 0
+            for i in (p["items"] as? [[String: Any]]) ?? [] {
+                let description = ((i["description"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let quantity = (i["quantity"] as? NSNumber)?.doubleValue ?? 1
+                let given = (i["unitPrice"] as? NSNumber)?.doubleValue
+                if let code = nonBlank(i["itemCode"] as? String), let pl = byCode[code.uppercased()] {
+                    let list = db.basePrice(pl, mode: mode, rates: rates)
+                    let priced = db.boqPrice(for: pl, mode: mode, markupPercent: current.markupOnRates == true ? 0 : (current.markupPercent ?? 0), rates: rates)
+                    let fromList = (i["priceFromList"] as? Bool) == true
+                    _ = db.addBOQLineItem(boqId: boq.id, sourceKey: pl.sourceKey, priceListItemId: pl.id, itemCode: pl.itemCode,
+                                          description: description.isEmpty ? pl.itemName : description, unit: pl.unit, quantity: quantity,
+                                          priceListUnitPrice: list, appliedUnitPrice: fromList || given == nil ? (priced ?? list ?? 0) : (given ?? 0),
+                                          weightKg: pl.weightKg, section: pl.category)
+                } else {
+                    guard !description.isEmpty else { continue }
+                    _ = db.addBOQLineItem(boqId: boq.id, sourceKey: nil, priceListItemId: nil, itemCode: (i["itemCode"] as? String) ?? "",
+                                          description: description, unit: (i["unit"] as? String) ?? "pc", quantity: quantity,
+                                          priceListUnitPrice: nil, appliedUnitPrice: given ?? 0, weightKg: nil,
+                                          section: (i["kind"] as? String) == "Delivery" ? "Delivery" : nil)
+                }
+                added += 1
+            }
+            reply(true, "\(boq.boqNumber) made, with \(added) line\(added == 1 ? "" : "s").", href: "boq-editor.html?id=\(boq.id)")
         case "createClient":
             let name = ((p["companyName"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { reply(false, "The client has no name."); return }
@@ -18623,6 +18804,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
     /// A picture of the page, laid over it while it reloads (so there's no
     /// blank flash), until the reloaded page says it has drawn.
     private var heldFrame: NSView?
+    /// Assistant runs the person interrupted (assistant:cancel): they stop
+    /// at the next step, and their answer is dropped.
+    var assistantCancelled = Set<String>()
 
     private func holdFrame(_ done: @escaping () -> Void) {
         guard let webView = webView, let container = webView.superview else { done(); return }
@@ -19234,6 +19418,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
             handleAssistantSend(id: id, payload: payload)
         case "assistant:run":
             handleAssistantRun(id: id, payload: payload)
+        case "assistant:cancel":
+            if let run = nonBlank(payload["runId"] as? String) { assistantCancelled.insert(run) }
+            respond(id: id, encodable: SimpleResult(ok: true, error: nil))
         case "ai:status":
             respond(id: id, encodable: QuotationAI.shared.status())
         case "ai:configure":

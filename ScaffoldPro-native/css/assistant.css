@@ -227,3 +227,27 @@ body[class*="as-resizing-n"], body[class*="as-resizing-n"] *, body[class*="as-re
 body.as-resizing-e, body.as-resizing-e *, body.as-resizing-w, body.as-resizing-w * { cursor: ew-resize !important; }
 body.as-resizing-ne, body.as-resizing-ne *, body.as-resizing-sw, body.as-resizing-sw * { cursor: nesw-resize !important; }
 body.as-resizing-nw, body.as-resizing-nw *, body.as-resizing-se, body.as-resizing-se * { cursor: nwse-resize !important; }
+
+
+/* What it's doing: "Working… 12s ›", opening into its steps; afterwards "Took 4 steps ›". */
+.as-steps { display: flex; flex-direction: column; gap: 6px; }
+.as-steps-row { display: flex; align-items: center; gap: 8px; }
+.as-steps-head { display: inline-flex; align-items: center; gap: 8px; height: auto; padding: 2px 0; border: none; box-shadow: none; background: none;
+  color: var(--text-secondary); font-size: 12.5px; font-weight: 500; cursor: pointer; text-align: left; max-width: 100%; }
+.as-steps-head:hover:not(:disabled) { background: none; color: var(--text); }
+.as-steps-now { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text); }
+.as-steps-time { color: var(--text-tertiary); font-variant-numeric: tabular-nums; flex: none; }
+.as-steps-chev { display: inline-block; color: var(--text-tertiary); transition: transform .18s var(--ease); flex: none; }
+.as-steps.open .as-steps-chev { transform: rotate(90deg); }
+.as-steps-list { display: none; margin: 0 0 2px; padding: 4px 0 4px 12px; list-style: none; border-left: 2px solid var(--hairline); font-size: 12.5px;
+  color: var(--text-secondary); }
+.as-steps.open .as-steps-list { display: grid; gap: 5px; animation: as-in .2s var(--ease) both; }
+.as-steps-list li { display: flex; align-items: baseline; gap: 8px; }
+.as-step-mark { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #2f9e5b; transform: translateY(-1px); }
+.as-steps-list li.now { color: var(--text); }
+.as-steps-list li.now .as-step-mark { background: var(--accent); animation: as-dot 1.1s ease-in-out infinite; }
+.as-msg.thinking .as-body { flex-direction: column; align-items: stretch; padding-top: 4px; }
+.as-stop { flex: none; height: 24px; padding: 0 10px; font-size: 12px; border-radius: 7px; }
+.as-send.stop { background: var(--text); color: var(--content); }
+.as-send.stop:hover:not(:disabled) { background: var(--text); }
+.as-interrupted { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; }

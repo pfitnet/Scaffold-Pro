@@ -4704,3 +4704,24 @@ one idea at a time, few words, and pictures that carry the meaning.
 - The floating Assistant now takes a picture of your screen at the moment
   you send a message, and the AI sees it along with the page's text. It's
   taken only then, never while you work.
+
+## Batch 209 — The Assistant: never stuck, shows its steps, can be interrupted
+
+- It no longer waits for ever. Each request to the AI gives up after 75
+  seconds, and a whole answer after about 2½ minutes, with a message saying
+  so (try one thing at a time, or a quicker model in Settings › AI Import).
+- Some AI models answer in their own "tool call" style instead of the
+  format asked for. The app now understands that too, so those answers work
+  instead of showing as odd text.
+- It can make a **BOQ**: "create a BQ in 26220, structure 10x20x5m working
+  platform, with 10 base jacks, 10 collars and 20 2m standards". The card
+  shows the items and prices; the BOQ is made, blank but for them, when you
+  press Create BOQ.
+- While it works you see what it's doing: "Working… 12s ›" with its current
+  step. Click it to see every step (asking the AI, searching projects, the
+  material list…). When it's done this becomes "Took 4 steps ›", which you
+  can open again later.
+- You can interrupt it:
+  - type something else and send it, and it drops what it was doing and
+    starts on that;
+  - press Stop, Esc, or the ■ button (the send button while it works).

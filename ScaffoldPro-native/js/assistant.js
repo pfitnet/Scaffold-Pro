@@ -23,6 +23,7 @@
   const KEY = 'assistant.chat';
   const OPEN_KEY = 'assistant.floatOpen';
   const RECT_KEY = 'assistant.floatRect';
+  const listeners = new Map(); // run id → the chat showing its steps
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const num = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -33,6 +34,7 @@
     send: '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15.5v-11M5 9l5-4.5L15 9"/></svg>',
     expand: '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 3.5h5v5M16.5 3.5 11 9M8.5 16.5h-5v-5M3.5 16.5 9 11"/></svg>',
     close: '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg>',
+    stop: '<svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><rect x="5" y="5" width="10" height="10" rx="2.2" fill="currentColor"/></svg>',
   };
   const SUGGESTIONS = [
     { title: 'Quotation from a file', text: 'Make a quotation for project ', hint: 'Attach a quotation, BOQ or list, then say which project.', attach: true },
@@ -88,7 +90,7 @@
   // ---- the proposals ----
   const KIND_TITLE = { createQuotation: 'New quotation', addQuotationItems: 'Add to quotation', createTask: 'New task', open: 'Open',
     editQuotationItems: 'Change quotation lines', updateQuotationDetails: 'Change quotation details', duplicateQuotation: 'Copy quotation',
-    createProject: 'New project', createClient: 'New client', completeTask: 'Mark task done' };
+    createProject: 'New project', createClient: 'New client', completeTask: 'Mark task done', createBOQ: 'New BOQ' };
   const ICON = { createTask: '✓', completeTask: '✓', open: '↗', createProject: '▣', createClient: '◉', duplicateQuotation: '⧉',
     editQuotationItems: '✎', updateQuotationDetails: '✎' };
   const BLOCKING = /no project|no quotation|only a draft|no items|no title|isn't a date|can't do|couldn't be found|nothing to change|no name|already a client|say which|needs a|no open task|no line matches|matches \d+ lines/i;
@@ -103,10 +105,12 @@
     let body = '';
     let title = KIND_TITLE[p.type] || p.type;
     let button = '';
-    if (p.type === 'createQuotation' || p.type === 'addQuotationItems') {
+    if (p.type === 'createQuotation' || p.type === 'addQuotationItems' || p.type === 'createBOQ') {
       title = p.type === 'createQuotation'
         ? `New ${String(p.pricingMode || 'Rental').toLowerCase()} quotation · ${esc(p.projectNumber || '?')}${p.projectName ? ` ${esc(p.projectName)}` : ''}`
-        : `Add to ${esc(p.quotationNumber || '?')}`;
+        : p.type === 'createBOQ'
+          ? `New ${String(p.pricingMode || 'Rental').toLowerCase()} BOQ · ${esc(p.projectNumber || '?')}${p.projectName ? ` ${esc(p.projectName)}` : ''}`
+          : `Add to ${esc(p.quotationNumber || '?')}`;
       const editable = !state;
       const rows = (p.items || []).map((it, ii) => `
         <tr data-ii="${ii}">
@@ -117,13 +121,13 @@
           <td class="as-it-total">${money((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0))}</td>
           ${editable ? `<td class="as-it-x"><button type="button" class="as-x" data-remove="${ii}" title="Leave this line out" aria-label="Leave this line out" data-no-icon>×</button></td>` : '<td></td>'}
         </tr>`).join('');
-      body = `${p.subject ? `<div class="as-card-sub">Re: ${esc(p.subject)}</div>` : ''}
+      body = `${p.subject ? `<div class="as-card-sub">Re: ${esc(p.subject)}</div>` : ''}${p.structure ? `<div class="as-card-sub">Structure: ${esc(p.structure)}</div>` : ''}
         <div class="as-table-wrap"><table class="as-items">
           <thead><tr><th class="as-th-no">#</th><th>Item</th><th>Qty</th><th>Unit price</th><th>Total</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
           <tfoot><tr><td></td><td>${(p.items || []).length} line${(p.items || []).length === 1 ? '' : 's'}</td><td></td><td></td><td class="as-it-total"><b>${money(itemsTotal(p.items))}</b></td><td></td></tr></tfoot>
         </table></div>`;
-      button = p.type === 'createQuotation' ? 'Create Quotation' : `Add ${(p.items || []).length} Line${(p.items || []).length === 1 ? '' : 's'}`;
+      button = p.type === 'createQuotation' ? 'Create Quotation' : p.type === 'createBOQ' ? 'Create BOQ' : `Add ${(p.items || []).length} Line${(p.items || []).length === 1 ? '' : 's'}`;
     } else if (p.type === 'createTask') {
       title = `New ${p.endTime ? 'event' : 'task'}${p.projectNumber ? ` · ${esc(p.projectNumber)}` : ''}`;
       const when = [p.dueDate ? (window.appDay ? window.appDay(p.dueDate) : p.dueDate) : '', p.dueTime ? `${p.dueTime}${p.endTime ? `–${p.endTime}` : ''}` : ''].filter(Boolean).join(' ');
@@ -221,8 +225,25 @@
     let pending = [];
     let busy = false;
     let aiReady = true;
-    let thinkingText = 'Thinking…';
-    let thinkingTimer = null;
+    // The run being waited for: its id, its steps as they come in
+    // (window.__assistantStep), when it began, and whether its steps are shown.
+    let run = null;
+    let stepsOpen = false;
+    let tick = null;
+    const elapsed = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
+
+    // Steps: "Working… 12s ›" (or, once done, "Took 4 steps · 12s ›"), opening into the list.
+    function stepsHTML(steps, ms, live, open) {
+      const n = steps.length;
+      const head = live
+        ? `<span class="as-dots"><i></i><i></i><i></i></span><span class="as-steps-now">${esc(n ? steps[n - 1] : 'Thinking')}…</span><span class="as-steps-time" data-r="elapsed">${elapsed(ms)}</span>`
+        : `<span class="as-steps-sum">Took ${n} step${n === 1 ? '' : 's'}${ms ? ` · ${elapsed(ms)}` : ''}</span>`;
+      const list = steps.map((t, i) => `<li class="${live && i === n - 1 ? 'now' : 'done'}"><span class="as-step-mark" aria-hidden="true"></span>${esc(t)}</li>`).join('');
+      return `<div class="as-steps${open ? ' open' : ''}${live ? ' live' : ''}">
+        <div class="as-steps-row"><button type="button" class="as-steps-head" data-act="steps" aria-expanded="${open}" data-no-icon>${head}<span class="as-steps-chev" aria-hidden="true">›</span></button>${live ? '<button type="button" class="as-stop" data-act="stop" data-no-icon title="Stop (Esc) — or just type something else to interrupt">Stop</button>' : ''}</div>
+        ${n ? `<ol class="as-steps-list">${list}</ol>` : ''}
+      </div>`;
+    }
 
     function messageHTML(m, mi) {
       if (m.role === 'user') {
@@ -232,12 +253,16 @@
       }
       if (m.error) {
         return `<div class="as-msg bot error" data-mi="${mi}"><span class="as-avatar">${MARK}</span><div class="as-body">
-          <div class="as-error">${esc(m.error)}</div>
+          ${(m.steps || []).length ? stepsHTML(m.steps, m.ms, false, !!m.stepsOpen) : ''}<div class="as-error">${esc(m.error)}</div>
           ${mi === chat.messages.length - 1 ? '<button type="button" class="as-retry" data-act="retry" data-no-icon>Try Again</button>' : ''}</div></div>`;
       }
       const cards = (m.proposals || []).map((p, pi) => card(p, mi, pi)).join('');
+      const steps = (m.steps || []).length ? stepsHTML(m.steps, m.ms, false, !!m.stepsOpen) : '';
+      if (m.interrupted) {
+        return `<div class="as-msg bot interrupted" data-mi="${mi}"><span class="as-avatar">${MARK}</span><div class="as-body">${steps}<div class="as-interrupted">Interrupted</div></div></div>`;
+      }
       return `<div class="as-msg bot" data-mi="${mi}"><span class="as-avatar">${MARK}</span><div class="as-body">
-        ${m.text ? `<div class="as-text">${rich(m.text)}</div>` : ''}${cards}</div></div>`;
+        ${steps}${m.text ? `<div class="as-text">${rich(m.text)}</div>` : ''}${cards}</div></div>`;
     }
 
     function emptyHTML() {
@@ -262,7 +287,7 @@
     function draw(scroll = true) {
       const box = $('messages');
       box.innerHTML = chat.messages.length ? chat.messages.map(messageHTML).join('') : emptyHTML();
-      if (busy) box.insertAdjacentHTML('beforeend', `<div class="as-msg bot thinking"><span class="as-avatar">${MARK}</span><div class="as-body"><span class="as-dots"><i></i><i></i><i></i></span><span class="as-thinking-text" data-r="thinking">${esc(thinkingText)}</span></div></div>`);
+      if (busy && run) box.insertAdjacentHTML('beforeend', `<div class="as-msg bot thinking"><span class="as-avatar">${MARK}</span><div class="as-body" data-r="live">${stepsHTML(run.steps, Date.now() - run.started, true, stepsOpen)}</div></div>`);
       $('new').disabled = !chat.messages.length || busy;
       if (scroll) requestAnimationFrame(() => { const s = $('scroll'); s.scrollTop = s.scrollHeight; });
       drawContext();
@@ -295,25 +320,26 @@
       }
     }
 
-    function setThinking(withFiles) {
-      const steps = withFiles
-        ? ['Reading the file…', 'Reading the file…', 'Looking things up…', 'Preparing it…', 'Still working — big files take a while…']
-        : ['Thinking…', 'Looking things up…', 'Preparing it…', 'Still working…'];
-      let i = 0;
-      thinkingText = steps[0];
-      clearInterval(thinkingTimer);
-      thinkingTimer = setInterval(() => {
-        i = Math.min(i + 1, steps.length - 1);
-        thinkingText = steps[i];
-        const t = $('thinking');
-        if (t) t.textContent = thinkingText;
-      }, 4500);
+    onStep.redraw = () => {
+      const live = $('live');
+      if (live && run) live.innerHTML = stepsHTML(run.steps, Date.now() - run.started, true, stepsOpen);
+    };
+    // A step of the run being waited for (main.swift, assistantStep).
+    function onStep(text) {
+      if (!run) return;
+      run.steps.push(text);
+      const live = $('live');
+      if (live) {
+        live.innerHTML = stepsHTML(run.steps, Date.now() - run.started, true, stepsOpen);
+        const s = $('scroll');
+        if (s.scrollHeight - s.scrollTop - s.clientHeight < 140) s.scrollTop = s.scrollHeight;
+      }
     }
 
     // What the AI is sent: each message's text (its proposals summed up) and
     // the text of files sent before.
     function history() {
-      return chat.messages.filter((m) => !m.error).map((m) => {
+      return chat.messages.filter((m) => !m.error && !m.interrupted).map((m) => {
         let text = m.text || '';
         if (m.role === 'assistant' && (m.proposals || []).length) {
           text += '\n\n(Proposed: ' + m.proposals.map((p) => `${p.type}${p.projectNumber ? ` for ${p.projectNumber}` : ''}${p.quotationNumber ? ` to ${p.quotationNumber}` : ''}${p.items ? ` with ${p.items.length} items` : ''}${p._state === 'done' ? ` — done: ${(p._result && p._result.message) || ''}` : p._state === 'dismissed' ? ' — dismissed' : ''}`).join('; ') + ')';
@@ -324,8 +350,11 @@
 
     async function send(textArg) {
       const text = (textArg ?? $('input').value).trim();
-      if (busy || (!text && !pending.length)) return;
+      // While it works, the button stops it; a new message interrupts it.
+      if (busy && !text && !pending.length) { interrupt(); return; }
+      if (!text && !pending.length) return;
       if (!aiReady) { notReady(); return; }
+      if (busy) await interrupt();
       const files = pending;
       pending = [];
       drawFiles();
@@ -338,23 +367,58 @@
       await ask(files, ctx);
     }
 
-    async function ask(files, ctx) {
+    // Interrupted (or given up on): its answer, if it ever comes, is left out.
+    let asking = 0;
+    let stopWaiting = null;
+    let current = null;
+    async function interrupt() {
+      if (!busy || !stopWaiting) { await current; return; }
+      const stop = stopWaiting;
+      stopWaiting = null;
+      if (run) window.api.assistant.cancel(run.id).catch(() => {});
+      stop({ interrupted: true });
+      await current;
+    }
+    function ask(files, ctx) {
+      current = askNow(files, ctx);
+      return current;
+    }
+    async function askNow(files, ctx) {
       busy = true;
-      setThinking(files.length > 0);
+      const mine = ++asking;
+      run = { id: `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, steps: [], started: Date.now() };
+      listeners.set(run.id, onStep);
+      clearInterval(tick);
+      tick = setInterval(() => { const t = $('elapsed'); if (t && run) t.textContent = elapsed(Date.now() - run.started); }, 1000);
       draw();
       updateSend();
       let r;
+      const stopped = new Promise((resolve) => {
+        stopWaiting = resolve;
+        // Never left waiting: the Mac gives up on the AI before this.
+        setTimeout(() => resolve({ ok: false, error: 'The AI didn’t answer in time. Try again, perhaps one thing at a time — or choose a quicker model in Settings › AI Import.' }), 240000);
+      });
       try {
-        r = await window.api.assistant.send(history(), files.map((f) => ({ name: f.name, mime: f.mime, base64: f.base64 })), ctx && ctx.payload);
+        r = await Promise.race([
+          window.api.assistant.send(history(), files.map((f) => ({ name: f.name, mime: f.mime, base64: f.base64 })), ctx && ctx.payload, run.id),
+          stopped,
+        ]);
       } catch (e) {
         r = { ok: false, error: e.message || 'The assistant couldn’t be reached.' };
       }
-      clearInterval(thinkingTimer);
+      if (mine !== asking) return;
+      stopWaiting = null;
+      clearInterval(tick);
+      const finished = run;
+      listeners.delete(finished.id);
+      run = null;
       busy = false;
+      const steps = finished.steps.slice(), ms = Date.now() - finished.started;
       const last = [...chat.messages].reverse().find((m) => m.role === 'user');
       if (last && r && Array.isArray(r.files) && r.files.length) last.files = r.files.map((f) => ({ name: f.name, text: f.text }));
-      if (!r || r.ok === false) chat.messages.push({ role: 'assistant', error: (r && r.error) || 'Something went wrong.' });
-      else chat.messages.push({ role: 'assistant', text: r.reply || (r.proposals && r.proposals.length ? '' : 'Done.'), proposals: r.proposals || [] });
+      if (r && r.interrupted) chat.messages.push({ role: 'assistant', interrupted: true, steps, ms });
+      else if (!r || r.ok === false) chat.messages.push({ role: 'assistant', error: (r && r.error) || 'Something went wrong.', steps, ms });
+      else chat.messages.push({ role: 'assistant', text: r.reply || (r.proposals && r.proposals.length ? '' : 'Done.'), proposals: r.proposals || [], steps, ms });
       save(chat);
       draw();
       updateSend();
@@ -400,13 +464,25 @@
       t.style.height = 'auto';
       t.style.height = `${Math.min(compact ? 140 : 220, t.scrollHeight)}px`;
     }
-    function updateSend() { $('send').disabled = busy || (!$('input').value.trim() && !pending.length); }
+    function updateSend() {
+      const has = !!$('input').value.trim() || pending.length > 0;
+      const stop = busy && !has;
+      const b = $('send');
+      b.disabled = !busy && !has;
+      b.classList.toggle('stop', stop);
+      b.innerHTML = stop ? SVG.stop : SVG.send;
+      b.title = stop ? 'Stop (Esc)' : busy ? 'Interrupt and send this instead (Return)' : 'Send (Return)';
+      b.setAttribute('aria-label', stop ? 'Stop' : 'Send');
+      $('input').placeholder = busy ? 'Working… type to interrupt with something else'
+        : compact ? 'Ask about this page, or say what to do…' : 'Ask, or tell it what to do — e.g. “Make a rental quotation for 26219 with 200 2.0m standards”';
+    }
 
     // ---- wiring ----
     const input = $('input');
     input.addEventListener('input', () => { autosize(); updateSend(); });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+      if (e.key === 'Escape' && busy) { e.preventDefault(); e.stopPropagation(); interrupt(); return; }
       if (e.key === 'Escape' && compact && opts.onClose) { e.preventDefault(); e.stopPropagation(); opts.onClose(); }
     });
     input.addEventListener('paste', (e) => {
@@ -471,6 +547,23 @@
       if (chip) { send(chip.dataset.chip); return; }
       const open = e.target.closest('.as-open');
       if (open) { (window.appNavigate || ((h) => { location.href = h; }))(open.dataset.href); return; }
+      if (e.target.closest('[data-act="stop"]')) { interrupt(); return; }
+      const stepsBtn = e.target.closest('[data-act="steps"]');
+      if (stepsBtn) {
+        const msg = stepsBtn.closest('.as-msg');
+        if (msg.classList.contains('thinking')) {
+          stepsOpen = !stepsOpen;
+          onStep.redraw();
+        } else {
+          const m = chat.messages[Number(msg.dataset.mi)];
+          m.stepsOpen = !m.stepsOpen;
+          save(chat);
+          const box = stepsBtn.closest('.as-steps');
+          box.classList.toggle('open', m.stepsOpen);
+          stepsBtn.setAttribute('aria-expanded', String(!!m.stepsOpen));
+        }
+        return;
+      }
       if (e.target.closest('[data-act="retry"]')) {
         chat.messages.pop();
         save(chat);
@@ -683,7 +776,9 @@
     if (wasOpen) open(false);
   }
 
-  window.AssistantChat = { mount, pageContext };
+  // Steps of a run, from main.swift, to the chat waiting for it.
+  window.__assistantStep = (step) => { const fn = step && listeners.get(step.runId); if (fn) fn(step.text); };
+  window.AssistantChat = { mount, pageContext, _listeners: listeners };
   const start = () => {
     const page = document.body.dataset.page;
     if (page === 'assistant') {

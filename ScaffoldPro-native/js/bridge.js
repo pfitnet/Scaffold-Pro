@@ -436,7 +436,10 @@
     // run(proposal) carries out one the person confirmed.
     assistant: {
       // `context`: what's on screen (the floating chat): page, ids, selection, the page's text.
-      send: (messages, attachments, context) => callNative('assistant:send', { messages: messages, attachments: attachments || [], context: context || null }),
+      // `runId` names this run: its steps arrive at window.__assistantStep({ runId, text }),
+      // and cancel(runId) interrupts it.
+      send: (messages, attachments, context, runId) => callNative('assistant:send', { messages: messages, attachments: attachments || [], context: context || null, runId: runId || null }),
+      cancel: (runId) => callNative('assistant:cancel', { runId: runId }),
       run: (proposal) => callNative('assistant:run', { proposal: proposal }),
     },
     ai: {
