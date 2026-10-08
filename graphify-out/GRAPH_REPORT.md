@@ -1,17 +1,17 @@
 # Graph Report - Scaffold-Pro  (2026-10-08)
 
 ## Corpus Check
-- 102 files · ~464,527 words
+- 102 files · ~464,781 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 40 file(s) not represented in the graph (top: .whl 16, .css 8, .ttf 6)
 
 ## Summary
-- 3090 nodes · 11767 edges · 127 communities (105 shown, 22 thin omitted)
+- 3090 nodes · 11768 edges · 127 communities (105 shown, 22 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 616 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3e69bf66`
+- Built from commit: `4d279ad2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -150,13 +150,13 @@
 ## Surprising Connections (you probably didn't know these)
 - `6. Open items and things waiting on the user` --references--> `setup()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/delivery-schedule.js
-- `5. Recent work (Batches 147–185, newest last)` --references--> `buyBackSentences()`  [INFERRED]
+- `5. Recent work (Batches 147–186, newest last)` --references--> `buyBackSentences()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/quotation-editor.js
-- `5. Recent work (Batches 147–185, newest last)` --references--> `BuyBackTerms`  [INFERRED]
+- `5. Recent work (Batches 147–186, newest last)` --references--> `BuyBackTerms`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
-- `5. Recent work (Batches 147–185, newest last)` --references--> `safeFileName()`  [INFERRED]
+- `5. Recent work (Batches 147–186, newest last)` --references--> `safeFileName()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
-- `5. Recent work (Batches 147–185, newest last)` --references--> `priceNoteLabel()`  [INFERRED]
+- `5. Recent work (Batches 147–186, newest last)` --references--> `priceNoteLabel()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
 
 ## Import Cycles
@@ -457,7 +457,7 @@ Nodes (10): ScaffoldPro audit against the master prompt, Bugs found and fixed in
 
 ### Community 78 - "QuotationAI"
 Cohesion: 0.10
-Nodes (14): 2. The standing workflow (do this every time, without asking), 3. How the user likes things, 4. Checking work without a Mac (no Swift compiler here), 5. Recent work (Batches 147–185, newest last), 6. Open items and things waiting on the user, 7. Starting the new chat, ScaffoldPro — handoff for a new chat, QuotationAI (+6 more)
+Nodes (14): 2. The standing workflow (do this every time, without asking), 3. How the user likes things, 4. Checking work without a Mac (no Swift compiler here), 5. Recent work (Batches 147–186, newest last), 6. Open items and things waiting on the user, 7. Starting the new chat, ScaffoldPro — handoff for a new chat, QuotationAI (+6 more)
 
 ### Community 79 - "project-work.js"
 Cohesion: 0.24
@@ -608,7 +608,7 @@ Nodes (9): has_identity(), make_identity(), pick_sdk(), SDKROOT, install.sh scri
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `PDFGenerator` connect `PDFGenerator` to `.append`, `main.swift`, `Gen`, `String`, `.addStockMovements`, `Bool`, `Quotation (standard Qt26193 style)`, `.getCompanySettings`?**
-  _High betweenness centrality (0.222) - this node is a cross-community bridge._
+  _High betweenness centrality (0.228) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `AppDatabase` (e.g. with `1. What ScaffoldPro is` and `.restore()`) actually correct?**
   _`AppDatabase` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `SDKROOT`, `askpass.sh script`, `PATH` to the rest of the system?**
@@ -616,7 +616,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `PDFGenerator` be split into smaller, more focused modules?**
   _Cohesion score 0.0705050505050505 - nodes in this community are weakly interconnected._
 - **Why does `Export Word (.docx) matching PDF layout` connect `Gen` to `PDFGenerator`, `docx-export.js`?**
-  _High betweenness centrality (0.181) - this node is a cross-community bridge._
+  _High betweenness centrality (0.182) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `NativeBridge` (e.g. with `1. What ScaffoldPro is` and `.call()`) actually correct?**
   _`NativeBridge` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Should `.handle` be split into smaller, more focused modules?**

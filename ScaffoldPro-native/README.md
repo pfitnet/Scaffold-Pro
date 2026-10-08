@@ -4405,3 +4405,14 @@ one idea at a time, few words, and pictures that carry the meaning.
   "Included in Unit Price" across the price columns (portrait letter and
   Word); on the landscape BQ sheet the words take the amount's place.
 - The same choice is on the "+" row, so a row can be added already free.
+
+## Batch 186 — A label on its own line in item descriptions
+
+- In a line item's description (custom items, crane items), a label with
+  nothing after its colon — e.g. `Standard Warranty :` on its own line —
+  now prints as a line of its own, and the lines under it start at the
+  left and use the full width, instead of hanging under the label's text
+  column. Labels with text after the colon (`Model : ZT14JC`) line up as
+  before.
+- The same on the PDF, the landscape BQ sheet, Word and "As printed".
+  Terms and Conditions are unchanged.

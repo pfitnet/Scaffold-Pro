@@ -66,7 +66,10 @@
 
   // → [{ kind: 'text', lines } | { kind: 'hanging', marker, lines, style, left }]
   //   left: points in from the margin (indented items sit under their parent's text)
-  function parse(text) {
+  // heads (a line item's description, as main.swift's labelHeads): a label
+  // with nothing after its colon ("Standard Warranty :") is a line of its
+  // own, and the lines under it run full width from the edge.
+  function parse(text, heads) {
     const result = [];
     let current = null;
     let plain = [];
@@ -82,6 +85,11 @@
       if (item) {
         flush();
         const indented = raw[0] === ' ' || raw[0] === '\t';
+        if (heads && item.style === 'label' && !item.text && !indented) {
+          plain.push(trimmed);
+          parentText = null;
+          continue;
+        }
         const left = indented && parentText !== null ? parentText : 0;
         if (!indented || parentText === null) parentText = TEXT_OFFSET[item.style];
         current = { kind: 'hanging', marker: item.marker, lines: item.text ? [item.text] : [], style: item.style, left };
@@ -116,7 +124,7 @@
       let html = '';
       let labels = '';
       const endLabels = () => { if (labels) { html += `<div class="pf-labels">${labels}</div>`; labels = ''; } };
-      for (const p of parse(block)) {
+      for (const p of parse(block, true)) {
         const body = p.lines.map(esc).join('<br>');
         if (p.kind === 'hanging' && p.style === 'label') {
           labels += `<span class="pf-m" style="margin-left:${Math.round(p.left * 1.27)}px">${esc(p.marker)}</span><span class="pf-colon">:</span><span class="pf-t">${body}</span>`;

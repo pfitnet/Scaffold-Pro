@@ -2934,7 +2934,11 @@ func hangingTextOffset(_ style: HangingStyle) -> CGFloat {
     }
 }
 
-func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph] {
+/// `labelHeads` (a line item's description): a label with nothing after
+/// its colon ("Standard Warranty :") is a line on its own, and the lines
+/// under it start at the edge and use the full width instead of hanging
+/// under the label's text column.
+func formattedParagraphs(_ text: String, left: CGFloat = 0, labelHeads: Bool = false) -> [LetterParagraph] {
     var result: [LetterParagraph] = []
     var current: (marker: String, lines: [String], style: HangingStyle, left: CGFloat)? = nil
     var plain: [String] = []
@@ -2957,6 +2961,11 @@ func formattedParagraphs(_ text: String, left: CGFloat = 0) -> [LetterParagraph]
         if let item = hangingItem(raw) {
             flush()
             let indented = raw.first == " " || raw.first == "\t"
+            if labelHeads && item.style == .label && item.text.isEmpty && !indented {
+                plain.append(trimmed)
+                parentText = nil
+                continue
+            }
             let itemLeft = indented ? (parentText ?? left) : left
             if !indented || parentText == nil { parentText = left + hangingTextOffset(item.style) }
             current = (item.marker, item.text.isEmpty ? [] : [item.text], item.style, itemLeft)
@@ -3037,7 +3046,7 @@ func formattedCellLines(_ text: String, width: Double, measure: (String) -> Doub
     // Labels ("Model", "Manufacturer"…) at the same place share one colon
     // column, just past the longest of them, as in a typed spec list.
     var labelText: [Double: Double] = [:]
-    for paragraph in formattedParagraphs(text) {
+    for paragraph in formattedParagraphs(text, labelHeads: true) {
         if case .hanging(let marker, _, let l, _, true) = paragraph, !marker.isEmpty {
             let left = min(Double(l), width * 0.4)
             labelText[left] = max(labelText[left] ?? 0, left + measure(marker) + 7.5)
@@ -3050,7 +3059,7 @@ func formattedCellLines(_ text: String, width: Double, measure: (String) -> Doub
         .map { $0.joined(separator: "\n") }.filter { !$0.isEmpty }
     for (b, block) in blocks.enumerated() {
         if b > 0 { lines.append(CellTextLine(marker: nil, markerX: 0, text: "", textX: 0, colon: false)) }
-        for paragraph in formattedParagraphs(block) {
+        for paragraph in formattedParagraphs(block, labelHeads: true) {
             switch paragraph {
             case .text(let string, _):
                 for line in string.components(separatedBy: "\n").flatMap({ wrap($0, width) }) {
