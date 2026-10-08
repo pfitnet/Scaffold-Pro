@@ -22333,7 +22333,7 @@ final class Updater: NSObject {
     NEW="$DEST.updating"
     OLD="$DEST.previous"
     rm -rf "$NEW" "$OLD"
-    if cp -R "$BUILD" "$NEW" && mv "$DEST" "$OLD"; then
+    if ditto --norsrc --noextattr --noacl "$BUILD" "$NEW" && mv "$DEST" "$OLD"; then
         if mv "$NEW" "$DEST"; then
             rm -rf "$OLD"
             xattr -cr "$DEST" 2>/dev/null

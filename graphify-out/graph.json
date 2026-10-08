@@ -37457,14 +37457,14 @@
       "source_location": "L117"
     },
     {
-      "id": "handoff_5_recent_work_batches_147_173_newest_last",
-      "label": "5. Recent work (Batches 147\u2013173, newest last)",
+      "id": "handoff_5_recent_work_batches_147_174_newest_last",
+      "label": "5. Recent work (Batches 147\u2013174, newest last)",
       "_origin": "ast",
       "community": 78,
       "community_name": "ScaffoldPro \u2014 handoff for a new chat",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "5. recent work (batches 147\u2013173, newest last)",
+      "norm_label": "5. recent work (batches 147\u2013174, newest last)",
       "source_file": "HANDOFF.md",
       "source_location": "L167"
     },
@@ -37478,7 +37478,7 @@
       "node_kind": "heading",
       "norm_label": "6. open items and things waiting on the user",
       "source_file": "HANDOFF.md",
-      "source_location": "L237"
+      "source_location": "L240"
     },
     {
       "id": "handoff_7_starting_the_new_chat",
@@ -37490,7 +37490,7 @@
       "node_kind": "heading",
       "norm_label": "7. starting the new chat",
       "source_file": "HANDOFF.md",
-      "source_location": "L266"
+      "source_location": "L269"
     },
     {
       "id": "handoff_scaffoldpro_handoff_for_a_new_chat",
@@ -139239,7 +139239,7 @@
     },
     {
       "source": "handoff_scaffoldpro_handoff_for_a_new_chat",
-      "target": "handoff_5_recent_work_batches_147_173_newest_last",
+      "target": "handoff_5_recent_work_batches_147_174_newest_last",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -139256,7 +139256,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L237",
+      "source_location": "L240",
       "weight": 1.0
     },
     {
@@ -139267,7 +139267,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "HANDOFF.md",
-      "source_location": "L266",
+      "source_location": "L269",
       "weight": 1.0
     },
     {
@@ -175137,7 +175137,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_173_newest_last",
+      "source": "handoff_5_recent_work_batches_147_174_newest_last",
       "target": "scaffoldpro_native_main_buybackterms",
       "relation": "references",
       "_origin": "ast",
@@ -175253,11 +175253,11 @@
       "confidence_score": 0.95,
       "context": "applicationShouldTerminate",
       "source_file": "HANDOFF.md",
-      "source_location": "L255",
+      "source_location": "L258",
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_173_newest_last",
+      "source": "handoff_5_recent_work_batches_147_174_newest_last",
       "target": "scaffoldpro_native_main_nativebridge_buybacksection",
       "relation": "references",
       "_origin": "ast",
@@ -175293,7 +175293,7 @@
       "weight": 1.0
     },
     {
-      "source": "handoff_5_recent_work_batches_147_173_newest_last",
+      "source": "handoff_5_recent_work_batches_147_174_newest_last",
       "target": "scaffoldpro_native_main_appdatabase_createimportedquotation",
       "relation": "references",
       "_origin": "ast",
@@ -175373,7 +175373,7 @@
       "confidence_score": 0.95,
       "context": "setup",
       "source_file": "HANDOFF.md",
-      "source_location": "L241",
+      "source_location": "L244",
       "weight": 1.0
     },
     {
@@ -177922,5 +177922,5 @@
       "source_file": "ScaffoldPro-native/project-detail.html"
     }
   ],
-  "built_at_commit": "eb4e8fb2a1f8434ad2b0f1aaa09e9d4670070607"
+  "built_at_commit": "e0ec6dc636db23da892ed98f84ea36453a1c4336"
 }

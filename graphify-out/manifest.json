@@ -12,9 +12,9 @@
     "semantic_hash": "202da10c339ae17bf2a6c993e65407b9"
   },
   "ScaffoldPro-native/install.sh": {
-    "mtime": 1791397646.1929348,
-    "seen": 1791398187.317797,
-    "ast_hash": "43b631472aa95096f0c32c72a3065e99",
+    "mtime": 1791427242.1691148,
+    "seen": 1791427266.9645038,
+    "ast_hash": "6c9f282629f4d1b5b8c8e302ef93610b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/installer/InstallerUI.swift": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/main.swift": {
-    "mtime": 1791426876.9284093,
-    "seen": 1791426901.663865,
-    "ast_hash": "becc84684513696fa6db962b108c5b4f",
+    "mtime": 1791427247.585356,
+    "seen": 1791427266.964637,
+    "ast_hash": "bb0c499f48f8b771ac81e842f66384b7",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/resources/scafom_pricelist.json": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1791426893.6333349,
-    "seen": 1791426901.6638815,
-    "ast_hash": "d0dcdab4bf580458d25399b2f9038be6",
+    "mtime": 1791427259.7133567,
+    "seen": 1791427266.964653,
+    "ast_hash": "6e975d8dcaea4b8189705fa3682c17ed",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1791426893.6501675,
-    "seen": 1791426901.6638782,
-    "ast_hash": "cd8ebe5533f5a0378ff892123fa94e10",
+    "mtime": 1791427259.7310216,
+    "seen": 1791427266.9646497,
+    "ast_hash": "cf489b55463aa5f005b7640f1dd51a68",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-content.js": {

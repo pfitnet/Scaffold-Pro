@@ -1,7 +1,7 @@
 # Graph Report - Scaffold-Pro  (2026-10-08)
 
 ## Corpus Check
-- 102 files · ~459,815 words
+- 102 files · ~460,065 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 40 file(s) not represented in the graph (top: .whl 16, .css 8, .ttf 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `eb4e8fb2`
+- Built from commit: `e0ec6dc6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -149,7 +149,7 @@
 ## Surprising Connections (you probably didn't know these)
 - `6. Open items and things waiting on the user` --references--> `setup()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/js/delivery-schedule.js
-- `5. Recent work (Batches 147–173, newest last)` --references--> `BuyBackTerms`  [INFERRED]
+- `5. Recent work (Batches 147–174, newest last)` --references--> `BuyBackTerms`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
 - `1. What ScaffoldPro is` --references--> `formattedParagraphs()`  [INFERRED]
   HANDOFF.md → ScaffoldPro-native/main.swift
@@ -460,7 +460,7 @@ Nodes (14): ScaffoldPro audit against the master prompt, Bugs found and fixed in
 
 ### Community 78 - "ScaffoldPro — handoff for a new chat"
 Cohesion: 0.18
-Nodes (7): 2. The standing workflow (do this every time, without asking), 3. How the user likes things, 4. Checking work without a Mac (no Swift compiler here), 5. Recent work (Batches 147–173, newest last), 6. Open items and things waiting on the user, 7. Starting the new chat, ScaffoldPro — handoff for a new chat
+Nodes (7): 2. The standing workflow (do this every time, without asking), 3. How the user likes things, 4. Checking work without a Mac (no Swift compiler here), 5. Recent work (Batches 147–174, newest last), 6. Open items and things waiting on the user, 7. Starting the new chat, ScaffoldPro — handoff for a new chat
 
 ### Community 79 - "project-work.js"
 Cohesion: 0.24
