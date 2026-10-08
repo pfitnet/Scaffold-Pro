@@ -16096,7 +16096,32 @@ final class PageBackdropView: NSView {
 /// page's own background colour, so there's nothing dark to flash
 /// (PageBackdropView).
 extension NativeBridge: WKNavigationDelegate {
+    /// A new page swaps the web view's mouse tracking under the title bar:
+    /// the window's close / minimise / full-screen buttons then lose track of
+    /// the pointer until it leaves and comes back. Re-armed after each page.
+    func refreshTitlebarButtons() {
+        guard let window = window else { return }
+        let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].compactMap { window.standardWindowButton($0) }
+        for b in buttons {
+            b.superview?.updateTrackingAreas()
+            b.updateTrackingAreas()
+        }
+        window.invalidateCursorRects(for: window.contentView ?? NSView())
+        // Tell them where the pointer is now, as if it had just moved.
+        let point = window.mouseLocationOutsideOfEventStream
+        if let moved = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                          windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0) {
+            window.sendEvent(moved)
+        }
+        buttons.first?.superview?.needsDisplay = true
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        DispatchQueue.main.async { [weak self] in self?.refreshTitlebarButtons() }
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        refreshTitlebarButtons()
         // Normally the page has said it has drawn by now.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.releaseFrame() }
     }
@@ -16260,6 +16285,8 @@ extension NativeBridge {
 
         Rules:
         - You can't make or change anything yourself: never say you have ("Created…", "Done"). Propose it, and say what the card will do.
+        - "Continue", "yes", "go ahead", "do it": propose (as a card) the action you and the person were discussing — with every detail \
+        already settled. Never answer with an empty reply.
         - Never invent prices. Take prices from the person, from an attached file, or from findItems (Sale or Rental to match the \
         quotation); if none, set "unitPrice": null and say so. Put the item code from findItems in "itemCode" when an item matches.
         - Never guess a project: look it up with findProjects; if it's unclear which, ask with "questions" (the likely projects as options).
@@ -16387,9 +16414,25 @@ extension NativeBridge {
                 done(["ok": true, "reply": self.replyOnly(raw) ?? "Its answer came back garbled. Please try again — or choose another model in Settings › AI Import.", "proposals": [Any]()])
                 return
             }
-            let reply = (json["reply"] as? String) ?? ""
+            let reply = ((json["reply"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             let lookups = (json["lookups"] as? [[String: Any]]) ?? []
             let proposals = (json["proposals"] as? [[String: Any]]) ?? []
+            let asked = !((json["questions"] as? [Any]) ?? []).isEmpty
+            // Nothing at all (or just "Done"): asked once more for a real answer.
+            let empty = lookups.isEmpty && proposals.isEmpty && !asked
+                && (reply.isEmpty || reply.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".! ")) == "done")
+            if empty {
+                guard round < 4, Date() < deadline else {
+                    done(["ok": false, "error": "The AI came back with nothing. Say exactly what you'd like (e.g. “make the BOQ for 26220 with those items”) and try again."])
+                    return
+                }
+                self.assistantStep(run, "It answered with nothing — asking again")
+                var next = turns
+                next.append(QuotationAI.ChatTurn(role: "assistant", text: jsonText(json)))
+                next.append(QuotationAI.ChatTurn(role: "user", text: "That answer was empty. Answer my last message now: put the action we discussed in \"proposals\" (it shows as a card for me to confirm), or ask in \"questions\" if you must. Never just say \"Done\" — nothing has been made."))
+                self.runAssistant(turns: next, round: round + 1, deadline: deadline, run: run, done: done)
+                return
+            }
             if !lookups.isEmpty && proposals.isEmpty {
                 guard round < 4, Date() < deadline else {
                     done(["ok": false, "error": "The AI took too long working it out. Try again, perhaps asking for one thing at a time — or choose a quicker model in Settings › AI Import."])

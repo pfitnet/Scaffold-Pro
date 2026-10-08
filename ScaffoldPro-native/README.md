@@ -4740,3 +4740,15 @@ one idea at a time, few words, and pictures that carry the meaning.
 - The stop button is redone: while it works, the send button becomes a
   soft circle with a turning ring and a stop square; the small Stop on the
   "Working…" line matches.
+
+## Batch 211 — Window buttons after a page change; no more empty "Done."
+
+- After moving to another page, the window's close, minimise and
+  full-screen buttons work straight away again (they used to need the
+  pointer to leave the top bar and come back first).
+- The floating Assistant chat stays below the window's top bar, so its own
+  buttons can always be clicked.
+- The Assistant never says "Done." when nothing was done. If the AI comes
+  back empty it's asked once more; if it's still empty you're told so, with
+  Try Again. "Continue", "yes" or "go ahead" now bring up the card for what
+  you were discussing.
