@@ -8,7 +8,13 @@
 // Files can be attached (button, drop or paste); the Mac reads them and the
 // AI sees them too.
 //
-// Two places, one conversation (kept on this Mac, in localStorage):
+// Chats are kept on this Mac (localStorage), listed by day — a column on the
+// Assistant page, a list over the floating chat — to search, rename, delete
+// and go back to. A ring in the bar shows roughly how much of the AI's
+// context window the chat takes; past 70%, older messages are summarised
+// (assistant:summarise) and the AI is sent the summary plus the newest ones.
+//
+// Two places, the same chat open in both:
 //   • assistant.html — the whole page;
 //   • a small floating chat on every other page (the sparkle button at the
 //     bottom right, or ⌘J). It sees what's on screen — the page, the
@@ -20,7 +26,14 @@
 
 (function () {
   if (window.AssistantChat) return;
-  const KEY = 'assistant.chat';
+  const KEY = 'assistant.chat'; // the one conversation, before there was a history
+  const CHATS_KEY = 'assistant.chats';
+  const CUR_KEY = 'assistant.current';
+  const SIDE_KEY = 'assistant.sideHidden';
+  const MAX_CHATS = 60, MAX_MESSAGES = 400;
+  const OVERHEAD = 3000, SCREEN = 2500; // tokens: the instructions; what's on screen
+  const COMPACT_AT = 0.7; // of the window: older messages are summarised
+  const KEEP_RAW = 4; // the newest messages are always sent word for word
   const OPEN_KEY = 'assistant.floatOpen';
   const RECT_KEY = 'assistant.floatRect';
   const listeners = new Map(); // run id → the chat showing its steps
@@ -35,6 +48,11 @@
     expand: '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 3.5h5v5M16.5 3.5 11 9M8.5 16.5h-5v-5M3.5 16.5 9 11"/></svg>',
     close: '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg>',
     stop: '<svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><rect x="5.5" y="5.5" width="9" height="9" rx="2.2" fill="currentColor"/></svg>',
+    history: '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.6 10a6.4 6.4 0 1 0 1.9-4.5"/><path d="M3.3 3.6v2.6h2.6"/><path d="M10 6.6V10l2.4 1.6"/></svg>',
+    sidebar: '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2.5"/><path d="M8 4v12"/></svg>',
+    pencil: '<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.8 4.2l3 3L7.5 15.5H4.5v-3z"/></svg>',
+    trash: '<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6"/></svg>',
+    search: '<svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="m13 13 3.5 3.5"/></svg>',
   };
   const SUGGESTIONS = [
     { title: 'Quotation from a file', text: 'Make a quotation for project ', hint: 'Attach a quotation, BOQ or list, then say which project.', attach: true },
@@ -92,13 +110,98 @@
   const COPY_ICON = '<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="9.5" height="9.5" rx="2"/><path d="M13 7V5.2A1.7 1.7 0 0 0 11.3 3.5H5.2A1.7 1.7 0 0 0 3.5 5.2v6.1A1.7 1.7 0 0 0 5.2 13H7"/></svg>';
   const metaHTML = (m, mi) => `<div class="as-meta">${m.at ? `<span class="as-time" title="${esc(new Date(m.at).toLocaleString('en-GB'))}">${esc(sentAt(m.at))}</span>` : ''}<button type="button" class="as-copy" data-copy="${mi}" data-no-icon title="Copy">${COPY_ICON}<span>Copy</span></button></div>`;
 
-  // ---- the conversation, shared by both places ----
+  // ---- the conversations, kept on this Mac and shared by both places ----
+  // assistant.chats: [{ id, title, createdAt, updatedAt, messages, summary,
+  // summarisedUpTo }], newest first; assistant.current: the one open.
+  // An empty chat isn't listed until something is said in it.
+  const newId = () => `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const fresh = (id) => ({ id: id || newId(), title: '', createdAt: new Date().toISOString(), messages: [] });
+  function autoTitle(c) {
+    const first = c.messages.find((m) => m.role === 'user' && (m.text || (m.files || []).length));
+    if (!first) return 'New chat';
+    const t = String(first.text || '').replace(/\s+/g, ' ').trim() || (first.files || []).map((f) => f.name).join(', ');
+    return t.length > 60 ? `${t.slice(0, 57).replace(/\s+\S*$/, '')}…` : t;
+  }
+  function readChats() {
+    try {
+      const list = JSON.parse(localStorage.getItem(CHATS_KEY) || 'null');
+      if (Array.isArray(list)) return list.filter((c) => c && c.id && Array.isArray(c.messages));
+    } catch (e) { /* none yet */ }
+    // Before there was a history: the one conversation becomes the first.
+    try {
+      const old = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (old && Array.isArray(old.messages) && old.messages.length) {
+        const c = { ...fresh(), messages: old.messages, createdAt: old.messages[0].at || new Date().toISOString() };
+        c.title = autoTitle(c);
+        c.updatedAt = old.messages[old.messages.length - 1].at || c.createdAt;
+        localStorage.setItem(CHATS_KEY, JSON.stringify([c]));
+        localStorage.setItem(CUR_KEY, c.id);
+        localStorage.removeItem(KEY);
+        return [c];
+      }
+    } catch (e) { /* not moved */ }
+    return [];
+  }
+  function writeChats(list) {
+    list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    list = list.slice(0, MAX_CHATS);
+    const attempt = () => { localStorage.setItem(CHATS_KEY, JSON.stringify(list)); return true; };
+    try { return attempt(); } catch (e) { /* full: make room below */ }
+    // Out of room: the text of files in older chats goes first (the chats
+    // stay, with the files' names), then the oldest chats.
+    for (const c of list.slice(1)) for (const m of c.messages) for (const f of m.files || []) delete f.text;
+    try { return attempt(); } catch (e) { /* still full */ }
+    while (list.length > 1) { list.pop(); try { return attempt(); } catch (e) { /* keep going */ } }
+    return false;
+  }
+  const currentId = () => { try { return localStorage.getItem(CUR_KEY) || ''; } catch (e) { return ''; } };
+  const setCurrentId = (id) => { try { localStorage.setItem(CUR_KEY, id); } catch (e) { /* not kept */ } };
+  // The chat open now.
   function load() {
-    try { const c = JSON.parse(localStorage.getItem(KEY) || 'null'); if (c && Array.isArray(c.messages)) return c; } catch (e) { /* new */ }
-    return { messages: [] };
+    const list = readChats();
+    const id = currentId();
+    return list.find((c) => c.id === id) || fresh(id || undefined);
   }
   function save(chat) {
-    try { localStorage.setItem(KEY, JSON.stringify({ messages: chat.messages.slice(-80) })); } catch (e) { /* not kept */ }
+    // Very long chats: the oldest messages go (the summary keeps their gist).
+    if (chat.messages.length > MAX_MESSAGES) {
+      const cut = chat.messages.length - MAX_MESSAGES;
+      chat.messages.splice(0, cut);
+      chat.summarisedUpTo = Math.max(0, (chat.summarisedUpTo || 0) - cut);
+    }
+    const list = readChats().filter((c) => c.id !== chat.id);
+    if (chat.messages.length) {
+      if (!chat.title) chat.title = autoTitle(chat);
+      const last = chat.messages[chat.messages.length - 1];
+      chat.updatedAt = (last && last.at) || chat.updatedAt || chat.createdAt;
+      list.push(chat);
+    }
+    writeChats(list);
+    setCurrentId(chat.id);
+  }
+  // Grouped for the list: Today, Yesterday, Previous 7 Days, then by month.
+  function groupOf(iso) {
+    const d = new Date(iso || 0);
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(new Date()) - day(d)) / 86400000);
+    if (diff <= 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7) return 'Previous 7 Days';
+    return d.toLocaleDateString('en-GB', { month: 'long', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  }
+
+  // ---- the context window: roughly how much of it the conversation takes ----
+  // About 3.5 characters a token; the instructions and tools take ~3k more
+  // (and what's on screen, in the floating chat, up to ~2.5k).
+  const tokensOf = (chars) => Math.ceil(chars / 3.5);
+  const shortTokens = (n) => (n < 1000 ? String(n) : `${(n / 1000).toFixed(n < 9950 ? 1 : 0).replace(/\.0$/, '')}k`);
+  function windowOf(status) {
+    const model = String((status && (status.model || status.defaultModel)) || '').toLowerCase();
+    if (status && status.provider === 'gemini') return 128000;
+    if (/claude/.test(model)) return 128000;
+    if (/gemini|gpt-4o|gpt-4\.1|gpt-5|o3|o4/.test(model)) return 128000;
+    if (/llama-3\.[13]|qwen|deepseek|mistral-large/.test(model)) return 64000;
+    return 32000;
   }
 
   // ---- text: **bold**, lists, line breaks ----
@@ -227,18 +330,31 @@
     const compact = !!opts.compact;
     root.classList.add('as-chat');
     root.classList.toggle('compact', compact);
+    root.classList.toggle('with-side', !compact);
+    // The chats: a column on the Assistant page, a list over the floating chat.
+    const side = `<aside class="as-side${compact ? ' hidden' : ''}" data-r="side" aria-label="Chats">
+        <div class="as-side-head"><b>Chats</b><span class="as-side-count" data-r="count"></span></div>
+        <label class="as-side-search">${SVG.search}<input type="search" data-r="search" placeholder="Search chats" autocomplete="off" /></label>
+        <div class="as-side-list" data-r="list"></div>
+      </aside>`;
     root.innerHTML = `
+      ${compact ? '' : side}
+      <div class="as-main">
       <header class="as-head">
         <div class="as-head-text">
-          ${compact ? `<span class="as-head-mark">${MARK}</span><b class="as-head-title">Assistant</b>` : '<h1>Assistant</h1>'}
+          ${compact ? `<span class="as-head-mark">${MARK}</span><b class="as-head-title">Assistant</b>` : `<button type="button" class="as-icon-btn as-side-toggle" data-r="hist" data-no-icon title="Show or hide the chats">${SVG.sidebar}</button><h1>Assistant</h1>`}
           <span class="as-status" data-r="status"></span>
         </div>
         <div class="as-head-actions">
-          <button type="button" class="as-new" data-r="new" data-no-icon title="Start a new conversation${compact ? '' : ' (⌘N)'}">${SVG.plus}${compact ? '' : 'New Chat'}</button>
+          <button type="button" class="as-ctx" data-r="ctx" data-no-icon aria-haspopup="dialog"></button>
+          ${compact ? `<button type="button" class="as-icon-btn" data-r="hist" data-no-icon title="Chats — earlier conversations">${SVG.history}</button>` : ''}
+          <button type="button" class="as-new" data-r="new" data-no-icon title="Start a new chat${compact ? '' : ' (⌘N)'} — this one stays in the list">${SVG.plus}${compact ? '' : 'New Chat'}</button>
           ${compact ? `<button type="button" class="as-icon-btn" data-r="expand" data-no-icon title="Open the Assistant page">${SVG.expand}</button>
           <button type="button" class="as-icon-btn" data-r="close" data-no-icon title="Close (Esc)">${SVG.close}</button>` : ''}
         </div>
+        <div class="as-ctx-pop hidden" data-r="ctxpop" role="dialog" aria-label="Context window"></div>
       </header>
+      ${compact ? side : ''}
       <div class="as-scroll" data-r="scroll"><div class="as-messages" data-r="messages"></div></div>
       <div class="as-composer-wrap">
         ${compact ? '<div class="as-context" data-r="context"></div>' : ''}
@@ -253,9 +369,12 @@
         ${compact ? '' : '<p class="as-foot">It proposes; nothing is made or changed until you confirm. Check its work before sending anything to a client.</p>'}
         <input type="file" data-r="file" multiple hidden accept=".pdf,.png,.jpg,.jpeg,.heic,.webp,.gif,.tif,.tiff,.xlsx,.xlsm,.csv,.tsv,.txt,.docx,.doc,.rtf" />
       </div>
+      </div>
       <div class="as-drop hidden" data-r="drop"><div><b>Drop to attach</b><span>PDF, pictures, Excel, Word or text</span></div></div>`;
     const $ = (r) => root.querySelector(`[data-r="${r}"]`);
     let chat = load();
+    let ai = null; // the AI connection (Settings › AI Import), for the size of its window
+    let summaryOpen = false;
     let pending = [];
     let busy = false;
     let aiReady = true;
@@ -365,11 +484,26 @@
 
     function draw(scroll = true) {
       const box = $('messages');
-      box.innerHTML = chat.messages.length ? chat.messages.map(messageHTML).join('') : emptyHTML();
+      const upTo = chat.summary ? chat.summarisedUpTo || 0 : 0;
+      box.innerHTML = chat.messages.length
+        ? chat.messages.map((m, mi) => (mi === upTo && upTo > 0 ? summaryHTML(upTo) : '') + messageHTML(m, mi)).join('') + (upTo >= chat.messages.length && upTo > 0 ? summaryHTML(upTo) : '')
+        : emptyHTML();
       if (busy && run) box.insertAdjacentHTML('beforeend', `<div class="as-msg bot thinking"><span class="as-avatar">${MARK}</span><div class="as-body" data-r="live">${stepsHTML(run.steps, Date.now() - run.started, true, stepsOpen)}</div></div>`);
       $('new').disabled = !chat.messages.length || busy;
       if (scroll) requestAnimationFrame(() => { const s = $('scroll'); s.scrollTop = s.scrollHeight; });
       drawContext();
+      drawMeter();
+      if (sideOpen()) drawSide();
+    }
+    // Where the summarised part ends: "Earlier messages summarised", opening
+    // into the summary the AI is sent instead of them.
+    function summaryHTML(n) {
+      return `<div class="as-summ${summaryOpen ? ' open' : ''}">
+        <button type="button" class="as-summ-head" data-act="summary" aria-expanded="${summaryOpen}" data-no-icon>
+          <span class="as-summ-rule"></span><span class="as-summ-label">${n} earlier message${n === 1 ? '' : 's'} summarised for the AI<span class="as-steps-chev" aria-hidden="true">›</span></span><span class="as-summ-rule"></span>
+        </button>
+        <div class="as-summ-body"><div class="as-summ-kicker">What the AI remembers of them</div>${rich(chat.summary || '')}</div>
+      </div>`;
     }
 
     // The floating chat: what it can see.
@@ -415,10 +549,20 @@
       }
     }
 
-    // What the AI is sent: each message's text (its proposals summed up) and
-    // the text of files sent before.
+    // What the AI is sent: the summary of earlier messages (if they've been
+    // summarised), then each message since — its text (its proposals summed
+    // up) and the text of files sent before.
     function history() {
-      return chat.messages.filter((m) => !m.error && !m.interrupted).map((m) => {
+      const turns = turnsOf(chat.messages.slice(chat.summarisedUpTo || 0));
+      if (chat.summary) {
+        const intro = `[Earlier in this conversation — summarised to save room:]\n${chat.summary}\n\n[The conversation continues:]\n`;
+        if (turns.length && turns[0].role === 'user') turns[0] = { ...turns[0], text: intro + turns[0].text };
+        else turns.unshift({ role: 'user', text: intro.trim(), files: [] });
+      }
+      return turns;
+    }
+    function turnsOf(messages) {
+      return messages.filter((m) => !m.error && !m.interrupted).map((m) => {
         let text = m.text || '';
         if (m.role === 'assistant' && (m.questions || []).length) {
           text += '\n\n(Asked: ' + m.questions.map((q) => `${q.text} [${(q.options || []).join(' / ')}]`).join('; ') + ')';
@@ -428,6 +572,205 @@
         }
         return { role: m.role === 'assistant' ? 'assistant' : 'user', text, files: (m.files || []).filter((f) => f.text).map((f) => ({ name: f.name, text: f.text })) };
       });
+    }
+
+    // ---- the context window ----
+    // How much of it the next message would take (roughly), and its parts.
+    function usage() {
+      let words = 0, files = 0;
+      for (const t of history()) {
+        words += t.text.length;
+        for (const f of t.files) files += f.text.length + 60;
+      }
+      const words_ = tokensOf(words), files_ = tokensOf(files), setup = OVERHEAD + (compact ? SCREEN : 0);
+      const total = words_ + files_ + setup;
+      const max = windowOf(ai);
+      return { words: words_, files: files_, setup, total, max, share: Math.min(1, total / max) };
+    }
+    // Messages that could be summarised: those before the newest few (cut
+    // at a message of the person's, so what's kept starts with them).
+    function summarisable() {
+      const from = chat.summarisedUpTo || 0;
+      let cut = chat.messages.length - KEEP_RAW;
+      while (cut > from && chat.messages[cut] && chat.messages[cut].role !== 'user') cut--;
+      return { from, cut, count: Math.max(0, cut - from) };
+    }
+    function needsSummary() {
+      const { count } = summarisable();
+      if (count < 2) return false;
+      const unsent = chat.messages.length - (chat.summarisedUpTo || 0);
+      // Too full, or so long the Mac would leave the oldest out (it keeps 80).
+      return (usage().share >= COMPACT_AT && count >= 4) || unsent > 60;
+    }
+    // Summarise the older messages (main.swift, assistant:summarise): the AI
+    // is sent the summary from then on, and the newest messages in full.
+    async function summarise() {
+      const { from, cut, count } = summarisable();
+      if (count < 2) return { ok: false, error: 'There’s nothing old enough to summarise yet.' };
+      const id = chat.id;
+      let r;
+      try { r = await window.api.assistant.summarise(turnsOf(chat.messages.slice(from, cut)), chat.summary || null); } catch (e) { r = { ok: false, error: e.message }; }
+      if (!r || !r.ok || !String(r.summary || '').trim()) return { ok: false, error: (r && r.error) || 'The AI couldn’t summarise the conversation.' };
+      const apply = (c) => { c.summary = String(r.summary).trim(); c.summarisedUpTo = cut; c.summarisedAt = new Date().toISOString(); };
+      if (chat.id === id) { apply(chat); save(chat); } else {
+        // Switched to another chat meanwhile: the summary still goes on its own.
+        const list = readChats();
+        const c = list.find((x) => x.id === id);
+        if (c) { apply(c); writeChats(list); }
+      }
+      return { ok: true, count };
+    }
+    function ringHTML(share) {
+      const r = 7, len = 2 * Math.PI * r;
+      return `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><circle cx="9" cy="9" r="${r}" fill="none" stroke="currentColor" stroke-opacity=".18" stroke-width="2.4"/><circle cx="9" cy="9" r="${r}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="${(len * Math.max(0.02, share)).toFixed(2)} ${len.toFixed(2)}" transform="rotate(-90 9 9)"/></svg>`;
+    }
+    const level = (share) => (share >= 0.85 ? 'full' : share >= 0.6 ? 'high' : 'ok');
+    function drawMeter() {
+      const b = $('ctx');
+      const u = usage();
+      b.className = `as-ctx ${level(u.share)}`;
+      b.innerHTML = `${ringHTML(u.share)}<span>${shortTokens(u.total)}${compact ? '' : ` / ${shortTokens(u.max)}`}</span>`;
+      b.title = `Context window: about ${shortTokens(u.total)} of ${shortTokens(u.max)} tokens (${Math.round(u.share * 100)}%)`;
+      if (!$('ctxpop').classList.contains('hidden')) drawCtxPop();
+    }
+    function drawCtxPop() {
+      const u = usage();
+      const { count } = summarisable();
+      const pct = Math.round(u.share * 100);
+      const done = chat.summary ? chat.summarisedUpTo || 0 : 0;
+      $('ctxpop').innerHTML = `
+        <div class="as-pop-title">Context window</div>
+        <div class="as-bar ${level(u.share)}"><i style="width:${Math.max(1.5, pct)}%"></i></div>
+        <div class="as-pop-big"><b>${shortTokens(u.total)}</b> of ${shortTokens(u.max)} tokens <span>${pct}%</span></div>
+        <div class="as-pop-rows">
+          <div><span>Messages</span><b>${shortTokens(u.words)}</b></div>
+          <div><span>Files read</span><b>${shortTokens(u.files)}</b></div>
+          <div><span>Instructions${compact ? ' and this page' : ''}</span><b>${shortTokens(u.setup)}</b></div>
+        </div>
+        <p class="as-pop-note">${done ? `The first ${done} message${done === 1 ? ' is' : 's are'} summarised. ` : ''}When it passes ${Math.round(COMPACT_AT * 100)}%, older messages are summarised so the AI keeps the gist and stays quick. The newest ${KEEP_RAW} always go in full.</p>
+        <button type="button" class="as-pop-btn" data-act="compact" ${count >= 2 && !busy ? '' : 'disabled'} data-no-icon>Summarise Earlier Messages Now</button>
+        <p class="as-pop-note small">Rough count — about 3½ characters a token. ${esc((ai && (ai.model || ai.defaultModel)) || '')}</p>`;
+    }
+    function toggleCtxPop(force) {
+      const pop = $('ctxpop');
+      const show = force ?? pop.classList.contains('hidden');
+      if (show) { drawCtxPop(); closeSide(); }
+      pop.classList.toggle('hidden', !show);
+      $('ctx').classList.toggle('on', show);
+    }
+    async function compactNow(button) {
+      button.disabled = true;
+      button.textContent = 'Summarising…';
+      const r = await summarise();
+      if (!r.ok) { await window.appAlert(r.error); }
+      draw(false);
+      drawCtxPop();
+    }
+
+    // ---- the chats ----
+    let query = '';
+    const sideOpen = () => !$('side').classList.contains('hidden');
+    function drawSide() {
+      const list = readChats();
+      $('count').textContent = list.length ? String(list.length) : '';
+      const q = query.trim().toLowerCase();
+      const shown = q ? list.filter((c) => (c.title || '').toLowerCase().includes(q)
+        || c.messages.some((m) => String(m.text || '').toLowerCase().includes(q))) : list;
+      let html = '';
+      let group = '';
+      for (const c of shown) {
+        const g = groupOf(c.updatedAt || c.createdAt);
+        if (g !== group) { html += `<div class="as-side-group">${esc(g)}</div>`; group = g; }
+        const n = c.messages.filter((m) => !m.error && !m.interrupted).length;
+        html += `<div class="as-hist${c.id === chat.id ? ' on' : ''}" data-chat="${esc(c.id)}">
+          <button type="button" class="as-hist-open" data-open-chat="${esc(c.id)}" data-no-icon title="${esc(c.title || autoTitle(c))}">
+            <span class="as-hist-title">${esc(c.title || autoTitle(c))}</span>
+            <span class="as-hist-sub">${esc(sentAt(c.updatedAt || c.createdAt))} · ${n} message${n === 1 ? '' : 's'}${c.summary ? ' · summarised' : ''}</span>
+          </button>
+          <span class="as-hist-acts">
+            <button type="button" class="as-hist-act" data-rename-chat="${esc(c.id)}" data-no-icon title="Rename" aria-label="Rename">${SVG.pencil}</button>
+            <button type="button" class="as-hist-act del" data-delete-chat="${esc(c.id)}" data-no-icon title="Delete" aria-label="Delete">${SVG.trash}</button>
+          </span>
+        </div>`;
+      }
+      if (!list.length) html = '<div class="as-side-empty">Your chats appear here. Each is kept on this Mac until you delete it.</div>';
+      else if (!shown.length) html = `<div class="as-side-empty">No chat mentions “${esc(query.trim())}”.</div>`;
+      $('list').innerHTML = html;
+    }
+    function openSide() {
+      if (compact) {
+        const pop = $('side');
+        pop.style.top = `${root.querySelector('.as-head').offsetHeight}px`;
+        toggleCtxPop(false);
+      }
+      $('side').classList.remove('hidden');
+      $('hist').classList.add('on');
+      drawSide();
+      if (compact) setTimeout(() => $('search').focus(), 0);
+    }
+    function closeSide() {
+      if (!compact) return;
+      $('side').classList.add('hidden');
+      $('hist').classList.remove('on');
+    }
+    function toggleSide() {
+      if (compact) { if (sideOpen()) closeSide(); else openSide(); return; }
+      const hide = !root.classList.contains('side-hidden');
+      root.classList.toggle('side-hidden', hide);
+      try { localStorage.setItem(SIDE_KEY, hide ? '1' : ''); } catch (e) { /* not kept */ }
+    }
+    async function switchTo(id) {
+      if (busy) await interrupt();
+      chat = id ? (readChats().find((c) => c.id === id) || fresh()) : fresh();
+      setCurrentId(chat.id);
+      for (const k of Object.keys(picks)) delete picks[k];
+      draw();
+      drawSide();
+      closeSide();
+      input.focus();
+    }
+    async function renameChat(id) {
+      const row = $('list').querySelector(`[data-chat="${CSS.escape(id)}"]`);
+      const list = readChats();
+      const c = list.find((x) => x.id === id);
+      if (!row || !c) return;
+      const box = document.createElement('input');
+      box.type = 'text';
+      box.className = 'as-hist-input';
+      box.value = c.title || autoTitle(c);
+      box.setAttribute('aria-label', 'Chat name');
+      row.classList.add('renaming');
+      row.querySelector('.as-hist-open').replaceWith(box);
+      box.focus();
+      box.select();
+      let done = false;
+      const finish = (keep) => {
+        if (done) return;
+        done = true;
+        const v = box.value.replace(/\s+/g, ' ').trim();
+        if (keep && v) {
+          c.title = v.slice(0, 120);
+          writeChats(list);
+          if (chat.id === id) chat.title = c.title;
+        }
+        drawSide();
+      };
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+      });
+      box.addEventListener('blur', () => finish(true));
+      box.addEventListener('click', (e) => e.stopPropagation());
+    }
+    async function deleteChat(id) {
+      const list = readChats();
+      const c = list.find((x) => x.id === id);
+      if (!c) return;
+      if (!await window.appConfirm(`Delete “${c.title || autoTitle(c)}”?\n\nThe chat is removed from this Mac. Anything it made stays.`, { ok: 'Delete', danger: true })) return;
+      if (busy && chat.id === id) await interrupt();
+      writeChats(list.filter((x) => x.id !== id));
+      if (chat.id === id) { chat = fresh(); setCurrentId(chat.id); draw(); }
+      drawSide();
     }
 
     async function send(textArg) {
@@ -481,10 +824,20 @@
         setTimeout(() => resolve({ ok: false, error: 'The AI didn’t answer in time. Try again, perhaps one thing at a time — or choose a quicker model in Settings › AI Import.' }), 240000);
       });
       try {
-        r = await Promise.race([
-          window.api.assistant.send(history(), files.map((f) => ({ name: f.name, mime: f.mime, base64: f.base64 })), ctx && ctx.payload, run.id),
-          stopped,
-        ]);
+        // Too much for its context window: the older messages are summarised first.
+        if (needsSummary()) {
+          onStep('Summarising earlier messages to make room');
+          const s = await Promise.race([summarise(), stopped]);
+          if (s && s.interrupted) r = s;
+          else if (s && s.ok) onStep(`Summarised ${s.count} earlier message${s.count === 1 ? '' : 's'}`);
+          else onStep('Couldn’t summarise — sending the conversation as it is');
+        }
+        if (!r) {
+          r = await Promise.race([
+            window.api.assistant.send(history(), files.map((f) => ({ name: f.name, mime: f.mime, base64: f.base64 })), ctx && ctx.payload, run.id),
+            stopped,
+          ]);
+        }
       } catch (e) {
         r = { ok: false, error: e.message || 'The assistant couldn’t be reached.' };
       }
@@ -543,6 +896,8 @@
       let s = null;
       try { s = await window.api.ai.status(); } catch (e) { s = null; }
       aiReady = !!(s && s.hasKey);
+      ai = s;
+      drawMeter();
       const names = { gemini: 'Google Gemini', openrouter: 'OpenRouter' };
       $('status').innerHTML = aiReady
         ? `<span class="as-dot on"></span>${compact ? '' : `${esc(names[s.provider] || s.provider)} · `}${esc(s.model || s.defaultModel || '')}`
@@ -575,6 +930,8 @@
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
       if (e.key === 'Escape' && busy) { e.preventDefault(); e.stopPropagation(); interrupt(); return; }
+      if (e.key === 'Escape' && !$('ctxpop').classList.contains('hidden')) { e.preventDefault(); e.stopPropagation(); toggleCtxPop(false); return; }
+      if (e.key === 'Escape' && compact && sideOpen()) { e.preventDefault(); e.stopPropagation(); closeSide(); return; }
       if (e.key === 'Escape' && compact && opts.onClose) { e.preventDefault(); e.stopPropagation(); opts.onClose(); }
     });
     input.addEventListener('paste', (e) => {
@@ -596,14 +953,42 @@
       const b = e.target.closest('[data-unfile]');
       if (b) { pending.splice(Number(b.dataset.unfile), 1); drawFiles(); }
     });
-    $('new').addEventListener('click', async () => {
-      if (!chat.messages.length) return;
-      if (!await window.appConfirm('Start a new conversation?\n\nThis one is cleared from this Mac. Anything already made stays.', { ok: 'New Chat' })) return;
-      chat = { messages: [] };
-      save(chat);
-      draw();
-      input.focus();
+    // A new chat: the one before stays in the list.
+    $('new').addEventListener('click', () => { if (chat.messages.length) switchTo(null); });
+    $('hist').addEventListener('click', toggleSide);
+    $('ctx').addEventListener('click', (e) => { e.stopPropagation(); toggleCtxPop(); });
+    $('ctxpop').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = e.target.closest('[data-act="compact"]');
+      if (b) compactNow(b);
     });
+    // Clicking elsewhere closes the context window's card and the chats list.
+    document.addEventListener('mousedown', (e) => {
+      if (!$('ctxpop').classList.contains('hidden') && !e.target.closest('.as-ctx-pop, .as-ctx')) toggleCtxPop(false);
+      if (compact && sideOpen() && !root.contains(e.target)) closeSide();
+    });
+    $('search').addEventListener('input', (e) => { query = e.target.value; drawSide(); });
+    $('search').addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (query) { query = ''; e.target.value = ''; drawSide(); } else if (compact) { closeSide(); input.focus(); }
+      }
+      if (e.key === 'Enter') { const first = $('list').querySelector('[data-open-chat]'); if (first) first.click(); }
+    });
+    $('list').addEventListener('click', (e) => {
+      const ren = e.target.closest('[data-rename-chat]');
+      if (ren) { e.stopPropagation(); renameChat(ren.dataset.renameChat); return; }
+      const del = e.target.closest('[data-delete-chat]');
+      if (del) { e.stopPropagation(); deleteChat(del.dataset.deleteChat); return; }
+      const openChat = e.target.closest('[data-open-chat]');
+      if (openChat) switchTo(openChat.dataset.openChat);
+    });
+    $('list').addEventListener('dblclick', (e) => {
+      const row = e.target.closest('[data-chat]');
+      if (row && !e.target.closest('input')) renameChat(row.dataset.chat);
+    });
+    if (!compact) { try { if (localStorage.getItem(SIDE_KEY) === '1') root.classList.add('side-hidden'); } catch (e) { /* shown */ } }
     if (compact) {
       $('expand').addEventListener('click', () => (window.appNavigate || ((h) => { location.href = h; }))('assistant.html'));
       $('close').addEventListener('click', () => opts.onClose && opts.onClose());
@@ -647,6 +1032,13 @@
       const open = e.target.closest('.as-open');
       if (open) { (window.appNavigate || ((h) => { location.href = h; }))(open.dataset.href); return; }
       if (e.target.closest('[data-act="stop"]')) { interrupt(); return; }
+      const summ = e.target.closest('[data-act="summary"]');
+      if (summ) {
+        summaryOpen = !summaryOpen;
+        summ.closest('.as-summ').classList.toggle('open', summaryOpen);
+        summ.setAttribute('aria-expanded', String(summaryOpen));
+        return;
+      }
       const copy = e.target.closest('[data-copy]');
       if (copy) {
         const m = chat.messages[Number(copy.dataset.copy)];
@@ -729,7 +1121,7 @@
     checkStatus();
     return {
       // The conversation again (it may have changed on another page).
-      refresh() { if (!busy) { chat = load(); draw(); } checkStatus(); },
+      refresh() { if (!busy) { chat = load(); draw(); } if (sideOpen()) drawSide(); checkStatus(); },
       focus() { input.focus(); },
       busy: () => busy,
     };
