@@ -2,7 +2,7 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 191.
+"## Batch N" section per change, newest at the bottom, up to Batch 195.
 
 ---
 
@@ -65,7 +65,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **192**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **196**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -164,7 +164,7 @@ only by reading the code. Ask the user to check one PDF after updating.
 
 ---
 
-## 5. Recent work (Batches 147–191, newest last)
+## 5. Recent work (Batches 147–195, newest last)
 
 - **147–148:** letter attachments with annexure cover pages; Marketing (client quotation report, Promotions).
 - **149–161: Google Sheets overview**, kept in step both ways.
@@ -254,6 +254,10 @@ only by reading the code. Ask the user to check one PDF after updating.
 - **189:** project folders "<number> <name>" with "<number> BOQ"… inside: `FileStorage.projectFolder` / `projectSubfolder` / `organiseProjectFolder` (run at launch and after a name or code change via `NativeBridge.organiseProjectFolders`); `rebaseFilePaths(moves:)` re-points every stored path (now incl. signed copies, letters, sign requests). Always build paths with `projectSubfolder`, never `projectFolder(...).appendingPathComponent("BOQ")`.
 - **190:** documents filed by quotation series: `<project>/26219-002/26219-002 Quotations` (and BOQ, Delivery Notes, Invoices, Delivery Schedules). `NativeBridge.fileFolder(projectNumber:subfolder:name:docTypeTag:documentNumber:)` picks the folder (series from `AppDatabase.documentSeries`; invoices/DNs via `sourceQuotationId`; else a number found in the file name via `projectDocumentNumbers`); combined exports go to `<n> Other`; no series → project-level `<n> <Kind>`. `fileDocumentsBySeries` moves old files at launch (inside `organiseProjectFolders`, so paths are rebased). New save sites must pass a `folder:` from `fileFolder` to `writeGeneratedFile`.
 - **191:** build fix: `String.replacingOccurrences(options:)` takes `NSString.CompareOptions`, which has no `.anchorsMatchLines`; use an inline `(?m)` in the pattern instead.
+- **192:** every quotation series folder gets all its kind folders (BOQ, Quotations, Delivery Schedules, Delivery Notes, Invoices) even when empty: `NativeBridge.makeSeriesFolders` (launch, opening a project, after `seriesCreatingActions`), with `AppDatabase.seriesByProject()` reading each store once. `fileFolder` falls back to the only series when a project has one; the launch sort also moves iCloud placeholders (`.name.icloud`).
+- **193:** Word preview (js/doc-preview.js): `table-layout: fixed !important` (docx-preview sets `auto` inline, which ignored column widths); `paginate()` splits each section into pages (paragraphs move whole, tables split between rows with the heading row repeated, a bold short paragraph moves with what follows).
+- **194:** the sidebar's User and gear are one link (`.sidebar-user` with `.user-gear` inside) to settings.html#you, active on any Settings page.
+- **195:** task/event sheet: When is one field (day | start – end); labels align with the first line; a new event is for "Me" unless someone is chosen (`forChosen`).
 
 ---
 

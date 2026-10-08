@@ -4489,3 +4489,39 @@ one idea at a time, few words, and pictures that carry the meaning.
 - The italic markup (`*text*`) in custom items used an option the Swift
   compiler rejects; the pattern now says "match at the start of each
   line" itself, so it builds and works the same.
+
+## Batch 192 — A folder for each quotation, with all its folders
+
+- Each quotation series has its own folder in the project, e.g.
+  `26219-001`. Inside it are `26219-001 BOQ`, `26219-001 Quotations`,
+  `26219-001 Delivery Schedules`, `26219-001 Delivery Notes` and
+  `26219-001 Invoices`. They are made as soon as the BOQ or quotation
+  exists, even while they're empty. This happens when ScaffoldPro opens,
+  when a project is opened, and after a BOQ, quotation, delivery note or
+  invoice is made.
+- Old files in the project's own `26219 Quotations`, `26219 BOQ`…
+  folders are sorted into them when ScaffoldPro opens. In a project with
+  only one quotation series, files whose names don't say which document
+  they're from go there too.
+- Files still in iCloud (not downloaded to this Mac) are sorted as well.
+
+## Batch 193 — Word preview: columns and pages
+
+- The client's name and address beside the references no longer squeeze
+  into a narrow column: the preview keeps the document's own column widths.
+- The preview shows the document in pages, as Word does. Long tables carry
+  on to the next page under their heading row. Word may still break a page
+  a line or so differently.
+
+## Batch 194 — You and Settings: one button
+
+- Your name and the gear at the bottom of the sidebar are one button. It
+  opens Settings at You and is highlighted on any Settings page.
+
+## Batch 195 — New event: tidier, and for you
+
+- "When" is one field: the day, then the start and end times, on one line.
+- The labels line up with the first line of what they label, so "For" sits
+  beside its first row of choices.
+- A new event is for "Me" unless you choose someone else, a team or
+  Anyone. New tasks still start as Anyone.
