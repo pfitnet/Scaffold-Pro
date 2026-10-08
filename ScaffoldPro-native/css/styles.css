@@ -2562,3 +2562,16 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 @keyframes qi-spin { to { transform: rotate(360deg); } }
 .qi-setup { font-size: 12.5px; align-self: center; }
 @media (max-width: 760px) { .qi-fields { grid-template-columns: 1fr 1fr; } }
+
+/* A crane job's buy-back offer (quotation editor). */
+.bb-tile { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--content); display: flex; flex-direction: column; gap: 9px; }
+.bb-tile.hidden { display: none; }
+.bb-sentence { font-size: 13px; line-height: 2.1; color: var(--text-secondary); }
+.bb-sentence.off { opacity: .5; }
+.bb-num { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; }
+.bb-num input { width: 64px !important; --control-h: 28px; padding: 0 7px; text-align: right; }
+.bb-num i { font-style: normal; font-size: 12px; color: var(--text-tertiary); }
+.bb-preview { font-size: 12px; line-height: 1.5; color: var(--text-secondary); padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 6%, transparent); border-left: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.bb-preview p { margin: 0 0 3px; }
+.bb-preview p:last-child { margin-bottom: 0; }
+.bb-preview.hidden { display: none; }

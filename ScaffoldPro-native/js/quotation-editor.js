@@ -785,6 +785,42 @@ function renderLetterFields() {
   minOn.disabled = locked;
   document.getElementById('q-min-monthly-label').textContent = `Apply (${currencyLabel} ${money(d.minimumMonthlyCharge ?? 1000)})`;
   document.getElementById('add-delivery-btn').disabled = locked;
+  renderBuyBack(d, locked);
+}
+
+// A crane job's buy-back offer: on by default, with Settings' figures
+// until changed here. The preview is the wording printed.
+const BUYBACK_FIELDS = ['buyBackPercent', 'buyBackAfterMonths', 'buyBackReductionPercent', 'buyBackEndMonths'];
+const BUYBACK_KEYS = { buyBackPercent: 'percent', buyBackAfterMonths: 'afterMonths', buyBackReductionPercent: 'reductionPercent', buyBackEndMonths: 'endMonths' };
+function buyBackSentences(b) {
+  const pc = (v) => `${Number.isInteger(v) ? v : v.toFixed(1)}%`;
+  const months = (n) => `${n} month${n === 1 ? '' : 's'}`;
+  const amount = (p) => (b.basePrice > 0 ? ` (${currencyLabel} ${money(b.basePrice * p / 100)})` : '');
+  const out = [`We offer to buy back the equipment at ${pc(b.percent)} of its price${amount(b.percent)} after ${months(b.afterMonths)}.`];
+  if (b.reductionPercent > 0 && b.endMonths > b.afterMonths) {
+    const last = Math.max(0, b.percent - b.reductionPercent * (b.endMonths - b.afterMonths));
+    out.push(`For each month beyond ${months(b.afterMonths)}, the buy-back price is reduced by ${pc(b.reductionPercent)} of the price — ${pc(last)}${amount(last)} after ${months(b.endMonths)}.`);
+  }
+  out.push(`No buy-back is offered after ${months(Math.max(b.endMonths, b.afterMonths))}.`);
+  return out;
+}
+function renderBuyBack(d, locked) {
+  const tile = document.getElementById('q-buyback');
+  const b = d.buyBack;
+  tile.classList.toggle('hidden', !b);
+  if (!b) return;
+  const on = document.getElementById('q-buyBackEnabled');
+  on.checked = !!b.enabled;
+  on.disabled = locked;
+  for (const f of BUYBACK_FIELDS) {
+    const el = document.getElementById(`q-${f}`);
+    if (document.activeElement !== el) el.value = b[BUYBACK_KEYS[f]];
+    el.disabled = locked || !b.enabled;
+  }
+  document.getElementById('q-buyback-fields').classList.toggle('off', !b.enabled);
+  const preview = document.getElementById('q-buyback-preview');
+  preview.classList.toggle('hidden', !b.enabled);
+  preview.innerHTML = b.enabled ? buyBackSentences(b).map((t) => `<p>${esc(t)}</p>`).join('') : '';
 }
 
 async function saveLetterField(field, value) {
@@ -1135,6 +1171,14 @@ async function init() {
     saveLetterField('minimumMonthlyChargeEnabled', e.target.checked));
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
+  document.getElementById('q-buyBackEnabled').addEventListener('change', (e) => saveLetterField('buyBackEnabled', e.target.checked));
+  for (const f of BUYBACK_FIELDS) {
+    document.getElementById(`q-${f}`).addEventListener('change', (e) => {
+      const v = e.target.value.trim();
+      // Blank: back to Settings' figure.
+      saveLetterField(f, v === '' ? null : Math.max(0, f.endsWith('Months') ? Math.round(Number(v)) : Number(v)) || 0);
+    });
+  }
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('split-btn').addEventListener('click', splitQuotation);
   document.getElementById('revert-split-btn').addEventListener('click', revertSplit);
