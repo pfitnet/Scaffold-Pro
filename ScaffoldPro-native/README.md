@@ -4584,3 +4584,22 @@ one idea at a time, few words, and pictures that carry the meaning.
 - The project's own `Drawings`, `Documents`, `Other` and `Letters` folders
   are only made when something goes in them, and are removed while
   they're empty.
+
+## Batch 201 — Split, redesigned, with "Keep here"
+
+- Split… has two ways to work, chosen at the top (and remembered):
+  - **Move to new**: tick what goes to the new quotation; change "Goes to
+    new" to move only part of an item.
+  - **Keep here**: say how many of each item stay on this quotation, and
+    everything over that goes to the new one. Tick the items, type e.g. 100
+    in "Keep [ ] of each ticked item" and Apply; or type in each row.
+- Every item shows both sides, "Stays here" → "Goes to new". Typing in
+  either sets the other. Rows that aren't being split read as plain
+  figures, and split rows are highlighted with the amount moving.
+- A find box narrows the list. Return, ↑ and ↓ move between rows' boxes.
+  Clicking anywhere on a row ticks it.
+- Two cards at the bottom show what stays and what goes (lines, sections
+  and amounts) as you go. A line under them says what's still needed
+  before Split can be pressed.
+- When part of an item's deliveries could come from more than one day, its
+  row asks which days, with an "All" button for each.
