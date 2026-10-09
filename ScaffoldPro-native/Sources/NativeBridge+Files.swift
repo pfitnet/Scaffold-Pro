@@ -717,12 +717,7 @@ extension NativeBridge {
                 self.respondNull(id: id)
                 return
             }
-            let subfolder: String
-            switch category {
-            case "Employment Contract": subfolder = "Contracts"
-            case "Certification", "Training Certificate": subfolder = "Certificates"
-            default: subfolder = "Other"
-            }
+            let subfolder = NativeBridge.workerDocumentFolder(category)
             self.addEachFile(id: id, urls: panel.urls) { sourceURL -> WorkerDocument in
                 let originalName = sourceURL.lastPathComponent
                 let destination = try self.storage.copyFile(
@@ -732,6 +727,40 @@ extension NativeBridge {
                 )
                 return self.db.recordWorkerDocument(workerId: worker.id, originalName: originalName, category: category, expiryDate: expiryDate, storedURL: destination)
             }
+        }
+    }
+
+    /// The worker's folder a kind of document goes in.
+    static func workerDocumentFolder(_ category: String) -> String {
+        switch category {
+        case "Employment Contract": return "Contracts"
+        case "Certification", "Training Certificate": return "Certificates"
+        default: return "Other"
+        }
+    }
+
+    /// A file dropped on the Workers page's Documents tab: saved in the
+    /// worker's folder like one chosen with Add Files…, with no expiry date
+    /// (one can be added on its card later).
+    func handleAddWorkerDocumentFile(id: String, workerId: String, category: String, fileName: String, base64: String) {
+        guard let worker = db.getWorker(id: workerId) else {
+            respond(id: id, encodable: FileActionResult(ok: false, error: "Worker not found."))
+            return
+        }
+        let originalName = (fileName as NSString).lastPathComponent.replacingOccurrences(of: ":", with: "-")
+        guard !originalName.isEmpty, !originalName.hasPrefix("."), let data = Data(base64Encoded: base64), !data.isEmpty else {
+            respond(id: id, encodable: FileActionResult(ok: false, error: "\(fileName.isEmpty ? "That file" : fileName) couldn't be read."))
+            return
+        }
+        let folder = storage.workerFolder(worker.workerNumber).appendingPathComponent(NativeBridge.workerDocumentFolder(category), isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let destination = storage.uniqueDestination(folder.appendingPathComponent("\(worker.workerNumber)_\(category.replacingOccurrences(of: " ", with: ""))_\(originalName)"))
+            try data.write(to: destination, options: .atomic)
+            _ = db.recordWorkerDocument(workerId: worker.id, originalName: originalName, category: category, expiryDate: nil, storedURL: destination)
+            respond(id: id, encodable: FileActionResult(ok: true, error: nil))
+        } catch {
+            respond(id: id, encodable: FileActionResult(ok: false, error: "\(originalName) couldn't be saved in the worker's folder: \(error.localizedDescription)"))
         }
     }
 

@@ -613,6 +613,8 @@
     workerDocuments: {
       list: (workerId) => callNative('workerDocuments:list', { workerId: workerId }),
       upload: (workerId, category, expiryDate) => callNative('workerDocuments:upload', { workerId: workerId, category: category, expiryDate: expiryDate || null }),
+      // A file dropped on the page (no expiry date) → { ok, error }.
+      addFile: (workerId, category, fileName, base64) => callNative('workerDocuments:addFile', { workerId: workerId, category: category, fileName: fileName, base64: base64 }),
       update: (id, changes) => callNative('workerDocuments:update', Object.assign({ id: id }, changes)),
       archive: (id) => callNative('workerDocuments:archive', { id: id }),
       removeReference: (id) => callNative('workerDocuments:removeReference', { id: id }),

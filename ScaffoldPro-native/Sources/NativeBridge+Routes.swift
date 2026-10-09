@@ -1207,6 +1207,9 @@ extension NativeBridge {
             let category = (payload["category"] as? String) ?? "Other"
             let expiryDate = payload["expiryDate"] as? String
             handleUploadWorkerDocument(id: id, workerId: workerId, category: category, expiryDate: (expiryDate?.isEmpty ?? true) ? nil : expiryDate)
+        case "workerDocuments:addFile":
+            handleAddWorkerDocumentFile(id: id, workerId: (payload["workerId"] as? String) ?? "", category: (payload["category"] as? String) ?? "Other",
+                                        fileName: (payload["fileName"] as? String) ?? "", base64: (payload["base64"] as? String) ?? "")
         case "workerDocuments:update":
             let docId = (payload["id"] as? String) ?? ""
             let description = payload["description"] as? String

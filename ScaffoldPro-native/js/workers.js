@@ -133,7 +133,7 @@
       ['C', '其他內容'], ['10', '合約終止', `欲終止合約方須於終止前 ${mark(String(a.noticeDays ?? 7))} 天前通知對方，或支付對方相等於 ${mark(String(a.noticeDays ?? 7))} 天工資`],
     ];
     return `<div class="wk-paper-head"><span class="wk-lh"><b>P</b>ROFICIENCY</span><span class="wk-lh-sub">建機（香港）設備有限公司 <b>(HK)</b> LIMITED</span></div>
-      <div class="wk-paper-title">簡易僱傭合約 <small>Simple Employment Agreement</small></div>
+      <div class="wk-paper-title">簡易僱傭合約 <small>Site-work Employment Agreement</small></div>
       <p class="wk-paper-intro">本簡易僱傭合約由 建機（香港）設備有限公司（下稱「僱主」）與 ${mark(name, '僱員姓名')} ${esc(w.honorific || '先生')}（下簡稱「僱員」）於 ${mark(a.agreementDate ? cDate(a.agreementDate) : '', '合約日期')}（下稱「合約日期」）訂立：</p>
       <dl class="wk-paper-terms">${terms.map((t) => (t.length === 2
         ? `<dt class="sec">${esc(t[0])}.</dt><dd class="sec">${esc(t[1])}</dd>`
@@ -570,7 +570,7 @@
         </div>
         <div class="wk-doc-tools">
           ${d.fileExists ? `<button type="button" data-doc-act="open" data-no-icon>Open</button><button type="button" data-doc-act="reveal" title="Show in Finder" data-no-icon>Finder</button>` : '<button type="button" data-doc-act="relink" data-no-icon>Find…</button>'}
-          <label class="wk-doc-exp" title="Expiry date">${I.cal}<input type="date" data-doc-exp value="${esc((d.expiryDate || '').slice(0, 10))}" /></label>
+          <label class="wk-doc-exp" title="Expiry date (optional) — you’re reminded 30 days before">${I.cal}<input type="date" data-doc-exp value="${esc((d.expiryDate || '').slice(0, 10))}" /></label>
           <button type="button" class="wk-icon small" data-doc-act="archive" title="Archive" aria-label="Archive" data-no-icon>${I.archive}</button>
         </div>
       </article>`;
@@ -578,15 +578,35 @@
     return `<div class="wk-docs">
       <div class="wk-drop big" data-drop="docs">
         <span class="wk-row-icon">${I.upload}</span>
-        <span class="wk-row-text"><b>Add certificates, ID or other documents</b><small>Choose the kind and, if it has one, when it expires — you’re reminded 30 days before.</small></span>
+        <span class="wk-row-text"><b>Add certificates, ID or other documents</b><small>Choose the kind, then add or drop the files. Expiry dates are optional.</small></span>
         <span class="wk-row-actions">
           <select id="wk-doc-cat">${CATEGORIES.map((c) => `<option>${c}</option>`).join('')}</select>
-          <label class="wk-doc-exp field" title="Expires (optional)">${I.cal}<input type="date" id="wk-doc-exp" /></label>
           <button type="button" class="primary" data-act="add-docs" data-no-icon>Add Files…</button>
         </span>
       </div>
-      ${docs.length ? `<div class="wk-doc-grid">${tiles}</div>` : '<div class="wk-list-empty soft"><b>No documents yet</b><span>Green cards, safety training, ID — with reminders before they expire.</span></div>'}
+      ${docs.length ? `<div class="wk-doc-grid">${tiles}</div>` : '<div class="wk-list-empty soft"><b>No documents yet</b><span>Green cards, safety training, ID and more. Drop files here or use Add Files….</span></div>'}
     </div>`;
+  }
+  // Files dropped on the Documents tab: added as the chosen kind, no expiry needed.
+  async function addDroppedDocuments(files) {
+    const cat = $('wk-doc-cat') ? $('wk-doc-cat').value : 'Other';
+    const read = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const failed = [];
+    let added = 0;
+    for (const file of files) {
+      try {
+        const r = await api().workerDocuments.addFile(selectedId, cat, file.name, await read(file));
+        if (r && r.ok === false) failed.push(r.error); else added++;
+      } catch (e) { failed.push(`${file.name}: ${e.message}`); }
+    }
+    if (added) toast(`${added} document${added === 1 ? '' : 's'} added`);
+    await refreshDocs();
+    if (failed.length) await window.appAlert(`Not every document could be added.\n\n${failed.join('\n')}`);
   }
   async function refreshDocs() {
     docs = await api().workerDocuments.list(selectedId);
@@ -669,7 +689,7 @@
       case 'open-copy': { const r = await api().workerAgreements.file(a.id, 'signed', 'open'); if (r && r.ok === false) window.appAlert(r.error); break; }
       case 'reveal-copy': { const r = await api().workerAgreements.file(a.id, 'signed', 'reveal'); if (r && r.ok === false) window.appAlert(r.error); break; }
       case 'add-docs': {
-        try { await api().workerDocuments.upload(w.id, $('wk-doc-cat').value, $('wk-doc-exp').value); } catch (e) { await window.appAlert(`Not every document could be added.\n\n${e.message}`); }
+        try { await api().workerDocuments.upload(w.id, $('wk-doc-cat').value, null); } catch (e) { await window.appAlert(`Not every document could be added.\n\n${e.message}`); }
         await refreshDocs();
         break;
       }
@@ -827,9 +847,7 @@
       const files = [...e.dataTransfer.files];
       if (!files.length) return;
       if (tab === 'agreement' && page && page.agreement) { storeSignedFile(files[0]); return; }
-      if (tab === 'documents') {
-        await window.appAlert('Use Add Files… to add documents — choose the kind and expiry first, so the reminders work.');
-      }
+      if (tab === 'documents') addDroppedDocuments(files);
     });
 
     // The new-worker sheet.
