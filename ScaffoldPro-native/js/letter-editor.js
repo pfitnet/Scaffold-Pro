@@ -199,7 +199,7 @@ async function init() {
     clearTimeout(saveTimer); saveTimer = null;
     const r = await window.api.letters.remove(letterId, force);
     if (r && r.ok === false) { alert(r.error); return; }
-    location.href = document.getElementById('back-link').href;
+    window.goTo(document.getElementById('back-link').href);
   });
   // Don't lose the last few keystrokes when leaving the page.
   window.addEventListener('beforeunload', () => { if (saveTimer) saveBody(); });

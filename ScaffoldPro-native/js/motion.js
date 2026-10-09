@@ -22,33 +22,22 @@
   };
 
   // ---------- Page in / out ----------
-  // In the Mac app the window keeps a picture of the page being left until
-  // this one has drawn, then crossfades (main.swift, NativeBridge's
-  // WKNavigationDelegate): no fade out or rise in here, or the window shows
-  // an empty page in between. ScaffoldPro Web in a browser keeps them.
-  const web = !!window.__scaffoldProWeb;
-  if (!reduce && web) {
-    root.classList.add('page-enter');
-    setTimeout(() => root.classList.remove('page-enter'), 1400);
-  }
+  // Links to another page go through window.appNavigate (js/sidebar.js),
+  // which fades this page out first; the next one fades in (css/styles.css).
   document.addEventListener('click', (e) => {
-    if (reduce || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target.closest && e.target.closest('a[href]');
-    if (!a || a.target === '_blank') return;
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
     const href = a.getAttribute('href') || '';
     if (!/\.html(\?|#|$)/.test(href) || /^[a-z]+:/i.test(href)) return;
     if (a.pathname === location.pathname && a.search === location.search) return;
     // Remember where the sidebar marker was, so it slides from there.
     const ink = document.querySelector('#sidebar .nav-ink');
     if (ink) store.set('inkTop', String(parseFloat(ink.style.top) || 0));
-    if (!web) return;
-    // Leave at once (nothing waits on the input path); the page fades
-    // while the next one loads.
-    root.classList.add('page-leave');
-    // Still here (the page couldn't be opened): show this one again.
-    setTimeout(() => root.classList.remove('page-leave'), 2500);
+    if (typeof window.appNavigate !== 'function') return;
+    e.preventDefault();
+    window.appNavigate(a.href);
   });
-  window.addEventListener('pageshow', () => root.classList.remove('page-leave'));
 
   // ---------- Sidebar marker ----------
   function placeNavInk(animate) {

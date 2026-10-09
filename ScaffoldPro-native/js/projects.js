@@ -517,7 +517,7 @@ async function saveProject() {
     await window.api.projects.uploadDrawing(result.project.projectNumber);
   }
   closeModal();
-  location.href = `project-detail.html?number=${result.project.projectNumber}${document.getElementById('f-uploadDrawing').checked ? '&tab=files' : ''}`;
+  window.goTo(`project-detail.html?number=${result.project.projectNumber}${document.getElementById('f-uploadDrawing').checked ? '&tab=files' : ''}`);
 }
 
 // ⌘N from the menu bar lands here with ?new=1.

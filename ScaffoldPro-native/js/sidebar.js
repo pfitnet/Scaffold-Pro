@@ -43,9 +43,21 @@ window.appNavigate = async function appNavigate(target) {
   if (typeof window.leaveNeedsAsk === 'function' && window.leaveNeedsAsk() && typeof window.askBeforeLeave === 'function') {
     if (!(await window.askBeforeLeave())) return false;
   }
-  if (typeof target === 'function') target(); else location.href = target;
+  if (typeof target === 'function') { target(); return true; }
+  await fadeOutPage();
+  location.href = target;
   return true;
 };
+// The page fades out before the next one opens (css/styles.css). If it
+// can't be left after all (still here later), it comes back.
+function fadeOutPage() {
+  const root = document.documentElement;
+  if (!document.getElementById('content') || root.classList.contains('page-leave')) return Promise.resolve();
+  root.classList.add('page-leave');
+  setTimeout(() => root.classList.remove('page-leave'), 3000);
+  return new Promise((done) => setTimeout(done, 300));
+}
+window.addEventListener('pageshow', () => document.documentElement.classList.remove('page-leave'));
 document.addEventListener('click', (e) => {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
   const a = e.target.closest && e.target.closest('a[href]');

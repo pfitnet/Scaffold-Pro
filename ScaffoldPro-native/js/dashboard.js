@@ -166,7 +166,7 @@ function table(container, rows, columns, emptyText, rowClass = '') {
   el.innerHTML = `<table class="compact"><tbody>${rows.map((r) =>
     `<tr class="link-row${rowClass ? ` ${rowClass}` : ''}" data-url="${r.url}">${columns.map((c) => `<td class="${c.cls || ''}">${c.value(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   for (const tr of el.querySelectorAll('tr[data-url]')) {
-    tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+    tr.addEventListener('click', () => { window.goTo(tr.dataset.url); });
   }
   limitList(el);
 }
@@ -198,7 +198,7 @@ function renderRecentDocs(list) {
         <td class="muted num">${when(r.lastEditedAt || r.updatedAt)}</td></tr>`).join('')}</tbody></table></section>`;
   }).join('');
   box.dataset.grow = '';
-  for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+  for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { window.goTo(tr.dataset.url); });
   if (all.length > SHOWN) box.appendChild(moreButtons(box, showing, all.length, 0, () => renderRecentDocs(all)));
 }
 
@@ -255,7 +255,7 @@ function renderAwaitingQuotations(summary) {
   };
   for (const tr of list.querySelectorAll('tr.quote-row')) {
     const id = tr.dataset.id;
-    tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+    tr.addEventListener('click', () => { window.goTo(tr.dataset.url); });
     tr.querySelector('.quote-actions').addEventListener('click', (e) => e.stopPropagation());
     tr.querySelector('.upload-signed-btn').addEventListener('click', async () => {
       if (await window.signedCopy.upload(id)) await refresh();
@@ -290,7 +290,7 @@ function pickProjectThen(title, tab, startNew) {
   const modal = document.getElementById('pick-project-modal');
   modal.classList.remove('hidden');
   document.getElementById('pick-go-btn').onclick = () => {
-    location.href = `project-detail.html?number=${document.getElementById('pick-project-select').value}&tab=${tab}${startNew ? '&new=1' : ''}`;
+    window.goTo(`project-detail.html?number=${document.getElementById('pick-project-select').value}&tab=${tab}${startNew ? '&new=1' : ''}`);
   };
 }
 
@@ -443,7 +443,7 @@ async function loadDashboard() {
     box.innerHTML = `
       <span>${daysSince === null ? 'You haven\u2019t made a backup yet.' : `Your last backup was ${daysSince} days ago.`}
         A backup protects all projects, drawings and documents.</span>
-      <button onclick="location.href='settings.html#backup'">Back Up Now…</button>`;
+      <button onclick="window.goTo(\'settings.html#backup\')">Back Up Now…</button>`;
     box.classList.remove('hidden');
   }
 }
@@ -453,7 +453,7 @@ async function loadDashboard() {
 // the project first, then open that project's tab and start the new one.
 const QA_SVG = (paths) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const QUICK_ACTIONS = [
-  { label: 'Project', color: '#5B7DB1', icon: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/><path d="M10 9v4.5M7.75 11.25h4.5"/>', go: () => { location.href = 'projects.html?new=1'; } },
+  { label: 'Project', color: '#5B7DB1', icon: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/><path d="M10 9v4.5M7.75 11.25h4.5"/>', go: () => { window.goTo('projects.html?new=1'); } },
   { label: 'Quotation', color: '#8E72A8', icon: '<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="M7 11h6M7 14h4"/>', go: () => pickProjectThen('New Quotation — Choose a Project', 'quotations', true) },
   { label: 'BOQ', color: '#4F8A8F', icon: '<rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 7.5h14M3 11.5h14M8 7.5v9"/>', go: () => pickProjectThen('New BOQ — Choose a Project', 'boq', true) },
   { label: 'Delivery Note', color: '#5E8C6A', icon: '<path d="M2.5 5.5h9v8h-9z"/><path d="M11.5 8.5h3l2.5 2.5v2.5h-5.5"/><circle cx="6" cy="14.5" r="1.5"/><circle cx="14" cy="14.5" r="1.5"/>', go: () => pickProjectThen('New Delivery Note — Choose a Project', 'delivery', true) },
@@ -461,9 +461,9 @@ const QUICK_ACTIONS = [
   { label: 'Task', color: '#6E8F4E', icon: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>', go: newTaskQuick },
   { label: 'Inspection', color: '#B07A5E', icon: '<path d="M10 2.5 16 5v4.5c0 3.8-2.6 6.7-6 8-3.4-1.3-6-4.2-6-8V5z"/><path d="m7.3 10 2 2 3.6-4"/>', go: () => pickProjectThen('Record Inspection — Choose a Project', 'inspections', true) },
   { label: 'Letter', color: '#7A7F9A', icon: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>', go: () => pickProjectThen('New Letter — Choose a Project', 'letters', true) },
-  { label: 'Client', color: '#9A8458', icon: '<rect x="4" y="3" width="12" height="14" rx="1.2"/><path d="M7 6.5h2M11 6.5h2M7 9.5h2M11 9.5h2M8.5 17v-3h3v3"/>', go: () => { location.href = 'clients.html?new=1'; } },
-  { label: 'Site', color: '#B0705E', icon: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>', go: () => { location.href = 'clients.html?newSite=1'; } },
-  { label: 'Lead', color: '#4F7FA0', icon: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>', go: () => { location.href = 'marketing.html?tab=leads&new=1'; } },
+  { label: 'Client', color: '#9A8458', icon: '<rect x="4" y="3" width="12" height="14" rx="1.2"/><path d="M7 6.5h2M11 6.5h2M7 9.5h2M11 9.5h2M8.5 17v-3h3v3"/>', go: () => { window.goTo('clients.html?new=1'); } },
+  { label: 'Site', color: '#B0705E', icon: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>', go: () => { window.goTo('clients.html?newSite=1'); } },
+  { label: 'Lead', color: '#4F7FA0', icon: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>', go: () => { window.goTo('marketing.html?tab=leads&new=1'); } },
 ];
 
 // The New Task row at the top of My Tasks — the Quick Actions look.
