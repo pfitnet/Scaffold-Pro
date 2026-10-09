@@ -242,15 +242,20 @@ extension AppDatabase {
         var missing: [String] = []
         if nonBlank(worker.idNumber) == nil { missing.append("the worker’s ID card number") }
         if let a = a, let who = nonBlank(a.signatory), nonBlank(membership(who)?.idNumber) == nil {
-            missing.append("\(who)’s ID card number (Team page)")
+            missing.append("\(fullName(who))’s ID card number (Team page)")
         }
+        if let a = a, let who = nonBlank(a.signatory), nonBlank(membership(who)?.fullName) == nil {
+            missing.append("\(who)’s full name (Team page)")
+        }
+        var names: [String: String] = [:]
+        for n in agreementSigners() + [a?.signatory, a?.employerSignedBy].compactMap({ $0 }) { names[n] = fullName(n) }
         return WorkerAgreementPage(
             agreement: a, number: workerAgreementNumber(worker), signers: agreementSigners(), me: me,
             canSign: membership(me)?.canSignAgreements == true,
             hasSignature: FileManager.default.fileExists(atPath: signatureImageURL(me, "signature").path),
             employerSignedExists: a?.employerSignedPath.map { fileIsPresent($0) } ?? false,
             signedCopyExists: a?.signedCopyPath.map { fileIsPresent($0) } ?? false,
-            missing: missing)
+            missing: missing, fullNames: names)
     }
 
     /// The agreement's words: the worker's and the terms' details in the
@@ -293,7 +298,7 @@ extension AppDatabase {
                 ]),
             ]),
         ]
-        let signerName = nonBlank(signer) ?? ""
+        let signerName = nonBlank(signer).map { fullName($0) } ?? ""
         let signerId = nonBlank(signer).flatMap { membership($0)?.idNumber }.flatMap { nonBlank($0) } ?? ""
         return AgreementContent(
             intro: "本簡易僱傭合約由 \(employer)（下稱「僱主」）與 \(name) \(honorific)（下簡稱「僱員」）於 \(chineseDate(a.agreementDate))（下稱「合約日期」）訂立，雙方同意遵守下列僱傭條款：",

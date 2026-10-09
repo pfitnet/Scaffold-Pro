@@ -998,11 +998,12 @@ extension AppDatabase {
     func setMyTeam(_ raw: String?) -> String? {
         let me = TeamSync.memberName
         guard nonBlank(me) != nil else { return "Enter your name first." }
-        return setPerson(name: me, team: .some(raw), title: nil, canSign: nil, canSignAgreements: nil, idNumber: nil)
+        return setPerson(name: me, team: .some(raw), title: nil, canSign: nil, canSignAgreements: nil, idNumber: nil, fullName: nil)
     }
 
-    /// A person's team, title and whether they sign (each only when given).
-    func setPerson(name rawName: String, team: String??, title: String??, canSign: Bool?, canSignAgreements: Bool?, idNumber: String??) -> String? {
+    /// A person's team, title, full name and whether they sign (each only when given).
+    func setPerson(name rawName: String, team: String??, title: String??, canSign: Bool?, canSignAgreements: Bool?, idNumber: String??,
+                   fullName: String??) -> String? {
         guard let name = nonBlank(rawName) else { return "Choose a person." }
         var all = teamMembershipsStore.readAll()
         var row = all.first { $0.id == name.lowercased() } ?? TeamMembership(id: name.lowercased(), name: name, team: nil, updatedAt: nowISO())
@@ -1014,15 +1015,24 @@ extension AppDatabase {
         if let canSign = canSign { row.canSign = canSign ? true : nil }
         if let canSignAgreements = canSignAgreements { row.canSignAgreements = canSignAgreements ? true : nil }
         if let idNumber = idNumber { row.idNumber = nonBlank(idNumber)?.uppercased() }
+        if let fullName = fullName { row.fullName = nonBlank(fullName) }
         row.updatedAt = nowISO()
         all.removeAll { $0.id == row.id }
-        if row.team != nil || row.title != nil || row.canSign == true || row.canSignAgreements == true || row.idNumber != nil { all.append(row) }
+        if row.team != nil || row.title != nil || row.canSign == true || row.canSignAgreements == true || row.idNumber != nil || row.fullName != nil {
+            all.append(row)
+        }
         teamMembershipsStore.writeAll(all)
         return nil
     }
 
     func membership(_ name: String) -> TeamMembership? {
         teamMembershipsStore.readAll().first { $0.id == name.lowercased() }
+    }
+
+    /// The name printed with someone's signature and chop: their full name
+    /// from the Team page, else their ScaffoldPro name.
+    func fullName(_ name: String) -> String {
+        nonBlank(membership(name)?.fullName) ?? name
     }
 
     // ---- The Team page: people and their devices ----
@@ -1068,7 +1078,8 @@ extension AppDatabase {
                                      isMe: key == me.lowercased(), devices: devices[key] ?? [],
                                      employeeNumber: e?.employeeNumber, position: e?.position, phone: e?.phone,
                                      hasSignature: fm.fileExists(atPath: signatureImageURL(name, "signature").path),
-                                     hasChop: fm.fileExists(atPath: signatureImageURL(name, "chop").path)))
+                                     hasChop: fm.fileExists(atPath: signatureImageURL(name, "chop").path),
+                                     fullName: m?.fullName))
         }
         people.sort { a, b in
             if a.isMe != b.isMe { return a.isMe }
@@ -1140,7 +1151,7 @@ extension AppDatabase {
             signRequestsStore.writeAll(all)
         }
         if let p = path, fileIsPresent(p) { try? FileManager.default.trashItem(at: URL(fileURLWithPath: p), resultingItemURL: nil) }
-        logActivity(projectId: q.projectId, "\(signer)’s signature and chop withdrawn by \(TeamSync.memberName)", reference: q.quotationNumber)
+        logActivity(projectId: q.projectId, "\(fullName(signer))’s signature and chop withdrawn by \(fullName(TeamSync.memberName))", reference: q.quotationNumber)
         return nil
     }
 
@@ -1162,13 +1173,14 @@ extension AppDatabase {
             var qs = quotationsStore.readAll()
             if let qi = qs.firstIndex(where: { $0.id == q.id }) { qs[qi] = q; quotationsStore.writeAll(qs) }
         }
+        let signerName = fullName(r.signer)
         let message = signed
-            ? "\(r.number) has been signed and chopped by \(r.signer). The signed copy is saved in project \(r.projectNumber)’s Quotations folder."
-            : "\(r.signer) didn’t sign \(r.number)\(r.reply.map { ": \($0)" } ?? ".")"
+            ? "\(r.number) has been signed and chopped by \(signerName). The signed copy is saved in project \(r.projectNumber)’s Quotations folder."
+            : "\(signerName) didn’t sign \(r.number)\(r.reply.map { ": \($0)" } ?? ".")"
         announcementsStore.insert(Announcement(id: makeId("announcement"), message: message, audience: "@" + r.requestedBy.lowercased(),
                                                author: r.signer, createdAt: nowISO(), showUntil: nil, important: !signed, dismissedBy: []))
         if let project = getProjectByNumber(r.projectNumber) {
-            logActivity(projectId: project.id, signed ? "Signed and chopped by \(r.signer)" : "Not signed by \(r.signer)", reference: r.number)
+            logActivity(projectId: project.id, signed ? "Signed and chopped by \(signerName)" : "Not signed by \(signerName)", reference: r.number)
         }
         return nil
     }

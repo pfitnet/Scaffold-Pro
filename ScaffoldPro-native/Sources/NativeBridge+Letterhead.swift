@@ -528,15 +528,21 @@ extension NativeBridge {
 
     /// A quotation's own pages as a PDF, as it's set to print (portrait
     /// letterhead or the landscape BQ sheet), signed if pictures are given.
-    func quotationPDFData(_ detail: QuotationDetail, signature: CGImage? = nil, chop: CGImage? = nil) -> Data? {
+    /// `signer`: who signed and chopped it; their full name and title (Team
+    /// page) are printed under the signature instead of Settings' signatory.
+    func quotationPDFData(_ detail: QuotationDetail, signature: CGImage? = nil, chop: CGImage? = nil, signer: String? = nil) -> Data? {
         let company = db.getCompanySettings()
         if detail.orientation == "Landscape" {
-            return BQSheetRenderer.pdf(quotationSheetLayout(detail), signature: signature, chop: chop)
+            return BQSheetRenderer.pdf(quotationSheetLayout(detail, signer: signer), signature: signature, chop: chop)
         }
         var letter = quotationLetter(detail, company: company)
         if signature != nil, let i = letter.signatures.firstIndex(where: { $0.heading == "For and on Behalf of" }) {
             letter.signatures[i].signatureImage = signature
             letter.signatures[i].chopImage = chop
+            if let signer = nonBlank(signer) {
+                let title = nonBlank(db.membership(signer)?.title) ?? nonBlank(company.signatoryTitle)
+                letter.signatures[i].lines = [LetterSignatureLine(text: db.fullName(signer))] + [title].compactMap { $0 }.map { LetterSignatureLine(text: $0) }
+            }
         }
         return PDFGenerator(paperSize: company.paperSize ?? "A4")?.generate(letter)
     }
@@ -548,7 +554,7 @@ extension NativeBridge {
     /// Amount; rates after it; notes; the terms and conditions; and the
     /// signature block ("For and On Behalf of" / "Accepted By"). All on one
     /// page, shrunk to fit if need be.
-    func quotationSheetLayout(_ detail: QuotationDetail) -> SheetLayout {
+    func quotationSheetLayout(_ detail: QuotationDetail, signer: String? = nil) -> SheetLayout {
         let company = db.getCompanySettings()
         let project = db.getProjectByNumber(detail.projectNumber)
         let client = project.flatMap { db.getClient(id: $0.clientId) }
@@ -635,7 +641,9 @@ extension NativeBridge {
             lines: lines, grandTotal: detail.materialsSubtotal, totalWeightKg: totalWeight,
             ratesSection: rates, charges: charges, notes: nonBlank(notes),
             terms: terms.joined(separator: "\n\n"), chinese: inChinese,
-            signature: (company: company.companyName, name: company.signatoryName ?? "", title: company.signatoryTitle ?? "",
+            signature: (company: company.companyName,
+                        name: nonBlank(signer).map { db.fullName($0) } ?? company.signatoryName ?? "",
+                        title: nonBlank(signer).flatMap { nonBlank(db.membership($0)?.title) } ?? company.signatoryTitle ?? "",
                         client: client?.companyName ?? detail.clientName ?? ""),
             extraInfo: [("Quotation No. :", detail.quotationNumber, "Date               :", letterDate(detail.quotationDate))],
             onePage: true)

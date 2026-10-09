@@ -4889,3 +4889,20 @@ one idea at a time, few words, and pictures that carry the meaning.
 - Checked by driving the letter editor in a browser with a stand-in for
   the Mac side: the Export menu shows Word, the preview opens, and Save
   sends the file to the project's Letters folder.
+
+## Batch 220 — Full names with signatures and chops
+
+- **Team › People › a person** has a new **Full name** field (e.g.
+  "William Chan"). Blank means their ScaffoldPro name is used, as before.
+- **Signed quotations** (portrait letter and landscape BQ sheet) print the
+  signer's full name and their own title (Team page) under the signature
+  and chop, instead of the signatory from Settings. Unsigned quotations
+  still print the Settings signatory.
+- **Worker agreements** print the employer signer's full name in the PDF
+  and the Word copy. The Workers page shows full names in the preview, the
+  steps, "Signed for the company by" and the signing messages.
+  "Still to fill in" asks for the signer's full name until it's set.
+- The "signed and chopped by …" notice and activity lines use the full name.
+- People are still stored by their ScaffoldPro name, so nothing already
+  signed changes. Not checked on a Mac: the Swift was read and parsed, not
+  compiled.

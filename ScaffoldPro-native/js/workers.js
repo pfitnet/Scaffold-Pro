@@ -47,6 +47,8 @@
   let query = '';
   let tab = store.get('tab', 'agreement');
   let page = null;   // the chosen worker's agreement (workerAgreements:get)
+  // A signer's full name (Team page), else their ScaffoldPro name.
+  const person = (n) => (page && page.fullNames && page.fullNames[n]) || n;
   let docs = [];
 
   // ---- small helpers ----
@@ -136,7 +138,7 @@
       <dl class="wk-paper-terms">${terms.map((t) => (t.length === 2
         ? `<dt class="sec">${esc(t[0])}.</dt><dd class="sec">${esc(t[1])}</dd>`
         : `<dt>${esc(t[0])}.</dt><dd><span>${esc(t[1])}</span><span>：</span><span>${t[2]}</span></dd>`)).join('')}</dl>
-      ${opts.short ? '' : `<div class="wk-paper-sign"><div><span>僱主或其代表簽署</span><i></i><b>${esc((page && (page.agreement.employerSignedBy || page.agreement.signatory)) || '')}</b></div><div><span>僱員簽署</span><i></i><b>${esc(name)}</b><small>身份證號碼：${esc(w.idNumber || '')}</small></div></div>`}`;
+      ${opts.short ? '' : `<div class="wk-paper-sign"><div><span>僱主或其代表簽署</span><i></i><b>${esc(person((page && (page.agreement.employerSignedBy || page.agreement.signatory)) || ''))}</b></div><div><span>僱員簽署</span><i></i><b>${esc(name)}</b><small>身份證號碼：${esc(w.idNumber || '')}</small></div></div>`}`;
   }
 
   // ---- loading ----
@@ -286,7 +288,7 @@
     if (r.stage === 1) {
       return page.canSign
         ? { text: 'The agreement is ready for the company’s signature and chop.', act: 'sign', label: 'Sign & Chop' }
-        : { text: `The agreement is waiting for ${(page.signers || []).join(' or ') || 'someone who signs worker agreements'} to sign and chop it.`, act: 'tab-agreement', label: 'View Agreement' };
+        : { text: `The agreement is waiting for ${(page.signers || []).map(person).join(' or ') || 'someone who signs worker agreements'} to sign and chop it.`, act: 'tab-agreement', label: 'View Agreement' };
     }
     if (r.stage === 2) return { text: `Print it for ${w.name.split(/[ ,]/)[0]} to sign, then add the signed copy.`, act: 'upload', label: 'Add Signed Copy' };
     if (r.expiring) return { text: `${r.expiring} document${r.expiring === 1 ? '' : 's'} expire${r.expiring === 1 ? 's' : ''} within 30 days.`, act: 'tab-documents', label: 'See Documents', tone: 'warn' };
@@ -433,7 +435,7 @@
     const r = entry() || { stage: 1 };
     const steps = [
       { label: 'Written', sub: day(a.createdAt), done: true },
-      { label: 'Signed & chopped', sub: a.employerSignedBy ? `${a.employerSignedBy} · ${day(a.employerSignedAt)}` : 'for the company', done: r.stage >= 2 },
+      { label: 'Signed & chopped', sub: a.employerSignedBy ? `${person(a.employerSignedBy)} · ${day(a.employerSignedAt)}` : 'for the company', done: r.stage >= 2 },
       { label: 'Signed by the worker', sub: a.signedCopyPath ? `copy added ${day(a.signedCopyAt)}` : 'their signed copy', done: r.stage >= 3 },
     ];
     const nowAt = steps.findIndex((s) => !s.done);
@@ -458,7 +460,7 @@
             ${field('payDay', 'Paid on day', `<input type="number" min="1" max="28" data-a="payDay" value="${esc(a.payDay)}" />`)}
             ${field('noticeDays', 'Notice (days)', `<input type="number" min="0" max="365" data-a="noticeDays" value="${esc(a.noticeDays)}" />`)}
             <label class="wk-f span-4"><span>Signed for the company by</span><select data-a="signatory" ${locked || !signers.length ? 'disabled' : ''}>${signers.length
-              ? (chosen && !signers.includes(chosen) ? [chosen, ...signers] : signers).map((n) => `<option ${n === chosen ? 'selected' : ''}>${esc(n)}</option>`).join('')
+              ? (chosen && !signers.includes(chosen) ? [chosen, ...signers] : signers).map((n) => `<option value="${esc(n)}" ${n === chosen ? 'selected' : ''}>${esc(person(n))}</option>`).join('')
               : '<option>No one yet — tick “Worker agreements” for them on the Team page</option>'}</select></label>
           </div>
           ${(page.missing || []).length ? `<div class="wk-missing">Still to fill in: ${page.missing.map(esc).join('; ')}.</div>` : ''}
@@ -467,12 +469,12 @@
         <section class="wk-box">
           <h3>${I.pen} Signing</h3>
           ${a.employerSignedBy
-            ? `<div class="wk-row ok"><span class="wk-row-icon">${I.check}</span><span class="wk-row-text">Signed &amp; chopped by <b>${esc(a.employerSignedBy)}</b> on ${esc(day(a.employerSignedAt))}${page.employerSignedExists ? '' : ' — <span class="wk-warn">the PDF isn’t in the folder any more</span>'}</span>
+            ? `<div class="wk-row ok"><span class="wk-row-icon">${I.check}</span><span class="wk-row-text">Signed &amp; chopped by <b>${esc(person(a.employerSignedBy))}</b> on ${esc(day(a.employerSignedAt))}${page.employerSignedExists ? '' : ' — <span class="wk-warn">the PDF isn’t in the folder any more</span>'}</span>
                 <span class="wk-row-actions">${page.employerSignedExists ? '<button type="button" data-act="view-signed" data-no-icon>View</button>' : ''}<button type="button" class="danger-btn" data-act="unsign" data-no-icon>Withdraw</button></span></div>`
             : page.canSign
               ? `<div class="wk-row"><span class="wk-row-icon pen">${I.pen}</span><span class="wk-row-text">${page.hasSignature ? 'Your signature and the company chop go on the employer’s side.' : 'Add your signature on the Team page (your name › Signature) first.'}</span>
                   <span class="wk-row-actions"><button type="button" class="primary" data-act="sign" ${page.hasSignature ? '' : 'disabled'} data-no-icon>Sign &amp; Chop</button></span></div>`
-              : `<div class="wk-row muted"><span class="wk-row-icon pen">${I.pen}</span><span class="wk-row-text">${signers.length ? `To be signed and chopped by ${esc(signers.join(' or '))}.` : 'No one signs worker agreements yet — tick “Worker agreements” for them on the Team page.'}</span></div>`}
+              : `<div class="wk-row muted"><span class="wk-row-icon pen">${I.pen}</span><span class="wk-row-text">${signers.length ? `To be signed and chopped by ${esc(signers.map(person).join(' or '))}.` : 'No one signs worker agreements yet — tick “Worker agreements” for them on the Team page.'}</span></div>`}
           ${a.signedCopyPath
             ? `<div class="wk-row ok"><span class="wk-row-icon">${I.check}</span><span class="wk-row-text">Signed by ${esc(w.name)} — copy added ${esc(day(a.signedCopyAt))}${page.signedCopyExists ? '' : ' — <span class="wk-warn">it isn’t in the folder any more</span>'}</span>
                 <span class="wk-row-actions">${page.signedCopyExists ? '<button type="button" data-act="open-copy" data-no-icon>Open</button><button type="button" data-act="reveal-copy" data-no-icon>Show in Finder</button>' : ''}<button type="button" data-act="upload" data-no-icon>Replace…</button></span></div>`
@@ -506,7 +508,7 @@
     const a = page.agreement;
     const key = el.dataset.a;
     if (a.employerSignedBy && key !== 'signatory'
-      && !await window.appConfirm(`Change the agreement’s terms?\n\n${a.employerSignedBy}’s signature and chop come off; it will need signing again. The signed PDF stays in the folder.`, { ok: 'Change' })) {
+      && !await window.appConfirm(`Change the agreement’s terms?\n\n${person(a.employerSignedBy)}’s signature and chop come off; it will need signing again. The signed PDF stays in the folder.`, { ok: 'Change' })) {
       drawPanel();
       return;
     }
@@ -652,7 +654,7 @@
       }
       case 'view-signed': viewSigned(a.employerSignedPath); break;
       case 'unsign':
-        if (!await window.appConfirm(`Withdraw ${a.employerSignedBy}’s signature and chop?\n\nThe signed PDF goes to the Trash.`, { ok: 'Withdraw', danger: true })) return;
+        if (!await window.appConfirm(`Withdraw ${person(a.employerSignedBy)}’s signature and chop?\n\nThe signed PDF goes to the Trash.`, { ok: 'Withdraw', danger: true })) return;
         await api().workerAgreements.unsign(a.id);
         await refreshAgreement();
         break;

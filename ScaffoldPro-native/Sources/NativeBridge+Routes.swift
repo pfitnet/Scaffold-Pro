@@ -929,8 +929,9 @@ extension NativeBridge {
             let team: String?? = payload.keys.contains("team") ? .some(payload["team"] as? String) : nil
             let title: String?? = payload.keys.contains("title") ? .some(payload["title"] as? String) : nil
             let idNumber: String?? = payload.keys.contains("idNumber") ? .some(payload["idNumber"] as? String) : nil
+            let fullName: String?? = payload.keys.contains("fullName") ? .some(payload["fullName"] as? String) : nil
             let error = db.setPerson(name: (payload["name"] as? String) ?? "", team: team, title: title, canSign: payload["canSign"] as? Bool,
-                                     canSignAgreements: payload["canSignAgreements"] as? Bool, idNumber: idNumber)
+                                     canSignAgreements: payload["canSignAgreements"] as? Bool, idNumber: idNumber, fullName: fullName)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "signatures:page":
             respond(id: id, encodable: db.signRequestsPage())
