@@ -83,6 +83,8 @@
       const top = Math.max(8, Math.min(r.top - 6, window.innerHeight - h - 8));
       el.style.left = `${left}px`;
       el.style.top = `${top}px`;
+      // A submenu grows out of its row, on the side it opens from.
+      el.style.transformOrigin = `${left > m.left ? 0 : w}px ${Math.max(0, Math.min(h, r.top + r.height / 2 - top))}px`;
       el.classList.toggle('to-right', left > m.left);
       requestAnimationFrame(() => el.classList.add('open'));
       el.addEventListener('pointerenter', () => { clearTimeout(leaveTimer); clearTimeout(subTimer); });
@@ -149,6 +151,9 @@
       menu.style.left = `${left}px`;
       menu.style.top = `${top}px`;
       menu.classList.toggle('above', top < r.top);
+      // It grows out of the button that opened it (its middle), above or below.
+      const originX = Math.max(0, Math.min(w, r.left + r.width / 2 - left));
+      menu.style.transformOrigin = `${originX}px ${top < r.top ? h : 0}px`;
     };
 
     const show = (focusItem) => {

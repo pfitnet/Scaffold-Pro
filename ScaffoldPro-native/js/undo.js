@@ -35,7 +35,7 @@
     const el = document.activeElement;
     if (typing(el)) { document.execCommand(kind === 'redo' ? 'redo' : 'undo'); return; }
     // Not while a dialog or sheet is asking something.
-    if (document.querySelector('.app-dialog-backdrop, .modal-backdrop:not(.hidden)')) return;
+    if (document.querySelector('.app-dialog-backdrop:not(.leaving), .modal-backdrop:not(.hidden)')) return;
     if (busy || !window.api || !window.api.history) return;
     busy = true;
     try {
@@ -159,6 +159,10 @@
     requestAnimationFrame(() => el.classList.add('show'));
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 6000);
   }
+
+  // After something ⌘Z can put back, done without an "Are you sure?" first
+  // (apple-design: forgiveness over confirmation): "Removed: …  [Undo]".
+  window.appUndoHint = (text) => toast(text, 'undo');
 
   function afterReload() {
     let note = null;

@@ -6,8 +6,8 @@
 //   • a line slides under the chosen tab (.tabs), a pill under the chosen
 //     choice of a segmented control (.segmented);
 //   • numbers on stat cards count up to their value;
-//   • cards catch a soft light where the pointer is (.panel, .stat-card, .form-card);
-//   • buttons ripple where they're pressed.
+//   • cards catch a soft light where the pointer is (.panel, .stat-card, .form-card).
+// Buttons press in as the pointer goes down (css/styles.css), as on the Mac.
 // Everything is skipped with "Reduce motion" (System Settings › Accessibility).
 
 (function () {
@@ -42,9 +42,9 @@
     const ink = document.querySelector('#sidebar .nav-ink');
     if (ink) store.set('inkTop', String(parseFloat(ink.style.top) || 0));
     if (!web) return;
-    e.preventDefault();
+    // Leave at once (nothing waits on the input path); the page fades
+    // while the next one loads.
     root.classList.add('page-leave');
-    setTimeout(() => { location.href = a.href; }, 120);
     // Still here (the page couldn't be opened): show this one again.
     setTimeout(() => root.classList.remove('page-leave'), 2500);
   });
@@ -183,28 +183,6 @@
     spotEl.style.setProperty('--mx', `${spotXY[0] - r.left}px`);
     spotEl.style.setProperty('--my', `${spotXY[1] - r.top}px`);
   }
-
-  // ---------- Ripple ----------
-  document.addEventListener('pointerdown', (e) => {
-    if (reduce || e.button !== 0) return;
-    const b = e.target.closest && e.target.closest('button');
-    if (!b || b.disabled || b.closest('.tabs, .segmented, .hm-menu, table, .tk-seg, .dp-zoom, [data-no-ripple]')) return;
-    // Not where something inside is placed outside the button (a badge, a bubble).
-    for (const c of b.children) if (getComputedStyle(c).position === 'absolute') return;
-    const cs = getComputedStyle(b);
-    if (cs.position === 'static') b.style.position = 'relative';
-    const r = b.getBoundingClientRect();
-    const size = Math.max(r.width, r.height) * 2.2;
-    const dot = document.createElement('span');
-    dot.className = 'ripple';
-    dot.style.width = dot.style.height = `${size}px`;
-    dot.style.left = `${e.clientX - r.left - size / 2}px`;
-    dot.style.top = `${e.clientY - r.top - size / 2}px`;
-    const overflow = b.style.overflow;
-    b.style.overflow = 'hidden';
-    b.appendChild(dot);
-    setTimeout(() => { dot.remove(); if (!b.querySelector('.ripple')) b.style.overflow = overflow; }, 560);
-  });
 
   // ---------- Keeping up with the page ----------
   let queued = false;

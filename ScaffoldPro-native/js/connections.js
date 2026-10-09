@@ -239,11 +239,13 @@
       target = card;
       if (target) target.classList.add('drop-target');
     };
-    const up = async () => {
+    const up = async (ev) => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
       board.classList.remove('connecting', `connecting-to-${other}`);
       path.classList.add('hidden');
+      if (target && ev && ev.type === 'pointercancel') { target.classList.remove('drop-target'); return; }
       if (!target) return;
       target.classList.remove('drop-target');
       const clientId = from.dataset.kind === 'client' ? from.dataset.id : target.dataset.id;
@@ -254,6 +256,7 @@
     };
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
     move(e);
   }
 

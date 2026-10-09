@@ -20,7 +20,7 @@
     --ink-3: rgba(232, 238, 250, 0.48);
     --line: rgba(255, 255, 255, 0.09);
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-spring: cubic-bezier(.22, 1, .36, 1);
   }
   * { box-sizing: border-box; }
   html, body {
@@ -51,7 +51,7 @@
     background-size: 26px 26px;
     -webkit-mask-image: radial-gradient(70% 65% at 50% 42%, #000 20%, transparent 75%);
             mask-image: radial-gradient(70% 65% at 50% 42%, #000 20%, transparent 75%);
-    animation: drift 24s linear infinite, fade-in 1.2s ease both;
+    animation: fade-in 1.2s ease both;
   }
   @keyframes drift { to { transform: translate(26px, 26px); } }
   @keyframes fade-in { from { opacity: 0; } }
@@ -62,7 +62,7 @@
     border-radius: 50%;
     background: radial-gradient(circle, rgba(246, 196, 69, 0.20) 0%, rgba(90, 140, 255, 0.10) 38%, transparent 70%);
     filter: blur(6px);
-    animation: glow-in 1.6s var(--ease-out) 0.6s both, breathe 5s ease-in-out 2.2s infinite;
+    animation: glow-in 1.6s var(--ease-out) 0.6s both;
     transition: top 0.7s var(--ease-out), transform 0.7s var(--ease-out);
   }
   @keyframes glow-in { from { opacity: 0; transform: scale(0.6); } }
@@ -74,7 +74,7 @@
     display: flex; flex-direction: column; align-items: center;
     transition: transform 0.7s var(--ease-out);
   }
-  .logo { width: 128px; height: 128px; overflow: visible; animation: float 6s ease-in-out 2.4s infinite; }
+  .logo { width: 128px; height: 128px; overflow: visible; animation: none; }
   @keyframes float { 50% { transform: translateY(-3px); } }
 
   .logo .tile { fill: rgba(255, 255, 255, 0.04); stroke: rgba(255, 255, 255, 0.10); stroke-width: 1;
@@ -169,6 +169,13 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0.01s !important; }
     .logo .draw { stroke-dashoffset: 0; }
+    /* Still show it's working: a gentle pulse instead of movement. */
+    .sweep::after, .bar.indeterminate .bar-fill { animation: lpulse 1.2s ease-in-out infinite !important; animation-duration: 1.2s !important; animation-iteration-count: infinite !important; }
+    .status-text .dots::after { animation: dots 1.4s steps(4, end) infinite !important; animation-duration: 1.4s !important; animation-iteration-count: infinite !important; }
+  }
+  @keyframes lpulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .panel { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--navy-2) !important; }
   }
 </style>
 </head>

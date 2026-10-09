@@ -17,7 +17,7 @@
   --tk-shadow: 0 1px 2px rgba(15, 20, 35, .05), 0 2px 8px rgba(15, 20, 35, .04);
   --tk-shadow-lift: 0 2px 4px rgba(15, 20, 35, .06), 0 10px 24px rgba(15, 20, 35, .10);
   --tk-ease: cubic-bezier(.2, .8, .2, 1);
-  --tk-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --tk-spring: cubic-bezier(.22, 1, .36, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .tk-page {
@@ -51,7 +51,7 @@
   background:
     radial-gradient(30% 35% at 20% 30%, color-mix(in srgb, var(--tk-a) 35%, transparent), transparent 70%),
     radial-gradient(28% 30% at 75% 70%, color-mix(in srgb, var(--tk-b) 32%, transparent), transparent 70%);
-  filter: blur(20px); animation: tkAurora 18s ease-in-out infinite alternate; }
+  filter: blur(20px); animation: none; }
 .tk-hero-text, .tk-ring { position: relative; }
 .tk-date { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--tk-a) 75%, var(--text-secondary)); }
 .tk-greeting { margin: 4px 0 6px; font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
@@ -181,7 +181,7 @@
 .tk-card.completing .tk-check { animation: tkCheckPop .45s var(--tk-spring); }
 .tk-card.reopening .tk-check .ring { fill: transparent; }
 .tk-card.reopening .tk-check .tick { stroke-dashoffset: 16; }
-@keyframes tkCheckPop { 0% { transform: scale(.7); } 60% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes tkCheckPop { 0% { transform: scale(.7); } 100% { transform: scale(1); } }
 
 .tk-body { min-width: 0; }
 .tk-title { display: flex; align-items: center; gap: 6px; font-size: 14.5px; font-weight: 560; line-height: 1.35; color: var(--text); }
@@ -235,10 +235,10 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 .tk-empty h2 { margin: 6px 0 4px; font-size: 18px; }
 .tk-empty p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .tk-empty-art { width: 170px; height: 128px; }
-.tk-empty-art .halo { fill: color-mix(in srgb, var(--tk-b) 12%, transparent); animation: tkBreathe 3.2s ease-in-out infinite; transform-origin: 80px 62px; }
+.tk-empty-art .halo { fill: color-mix(in srgb, var(--tk-b) 12%, transparent); animation: tkBreathe 3.2s ease-in-out 2; transform-origin: 80px 62px; }
 .tk-empty-art .disc { fill: var(--tk-b); opacity: .9; }
 .tk-empty-art .tick { fill: none; stroke: #fff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: tkDraw .6s var(--tk-ease) .3s forwards; }
-.tk-empty-art .spark { fill: none; stroke: var(--tk-a); stroke-width: 2; stroke-linecap: round; opacity: 0; animation: tkTwinkle 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.tk-empty-art .spark { fill: none; stroke: var(--tk-a); stroke-width: 2; stroke-linecap: round; opacity: 0; animation: tkTwinkle 2.8s ease-in-out 2; transform-box: fill-box; transform-origin: center; }
 .tk-empty-art circle.spark { fill: var(--tk-warm); stroke: none; }
 .tk-empty-art .s2 { animation-delay: .7s; } .tk-empty-art .s3 { animation-delay: 1.3s; } .tk-empty-art .s4 { animation-delay: 1.9s; }
 @keyframes tkDraw { to { stroke-dashoffset: 0; } }

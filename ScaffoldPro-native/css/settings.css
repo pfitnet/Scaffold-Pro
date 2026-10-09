@@ -20,7 +20,7 @@
   transition: background .15s, color .15s; }
 .st-nav-item:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
 .st-nav-item .st-ico { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; color: var(--accent);
-  background: var(--accent-soft); transition: transform .25s var(--spring, cubic-bezier(.34, 1.56, .64, 1)); }
+  background: var(--accent-soft); transition: transform .25s var(--spring, cubic-bezier(.22, 1, .36, 1)); }
 .st-nav-item.on { background: color-mix(in srgb, var(--accent) 11%, transparent); color: var(--text); }
 .st-nav-item.on::before { content: ''; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: var(--accent);
   animation: st-bar .25s var(--ease, ease) both; }
@@ -119,7 +119,7 @@
 .st-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
 .st-switch span { position: absolute; inset: 0; border-radius: 999px; background: color-mix(in srgb, var(--text) 20%, transparent); transition: background .2s; }
 .st-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .25s var(--spring, cubic-bezier(.34, 1.56, .64, 1)); }
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .25s var(--spring, cubic-bezier(.22, 1, .36, 1)); }
 .st-switch input:checked + span { background: var(--accent); }
 .st-switch input:checked + span::after { transform: translateX(18px); }
 .st-switch input:focus-visible + span { box-shadow: 0 0 0 3px var(--focus-ring); }

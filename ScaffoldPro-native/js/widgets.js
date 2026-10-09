@@ -205,12 +205,14 @@
     const up = () => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
       grid.classList.remove('resizing');
       w.classList.remove('widget-resizing');
       save();
     };
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
   }
 
   // Drag a widget — from its bar, or from the tray: a card follows the
@@ -453,7 +455,7 @@
       stop();
     };
     function onKey(e) {
-      if (e.key === 'Escape' && !(window.hoverMenu && window.hoverMenu.isOpen()) && !document.querySelector('.app-dialog-backdrop')) { e.preventDefault(); cancel(); }
+      if (e.key === 'Escape' && !(window.hoverMenu && window.hoverMenu.isOpen()) && !document.querySelector('.app-dialog-backdrop:not(.leaving)')) { e.preventDefault(); cancel(); }
     }
     button.addEventListener('click', () => {
       if (customising()) return;

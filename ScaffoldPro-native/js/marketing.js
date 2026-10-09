@@ -204,11 +204,13 @@ function init() {
   document.getElementById('ld-cancel').addEventListener('click', closeLead);
   document.getElementById('ld-save').addEventListener('click', saveLead);
   document.getElementById('ld-delete').addEventListener('click', async () => {
-    if (!editing || !await appConfirm(`Delete the lead “${editing.company}”?`)) return;
+    if (!editing) return;
+    const company = editing.company;
     const r = await window.api.marketing.deleteLead(editing.id);
     if (r && r.ok === false) { alert(r.error); return; }
     closeLead();
     await load();
+    if (window.appUndoHint) window.appUndoHint(`Lead “${company}” deleted`);
   });
   document.getElementById('ld-convert').addEventListener('click', async () => {
     if (!editing) return;

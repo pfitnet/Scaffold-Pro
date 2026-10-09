@@ -114,10 +114,10 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
         if (!r.ok) alert(r.error);
       });
       actions.querySelector('.archive-btn').addEventListener('click', async () => {
-        if (!await appConfirm(`Archive "${doc.originalName}"? The file stays in Finder; it just won't show here.`)) return;
         await api.archive(doc.id);
         await refresh();
         await refreshExpiring();
+        if (window.appUndoHint) window.appUndoHint(`Archived “${doc.originalName}” (the file stays in Finder)`);
       });
     } else {
       actions.innerHTML = '<button class="locate-btn" title="The file has moved: choose where it is now">Find Moved File…</button> <button class="remove-ref-btn">Remove Reference</button>';
@@ -127,10 +127,10 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
         await refresh();
       });
       actions.querySelector('.remove-ref-btn').addEventListener('click', async () => {
-        if (!await appConfirm("Remove this reference? This only removes it from ScaffoldPro's records, not any file on disk.")) return;
         await api.removeReference(doc.id);
         await refresh();
         await refreshExpiring();
+        if (window.appUndoHint) window.appUndoHint('Reference removed (no file was deleted)');
       });
     }
     tbody.appendChild(tr);

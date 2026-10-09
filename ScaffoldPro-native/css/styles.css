@@ -52,7 +52,10 @@
   --control-h: 32px;
   --seg-active: #ffffff;
   --ease: cubic-bezier(.2, .8, .2, 1);
-  --spring: cubic-bezier(.34, 1.56, .64, 1);
+  /* Motion (apple-design): critically damped by default, no overshoot.
+     --spring-momentum only where a flick or drag carried momentum. */
+  --spring: cubic-bezier(.22, 1, .36, 1);
+  --spring-momentum: cubic-bezier(.22, 1, .36, 1);
   /* Each kind of document's colour (muted), to find them at a glance:
      a thin stripe or a dot, never a fill. */
   --doc-boq: #3f938b;
@@ -333,10 +336,10 @@ input[type="checkbox"], input[type="radio"] {
 input[type="checkbox"] { border-radius: 4.5px; }
 input[type="radio"] { border-radius: 50%; }
 input[type="checkbox"]::before {
-  content: ''; width: 10px; height: 10px; transform: scale(0); transition: transform .16s cubic-bezier(.2, 1.4, .4, 1);
+  content: ''; width: 10px; height: 10px; transform: scale(0); transition: transform .16s cubic-bezier(.22, 1, .36, 1);
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.3 5 8.7l4.5-5.2' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
-input[type="radio"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff; transform: scale(0); transition: transform .16s cubic-bezier(.2, 1.4, .4, 1); }
+input[type="radio"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff; transform: scale(0); transition: transform .16s cubic-bezier(.22, 1, .36, 1); }
 input[type="checkbox"]:checked, input[type="radio"]:checked { background-color: var(--accent); border-color: var(--accent); }
 input[type="checkbox"]:checked::before, input[type="radio"]:checked::before { transform: scale(1); }
 input[type="checkbox"]:indeterminate { background-color: var(--accent); border-color: var(--accent); }
@@ -375,9 +378,6 @@ button.primary:hover:not(:disabled) { background: var(--grad-accent); filter: br
   box-shadow: 0 2px 4px color-mix(in srgb, var(--accent) 35%, transparent), 0 10px 24px -6px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.24); transform: translateY(-1px); }
 button.primary:active:not(:disabled) { transform: translateY(0) scale(0.98); filter: brightness(0.98); }
 button:disabled { opacity: 0.45; }
-/* The press ripple (js/motion.js). */
-.ripple { position: absolute; border-radius: 50%; pointer-events: none; transform: scale(0); opacity: .35; background: currentColor; animation: ripple .55s var(--ease) forwards; }
-@keyframes ripple { to { transform: scale(1); opacity: 0; } }
 button:focus-visible, a:focus-visible, .tabs button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--focus-ring);
@@ -530,7 +530,7 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
   background-position: center, 0 0; background-size: 22px 22px, 100% 100%; background-repeat: no-repeat;
   box-shadow: 0 8px 22px -8px var(--accent-glow);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 12h-6l-2 3h-4l-2-3H2'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E"), var(--grad-accent);
-  animation: empty-float 4s ease-in-out infinite;
+  animation: none;
 }
 @keyframes empty-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .empty-state.compact::before { display: none; }
@@ -623,6 +623,23 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
   overflow-y: auto;
   box-shadow: var(--shadow-sheet);
   animation: sheet-in 0.32s var(--spring);
+}
+/* Where the engine can animate display: sheets open and close along the
+   same path (rise and settle in, sink and fade out) as interruptible
+   transitions, and a closing sheet stops catching clicks at once. The
+   scrim's blur grows with it, so it arrives as a material, not a fade. */
+@supports (transition-behavior: allow-discrete) {
+  .modal-backdrop {
+    animation: none;
+    transition: opacity .2s var(--ease), -webkit-backdrop-filter .24s var(--ease), backdrop-filter .24s var(--ease), display .24s allow-discrete;
+  }
+  .modal-backdrop > .modal { animation: none; transition: opacity .2s var(--ease), transform .32s var(--spring); }
+  .modal-backdrop.hidden { opacity: 0; pointer-events: none; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+  .modal-backdrop.hidden > .modal { opacity: 0; transform: translateY(10px) scale(0.97); }
+  @starting-style {
+    .modal-backdrop { opacity: 0; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+    .modal-backdrop > .modal { opacity: 0; transform: translateY(10px) scale(0.97); }
+  }
 }
 .modal h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 16px; }
 .modal.wide { width: 660px; }
@@ -845,9 +862,26 @@ table.price-table td.row-actions { white-space: nowrap; text-align: right; }
 }
 
 /* Accessibility: respect "Reduce motion". */
+/* Reduce Motion: nothing slides, scales or springs, but changes still
+   cross-fade gently (colour, opacity, shadow), and the few things that
+   show work in progress keep moving: spinners, typing dots, loading bars. */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  *, *::before, *::after {
+    animation: none !important;
+    transition-property: opacity, color, background-color, border-color, outline-color, fill, stroke, box-shadow, filter !important;
+    transition-duration: .15s !important;
+    transition-timing-function: ease !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+  .dp-spinner, .qi-spin { animation: dpSpin .8s linear infinite !important; }
+  .as-send.stop::before { animation: as-spin .9s linear infinite !important; }
+  .as-dots i, .as-steps-list li.now .as-step-mark, .chat-typing .dots i { animation: gs-pulse 1.2s ease-in-out infinite !important; }
+  .gs-info span.syncing .gs-dot { animation: gs-pulse 1s ease-in-out infinite !important; }
+  #web-loading .wl-bar::after { animation: gs-pulse 1.1s ease-in-out infinite !important; }
 }
+/* Opacity-only pulse, for work-in-progress indicators under Reduce Motion. */
+@keyframes gs-pulse { 50% { opacity: .3; } }
 
 /* Thin, native-looking scrollbars. */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -1531,7 +1565,7 @@ a.button-like.primary:hover { background: var(--accent-hover); }
 .person-edit:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
 
 /* Unread count on the sidebar's Chat. */
-.nav-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; animation: dot-pop .3s cubic-bezier(.2, 1.6, .4, 1); }
+.nav-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; animation: dot-pop .3s cubic-bezier(.22, 1, .36, 1); }
 @keyframes dot-pop { from { transform: scale(0); } to { transform: scale(1); } }
 .person-chat { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; text-decoration: none; font-size: 15px; }
 .person-chat:hover { background: color-mix(in srgb, var(--text) 8%, transparent); text-decoration: none; }
@@ -1763,7 +1797,7 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
 .stat-card.stat-link:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
 .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .stat-icon { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent);
-  transition: transform .2s cubic-bezier(.2, 1.4, .4, 1); }
+  transition: transform .2s cubic-bezier(.22, 1, .36, 1); }
 .stat-icon svg { width: 17px; height: 17px; }
 .stat-card.stat-link:hover .stat-icon { transform: scale(1.08) rotate(-4deg); }
 .stat-card.tone-danger .stat-icon { background: var(--danger-soft); color: var(--danger); }
@@ -1780,7 +1814,7 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
 
 /* A panel's count beside its title. */
 .panel-count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 17px; margin-left: 7px; padding: 0 5px; border-radius: 9px;
-  background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 700; letter-spacing: 0; vertical-align: 1px; animation: dot-pop .3s cubic-bezier(.2, 1.6, .4, 1); }
+  background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 700; letter-spacing: 0; vertical-align: 1px; animation: dot-pop .3s cubic-bezier(.22, 1, .36, 1); }
 /* Rows: an accent edge slides in on the one under the pointer — down the
    whole row, also when a narrow panel stacks the row's details. */
 /* Every cell of the row changes together (one band, not cell by cell). */
@@ -1798,7 +1832,7 @@ button.stat-card { display: flex; flex-direction: column; justify-content: flex-
   .dash-grid table.compact tr.link-row:hover td:not(.quote-actions):not(.num) { transform: translateX(7px); }
 }
 /* Quick Actions: the icon lifts. */
-.qa-icon { transition: transform .2s cubic-bezier(.2, 1.4, .4, 1); }
+.qa-icon { transition: transform .2s cubic-bezier(.22, 1, .36, 1); }
 .qa-tile:hover .qa-icon { transform: translateY(-1px) scale(1.08); }
 @media (prefers-reduced-motion: reduce) {
   .dash-enter, .widget-pulse, .stat-meter span, .panel-count { animation: none; }
@@ -1828,7 +1862,7 @@ button.export-menu.hm-active::after, button.ds-export.hm-active::after, button.w
 .am-head h2 { margin: 0; white-space: nowrap; }
 .am-head #search-box { margin-left: auto; flex: 0 1 240px; min-width: 120px; }
 .am-filter .tb-ico { position: relative; width: 34px; height: 32px; margin-left: 0; }
-.am-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--content); transform: scale(0); transition: transform .18s cubic-bezier(.3,1.6,.5,1); }
+.am-dot { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--content); transform: scale(0); transition: transform .18s cubic-bezier(.22, 1, .36, 1); }
 .group-menu.filtered .am-dot { transform: scale(1); }
 button.tb-ico { padding: 0; border: none; background: transparent; box-shadow: none; color: var(--text-secondary); }
 
@@ -1851,7 +1885,7 @@ button.tb-ico { padding: 0; border: none; background: transparent; box-shadow: n
 button.pj-new { display: inline-flex; align-items: center; gap: 7px; padding-left: 14px; padding-right: 16px; height: 34px; border-radius: 10px; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent);
   transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
 button.pj-new:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 38%, transparent); }
-button.pj-new svg { transition: transform .25s cubic-bezier(.2, 1.4, .4, 1); }
+button.pj-new svg { transition: transform .25s cubic-bezier(.22, 1, .36, 1); }
 button.pj-new:hover svg { transform: rotate(90deg); }
 
 .pj-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0 18px; }
@@ -1896,7 +1930,7 @@ a.pj-card:hover .pj-num { color: var(--st); }
 .pj-status { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: 11.5px; font-weight: 600; white-space: nowrap;
   background: color-mix(in srgb, var(--st) 14%, transparent); color: color-mix(in srgb, var(--st) 82%, var(--text)); }
 .pj-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--st); }
-.st-active .pj-status i { animation: pjPulse 2.4s ease-in-out infinite; }
+.st-active .pj-status i { animation: pjPulse 2.4s ease-in-out 3; }
 @keyframes pjPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--st) 55%, transparent); } 50% { box-shadow: 0 0 0 4px transparent; } }
 .pj-name { margin: 0; font-size: 16px; font-weight: 650; line-height: 1.3; letter-spacing: -.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.6em; }
 .pj-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-secondary); min-width: 0; }
@@ -1956,7 +1990,7 @@ a.pj-card:hover .pj-go, a.pj-card:focus-visible .pj-go { opacity: 1; transform: 
 .pd-status { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: 11.5px; font-weight: 600;
   background: color-mix(in srgb, var(--st, var(--accent)) 15%, transparent); color: color-mix(in srgb, var(--st, var(--accent)) 82%, var(--text)); }
 .pd-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--st, var(--accent)); }
-.st-active .pd-status i { animation: pjPulse 2.4s ease-in-out infinite; }
+.st-active .pd-status i { animation: pjPulse 2.4s ease-in-out 3; }
 .pd-where { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; }
 .pd-where > span { display: inline-flex; align-items: center; gap: 6px; }
 .pd-where svg { color: var(--text-tertiary); flex: none; }
@@ -1978,7 +2012,7 @@ button.pd-stage { display: inline-flex; align-items: center; gap: 8px; height: 2
   font-size: 12.5px; font-weight: 500; color: var(--text-tertiary); white-space: nowrap; transition: color .15s; }
 button.pd-stage:hover:not(:disabled) { background: none; color: var(--text); }
 .pd-stage-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border-strong);
-  background: var(--panel); color: #fff; box-sizing: border-box; transition: border-color .2s, background-color .2s, transform .2s cubic-bezier(.2, 1.4, .4, 1); }
+  background: var(--panel); color: #fff; box-sizing: border-box; transition: border-color .2s, background-color .2s, transform .2s cubic-bezier(.22, 1, .36, 1); }
 button.pd-stage:hover .pd-stage-dot { border-color: var(--st, var(--accent)); transform: scale(1.12); }
 button.pd-stage.done { color: var(--text-secondary); }
 button.pd-stage.done .pd-stage-dot { background: var(--st, var(--accent)); border-color: var(--st, var(--accent)); }
@@ -2124,7 +2158,7 @@ input.undo-changed, textarea.undo-changed, select.undo-changed { animation: undo
 .dh-status:empty { display: none; }
 .dh-status.s-issued, .dh-status.s-paid, .dh-status.s-delivered { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
 .dh-status.s-cancelled, .dh-status.s-void { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
-.dh-status.changed { animation: dhPop .35s cubic-bezier(.3, 1.6, .5, 1); }
+.dh-status.changed { animation: dhPop .35s cubic-bezier(.22, 1, .36, 1); }
 @keyframes dhPop { 0% { transform: scale(.8); opacity: .4; } 100% { transform: none; opacity: 1; } }
 
 .dh-main { grid-column: 1; min-width: 0; display: flex; align-items: flex-start; gap: 6px; }
@@ -2137,7 +2171,7 @@ input.undo-changed, textarea.undo-changed, select.undo-changed { animation: undo
 .dh-main:hover .dh-copy, .dh-copy:focus-visible { opacity: 1; transform: none; }
 .dh-copy:hover { color: var(--k); background: color-mix(in srgb, var(--k) 12%, transparent); }
 .dh-copied { position: absolute; left: 50%; top: -4px; transform: translate(-50%, -100%) scale(.85); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
-  color: #fff; background: var(--k); opacity: 0; pointer-events: none; transition: opacity .15s, transform .2s cubic-bezier(.3, 1.6, .5, 1); }
+  color: #fff; background: var(--k); opacity: 0; pointer-events: none; transition: opacity .15s, transform .2s cubic-bezier(.22, 1, .36, 1); }
 .doc-hero.copied .dh-copy { opacity: 1; transform: none; color: var(--k); }
 .doc-hero.copied .dh-copied { opacity: 1; transform: translate(-50%, -100%) scale(1); }
 
@@ -2253,10 +2287,10 @@ a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
   border: 1px solid var(--border); box-shadow: var(--shadow-lift); animation: notify-in .45s var(--spring) both; }
 .notify-card.sign { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: var(--shadow-lift), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
 .notify-card.leaving { animation: notify-out .26s var(--ease) forwards; }
-@keyframes notify-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes notify-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 @keyframes notify-out { to { opacity: 0; transform: translateX(24px); } }
 .notify-icon { flex: none; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: var(--grad-accent); box-shadow: 0 6px 14px -6px var(--accent-glow); }
-.notify-card.sign .notify-icon { animation: notify-nudge 2.8s ease-in-out infinite; }
+.notify-card.sign .notify-icon { animation: notify-nudge 2.8s ease-in-out 2; }
 @keyframes notify-nudge { 0%, 86%, 100% { transform: none; } 90% { transform: rotate(-10deg); } 94% { transform: rotate(8deg); } }
 .notify-body { flex: 1; min-width: 0; }
 .notify-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
@@ -2611,3 +2645,62 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 .price-or-words { text-align: right; }
 .price-or-words.is-words { text-align: left; font-style: italic; color: var(--accent); }
 .price-note { font-size: 12px; font-style: italic; color: var(--text-secondary); white-space: nowrap; }
+
+/* ======================================================================
+   Apple design (.claude/skills/apple-design): press feedback, materials
+   and accessibility settings shared by every page.
+   ====================================================================== */
+
+/* Response: feedback lands the moment the pointer goes down (letting go
+   still eases back); the action itself happens on release. */
+button:active:not(:disabled), a:active, summary:active, label:active { transition-duration: 60ms; }
+
+/* Rows, list items, menu items and sidebar links light up while pressed. */
+:is(#sidebar a, .hm-item, .st-nav-item, .conv, tr.task-row, #table-container.selecting tr[data-id], .pj-table tr.pj-row,
+    .cr-table tbody tr, tr[style*="cursor"], .pj-group-head, .pj-sub-head, .sub-pick-row, .tree-head, .tk-group-head,
+    .sk-cat-head, .sk-row, .sk-batch-head, .pr-pick-row, .you-list .you-line, button.file-group-head, .dr-band,
+    .as-steps-head, .pr-other summary, .te-more summary, .qi-text summary):active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  transition: background-color 60ms ease-out;
+}
+
+/* Tiles, chips and cards press in a little. */
+:where(.cal-day, .wk-day, .week-ev, .gif-item, .reaction, .chat-new-pill, .pr-card, .pr-step, .pr-token, .option-check,
+    .choice-card, .sidebar-team, .pin-btn, .page-back, .conn-card, .tb-pick .tb-ico, .ml-menu .tb-ico, .brief-chip,
+    .pd-number, .dh-copy, .job-switch label, .tk-day, .tk-person, .wk-stat, .wk-archived, .wk-chip.link, .as-launcher,
+    .st-edit, .cal-link, .mo-chart .col):active {
+  transform: scale(0.97);
+  transition: transform 60ms ease-out;
+}
+
+/* Reduce Transparency (and Increase Contrast): translucent layers become
+   solid, scrims dim without blurring. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .search-panel, .context-menu, .notify-card, .cal-peek, .week-top, .sk-dock, .tk-stat, .wk-search, .files-columns .drop-box {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--panel) !important;
+  }
+  #sidebar { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: var(--bg) !important; }
+  .modal-backdrop, .search-overlay, .dp-backdrop.open, .wk-sheet-backdrop.open, .app-dialog-backdrop, .mx-zoom, .as-drop {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+  .modal-backdrop, .search-overlay, .dp-backdrop.open, .wk-sheet-backdrop.open { background: rgba(12, 14, 22, 0.5) !important; }
+}
+
+/* Increase Contrast: defined edges and stronger secondary text, in light
+   and dark alike. */
+@media (prefers-contrast: more) {
+  :root {
+    --hairline: color-mix(in srgb, var(--text) 30%, transparent);
+    --border: color-mix(in srgb, var(--text) 38%, var(--panel));
+    --border-strong: color-mix(in srgb, var(--text) 55%, var(--panel));
+    --field-border: color-mix(in srgb, var(--text) 50%, var(--panel));
+    --text-secondary: color-mix(in srgb, var(--text) 85%, var(--panel));
+    --text-tertiary: color-mix(in srgb, var(--text) 70%, var(--panel));
+  }
+  button, input, select, textarea, .panel, .modal, .hm-menu { border-color: var(--border-strong); }
+}
+
+/* Type: tracking tightens as text grows (h1 already -0.028em). */
+.as-empty h2, .cr-head h2 { letter-spacing: -0.02em; }
+.mo-big { letter-spacing: -0.025em; }
+.pr-name, .grand-total { letter-spacing: -0.015em; }

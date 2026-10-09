@@ -127,10 +127,11 @@ function initPartyPage(config) {
   async function toggleArchive() {
     if (!editing) return;
     const archiving = !editing.isArchived;
-    if (archiving && !await appConfirm(`Archive "${config.titleOf(editing)}"? It stays linked to its projects and documents, but won't appear in lists or when creating new projects.`)) return;
+    const title = config.titleOf(editing);
     await config.api.setArchived(editing.id, archiving);
     closeSheet();
     await refresh();
+    if (archiving) if (window.appUndoHint) window.appUndoHint(`Archived “${title}” (still linked to its projects)`);
   }
 
   // Excel: export the list (archived ones too when they're shown), or

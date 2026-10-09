@@ -401,9 +401,9 @@ function renderFileList(containerId, items, api, opts) {
         await opts.refresh();
       });
       actionsCell.querySelector('.archive-btn').addEventListener('click', async () => {
-        if (!await appConfirm(`Archive "${shownName}"? It will no longer show in this list.`)) return;
         await api.archive(item.id);
         await opts.refresh();
+        if (window.appUndoHint) window.appUndoHint(`Archived “${shownName}”`);
       });
     } else {
       actionsCell.innerHTML = `<button class="locate-btn" title="The file has moved: choose where it is now">Find Moved File…</button> <button class="remove-ref-btn">Remove Reference</button>`;
@@ -413,9 +413,9 @@ function renderFileList(containerId, items, api, opts) {
         await opts.refresh();
       });
       actionsCell.querySelector('.remove-ref-btn').addEventListener('click', async () => {
-        if (!await appConfirm("Remove this reference? This only removes it from ScaffoldPro's records, not any file on disk.")) return;
         await api.removeReference(item.id);
         await opts.refresh();
+        if (window.appUndoHint) window.appUndoHint('Reference removed (no file was deleted)');
       });
     }
 

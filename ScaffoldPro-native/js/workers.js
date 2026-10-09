@@ -628,9 +628,9 @@
       case 'folder': api().workers.revealFolder(w.id); break;
       case 'archive': {
         const archiving = !w.isArchived;
-        if (archiving && !await window.appConfirm(`Archive ${w.name}?\n\nTheir record, agreement and files are kept; they just leave the list.`, { ok: 'Archive' })) return;
         await api().workers.setArchived(w.id, archiving);
-        toast(archiving ? `${w.name} archived` : `${w.name} is back on the list`);
+        if (archiving && window.appUndoHint) window.appUndoHint(`${w.name} archived (record and files kept)`);
+        else toast(archiving ? `${w.name} archived` : `${w.name} is back on the list`);
         await load(false);
         break;
       }
@@ -884,8 +884,8 @@
     else if (action === 'reveal') r = await w.reveal(id);
     else if (action === 'relink') r = await w.relink(id);
     else if (action === 'archive') {
-      if (!await window.appConfirm(`Archive “${d ? d.originalName : 'this document'}”?\n\nThe file stays in the folder; it just leaves the list.`, { ok: 'Archive' })) return;
       r = await w.archive(id);
+      if (!(r && r.ok === false)) if (window.appUndoHint) window.appUndoHint(`Archived “${d ? d.originalName : 'the document'}” (the file stays in the folder)`);
     }
     if (r && r.ok === false) await window.appAlert(r.error);
     if (action !== 'open' && action !== 'reveal') refreshDocs();

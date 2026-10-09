@@ -333,7 +333,8 @@ function renderCharges() {
   }
   box.querySelector('#charges-add-btn').addEventListener('click', () => saveCharges([...read(), { code: '', name: '', amount: 0 }]));
   box.querySelector('#charges-remove-btn').addEventListener('click', async () => {
-    if (await appConfirm('Remove this section? Its amounts will no longer be added to the total.')) saveCharges(null);
+    await saveCharges(null);
+    if (window.appUndoHint) window.appUndoHint('Section removed');
   });
 }
 
@@ -409,7 +410,8 @@ function renderRates() {
     saveRates(section);
   });
   box.querySelector('#rates-remove-btn').addEventListener('click', async () => {
-    if (await appConfirm('Remove the rates section? The total will read “Total Amount” again.')) saveRates(null);
+    await saveRates(null);
+    if (window.appUndoHint) window.appUndoHint('Rates section removed');
   });
 }
 

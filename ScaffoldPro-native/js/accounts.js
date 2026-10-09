@@ -317,10 +317,10 @@ function renderLiabilityPayments(x) {
       <td><button class="remove-btn" data-payment="${esc(p.id)}">Remove</button></td></tr>`).join('')}</tbody></table>`;
   for (const b of list.querySelectorAll('[data-payment]')) {
     b.addEventListener('click', async () => {
-      if (!await appConfirm('Remove this payment?')) return;
       const r = await window.api.accounts.deleteLiabilityPayment(b.dataset.payment);
       if (!r.ok) { alert(r.error); return; }
       await reloadLiability();
+      if (window.appUndoHint) window.appUndoHint('Payment removed');
     });
   }
   document.getElementById('lp-date').value = ymd(new Date());
@@ -436,11 +436,12 @@ async function saveExpense() {
 }
 
 async function deleteExpense() {
-  if (!editingExpense || !await appConfirm('Delete this expense?')) return;
+  if (!editingExpense) return;
   const r = await window.api.accounts.deleteExpense(editingExpense.id);
   if (!r.ok) { alert(r.error); return; }
   closeExpense();
   await load();
+  if (window.appUndoHint) window.appUndoHint('Expense deleted');
 }
 
 // ---------- Excel (the table goes as CSV text; the app saves it as .xlsx) ----------

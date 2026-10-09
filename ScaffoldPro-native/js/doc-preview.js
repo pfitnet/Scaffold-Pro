@@ -140,7 +140,7 @@
         showSaved(r.path);
       };
       const onKey = (e) => {
-        if (document.querySelector('.app-dialog-backdrop')) return;
+        if (document.querySelector('.app-dialog-backdrop:not(.leaving)')) return;
         const mod = e.metaKey || e.ctrlKey;
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(saved ? { ok: true, saved: true, path: saved.path } : { ok: true, saved: false }); }
         else if (mod && e.key.toLowerCase() === 's' && !actions) { e.preventDefault(); e.stopPropagation(); doSave(); }

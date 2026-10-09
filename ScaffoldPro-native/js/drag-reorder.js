@@ -23,6 +23,14 @@
     return `<span class="drag-handle" role="button" tabindex="0" title="${label}" aria-label="${label}">${GRIP}</span>`;
   };
 
+  // Past the first or last place the item still follows, but with more and
+  // more resistance (the further past, the less it moves), as on the Mac.
+  function rubberband(overshoot, dimension, constant = 0.55) {
+    return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+  }
+  // Settling and sliding: critically damped, no bounce (apple-design).
+  const SETTLE = 'transform 260ms cubic-bezier(.22, 1, .36, 1)';
+
   function scrollerOf(node) {
     for (let n = node.parentElement; n && n !== document.body; n = n.parentElement) {
       const overflow = getComputedStyle(n).overflowY;
@@ -41,6 +49,9 @@
     const itemSel = options.item;
     const handleSel = options.handle || '.drag-handle';
     const items = () => [...container.children].filter((el) => el.matches(itemSel) && el.dataset.id);
+    // An item still settling from the last drag: grabbing it (or another)
+    // again takes over at once, and the two moves are saved together.
+    let settling = null;
     const ids = () => items().map((el) => el.dataset.id);
 
     const finish = (before, movedId) => {
@@ -65,7 +76,7 @@
         x.style.transition = 'none';
         x.style.transform = `translateY(${dy}px)`;
         requestAnimationFrame(() => {
-          x.style.transition = 'transform 140ms ease';
+          x.style.transition = SETTLE;
           x.style.transform = '';
         });
       }
@@ -78,7 +89,15 @@
       if (!el || el.parentElement !== container || !el.dataset.id) return;
       e.preventDefault();
 
-      const startOrder = ids();
+      let startOrder = ids();
+      if (settling) {
+        clearTimeout(settling.timer);
+        startOrder = settling.startOrder;
+        if (settling.el !== el) { settling.el.classList.remove('dragging'); settling.el.style.transition = ''; settling.el.style.transform = ''; }
+        settling = null;
+      }
+      // Grabbed mid-settle: it carries on from where it is on screen.
+      el.style.transition = 'none';
       const scroller = scrollerOf(container);
       const grabOffset = e.clientY - el.getBoundingClientRect().top;
       let pointerY = e.clientY;
@@ -94,7 +113,19 @@
         el.style.transform = saved;
         return top;
       };
-      const follow = () => { el.style.transform = `translateY(${pointerY - grabOffset - naturalTop()}px)`; };
+      const follow = () => {
+        let dy = pointerY - grabOffset - naturalTop();
+        const list = items();
+        const first = list[0], last = list[list.length - 1];
+        if (first && last && list.length > 1) {
+          const h = el.offsetHeight;
+          const minDy = (first === el ? 0 : first.getBoundingClientRect().top - naturalTop());
+          const maxDy = (last === el ? 0 : last.getBoundingClientRect().bottom - h - naturalTop());
+          if (dy < minDy) dy = minDy + rubberband(dy - minDy, h);
+          else if (dy > maxDy) dy = maxDy + rubberband(dy - maxDy, h);
+        }
+        el.style.transform = `translateY(${dy}px)`;
+      };
 
       // Moves the item to the place under the pointer (by the others'
       // resting midpoints, so their slide animations don't cause jitter).
@@ -149,14 +180,16 @@
         window.removeEventListener('pointercancel', onUp, true);
         window.removeEventListener('blur', onUp);
         document.body.classList.remove('reordering');
-        // Settle into place, then save.
-        el.style.transition = 'transform 120ms ease';
+        // Settle into place from where it is, then save (unless it's
+        // grabbed again first).
+        el.style.transition = SETTLE;
         el.style.transform = '';
-        setTimeout(() => {
+        settling = { el, startOrder, timer: setTimeout(() => {
+          settling = null;
           el.classList.remove('dragging');
           el.style.transition = '';
           finish(startOrder, null);
-        }, 130);
+        }, 270) };
       };
       window.addEventListener('pointermove', onMove, true);
       window.addEventListener('pointerup', onUp, true);
