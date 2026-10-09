@@ -415,7 +415,7 @@ async function afterRestore(result) {
   setBusy(false, '');
   if (!result.ok) { alert(result.error); refreshBackups(); return; }
   await window.appAlert(`Restore complete.\n\nYour previous data was saved as "${result.safetyBackup.name}" in case you need it back.`);
-  location.href = 'index.html';
+  window.goTo('index.html');
 }
 
 async function restoreBackup(backup) {

@@ -176,7 +176,7 @@ async function exportReferences() {
 // ---- shared ----
 
 function wireLinks(box) {
-  for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+  for (const tr of box.querySelectorAll('tr[data-url]')) tr.addEventListener('click', () => { window.goTo(tr.dataset.url); });
 }
 
 // ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
@@ -214,13 +214,13 @@ function init() {
   });
   document.getElementById('ld-convert').addEventListener('click', async () => {
     if (!editing) return;
-    if (editing.clientId) { location.href = `clients.html?id=${encodeURIComponent(editing.clientId)}`; return; }
+    if (editing.clientId) { window.goTo(`clients.html?id=${encodeURIComponent(editing.clientId)}`); return; }
     if (!await appConfirm(`Convert “${editing.company}” to a client?\n\nIt’s added to Clients with its contact details, and the lead is marked Won.`, { ok: 'Convert' })) return;
     const id = editing.id;
     if (await saveLead() === null) return;
     const r = await window.api.marketing.convertLead(id);
     if (!r || !r.ok) { alert((r && r.error) || 'The client couldn’t be made.'); return; }
-    location.href = `clients.html?id=${encodeURIComponent(r.id)}`;
+    window.goTo(`clients.html?id=${encodeURIComponent(r.id)}`);
   });
   document.getElementById('ref-search').addEventListener('input', renderReferences);
   document.getElementById('ref-status').addEventListener('change', renderReferences);

@@ -265,7 +265,7 @@
     drawCards(); drawDetail();
     const choice = await window.appChoose(`${ids.length} draft letter${ids.length === 1 ? '' : 's'} written.\n\nOpen each from the Letter column to check and print it, then mark it Sent.`,
       [{ label: 'Open Letters', value: 'letters' }, { label: 'OK', value: 'ok', primary: true }], { noCancel: true });
-    if (choice === 'letters') location.href = 'letters.html';
+    if (choice === 'letters') window.goTo('letters.html');
   }
 
   async function remove() {

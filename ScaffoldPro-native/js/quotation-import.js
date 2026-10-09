@@ -202,7 +202,7 @@
         busy = false;
         if (!r || !r.ok) { btn.disabled = false; alert((r && r.error) || 'The quotation couldn’t be made.'); return; }
         if (r.error) await window.appAlert(r.error);
-        location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
+        window.goTo(`quotation-editor.html?id=${encodeURIComponent(r.id)}`);
       });
     }
   };

@@ -100,7 +100,7 @@ function initPartyPage(config) {
         }</tbody></table>`;
     $('related').innerHTML = `<h3 class="related-title">Projects</h3>${projects}<h3 class="related-title">Documents</h3>${docs}`;
     for (const tr of $('related').querySelectorAll('.link-row')) {
-      tr.addEventListener('click', () => { location.href = tr.dataset.url; });
+      tr.addEventListener('click', () => { window.goTo(tr.dataset.url); });
     }
   }
 

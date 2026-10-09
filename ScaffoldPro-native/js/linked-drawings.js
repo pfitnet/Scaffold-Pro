@@ -53,7 +53,7 @@
         });
       }
       for (const b of container.querySelectorAll('[data-open-boq]')) {
-        b.addEventListener('click', () => { location.href = `boq-editor.html?id=${encodeURIComponent(b.dataset.openBoq)}`; });
+        b.addEventListener('click', () => { window.goTo(`boq-editor.html?id=${encodeURIComponent(b.dataset.openBoq)}`); });
       }
       for (const b of container.querySelectorAll('[data-locate-boq]')) {
         b.addEventListener('click', async () => {

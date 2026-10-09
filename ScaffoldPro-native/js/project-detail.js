@@ -13,7 +13,7 @@ const selections = {
   boq: window.createDocumentSelection({
     kind: 'BOQ', noun: 'BOQ', plural: 'BOQs', drawings: true, drawingsLabel: 'Include each BOQ\u2019s drawings after it',
     combine: { label: 'Combine into One BOQ', title: 'A new BOQ with the chosen BOQs\u2019 quantities added together',
-      run: (ids) => window.api.boq.combine(ids), open: (id) => { location.href = `boq-editor.html?id=${encodeURIComponent(id)}`; } },
+      run: (ids) => window.api.boq.combine(ids), open: (id) => { window.goTo(`boq-editor.html?id=${encodeURIComponent(id)}`); } },
     toolbar: document.getElementById('boq-actions'), container: document.getElementById('boq-list'),
     order: () => currentBOQs.map((b) => b.id), numberOf: (id) => (currentBOQs.find((b) => b.id === id) || {}).boqNumber,
   }),
@@ -30,7 +30,7 @@ const selections = {
   delivery: window.createDocumentSelection({
     kind: 'DeliveryNote', noun: 'delivery note',
     combine: { label: 'Combine into One Delivery Note', title: 'A new delivery note with the chosen notes\u2019 quantities added together',
-      run: (ids) => window.api.deliveryNotes.combine(ids), open: (id) => { location.href = `delivery-note-editor.html?id=${encodeURIComponent(id)}`; } },
+      run: (ids) => window.api.deliveryNotes.combine(ids), open: (id) => { window.goTo(`delivery-note-editor.html?id=${encodeURIComponent(id)}`); } },
     toolbar: document.getElementById('delivery-actions'), container: document.getElementById('delivery-note-list'),
     order: () => currentDeliveryNotes.map((d) => d.id), numberOf: (id) => (currentDeliveryNotes.find((d) => d.id === id) || {}).deliveryNoteNumber,
   }),
@@ -90,7 +90,7 @@ async function refreshBOQList() {
   for (const b of own.concat(combined)) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.onclick = () => { location.href = `boq-editor.html?id=${b.id}`; };
+    tr.onclick = () => { window.goTo(`boq-editor.html?id=${b.id}`); };
     tr.dataset.id = b.id;
     tr.innerHTML = `${selections.boq.cell(b.id)}
       <td>${esc(b.boqNumber)}${b.structure ? `<div class="sub">${esc(b.structure)}</div>` : ''}${b.combined && b.combinedFrom ? `<div class="sub">Combined from ${esc(b.combinedFrom.join(', '))}</div>` : ''}</td>
@@ -163,7 +163,7 @@ async function refreshQuotationList() {
   for (const [q, depth] of ordered) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.onclick = () => { location.href = `quotation-editor.html?id=${q.id}`; };
+    tr.onclick = () => { window.goTo(`quotation-editor.html?id=${q.id}`); };
     tr.dataset.id = q.id;
     // Under the number: the structure of the BOQ it follows, else its subject line.
     const sub = q.structure || q.subject;
@@ -207,7 +207,7 @@ async function refreshInvoiceList() {
   for (const inv of currentInvoices) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.onclick = () => { location.href = `invoice-editor.html?id=${inv.id}`; };
+    tr.onclick = () => { window.goTo(`invoice-editor.html?id=${inv.id}`); };
     tr.dataset.id = inv.id;
     tr.innerHTML = `${selections.invoice.cell(inv.id)}
       <td>${esc(inv.invoiceNumber)}${inv.deliveryNoteNumbers && inv.deliveryNoteNumbers.length
@@ -248,7 +248,7 @@ async function refreshDeliveryNoteList() {
   for (const dn of currentDeliveryNotes) {
     const tr = document.createElement('tr');
     tr.style.cursor = 'pointer';
-    tr.onclick = () => { location.href = `delivery-note-editor.html?id=${dn.id}`; };
+    tr.onclick = () => { window.goTo(`delivery-note-editor.html?id=${dn.id}`); };
     tr.dataset.id = dn.id;
     tr.innerHTML = `${selections.delivery.cell(dn.id)}
       <td>${esc(dn.deliveryNoteNumber)}${dn.quotationNumber ? `<div class="sub">For ${esc(dn.quotationNumber)}</div>` : ''}${dn.invoiceNumbers && dn.invoiceNumbers.length
@@ -281,14 +281,14 @@ async function refreshLetterList() {
       <td>${esc(l.letterNumber)}</td><td><span class="status-pill ${pill[l.status] || ''}">${esc(l.status)}</span></td>
       ${window.createdByCell(l)}<td>${formatDay(l.letterDate)}</td><td>${esc(l.subject || '—')}</td><td>${esc(l.recipientName || '—')}</td></tr>`).join('')}</tbody></table>`;
   for (const tr of container.querySelectorAll('tr[data-id]')) {
-    tr.addEventListener('click', () => { location.href = `letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`; });
+    tr.addEventListener('click', () => { window.goTo(`letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`); });
   }
 }
 
 async function createNewLetter() {
   const r = await window.api.letters.create({ projectId: currentProject.id });
   if (!r || !r.ok) { alert((r && r.error) || 'The letter couldn’t be created.'); return; }
-  location.href = `letter-editor.html?id=${encodeURIComponent(r.id)}`;
+  window.goTo(`letter-editor.html?id=${encodeURIComponent(r.id)}`);
 }
 
 /// Shared renderer for both the Drawings list and the Documents list —
@@ -503,7 +503,7 @@ async function createNewBOQ() {
   const pricingMode = await choosePricing('BOQ');
   if (!pricingMode) return;
   const boq = await window.api.boq.create(currentProject.id, currentProject.projectNumber, pricingMode);
-  location.href = `boq-editor.html?id=${boq.id}`;
+  window.goTo(`boq-editor.html?id=${boq.id}`);
 }
 
 async function createNewQuotation() {
@@ -529,7 +529,7 @@ async function createNewQuotation() {
     if (!pricingMode) return;
   }
   const quotation = await window.api.quotations.create(currentProject.id, currentProject.projectNumber, sourceBOQId, pricingMode);
-  location.href = `quotation-editor.html?id=${quotation.id}`;
+  window.goTo(`quotation-editor.html?id=${quotation.id}`);
 }
 
 // Every invoice is based on one of the project's quotations. For a rental
@@ -682,7 +682,7 @@ function setupInvoiceSheet() {
         invoiceFromQuotation ? document.getElementById('inv-quotation').value : null,
         { rentalMonths: months, includeDelivery: includeDelivery, includeOtherCharges: includeOtherCharges,
           deliveryNoteIds: invoiceFromQuotation ? [] : notes.map((n) => n.id) });
-      location.href = `invoice-editor.html?id=${invoice.id}`;
+      window.goTo(`invoice-editor.html?id=${invoice.id}`);
     } catch (e) {
       err.textContent = e.message;
       err.classList.remove('hidden');
@@ -711,7 +711,7 @@ function setupDeliveryNoteSheet() {
   document.getElementById('dn-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   document.getElementById('dn-create').addEventListener('click', async () => {
     const note = await window.api.deliveryNotes.create(currentProject.id, currentProject.projectNumber, document.getElementById('dn-quotation').value, null);
-    location.href = `delivery-note-editor.html?id=${note.id}`;
+    window.goTo(`delivery-note-editor.html?id=${note.id}`);
   });
 }
 
@@ -990,7 +990,7 @@ function setupEditSheet() {
     const p = currentProject;
     if (!p) return;
     $('edit-modal').classList.add('hidden');
-    if (await window.deleteProject(p)) location.href = 'projects.html';
+    if (await window.deleteProject(p)) window.goTo('projects.html');
   });
   $('e-save-btn').addEventListener('click', async () => {
     const showError = (message) => {
@@ -1011,7 +1011,7 @@ function setupEditSheet() {
       if (!await appConfirm(`Change the project code from ${oldCode} to ${newCode}?\n\nIts folder is renamed to Projects/${newCode}, and draft documents numbered with ${oldCode} are renumbered. Issued documents keep their numbers.`)) return;
       const changed = await window.api.projects.changeNumber(currentProject.id, newCode);
       if (!changed.ok) return showError(changed.error);
-      location.href = `project-detail.html?number=${encodeURIComponent(newCode)}`;
+      window.goTo(`project-detail.html?number=${encodeURIComponent(newCode)}`);
       return;
     }
     $('edit-modal').classList.add('hidden');
