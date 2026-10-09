@@ -4925,7 +4925,7 @@ one idea at a time, few words, and pictures that carry the meaning.
     away as the chosen kind (before, dropping only showed a message).
   - An expiry date is still optional on each document's card, for a
     reminder 30 days before.
-- **Worker agreements:** the English title is now **"Site-work Employment
+- **Worker agreements:** the English title is now **"Short-term Employment
   Agreement"** (was "Simple Employment Agreement") on the PDF cover, the
   Word copy and the Workers page preview. The Chinese 簡易僱傭合約 is
   unchanged.

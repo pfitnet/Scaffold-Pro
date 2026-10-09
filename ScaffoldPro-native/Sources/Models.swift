@@ -1005,7 +1005,7 @@ struct WorkerActionResult: Codable {
 
 // ---- A worker's employment agreement (Batch 213) ----
 
-/// A worker's site-work employment agreement (簡易僱傭合約), made when the
+/// A worker's short-term employment agreement (簡易僱傭合約), made when the
 /// worker is added: these terms and the worker's details fill the
 /// company's template. Someone marked on the Team page as signing worker
 /// agreements signs and chops it for the employer; the worker signs the
@@ -1091,7 +1091,7 @@ struct AgreementParty: Encodable {
 }
 
 struct AgreementContent: Encodable {
-    var coverTitle = "Site-work Employment Agreement"
+    var coverTitle = "Short-term Employment Agreement"
     var coverSubtitle = "簡易僱傭合約"
     var intro: String
     var sections: [AgreementSection]
