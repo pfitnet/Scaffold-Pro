@@ -4852,3 +4852,14 @@ one idea at a time, few words, and pictures that carry the meaning.
   fill it in.
 - Fixed: agreements made with the last version could have blank dates; they
   are filled in (the day it was made, and the start date) when opened.
+
+## Batch 217 — Soft line breaks in notes
+
+- **Notes under a priced section and "Note" blocks** (the note box in the
+  quotation editor) now take line breaks.
+  - Shift-Return starts a new line in the note.
+  - Return saves the note, as it does for custom item descriptions.
+  - The box's tooltip shows "Return saves · Shift-Return new line".
+- **Printing:** each line of the note is printed on its own line in the
+  PDF and the Word export. Nothing else changes.
+- Not checked on a Mac: the Swift and PDF output were read, not run.
