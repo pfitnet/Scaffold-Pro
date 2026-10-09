@@ -13,7 +13,7 @@ import CryptoKit
 // MARK: - Worker employment agreements (Batch 213)
 //
 // Made when a worker is added (Admin › Workers), from the company's
-// "Site-work Employment Agreement" (簡易僱傭合約) template: a cover page, the terms, and a
+// "Short-term Employment Agreement" (簡易僱傭合約) template: a cover page, the terms, and a
 // page to sign. Export PDF / Word / Print as the quotations; someone the
 // Team page marks as signing worker agreements signs and chops it for the
 // employer; the copy signed by both is uploaded into the worker's

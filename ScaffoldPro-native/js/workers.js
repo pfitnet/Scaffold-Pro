@@ -133,7 +133,7 @@
       ['C', '其他內容'], ['10', '合約終止', `欲終止合約方須於終止前 ${mark(String(a.noticeDays ?? 7))} 天前通知對方，或支付對方相等於 ${mark(String(a.noticeDays ?? 7))} 天工資`],
     ];
     return `<div class="wk-paper-head"><span class="wk-lh"><b>P</b>ROFICIENCY</span><span class="wk-lh-sub">建機（香港）設備有限公司 <b>(HK)</b> LIMITED</span></div>
-      <div class="wk-paper-title">簡易僱傭合約 <small>Site-work Employment Agreement</small></div>
+      <div class="wk-paper-title">簡易僱傭合約 <small>Short-term Employment Agreement</small></div>
       <p class="wk-paper-intro">本簡易僱傭合約由 建機（香港）設備有限公司（下稱「僱主」）與 ${mark(name, '僱員姓名')} ${esc(w.honorific || '先生')}（下簡稱「僱員」）於 ${mark(a.agreementDate ? cDate(a.agreementDate) : '', '合約日期')}（下稱「合約日期」）訂立：</p>
       <dl class="wk-paper-terms">${terms.map((t) => (t.length === 2
         ? `<dt class="sec">${esc(t[0])}.</dt><dd class="sec">${esc(t[1])}</dd>`
