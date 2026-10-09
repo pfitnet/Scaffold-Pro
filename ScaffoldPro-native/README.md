@@ -4916,3 +4916,17 @@ one idea at a time, few words, and pictures that carry the meaning.
   same place. One setting (`chopScale` in PDFGenerator.swift) controls all
   three.
 - Not checked on a Mac: the PDFs weren't drawn here.
+
+## Batch 222 — Worker documents without expiry dates; agreement title
+
+- **Workers › Documents:** documents no longer ask for an expiry date.
+  - The upload bar has just the kind and **Add Files…**.
+  - Files can be **dropped** on the Documents tab; they're added straight
+    away as the chosen kind (before, dropping only showed a message).
+  - An expiry date is still optional on each document's card, for a
+    reminder 30 days before.
+- **Worker agreements:** the English title is now **"Site-work Employment
+  Agreement"** (was "Simple Employment Agreement") on the PDF cover, the
+  Word copy and the Workers page preview. The Chinese 簡易僱傭合約 is
+  unchanged.
+- Not checked on a Mac: the Swift was read and parsed, not compiled.
