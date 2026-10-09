@@ -295,48 +295,6 @@ extension NativeBridge {
         respond(id: id, encodable: layout)
     }
 
-    /// A letter as a Word document (js/docx-export.js): the letterhead, the
-    /// opening as on the PDF, and the body as typed (its HTML, read on the
-    /// page). Saved into the project's Letters folder.
-    func handleExportLetterWord(id: String, letterId: String) {
-        guard let letter = db.getLetter(id: letterId) else {
-            respond(id: id, encodable: PDFExportResult(ok: false, error: "Letter not found.", path: nil))
-            return
-        }
-        guard let project = letter.projectId.flatMap({ db.getProject(id: $0) }) else {
-            respond(id: id, encodable: PDFExportResult(ok: false, error: "Attach the letter to a project before saving it as a Word document.", path: nil))
-            return
-        }
-        let paper = db.getCompanySettings().paperSize ?? "A4"
-        guard let generator = PDFGenerator(paperSize: paper), let png = PDFGenerator.letterheadPNG(paperSize: paper) else {
-            respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letterhead for the Word document.", path: nil))
-            return
-        }
-        let opening = letterOpening(letter)
-        var clientLines = opening.addressLines
-        if let attention = nonBlank(opening.attention) { clientLines.append("Attn: \(attention)") }
-        var layout = WordLayout(paperSize: paper, pageWidth: Double(generator.pageWidth), pageHeight: Double(generator.pageHeight),
-                                textLeft: Double(generator.textLeft), textRight: Double(generator.textRight), contentBottom: Double(generator.contentBottom),
-                                number: letter.letterNumber, status: letter.status, title: "", clientName: nonBlank(opening.recipientName) ?? "",
-                                clientLines: clientLines, refRows: opening.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: false) },
-                                refColon: 478.5, subject: nonBlank(opening.subject).map { "Re: \($0)" },
-                                currencySymbol: "", columns: [], rows: [], sections: [], signatures: [])
-        layout.letterheadPNG = png.base64EncodedString()
-        layout.bodyHTML = letter.bodyHTML
-        layout.projectNumber = project.projectNumber
-        layout.subfolder = "Letters"
-        let safe = letter.letterNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-        layout.fileName = "\(db.documentFileBase(docTypeTag: "Letter", number: letter.letterNumber) ?? "Letter_\(safe)").docx"
-        if let fonts = Bundle.main.resourceURL?.appendingPathComponent("resources/fonts", isDirectory: true) {
-            for (style, file) in [("regular", "EBGaramond-Regular"), ("bold", "EBGaramond-Bold"), ("italic", "EBGaramond-Italic"), ("boldItalic", "EBGaramond-BoldItalic")] {
-                if let data = try? Data(contentsOf: fonts.appendingPathComponent("\(file).ttf")) {
-                    layout.fonts.append(WordFont(style: style, data: data.base64EncodedString()))
-                }
-            }
-        }
-        respond(id: id, encodable: layout)
-    }
-
     func handleExportDeliveryNotePDF(id: String, deliveryNoteId: String, mode: PDFMode = .export) {
         guard let detail = db.getDeliveryNoteDetail(id: deliveryNoteId), let note = db.getDeliveryNote(id: deliveryNoteId) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Delivery note not found.", path: nil))
