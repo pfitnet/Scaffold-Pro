@@ -797,11 +797,16 @@ final class BQSheetRenderer {
         // The chop goes over the signature (its middle a little past the
         // signature's middle), not out at the end of the line.
         if let chop = chopImage {
-            let side = room * 1.45
+            // Its middle stays where the full-size chop's was (a quarter of
+            // it below the line); it is drawn at chopScale of that size.
+            let full = room * 1.45
+            let fullHeight = Double(chop.height) * full / Double(max(chop.width, chop.height))
+            let middleY = h - rowBottom - fullHeight * 0.25 + fullHeight / 2
+            let side = full * Double(chopScale)
             let k = side / Double(max(chop.width, chop.height))
             let w = Double(chop.width) * k, ht = Double(chop.height) * k
             let x = min(cell.x0 + 6 + signatureWidth * 0.6 - w / 2, cell.x1 - w - 4)
-            context.draw(chop, in: CGRect(x: max(cell.x0 + 6, x), y: h - rowBottom - ht * 0.25, width: w, height: ht))
+            context.draw(chop, in: CGRect(x: max(cell.x0 + 6, x), y: middleY - ht / 2, width: w, height: ht))
         }
     }
 

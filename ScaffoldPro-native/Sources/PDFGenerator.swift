@@ -79,6 +79,10 @@ enum PDFAttachments {
     }
 }
 
+/// The company chop's size on signed documents, against the size it was
+/// first drawn at (the PDFs and the BQ sheet). It shrinks about its middle.
+let chopScale: CGFloat = 0.4
+
 final class PDFGenerator {
     let paperSize: String
     let pageWidth: CGFloat
@@ -1046,7 +1050,8 @@ final class PDFGenerator {
             }
             // The chop goes over the signature, well inside the line.
             if let chop = signature.chopImage {
-                image(chop, x: column.textX + 62, top: baseline + 6, width: 84, height: 84, centred: true)
+                let side = 84 * chopScale, inset = (84 - side) / 2
+                image(chop, x: column.textX + 62 + inset, top: baseline + 6 + inset, width: side, height: side, centred: true)
             }
             fill(column.ruleX, ruleY, column.ruleWidth, 0.75, .black)
             for (j, line) in signature.lines.enumerated() {

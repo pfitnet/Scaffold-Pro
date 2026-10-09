@@ -4906,3 +4906,13 @@ one idea at a time, few words, and pictures that carry the meaning.
 - People are still stored by their ScaffoldPro name, so nothing already
   signed changes. Not checked on a Mac: the Swift was read and parsed, not
   compiled.
+
+## Batch 221 — Smaller chop
+
+- The company chop on signed documents is drawn at **40% of its old size**:
+  signed quotations (portrait letter and landscape BQ sheet) and signed
+  worker agreements.
+- It shrinks about its middle, so it still sits over the signature in the
+  same place. One setting (`chopScale` in PDFGenerator.swift) controls all
+  three.
+- Not checked on a Mac: the PDFs weren't drawn here.

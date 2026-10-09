@@ -391,7 +391,10 @@ extension PDFGenerator {
         let ruleY = top + 72
         if let signature = signature { image(signature, x: x + 4, top: top + 12, width: 165, height: ruleY - top - 14) }
         // The chop over the signature, well inside the line.
-        if let chop = chop { image(chop, x: x + 62, top: top + 4, width: 86, height: 86, centred: true) }
+        if let chop = chop {
+            let side = 86 * chopScale, inset = (86 - side) / 2
+            image(chop, x: x + 62 + inset, top: top + 4 + inset, width: side, height: side, centred: true)
+        }
         fill(x, ruleY, width, 0.75, .black)
         let font = agreementFont(10.5, bold: true, italic: true)
         var baseline = ruleY + 12
