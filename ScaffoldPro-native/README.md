@@ -4878,3 +4878,14 @@ one idea at a time, few words, and pictures that carry the meaning.
   - Attached annexures are not added to the Word file.
   - Spacing is set by hand to match the PDF, so line positions can differ
     slightly. Not checked on a Mac: the Swift was read, not compiled.
+
+## Batch 219 — Letter Word export: fixes
+
+- Fixed: the letter editor didn't load the Word builder, so Export › Word
+  on a letter only showed "The Word document couldn't be made".
+- The Word preview and file are titled "Letter …" (they said "Document …").
+- Bullet and numbered lists in a letter use Word's own spacing: the marker
+  18pt in, the text at 36pt.
+- Checked by driving the letter editor in a browser with a stand-in for
+  the Mac side: the Export menu shows Word, the preview opens, and Save
+  sends the file to the project's Letters folder.

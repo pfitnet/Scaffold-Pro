@@ -257,13 +257,15 @@
     const center = L.pageWidth / 2 - L.textLeft;
     const titleRuns = run('\t') + run(d.title, { bold: true, size: 15, underline: true }) +
       (d.status !== 'Issued' ? run('\t') + run(String(d.status).toUpperCase(), { bold: true, color: GREY }) : '');
-    // A letter has no title: its subject line follows the references.
-    if (d.title) {
+    // A letter (it has a body of its own) prints no title: its subject line
+    // follows the references.
+    const titled = d.bodyHTML == null;
+    if (titled) {
       out.push(para(titleRuns, { line: 18, before: gapBefore(titleGap, prevLine, 18),
         tabs: [{ val: 'center', pos: center }, { val: 'right', pos: L.textRight - L.textLeft }] }));
       prevLine = 18;
     }
-    let gap = d.title ? 18.0 + TITLE_PADDING : 24.0;
+    let gap = titled ? 18.0 + TITLE_PADDING : 24.0;
     const bodyLine = 16.5;
     const add = (runs) => {
       out.push(para(runs, { line: bodyLine, before: gapBefore(gap, prevLine, bodyLine) }));
@@ -482,10 +484,10 @@
         const size = HEADING_SIZE[tag];
         out.push(para(htmlRuns(node.childNodes, { bold: true, size }), { line: size + 4.5, before: 6, align }));
       } else if (tag === 'UL' || tag === 'OL') {
+        // As Word's own lists: the marker 18pt in, the text at 36pt.
         Array.from(node.children).filter((li) => li.tagName === 'LI').forEach((li, i) => {
           const marker = tag === 'UL' ? '•' : `${i + 1}.`;
-          out.push(para(run(`${marker}\t`) + htmlRuns(li.childNodes, bold), { line: BODY_LINE, before: 3, indLeft: 18, hanging: 18,
-            tabs: [{ pos: 18 }], align }));
+          out.push(para(run(`${marker}\t`) + htmlRuns(li.childNodes, bold), { line: BODY_LINE, before: 3, indLeft: 36, hanging: 18, align }));
         });
       } else if (tag === 'TABLE') {
         out.push(htmlTable(node, Object.assign({}, ctx, { align })));

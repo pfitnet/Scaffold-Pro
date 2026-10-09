@@ -275,7 +275,7 @@ extension NativeBridge {
         if let attention = nonBlank(opening.attention) { clientLines.append("Attn: \(attention)") }
         var layout = WordLayout(paperSize: paper, pageWidth: Double(generator.pageWidth), pageHeight: Double(generator.pageHeight),
                                 textLeft: Double(generator.textLeft), textRight: Double(generator.textRight), contentBottom: Double(generator.contentBottom),
-                                number: letter.letterNumber, status: letter.status, title: "", clientName: nonBlank(opening.recipientName) ?? "",
+                                number: letter.letterNumber, status: letter.status, title: "Letter", clientName: nonBlank(opening.recipientName) ?? "",
                                 clientLines: clientLines, refRows: opening.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: false) },
                                 refColon: 478.5, subject: nonBlank(opening.subject).map { "Re: \($0)" },
                                 currencySymbol: "", columns: [], rows: [], sections: [], signatures: [])
