@@ -421,6 +421,9 @@ struct TeamMembership: Codable {
     var canSignAgreements: Bool? = nil
     /// HK ID card number — printed under their name on the agreements they sign.
     var idNumber: String? = nil
+    /// Their full name (e.g. "William Chan"), printed with their signature
+    /// and chop; nil = their ScaffoldPro name.
+    var fullName: String? = nil
 }
 
 /// A person on the Team page: who they are, and the Macs (and other
@@ -440,6 +443,7 @@ struct TeamPerson: Codable {
     var phone: String?
     var hasSignature: Bool
     var hasChop: Bool
+    var fullName: String? = nil
 }
 
 struct TeamPage: Codable {
@@ -1061,6 +1065,8 @@ struct WorkerAgreementPage: Codable {
     var signedCopyExists: Bool
     /// Details the agreement still needs, e.g. "the worker's ID card number".
     var missing: [String]
+    /// Each signer's full name, as printed (ScaffoldPro name → full name).
+    var fullNames: [String: String] = [:]
 }
 
 /// The agreement's words, laid out the same way on the PDF and in Word.

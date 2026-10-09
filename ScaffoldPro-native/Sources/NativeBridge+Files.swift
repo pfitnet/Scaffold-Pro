@@ -957,7 +957,7 @@ extension NativeBridge {
         }
         let company = db.getCompanySettings()
         let paper = company.paperSize ?? "A4"
-        guard let pages = quotationPDFData(detail, signature: signature, chop: picture("chop")) else { fail("Could not prepare the document."); return }
+        guard let pages = quotationPDFData(detail, signature: signature, chop: picture("chop"), signer: me) else { fail("Could not prepare the document."); return }
         let size = paper == "Letter" ? NSSize(width: 612, height: 792) : NSSize(width: 595.28, height: 841.89)
         let data = PDFAttachments.append(quotationAttachments(detail), to: pages, paperSize: size)
         let safe = detail.quotationNumber.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")

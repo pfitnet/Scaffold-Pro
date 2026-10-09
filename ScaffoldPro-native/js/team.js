@@ -189,6 +189,7 @@ function openPerson(p) {
   document.getElementById('pm-title').textContent = p.name;
   document.getElementById('pm-team').value = p.team || '';
   document.getElementById('pm-title-input').value = p.title || '';
+  document.getElementById('pm-fullname').value = p.fullName || '';
   document.getElementById('pm-cansign').checked = !!p.canSign;
   document.getElementById('pm-cansign-agreements').checked = !!p.canSignAgreements;
   document.getElementById('pm-id').value = p.idNumber || '';
@@ -205,6 +206,7 @@ async function savePerson() {
     name: editingPerson.name,
     team: document.getElementById('pm-team').value.trim(),
     title: document.getElementById('pm-title-input').value.trim(),
+    fullName: document.getElementById('pm-fullname').value.trim(),
     canSign: document.getElementById('pm-cansign').checked,
     canSignAgreements: document.getElementById('pm-cansign-agreements').checked,
     idNumber: document.getElementById('pm-id').value.trim(),
