@@ -2992,6 +2992,8 @@ struct WordLayout: Encodable {
     /// The letterhead and footer, page-sized, as a base64 PNG.
     var letterheadPNG = ""
     var fonts: [WordFont] = []
+    /// A letter's body as its editor HTML; the page turns it into paragraphs.
+    var bodyHTML: String? = nil
 }
 
 /// How a table column's cells are drawn, as on the company's quotation.

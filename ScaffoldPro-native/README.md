@@ -4863,3 +4863,18 @@ one idea at a time, few words, and pictures that carry the meaning.
 - **Printing:** each line of the note is printed on its own line in the
   PDF and the Word export. Nothing else changes.
 - Not checked on a Mac: the Swift and PDF output were read, not run.
+
+## Batch 218 — Word copies of letters
+
+- **Letters can be exported to Word.** The letter editor's Export menu now
+  offers Word next to PDF, as quotations do. The file is saved in the
+  project's Letters folder.
+- **What the Word file has:** the letterhead on every page, the recipient
+  block and references, the Re: line, and the body as typed (bold, italic,
+  underline, sizes, bullet and numbered lists, line breaks and tables).
+- **Limits:**
+  - A letter must belong to a project to be saved as Word (the PDF can go
+    to the administration folder without one).
+  - Attached annexures are not added to the Word file.
+  - Spacing is set by hand to match the PDF, so line positions can differ
+    slightly. Not checked on a Mac: the Swift was read, not compiled.

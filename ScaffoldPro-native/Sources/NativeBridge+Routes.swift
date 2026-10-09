@@ -332,6 +332,8 @@ extension NativeBridge {
             handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: previewMode(payload))
         case "letters:print":
             handleExportLetter(id: id, letterId: (payload["id"] as? String) ?? "", mode: .print)
+        case "letters:exportWord":
+            handleExportLetterWord(id: id, letterId: (payload["id"] as? String) ?? "")
         case "letters:addAttachmentFiles":
             handleAddLetterAttachment(id: id, letterId: (payload["id"] as? String) ?? "", attachmentId: nonBlank(payload["attachmentId"] as? String))
         case "letters:openAttachmentFile":

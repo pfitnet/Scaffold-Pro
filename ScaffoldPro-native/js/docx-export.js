@@ -257,10 +257,13 @@
     const center = L.pageWidth / 2 - L.textLeft;
     const titleRuns = run('\t') + run(d.title, { bold: true, size: 15, underline: true }) +
       (d.status !== 'Issued' ? run('\t') + run(String(d.status).toUpperCase(), { bold: true, color: GREY }) : '');
-    out.push(para(titleRuns, { line: 18, before: gapBefore(titleGap, prevLine, 18),
-      tabs: [{ val: 'center', pos: center }, { val: 'right', pos: L.textRight - L.textLeft }] }));
-    prevLine = 18;
-    let gap = 18.0 + TITLE_PADDING;
+    // A letter has no title: its subject line follows the references.
+    if (d.title) {
+      out.push(para(titleRuns, { line: 18, before: gapBefore(titleGap, prevLine, 18),
+        tabs: [{ val: 'center', pos: center }, { val: 'right', pos: L.textRight - L.textLeft }] }));
+      prevLine = 18;
+    }
+    let gap = d.title ? 18.0 + TITLE_PADDING : 24.0;
     const bodyLine = 16.5;
     const add = (runs) => {
       out.push(para(runs, { line: bodyLine, before: gapBefore(gap, prevLine, bodyLine) }));
@@ -425,6 +428,90 @@
 
   // The letter's body and its section settings; `n` numbers its header
   // and footer when several documents go into one file.
+  // A letter's body, typed as HTML (bold, italic, underline, sizes, lists,
+  // simple tables). The browser reads it and it becomes ordinary Word
+  // paragraphs at the body size and spacing used on the PDF.
+  const BODY_LINE = 16.5;
+  const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE', 'BLOCKQUOTE', 'PRE', 'HR'];
+  const HEADING_SIZE = { H1: 18, H2: 15, H3: 13, H4: 12, H5: 12, H6: 12 };
+
+  // Runs for a stretch of inline HTML, with the marks it carries.
+  function htmlRuns(nodes, style) {
+    let out = '';
+    for (const node of nodes) {
+      if (node.nodeType === 3) {
+        out += run(node.textContent.replace(/\s+/g, ' '), style);
+      } else if (node.nodeType === 1) {
+        if (node.tagName === 'BR') { out += run('\n', style); continue; }
+        if (node.tagName === 'STYLE' || node.tagName === 'SCRIPT') continue;
+        const s = Object.assign({}, style);
+        const tag = node.tagName;
+        if (tag === 'B' || tag === 'STRONG') s.bold = true;
+        if (tag === 'I' || tag === 'EM') s.italic = true;
+        if (tag === 'U') s.underline = true;
+        const size = /^([\d.]+)(pt|px)$/.exec((node.style && node.style.fontSize) || '');
+        if (size) s.size = size[2] === 'px' ? Number(size[1]) * 0.75 : Number(size[1]);
+        out += htmlRuns(node.childNodes, s);
+      }
+    }
+    return out;
+  }
+
+  // Paragraphs, lists and tables for some nodes. `ctx` holds the width, the
+  // alignment and whether the text is bold (table headings).
+  function htmlBlocks(nodes, ctx) {
+    const out = [];
+    let inline = [];
+    const flush = () => {
+      if (inline.some((n) => n.nodeType === 1 || n.textContent.trim())) {
+        out.push(para(htmlRuns(inline, ctx.bold ? { bold: true } : {}), { line: BODY_LINE, before: 3, align: ctx.align }));
+      }
+      inline = [];
+    };
+    for (const node of nodes) {
+      if (node.nodeType !== 1 || !BLOCK_TAGS.includes(node.tagName)) { inline.push(node); continue; }
+      flush();
+      const tag = node.tagName;
+      const align = { center: 'center', right: 'right', justify: 'both', left: 'left' }[node.style.textAlign] || ctx.align;
+      const bold = ctx.bold ? { bold: true } : {};
+      if (tag === 'DIV' || tag === 'BLOCKQUOTE' || tag === 'PRE') {
+        out.push(htmlBlocks(node.childNodes, Object.assign({}, ctx, { align })));
+      } else if (tag === 'P') {
+        out.push(para(htmlRuns(node.childNodes, bold), { line: BODY_LINE, before: 3, align }));
+      } else if (HEADING_SIZE[tag]) {
+        const size = HEADING_SIZE[tag];
+        out.push(para(htmlRuns(node.childNodes, { bold: true, size }), { line: size + 4.5, before: 6, align }));
+      } else if (tag === 'UL' || tag === 'OL') {
+        Array.from(node.children).filter((li) => li.tagName === 'LI').forEach((li, i) => {
+          const marker = tag === 'UL' ? '•' : `${i + 1}.`;
+          out.push(para(run(`${marker}\t`) + htmlRuns(li.childNodes, bold), { line: BODY_LINE, before: 3, indLeft: 18, hanging: 18,
+            tabs: [{ pos: 18 }], align }));
+        });
+      } else if (tag === 'TABLE') {
+        out.push(htmlTable(node, Object.assign({}, ctx, { align })));
+      }
+      // <hr> has no text, so it is left out.
+    }
+    flush();
+    return out.join('');
+  }
+
+  // A table with its columns of equal width and the PDF's cell padding.
+  function htmlTable(table, ctx) {
+    const rows = Array.from(table.rows);
+    const cols = Math.max(1, ...rows.map((r) => r.cells.length));
+    const width = ctx.width / cols;
+    const trs = rows.map((r) => tr(Array.from(r.cells).map((cell) => tc(width,
+      htmlBlocks(cell.childNodes, Object.assign({}, ctx, { bold: ctx.bold || cell.tagName === 'TH', width })),
+      { vAlign: 'top', mar: { left: CELL.left, right: CELL.right } }))));
+    return para('', { line: 6 }) + tbl(new Array(cols).fill(width), trs, { borders: true, cellMar: CELL }) + para('', { line: BODY_LINE });
+  }
+
+  function letterBodyXML(d) {
+    const dom = new DOMParser().parseFromString(String(d.bodyHTML), 'text/html');
+    return htmlBlocks(dom.body.childNodes, { width: d.textRight - d.textLeft, align: 'left' });
+  }
+
   function letterParts(d, n = '') {
     const L = d;
     // The body starts where continuation pages do on the PDF (first baseline
@@ -433,7 +520,7 @@
     const open = opening(d, L);
     body.push(open.xml);
     if (d.columns.length) body.push(mainTable(d));
-    body.push(sections(d));
+    body.push(d.bodyHTML != null ? letterBodyXML(d) : sections(d));
     body.push(signatures(d, L));
     body.push(receipt(d, L));
     body.push(closing(d));

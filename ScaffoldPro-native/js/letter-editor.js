@@ -164,6 +164,18 @@ async function init() {
     if (r && r.ok === false) alert(r.error);
     await loadDetail();
   });
+  document.getElementById('export-word-btn').addEventListener('click', async (e) => {
+    await flush();
+    e.target.disabled = true;
+    try {
+      const result = await window.exportWord(() => window.api.letters.exportWord(letterId));
+      if (result && result.ok === false) alert(result.error);
+    } catch (err) {
+      alert(`The Word document couldn't be made.\n\n${err.message}`);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
     await flush();
     // Shown first (js/doc-preview.js); saved from there.
