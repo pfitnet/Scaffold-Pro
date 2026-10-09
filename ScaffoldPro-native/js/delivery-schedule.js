@@ -133,10 +133,10 @@
       });
       th.querySelector('.ds-remove').addEventListener('click', async () => {
         const day = data.days.find((d) => d.id === dayId);
-        if (!await appConfirm(`Remove Day ${day.day} from the delivery schedule?`)) return;
         const r = await api().deleteDeliveryDay(dayId);
-        if (r && r.ok === false) alert(r.error);
+        if (r && r.ok === false) { alert(r.error); return; }
         await load();
+        if (window.appUndoHint) window.appUndoHint(`Day ${day.day} removed`);
       });
     }
     for (const input of box.querySelectorAll('.ds-note')) {

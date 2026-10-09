@@ -4930,3 +4930,61 @@ one idea at a time, few words, and pictures that carry the meaning.
   Word copy and the Workers page preview. The Chinese 簡易僱傭合約 is
   unchanged.
 - Not checked on a Mac: the Swift was read and parsed, not compiled.
+
+## Batch 223 — Apple design pass over every page
+
+Every page was checked against the apple-design guide (`.claude/skills/apple-design`)
+and made to follow it. Nothing works differently except where noted.
+
+- **Motion settles without bouncing.** The shared `--spring` curve is now
+  critically damped, and the 25 hard-coded "overshoot" curves (switches,
+  ticks, badges, sheets, notifications, calendar events, stock and settings)
+  use it too. A bouncy curve (`--spring-momentum`) is kept only for movement
+  that follows a flick or drag.
+- **Things leave the way they came.**
+  - Sheets and dialogs now close as smoothly as they open (sink and fade),
+    and a closing one stops catching clicks at once, so nothing waits for it.
+    Reopening one mid-close just turns it round.
+  - Notifications slide in and out on the right, as on the Mac. Removed stock
+    lines leave the way they arrived.
+  - Menus grow out of the button that opened them; submenus out of their row.
+- **Instant press feedback.** Buttons press in the moment the pointer goes
+  down (the action still happens on release). Rows, list and menu items and
+  sidebar links light up while pressed; tiles and chips press in slightly.
+  The Material-style ripple is gone (not a Mac thing).
+- **No endless decoration.** The slowly moving backgrounds (Tasks, Workers,
+  Manual, launch screen) stand still, floating icons stop, and attention
+  pulses (calendar "now", project status, sign request, chat wave) play a few
+  times then rest. Spinners and typing dots, which show work going on, keep
+  moving.
+- **Drags feel physical.**
+  - Reordering (sections, rows, terms): past the first or last place the item
+    follows with growing resistance; it settles with a smooth, critically
+    damped slide; grabbing it again while it settles takes over, and both
+    moves are saved together.
+  - The Assistant's window is moved and resized with pointer events: past a
+    screen edge it resists, then springs back on screen when let go.
+  - Dragging in the calendar, dashboard widget resizing and Clients & Sites
+    links now give up cleanly if the system cancels the gesture.
+  - In ScaffoldPro Web, links open at once (no 120 ms fade first).
+- **Accessibility settings are followed.**
+  - *Reduce Motion*: nothing slides, scales or springs, but changes still
+    cross-fade; spinners and typing dots still show work in progress (they
+    used to freeze with everything else).
+  - *Reduce Transparency*: the sidebar, menus, search, notifications and
+    other glassy panels become solid; scrims dim without blurring.
+  - *Increase Contrast*: stronger borders and secondary text, light and dark.
+- **Fewer "Are you sure?" questions.** Removing or archiving something ⌘Z
+  can put back now happens at once, with "Removed … [Undo]" at the bottom:
+  a payment or expense, a BOQ charges or rates section, a quotation section
+  or note, a delivery day, a lead, a task, a stock entry, an archived
+  document, worker, client or site, and a document reference. Questions stay
+  for what can't be undone (deleting documents, projects, employees, files to
+  the Trash, chat messages, announcements) and for warnings (issued
+  documents back to Draft, re-pricing, replacing typed terms, unsaved work).
+- **Type:** large headings and figures track a little tighter.
+- Checked: all 26 pages load with no errors in light and dark, also with
+  Reduce Motion; screenshots match the old ones apart from the intended
+  details; sheets, dialogs, menus, reordering, the Assistant window, the
+  Undo toast and the three accessibility settings were each driven in a
+  browser. Not checked on a Mac (WebKit); no Swift changed.

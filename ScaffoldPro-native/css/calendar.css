@@ -171,7 +171,7 @@
 /* Now: faint across the week, strong (with the time) on today. */
 .now-rule { position: absolute; left: 58px; right: 0; height: 0; z-index: 4; pointer-events: none; border-top: 1px dashed color-mix(in srgb, var(--danger) 35%, transparent); }
 .now-rule::before { content: ''; position: absolute; left: var(--today-left); width: var(--today-width); top: -1.5px; height: 2px; margin-left: -58px; background: var(--danger); border-radius: 2px; box-shadow: 0 0 10px color-mix(in srgb, var(--danger) 55%, transparent); }
-.now-rule::after { content: ''; position: absolute; left: calc(var(--today-left) - 58px - 5px); top: -5.5px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: now-pulse 2.4s ease-out infinite; }
+.now-rule::after { content: ''; position: absolute; left: calc(var(--today-left) - 58px - 5px); top: -5.5px; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); animation: now-pulse 2.4s ease-out 3; }
 @keyframes now-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
 .now-badge { position: absolute; left: -56px; top: -9px; width: 48px; text-align: center; font-size: 10px; font-weight: 700; color: #fff; background: var(--danger); border-radius: 6px; padding: 2px 0; font-variant-numeric: tabular-nums; }
 .now-rule[hidden] { display: none; }

@@ -753,7 +753,8 @@ function renderBlocks() {
     const remove = q('.block-remove');
     if (remove) remove.addEventListener('click', async () => {
       const what = block.kind === 'Note' ? 'this note' : block.kind === 'BuyBack' ? 'the buy-back offer' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;
-      if (await appConfirm(`Remove ${what}?`)) blockCall(window.api.quotations.removeBlock(block.id));
+      await blockCall(window.api.quotations.removeBlock(block.id));
+      if (window.appUndoHint) window.appUndoHint(`Removed ${what}`);
     });
     for (const tr of card.querySelectorAll('tr[data-id]')) {
       const lineId = tr.dataset.id;

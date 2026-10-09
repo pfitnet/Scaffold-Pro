@@ -970,10 +970,11 @@ function wire() {
     const rm = e.target.closest('button[data-remove]');
     if (rm) {
       const b = batches().find((x) => x.key === rm.dataset.remove);
-      if (!b || !await window.appConfirm(`Remove this ${KIND[b.kind] ? KIND[b.kind].label.toLowerCase() : 'entry'} (${b.lines.length} item${b.lines.length === 1 ? '' : 's'})? The figures are worked out again without it.`, { ok: 'Remove', danger: true })) return;
+      if (!b) return;
       const r = b.batchId ? await window.api.stock.deleteBatch(b.batchId) : await window.api.stock.deleteMovement(b.lines[0].movement.id);
       if (r && !r.ok) { await window.appAlert(r.error); return; }
-      toast('Removed — ⌘Z puts it back');
+      const what = KIND[b.kind] ? KIND[b.kind].label.toLowerCase() : 'entry';
+      if (window.appUndoHint) window.appUndoHint(`Removed the ${what} (${b.lines.length} item${b.lines.length === 1 ? '' : 's'})`); else toast('Removed — ⌘Z puts it back');
       await load();
       return;
     }

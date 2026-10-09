@@ -646,7 +646,7 @@ if (!window.__chatBadgeTimer) window.__chatBadgeTimer = setInterval(() => window
 window.refreshChatBadge();
 
 // Motion on every page: page in/out, sliding markers, counting numbers,
-// the light on cards, ripples (js/motion.js).
+// the light on cards (js/motion.js).
 (function loadMotion() {
   for (const src of ['js/motion.js', 'js/notify.js']) {
     if (document.querySelector(`script[src$="${src}"]`)) continue;

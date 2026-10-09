@@ -183,10 +183,10 @@
         close(true);
       };
       const del = async () => {
-        if (!await window.appConfirm(`Delete “${task.title}”?`)) return;
         const r = await window.api.tasks.remove(task.id);
         if (r && r.ok === false) { alert(r.error); return; }
         close(true);
+        if (window.appUndoHint) window.appUndoHint(`Task “${task.title}” deleted`);
       };
       const onKey = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); close(false); }

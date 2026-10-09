@@ -550,7 +550,7 @@ document.getElementById('tk-team').addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable], .modal-backdrop:not(.hidden)');
-  if (typing || document.querySelector('.modal-backdrop:not(.hidden), .app-dialog-backdrop')) return;
+  if (typing || document.querySelector('.modal-backdrop:not(.hidden), .app-dialog-backdrop:not(.leaving)')) return;
   if (e.key === 'n' || e.key === 'N') { e.preventDefault(); document.getElementById('tk-quick-input').focus(); }
   if (e.key === '/') { e.preventDefault(); document.getElementById('task-search').focus(); }
 });

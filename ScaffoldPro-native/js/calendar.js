@@ -519,14 +519,18 @@ function wireDragToSchedule(box) {
         if (y > anchor) { from = anchor; to = Math.max(anchor + SNAP, y); } else { from = Math.min(y, anchor); to = anchor + SNAP; }
         draw();
       };
-      const onUp = () => {
+      const onUp = (up) => {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
         ghost.classList.remove('dragging');
+        // Cancelled by the system (a gesture, another window): nothing is added.
+        if (up.type === 'pointercancel') { clearGhost(); return; }
         addTask(col.dataset.day, hhmm(from), hhmm(Math.min(to, 23 * 60 + 59)), true);
       };
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     });
   }
 }

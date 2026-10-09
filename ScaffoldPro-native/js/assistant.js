@@ -1203,23 +1203,57 @@
       const r = rectOf();
       place({ left: r.left, top: r.top, width: r.width, height: r.height });
     }
+    // Past an edge it still follows, with more and more resistance; let go
+    // and it springs back on screen (critically damped). Grabbing it while
+    // it settles carries on from where it is.
+    const rubberband = (over, dim) => (over * dim * 0.55) / (dim + 0.55 * Math.abs(over));
+    const soft = (v, lo, hi, dim) => (v < lo ? lo + rubberband(v - lo, dim) : v > hi ? hi + rubberband(v - hi, dim) : v);
+    let settleTimer = 0;
+    function grab(e, el) {
+      clearTimeout(settleTimer);
+      panel.style.transition = 'none';
+      if (el.setPointerCapture) { try { el.setPointerCapture(e.pointerId); } catch (err) { /* fine */ } }
+    }
+    function settle() {
+      const before = rectOf();
+      panel.style.transition = 'left .32s var(--spring), top .32s var(--spring), width .32s var(--spring), height .32s var(--spring)';
+      place(before);
+      settleTimer = setTimeout(() => { panel.style.transition = ''; saveRect(); }, 340);
+    }
+    function track(e, el, onMove, onEnd) {
+      const move = (ev) => { if (ev.pointerId === e.pointerId) onMove(ev); };
+      const up = (ev) => {
+        if (ev.pointerId !== undefined && ev.pointerId !== e.pointerId) return;
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', up);
+        window.removeEventListener('blur', up);
+        onEnd();
+      };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      window.addEventListener('blur', up);
+    }
     function startDrag(e) {
       if (e.button !== 0 || e.target.closest('button, a, input, textarea, select')) return;
       e.preventDefault();
+      const head = e.currentTarget;
+      grab(e, head);
       const r = rectOf();
       const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      const topEdge = window.__scaffoldProWeb ? EDGE : 44;
       panel.classList.add('dragging');
       document.body.classList.add('as-dragging');
-      const move = (ev) => place({ left: ev.clientX - dx, top: ev.clientY - dy, width: r.width, height: r.height });
-      const up = () => {
+      track(e, head, (ev) => {
+        const left = soft(ev.clientX - dx, EDGE, window.innerWidth - r.width - EDGE, r.width);
+        const top = soft(ev.clientY - dy, topEdge, window.innerHeight - r.height - EDGE, r.height);
+        Object.assign(panel.style, { left: `${left}px`, top: `${top}px`, width: `${r.width}px`, height: `${r.height}px`, right: 'auto', bottom: 'auto' });
+      }, () => {
         panel.classList.remove('dragging');
         document.body.classList.remove('as-dragging');
-        window.removeEventListener('mousemove', move);
-        window.removeEventListener('mouseup', up);
-        saveRect();
-      };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', up);
+        settle();
+      });
     }
     // Resizing from any edge or corner: `dir` is the sides being moved
     // (n, s, e, w, ne, nw, se, sw).
@@ -1227,11 +1261,13 @@
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
+      const grip = e.currentTarget;
+      grab(e, grip);
       const r = rectOf();
       const x0 = e.clientX, y0 = e.clientY;
       panel.classList.add('dragging');
       document.body.classList.add('as-dragging', `as-resizing-${dir}`);
-      const move = (ev) => {
+      track(e, grip, (ev) => {
         const dx = ev.clientX - x0, dy = ev.clientY - y0;
         let { left, top, width, height } = r;
         if (dir.includes('e')) width = Math.max(MIN_W, r.width + dx);
@@ -1239,22 +1275,18 @@
         if (dir.includes('w')) { width = Math.max(MIN_W, r.width - dx); left = r.left + r.width - width; }
         if (dir.includes('n')) { height = Math.max(MIN_H, r.height - dy); top = r.top + r.height - height; }
         place({ left, top, width, height });
-      };
-      const up = () => {
+      }, () => {
         panel.classList.remove('dragging');
         document.body.classList.remove('as-dragging', `as-resizing-${dir}`);
-        window.removeEventListener('mousemove', move);
-        window.removeEventListener('mouseup', up);
+        panel.style.transition = '';
         saveRect();
-      };
-      window.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', up);
+      });
     }
     function wireMoving() {
       const head = panel.querySelector('.as-head');
       head.classList.add('as-drag-handle');
       head.title = 'Drag to move · double-click to put it back';
-      head.addEventListener('mousedown', startDrag);
+      head.addEventListener('pointerdown', startDrag);
       head.addEventListener('dblclick', (e) => {
         if (e.target.closest('button')) return;
         try { localStorage.removeItem(RECT_KEY); } catch (err) { /* fine */ }
@@ -1265,7 +1297,7 @@
         const grip = document.createElement('div');
         grip.className = `as-resize as-resize-${dir}`;
         grip.setAttribute('aria-hidden', 'true');
-        grip.addEventListener('mousedown', (e) => startResize(e, dir));
+        grip.addEventListener('pointerdown', (e) => startResize(e, dir));
         panel.appendChild(grip);
       }
       window.addEventListener('resize', () => { if (isOpen()) place(rectOf()); });
