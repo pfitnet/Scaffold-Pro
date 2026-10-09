@@ -725,7 +725,7 @@ function renderBlocks() {
         </span>`}
       </div>
       ${body}
-      <textarea class="block-note" rows="2" placeholder="${block.kind === 'Note' ? 'Note, shown in small italics across the table' : 'Note row (optional), shown in small italics under these rows'}" ${locked ? 'disabled' : ''}>${esc(block.note || '')}</textarea>`;
+      <textarea class="block-note" rows="2" title="Return saves · Shift-Return new line" placeholder="${block.kind === 'Note' ? 'Note, shown in small italics across the table' : 'Note row (optional), shown in small italics under these rows'}" ${locked ? 'disabled' : ''}>${esc(block.note || '')}</textarea>`;
 
     const q = (sel) => card.querySelector(sel);
     const title = q('.block-title');
@@ -744,6 +744,12 @@ function renderBlocks() {
         saveLetterField(f, v === '' ? null : Math.max(0, f.endsWith('Months') ? Math.round(Number(v)) : Number(v)) || 0);
       });
     }
+    // Return saves the note; Shift-Return starts a new line in it (as in custom items).
+    note.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      note.blur();
+    });
     const remove = q('.block-remove');
     if (remove) remove.addEventListener('click', async () => {
       const what = block.kind === 'Note' ? 'this note' : block.kind === 'BuyBack' ? 'the buy-back offer' : `the section "${block.title || 'untitled'}"${lines.length ? ` and its ${lines.length} row(s)` : ''}`;

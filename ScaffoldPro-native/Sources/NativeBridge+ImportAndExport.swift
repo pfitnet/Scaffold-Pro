@@ -481,7 +481,7 @@ extension NativeBridge {
             return
         }
         guard !projectNumber.isEmpty, db.getProjectByNumber(projectNumber) != nil,
-              ["BOQ", "Quotations", "Invoices", "Delivery Notes"].contains(subfolder),
+              ["BOQ", "Quotations", "Invoices", "Delivery Notes", "Letters"].contains(subfolder),
               fileName.hasSuffix(".docx"), !fileName.hasPrefix("."),
               let data = Data(base64Encoded: (payload["data"] as? String) ?? ""), !data.isEmpty else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "The Word document couldn't be saved.", path: nil))
