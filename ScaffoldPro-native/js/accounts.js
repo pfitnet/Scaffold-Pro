@@ -260,7 +260,7 @@ function render() {
         ${r.cells.map((c, i) => `<td${cls(i)}>${c}</td>`).join('')}</tr>`).join('')}</tbody>
       <tfoot><tr>${t.foot.map((c, i) => `<td${cls(i)}>${c}</td>`).join('')}</tr></tfoot>
     </table>`;
-  for (const tr of content.querySelectorAll('tr[data-href]')) tr.addEventListener('click', () => { window.goTo(tr.dataset.href); });
+  for (const tr of content.querySelectorAll('tr[data-href]')) tr.addEventListener('click', () => { location.href = tr.dataset.href; });
   for (const tr of content.querySelectorAll('tr[data-expense]')) {
     tr.addEventListener('click', () => openExpense(data.expenses.find((e) => e.id === tr.dataset.expense)));
   }

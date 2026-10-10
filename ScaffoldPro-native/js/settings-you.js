@@ -23,7 +23,7 @@
   function list(id, rows, line, empty) {
     const box = $(id);
     box.innerHTML = rows.length ? rows.slice(0, 8).map((r) => `<div class="you-line" data-url="${esc(r.url || '')}">${line(r)}</div>`).join('') : `<div class="empty">${empty}</div>`;
-    for (const el of box.querySelectorAll('.you-line[data-url]')) if (el.dataset.url) el.addEventListener('click', () => { window.goTo(el.dataset.url); });
+    for (const el of box.querySelectorAll('.you-line[data-url]')) if (el.dataset.url) el.addEventListener('click', () => { location.href = el.dataset.url; });
   }
 
   async function load() {

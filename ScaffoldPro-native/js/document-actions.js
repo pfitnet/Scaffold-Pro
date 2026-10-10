@@ -53,7 +53,7 @@
     if (!pick) return false;
     const r = await window.api.quotations.duplicate(id, pick === 'here' ? null : pick.project);
     if (!r || !r.ok) { alert((r && r.error) || 'It couldn’t be duplicated.'); return false; }
-    window.goTo(`quotation-editor.html?id=${encodeURIComponent(r.id)}`);
+    location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
     return true;
   };
 
@@ -71,7 +71,7 @@
     if (del) del.addEventListener('click', async () => {
       const d = get();
       if (await window.deleteDocument(kind, d.id, d.number, d.status)) {
-        window.goTo(`project-detail.html?number=${encodeURIComponent(d.projectNumber)}`);
+        location.href = `project-detail.html?number=${encodeURIComponent(d.projectNumber)}`;
       }
     });
   };

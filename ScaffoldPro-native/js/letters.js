@@ -36,7 +36,7 @@ function render() {
       <td><span class="status-pill ${PILL[l.status] || ''}">${esc(l.status)}</span></td>${window.createdByCell(l)}</tr>`).join('')}</tbody></table>`;
   for (const tr of box.querySelectorAll('tr[data-id]')) {
     tr.style.cursor = 'pointer';
-    tr.addEventListener('click', () => { window.goTo(`letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`); });
+    tr.addEventListener('click', () => { location.href = `letter-editor.html?id=${encodeURIComponent(tr.dataset.id)}`; });
   }
 }
 
@@ -77,7 +77,7 @@ async function create() {
     err.classList.remove('hidden');
     return;
   }
-  window.goTo(`letter-editor.html?id=${encodeURIComponent(r.id)}`);
+  location.href = `letter-editor.html?id=${encodeURIComponent(r.id)}`;
 }
 
 async function init() {

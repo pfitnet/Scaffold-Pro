@@ -92,13 +92,13 @@ async function makeQuotation() {
     const pick = await window.appChoose(`${d.boqNumber} already has ${names}\n\nOpen ${linked.length === 1 ? 'it' : linked[0].number}, or make another quotation from this BOQ?`, [
       { label: 'Make Another', value: 'new' }, { label: `Open ${linked[0].number}`, value: 'open', primary: true }]);
     if (!pick) return;
-    if (pick === 'open') { window.goTo(`quotation-editor.html?id=${encodeURIComponent(linked[0].id)}`); return; }
+    if (pick === 'open') { location.href = `quotation-editor.html?id=${encodeURIComponent(linked[0].id)}`; return; }
   }
   const project = await window.api.projects.get(d.projectNumber);
   if (!project || !project.id) { await window.appAlert('The project for this BOQ couldn’t be found.'); return; }
   const q = await window.api.quotations.create(project.id, d.projectNumber, d.id, d.pricingMode);
   if (!q || !q.id) { await window.appAlert((q && q.error) || 'The quotation couldn’t be made.'); return; }
-  window.goTo(`quotation-editor.html?id=${encodeURIComponent(q.id)}`);
+  location.href = `quotation-editor.html?id=${encodeURIComponent(q.id)}`;
 }
 
 function render() {

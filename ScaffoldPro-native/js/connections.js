@@ -182,13 +182,13 @@
   }
 
   function startProject(clientId, siteId) {
-    window.goTo(`projects.html?new=1&client=${encodeURIComponent(clientId)}&site=${encodeURIComponent(siteId)}`);
+    location.href = `projects.html?new=1&client=${encodeURIComponent(clientId)}&site=${encodeURIComponent(siteId)}`;
   }
 
   function openLink(e, clientId, siteId) {
     const l = links.find((x) => x.clientId === clientId && x.siteId === siteId);
     if (!l) return;
-    const go = (p) => { window.goTo(`project-detail.html?number=${encodeURIComponent(p.projectNumber)}`); };
+    const go = (p) => { location.href = `project-detail.html?number=${encodeURIComponent(p.projectNumber)}`; };
     if (l.projects.length === 1 && !e.altKey) { go(l.projects[0]); return; }
     window.showContextMenu(e, l.projects.map((p) => ({ label: `${p.projectNumber} — ${p.name}${p.status ? ` (${p.status})` : ''}`, action: () => go(p) }))
       .concat(['separator', { label: 'New Project for These Two…', action: () => startProject(clientId, siteId) }]));
