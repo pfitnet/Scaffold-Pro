@@ -65,23 +65,9 @@
       .app-dialog-buttons button.danger { background: var(--danger, #c93a32); border-color: var(--danger, #c93a32); color: #fff; }
       .app-dialog-buttons button.danger:hover { filter: brightness(0.95); }
       @keyframes appDialogFade { from { opacity: 0; } to { opacity: 1; } }
-      /* Leaving: back the way it came (the same keyframes, reversed); the page is usable at once. */
-      .app-dialog-backdrop.leaving { animation: appDialogFade 0.14s ease-in reverse both; pointer-events: none; }
-      .app-dialog-backdrop.leaving .app-dialog { animation: appDialogPop 0.16s ease-in reverse both; }
-      @media (prefers-reduced-motion: reduce) { .app-dialog-backdrop.leaving .app-dialog { animation: appDialogFade 0.14s ease-in reverse both; } }
       @keyframes appDialogPop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
     `;
     (document.head || document.documentElement).appendChild(style);
-  }
-
-  // Closes a dialog: it fades back the way it came, and stops catching
-  // clicks at once (nothing waits for the animation).
-  function dismiss(backdrop) {
-    backdrop.classList.add('leaving');
-    let gone = false;
-    const remove = () => { if (!gone) { gone = true; backdrop.remove(); } };
-    backdrop.addEventListener('animationend', (e) => { if (e.target === backdrop) remove(); });
-    setTimeout(remove, 220);
   }
 
   // The dialog itself. buttons: [{ label, value, primary?, danger?, cancel? }]
@@ -115,7 +101,7 @@
           if (done) return;
           done = true;
           document.removeEventListener('keydown', onKey, true);
-          dismiss(backdrop);
+          backdrop.remove();
           if (previousFocus && previousFocus.focus && document.contains(previousFocus)) { try { previousFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
           const b = opts.buttons[i];
           resolve(opts.input ? (b && !b.cancel ? input.value : null) : (b ? b.value : undefined));
@@ -147,7 +133,7 @@
               if (done) return;
               done = true;
               document.removeEventListener('keydown', onKey, true);
-              dismiss(backdrop);
+              backdrop.remove();
               resolve(value);
             } });
           } else {
@@ -242,7 +228,7 @@
           // The update's own screen takes over; if it can't start, this goes.
           setTimeout(() => backdrop.remove(), 10000);
         } else {
-          dismiss(backdrop);
+          backdrop.remove();
         }
         resolve(answer);
       };

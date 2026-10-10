@@ -4988,3 +4988,20 @@ and made to follow it. Nothing works differently except where noted.
   details; sheets, dialogs, menus, reordering, the Assistant window, the
   Undo toast and the three accessibility settings were each driven in a
   browser. Not checked on a Mac (WebKit); no Swift changed.
+
+## Batch 225 — Fades back to how they were before Batch 223
+
+The slow page fade (Batch 224) is gone, and the fades Batch 223 changed are
+back as they were:
+
+- Sheets: the quick fade in, and they close at once (no sink-and-fade out,
+  no growing blur).
+- Dialogs (alerts, questions, typed answers): close at once, with no fade out.
+- Notifications rise in from below again.
+- ScaffoldPro Web: the page fades for 120 ms before a link opens.
+- Reduce Motion: nothing fades or moves again, except spinners, typing
+  dots and loading bars, which still show work in progress.
+
+Everything else from Batch 223 stays: no overshoot, press feedback, the
+Undo toast in place of "Are you sure?", drags, Reduce Transparency and
+Increase Contrast. No Swift changed.

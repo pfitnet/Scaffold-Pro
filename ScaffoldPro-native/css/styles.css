@@ -624,23 +624,6 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
   box-shadow: var(--shadow-sheet);
   animation: sheet-in 0.32s var(--spring);
 }
-/* Where the engine can animate display: sheets open and close along the
-   same path (rise and settle in, sink and fade out) as interruptible
-   transitions, and a closing sheet stops catching clicks at once. The
-   scrim's blur grows with it, so it arrives as a material, not a fade. */
-@supports (transition-behavior: allow-discrete) {
-  .modal-backdrop {
-    animation: none;
-    transition: opacity .2s var(--ease), -webkit-backdrop-filter .24s var(--ease), backdrop-filter .24s var(--ease), display .24s allow-discrete;
-  }
-  .modal-backdrop > .modal { animation: none; transition: opacity .2s var(--ease), transform .32s var(--spring); }
-  .modal-backdrop.hidden { opacity: 0; pointer-events: none; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
-  .modal-backdrop.hidden > .modal { opacity: 0; transform: translateY(10px) scale(0.97); }
-  @starting-style {
-    .modal-backdrop { opacity: 0; -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
-    .modal-backdrop > .modal { opacity: 0; transform: translateY(10px) scale(0.97); }
-  }
-}
 .modal h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 16px; }
 .modal.wide { width: 660px; }
 .modal .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
@@ -862,16 +845,12 @@ table.price-table td.row-actions { white-space: nowrap; text-align: right; }
 }
 
 /* Accessibility: respect "Reduce motion". */
-/* Reduce Motion: nothing slides, scales or springs, but changes still
-   cross-fade gently (colour, opacity, shadow), and the few things that
-   show work in progress keep moving: spinners, typing dots, loading bars. */
+/* Reduce Motion: no animations or fades; the few things that show work
+   in progress keep moving: spinners, typing dots, loading bars. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;
-    transition-property: opacity, color, background-color, border-color, outline-color, fill, stroke, box-shadow, filter !important;
-    transition-duration: .15s !important;
-    transition-timing-function: ease !important;
-    transition-delay: 0s !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
   .dp-spinner, .qi-spin { animation: dpSpin .8s linear infinite !important; }
@@ -2287,7 +2266,7 @@ a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
   border: 1px solid var(--border); box-shadow: var(--shadow-lift); animation: notify-in .45s var(--spring) both; }
 .notify-card.sign { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); box-shadow: var(--shadow-lift), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
 .notify-card.leaving { animation: notify-out .26s var(--ease) forwards; }
-@keyframes notify-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes notify-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes notify-out { to { opacity: 0; transform: translateX(24px); } }
 .notify-icon { flex: none; width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: var(--grad-accent); box-shadow: 0 6px 14px -6px var(--accent-glow); }
 .notify-card.sign .notify-icon { animation: notify-nudge 2.8s ease-in-out 2; }
