@@ -23,9 +23,9 @@
 
   // ---------- Page in / out ----------
   // In the Mac app the window keeps a picture of the page being left until
-  // this one has drawn, then crossfades (main.swift, NativeBridge's
-  // WKNavigationDelegate): no fade out or rise in here, or the window shows
-  // an empty page in between. ScaffoldPro Web in a browser keeps them.
+  // this one is built, then shows it (Sources/Assistant.swift, NativeBridge's
+  // WKNavigationDelegate; js/bridge.js says when): no fade out or rise in
+  // here. ScaffoldPro Web in a browser keeps them.
   const web = !!window.__scaffoldProWeb;
   if (!reduce && web) {
     root.classList.add('page-enter');

@@ -31,13 +31,30 @@ final class PageBackdropView: NSView {
     }
 }
 
-/// A reload behind a picture of the page (window.softReload, js/bridge.js):
-/// taken away once the page has drawn — the page says so (ui:releaseFrame),
-/// or, failing that, a moment after it has loaded. Moving between pages
-/// holds nothing (it must be instant); the window behind the page is the
-/// page's own background colour, so there's nothing dark to flash
-/// (PageBackdropView).
+/// Moving between pages (and window.softReload): a picture of the page being
+/// left stays over the window until the next page is fully built — its data
+/// in and drawn — and then gives way to it in one step. The page says when
+/// (ui:releaseFrame, js/bridge.js); failing that, a moment after it has
+/// loaded. So the half-built page (sidebar and lists still filling in) is
+/// never seen. Behind it all, the pages' own background colour
+/// (PageBackdropView), never a dark empty web view.
 extension NativeBridge: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        let toThisWindow = navigationAction.targetFrame?.isMainFrame ?? false
+        let from = webView.url, to = navigationAction.request.url
+        // Only a jump within the same page (#section): nothing to cover.
+        let samePage = from != nil && to != nil && from!.path == to!.path && from!.query == to!.query
+            && to!.fragment != nil && navigationAction.navigationType != .reload
+        guard toThisWindow, !samePage, !holdingFrame, from?.isFileURL == true, to?.isFileURL == true else {
+            decisionHandler(.allow)
+            return
+        }
+        // The picture already on screen: taken at once (holdFrame never
+        // waits more than 0.12 s for it), then the page change goes ahead.
+        holdFrame { decisionHandler(.allow) }
+    }
+
     /// A new page swaps the web view's mouse tracking under the title bar:
     /// the window's close / minimise / full-screen buttons then lose track of
     /// the pointer until it leaves and comes back. Re-armed after each page.
@@ -64,8 +81,12 @@ extension NativeBridge: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         refreshTitlebarButtons()
-        // Normally the page has said it has drawn by now.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.releaseFrame() }
+        // Normally the page has said it's built by now; a slow one is shown anyway.
+        // Only the picture held for this page: not one held since for the next.
+        let held = heldFrame
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self, weak held] in
+            if let held = held, self?.heldFrame === held { self?.releaseFrame() }
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { releaseFrame() }

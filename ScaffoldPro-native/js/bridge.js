@@ -19,7 +19,7 @@
   function callNative(action, payload) {
     return new Promise((resolve, reject) => {
       const id = String(nextId++);
-      pending.set(id, { resolve, reject });
+      pending.set(id, { resolve, reject, ui: action.startsWith('ui:'), at: Date.now() });
       try {
         window.webkit.messageHandlers.native.postMessage({ id: id, action: action, payload: payload || {} });
       } catch (err) {
@@ -674,19 +674,62 @@
     }
     location.reload();
   };
-  // After window.softReload the Mac app holds a picture of the page over it
-  // until it has drawn: taken away once its lists have had a moment.
-  const releaseHeldFrame = () => {
-    if (window.__scaffoldProWeb) return;
-    let held = false;
-    try { held = sessionStorage.getItem(HOLD_KEY) === '1'; sessionStorage.removeItem(HOLD_KEY); } catch (e) { held = false; }
-    if (!held) return;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      setTimeout(() => callNative('ui:releaseFrame', {}).catch(() => {}), 300);
-    }));
+  // The Mac app holds a picture of the page being left over this one (any
+  // move from page to page, and window.softReload) until this page is built:
+  // it has had its data from the app and drawn it, and nothing has changed
+  // on it for a moment. Then it's shown in one step, never half-built.
+  const READY_QUIET_MS = 60; // nothing changed on the page for this long
+  const READY_MAX_MS = 1200; // a slow page is shown anyway
+  const BACKGROUND_MS = 400; // a call out this long is background work (a sync, the AI), not the page's data
+  let lastChange = 0;
+  let released = false;
+  // Data calls still waiting for the app (not this hold-and-release itself).
+  const loading = () => {
+    const now = Date.now();
+    for (const p of pending.values()) if (!p.ui && now - p.at < BACKGROUND_MS) return true;
+    return false;
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', releaseHeldFrame, { once: true });
-  else releaseHeldFrame();
+  // Animation, not the page being built: numbers counting up (js/motion.js,
+  // the Tasks ring), or anything else changed over and over in place. A
+  // part being filled in changes once or twice.
+  const changes = new WeakMap();
+  const animating = (node) => {
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+    if (!el) return false;
+    if (el.closest && el.closest('[data-count-final]')) return true;
+    const n = (changes.get(el) || 0) + 1;
+    changes.set(el, n);
+    return n > 2;
+  };
+  function releaseWhenBuilt() {
+    if (window.__scaffoldProWeb || released) return;
+    try { sessionStorage.removeItem(HOLD_KEY); } catch (e) { /* nothing held for a reload */ }
+    const start = Date.now();
+    lastChange = start;
+    const watch = new MutationObserver((records) => {
+      let building = false;
+      for (const r of records) if (!animating(r.target)) building = true;
+      if (building) lastChange = Date.now();
+    });
+    // Shown, hidden or filled in; not the inline styles motion.js moves about.
+    watch.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    const check = () => {
+      const now = Date.now();
+      const built = !loading() && now - lastChange >= READY_QUIET_MS;
+      if (!built && now - start < READY_MAX_MS) { setTimeout(check, 16); return; }
+      watch.disconnect();
+      released = true;
+      // Once that state is on screen (two frames), not before.
+      requestAnimationFrame(() => requestAnimationFrame(() => callNative('ui:releaseFrame', {}).catch(() => {})));
+    };
+    setTimeout(check, 16);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', releaseWhenBuilt, { once: true });
+  else releaseWhenBuilt();
+  // Back to a page kept in memory: it's already built.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && !window.__scaffoldProWeb) callNative('ui:releaseFrame', {}).catch(() => {});
+  });
 
   function busy() {
     const a = document.activeElement;

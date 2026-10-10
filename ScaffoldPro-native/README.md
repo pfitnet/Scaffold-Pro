@@ -5005,3 +5005,20 @@ back as they were:
 Everything else from Batch 223 stays: no overshoot, press feedback, the
 Undo toast in place of "Are you sure?", drags, Reduce Transparency and
 Increase Contrast. No Swift changed.
+
+## Batch 226 — Page changes show the finished page; apple-design skill removed
+
+- Changing page no longer flashes a half-built page (sidebar and lists
+  still filling in) before the finished one. The page you're leaving stays
+  on screen until the next one is built, then the finished page appears
+  in one quick step (the existing 0.12 s swap).
+- "Built" means the page has had its data from the app and nothing on it
+  has changed for 60 ms. Counting-up numbers and other animations don't
+  count. A call out longer than 0.4 s (a sync, the AI) doesn't hold the
+  page up, and a slow page is shown after 1.2 s anyway. In testing, pages
+  were ready 0.13–0.26 s after the change began.
+- Back to a page kept in memory shows it at once.
+- ScaffoldPro Web (browsers) is unchanged.
+- The apple-design skill (`.claude/skills/apple-design`, `skills-lock.json`)
+  is uninstalled. What Batch 223 changed in the app stays.
+- Not checked on a Mac: the Swift was read, not compiled.
