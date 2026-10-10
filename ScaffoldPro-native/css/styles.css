@@ -238,13 +238,17 @@ a:hover { text-decoration: underline; }
   scroll-behavior: smooth;
 }
 #content > * { max-width: var(--page-max); }
-/* Changing page: the page fades out slowly and the next one fades in, so
-   there's never a flash (the sidebar stays where it is). The fade in is
-   CSS, so it's there from the very first frame; the fade out is
-   window.appNavigate (js/sidebar.js). Opacity only: kept with Reduce Motion. */
-#content { animation: page-fade-in .45s ease-out backwards; }
-@keyframes page-fade-in { from { opacity: 0; } }
-html.page-leave #content { opacity: 0; transition: opacity .3s ease-in; pointer-events: none; }
+/* The page rises in as it opens, a block at a time; it fades as you
+   leave by a link (js/motion.js). */
+html.page-enter #content > * { animation: page-rise .6s var(--ease) both; }
+html.page-enter #content > *:nth-child(2) { animation-delay: .05s; }
+html.page-enter #content > *:nth-child(3) { animation-delay: .1s; }
+html.page-enter #content > *:nth-child(4) { animation-delay: .15s; }
+html.page-enter #content > *:nth-child(5) { animation-delay: .2s; }
+html.page-enter #content > *:nth-child(6) { animation-delay: .24s; }
+html.page-enter #content > *:nth-child(n+7) { animation-delay: .28s; }
+@keyframes page-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+html.page-leave #content { opacity: 0; transform: translateY(6px) scale(.995); transition: opacity .12s ease, transform .12s ease; }
 
 h1 { font-size: 27px; font-weight: 720; letter-spacing: -0.028em; line-height: 1.15; margin: 0 0 5px; }
 /* Page titles: the ink fades toward the accent at its end. */
@@ -871,8 +875,6 @@ table.price-table td.row-actions { white-space: nowrap; text-align: right; }
     scroll-behavior: auto !important;
   }
   .dp-spinner, .qi-spin { animation: dpSpin .8s linear infinite !important; }
-  #content { animation: page-fade-in .45s ease-out backwards !important; }
-  html.page-leave #content { transition: opacity .3s ease-in !important; }
   .as-send.stop::before { animation: as-spin .9s linear infinite !important; }
   .as-dots i, .as-steps-list li.now .as-step-mark, .chat-typing .dots i { animation: gs-pulse 1.2s ease-in-out infinite !important; }
   .gs-info span.syncing .gs-dot { animation: gs-pulse 1s ease-in-out infinite !important; }

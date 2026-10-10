@@ -280,7 +280,7 @@ async function revertSplit() {
   if (!await appConfirm(`Revert ${d.quotationNumber}?\n\n${what[0].toUpperCase() + what.slice(1)} go back onto ${d.parent.number} (an item that's on it too is added to its quantity, with its deliveries), and ${d.quotationNumber} is deleted.`, { ok: 'Revert' })) return;
   const r = await window.api.quotations.revertSplit(quotationId);
   if (!r || !r.ok) { await appAlert((r && r.error) || 'The quotation couldn’t be reverted.'); return; }
-  window.goTo(`quotation-editor.html?id=${encodeURIComponent(r.id)}`);
+  location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
 }
 
 async function splitQuotation() {
@@ -295,7 +295,7 @@ async function splitQuotation() {
   await loadDetail();
   const go = await appChoose(`Split off as ${r.number}\n\nIt’s listed under ${d.quotationNumber} on the project page.`,
     [{ label: 'Stay Here', value: false, cancel: true }, { label: `Open ${r.number}`, value: true, primary: true }], { noCancel: true });
-  if (go) window.goTo(`quotation-editor.html?id=${encodeURIComponent(r.id)}`);
+  if (go) location.href = `quotation-editor.html?id=${encodeURIComponent(r.id)}`;
 }
 
 // Signed and chopped by a director: ask for it, see it's waiting, open it.

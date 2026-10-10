@@ -4988,14 +4988,3 @@ and made to follow it. Nothing works differently except where noted.
   details; sheets, dialogs, menus, reordering, the Assistant window, the
   Undo toast and the three accessibility settings were each driven in a
   browser. Not checked on a Mac (WebKit); no Swift changed.
-
-## Batch 224 — Slow fade between pages
-
-- Changing page now fades: the page fades out (0.3 s), then the next one
-  fades in (0.45 s), so there's no flash. The sidebar stays where it is.
-- It works however the page is changed: sidebar and other links, Back,
-  search, rows and cards that open a document, Quick Actions, and buttons
-  that open a new BOQ, quotation, letter and so on (they go through
-  `window.goTo`, which also asks first when there's unsaved work).
-- The fade in is in the page's CSS, so it's there from the first frame.
-- Kept with Reduce Motion (it's only a fade, nothing moves).

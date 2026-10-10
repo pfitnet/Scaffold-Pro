@@ -56,7 +56,7 @@
           <td>${esc(x.pricingMode || '')}</td><td class="num">${esc(money(x.value))}</td></tr>`).join('')}
         </tbody><tfoot><tr><td></td><td colspan="5"><b>Total</b></td><td class="num"><b>${esc(money(r.total))}</b></td></tr></tfoot></table>`
         : '<div class="empty-state compact"><h2>No quotations in this period</h2><p>Try another month or client.</p></div>'}`;
-    document.querySelectorAll('#cr-result tr.link-row').forEach((tr) => tr.addEventListener('click', () => { window.goTo(`quotation-editor.html?id=${encodeURIComponent(tr.dataset.id)}`); }));
+    document.querySelectorAll('#cr-result tr.link-row').forEach((tr) => tr.addEventListener('click', () => { location.href = `quotation-editor.html?id=${encodeURIComponent(tr.dataset.id)}`; }));
   }
 
   async function start() {

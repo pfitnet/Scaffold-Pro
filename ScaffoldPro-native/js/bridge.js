@@ -664,14 +664,6 @@
   const HOLD_KEY = 'scaffoldpro.heldFrame';
   let waiting = null;
 
-  // Opens another page with the slow fade out (window.appNavigate in
-  // js/sidebar.js; it also asks first when there's unsaved work).
-  window.goTo = function goTo(url) {
-    if (typeof window.appNavigate === 'function') return window.appNavigate(url);
-    location.href = url;
-    return Promise.resolve(true);
-  };
-
   // Reloads the page without a flash: the Mac app keeps a picture of the
   // window over it until the reloaded page has drawn (ui:holdFrame), then
   // fades it away. Use this instead of location.reload().

@@ -32,7 +32,7 @@ function table(container, rows, columns, emptyText) {
   el.innerHTML = `<table class="compact"><tbody>${rows.map((r) =>
     `<tr class="link-row" data-url="${esc(r.url || '')}">${columns.map((c) => `<td class="${c.cls || ''}">${c.value(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   for (const tr of el.querySelectorAll('tr[data-url]')) {
-    if (tr.dataset.url) tr.addEventListener('click', () => { window.goTo(tr.dataset.url); });
+    if (tr.dataset.url) tr.addEventListener('click', () => { location.href = tr.dataset.url; });
   }
 }
 
