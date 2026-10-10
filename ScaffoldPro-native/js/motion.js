@@ -42,9 +42,9 @@
     const ink = document.querySelector('#sidebar .nav-ink');
     if (ink) store.set('inkTop', String(parseFloat(ink.style.top) || 0));
     if (!web) return;
-    // Leave at once (nothing waits on the input path); the page fades
-    // while the next one loads.
+    e.preventDefault();
     root.classList.add('page-leave');
+    setTimeout(() => { location.href = a.href; }, 120);
     // Still here (the page couldn't be opened): show this one again.
     setTimeout(() => root.classList.remove('page-leave'), 2500);
   });
