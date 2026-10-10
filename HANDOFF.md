@@ -109,7 +109,7 @@ Keep the reply short and plain. Say clearly what was tested and what wasn't
   with `window.appRefresh` where the page has one; otherwise use
   `window.softReload()` (js/bridge.js), never `location.reload()`: the Mac
   app holds a snapshot of the window over it (`ui:holdFrame`) until the
-  reloaded page has drawn (`ui:releaseFrame`). Moving between pages holds nothing (it must be instant): the web view doesn't draw its own background and the window's content view (`PageBackdropView`) is the pages' --content colour, so there's nothing dark between pages; js/motion.js does no fade out / rise in inside the Mac app. Check this in every fix.
+  reloaded page has drawn (`ui:releaseFrame`). Moving between pages (Batch 226): `decidePolicyFor` in Sources/Assistant.swift holds a snapshot of the page being left, and js/bridge.js sends `ui:releaseFrame` only once the new page is built (no data call under 400 ms old still out, and no change to the page for 60 ms, ignoring count-ups and anything changed over and over; at most 1.2 s), so a half-built page is never seen. Behind it the web view doesn't draw its own background and the window's content view (`PageBackdropView`) is the pages' --content colour; js/motion.js does no fade out / rise in inside the Mac app. Check this in every fix.
 - **Settings-style editing:** show values as text with a small pencil SVG
   to edit; switches, dropdowns and segmented buttons act immediately with no
   pencil; autosave with a small "Saved".
