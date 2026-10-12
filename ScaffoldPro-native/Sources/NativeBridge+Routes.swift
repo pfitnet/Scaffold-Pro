@@ -1142,6 +1142,9 @@ extension NativeBridge {
             let drawingId = (payload["id"] as? String) ?? ""
             let error = db.removeDrawingReference(id: drawingId)
             respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
+        case "drawings:delete":
+            let error = db.deleteProjectFile(id: (payload["id"] as? String) ?? "", isDrawing: true, projectsRoot: storage.projectsRoot)
+            respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
         case "drawings:relink":
             let drawingId = (payload["id"] as? String) ?? ""
             handleRelinkFile(id: id, recordId: drawingId, target: .drawing)
@@ -1389,6 +1392,9 @@ extension NativeBridge {
         case "documents:removeReference":
             let documentId = (payload["id"] as? String) ?? ""
             let error = db.removeDocumentReference(id: documentId)
+            respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
+        case "documents:delete":
+            let error = db.deleteProjectFile(id: (payload["id"] as? String) ?? "", isDrawing: false, projectsRoot: storage.projectsRoot)
             respond(id: id, encodable: FileActionResult(ok: error == nil, error: error))
         case "documents:relink":
             let documentId = (payload["id"] as? String) ?? ""

@@ -375,10 +375,10 @@ function renderFileList(containerId, items, api, opts) {
       const buttons = Array.from(actionsCell.querySelectorAll('button'));
       // (Icon buttons keep their word in data-icon-label.)
       const labelOf = (b) => (b.dataset.iconLabel || b.textContent).trim();
-      window.showContextMenu(e, buttons.map((b) => ({ label: labelOf(b), action: () => b.click(), danger: /archive|remove/i.test(labelOf(b)) })));
+      window.showContextMenu(e, buttons.map((b) => ({ label: labelOf(b), action: () => b.click(), danger: /archive|remove|delete/i.test(labelOf(b)) })));
     });
     if (item.fileExists) {
-      actionsCell.innerHTML = `<button class="open-btn">Open</button> <button class="reveal-btn" title="Show this file in Finder">Locate File</button> <button class="rename-btn">Rename</button> <button class="replace-btn">Replace…</button> <button class="archive-btn">Archive</button>`;
+      actionsCell.innerHTML = `<button class="open-btn">Open</button> <button class="reveal-btn" title="Show this file in Finder">Locate File</button> <button class="rename-btn">Rename</button> <button class="replace-btn">Replace…</button> <button class="archive-btn">Archive</button> <button class="delete-btn">Delete</button>`;
       actionsCell.querySelector('.replace-btn').addEventListener('click', async () => {
         const result = await api.replace(item.id);
         if (result && !result.ok) alert(result.error);
@@ -404,6 +404,13 @@ function renderFileList(containerId, items, api, opts) {
         await api.archive(item.id);
         await opts.refresh();
         if (window.appUndoHint) window.appUndoHint(`Archived “${shownName}”`);
+      });
+      actionsCell.querySelector('.delete-btn').addEventListener('click', async () => {
+        const linked = item.linkedNumber ? ` It comes off ${item.linkedNumber} (and the BOQ or quotations linked to it) too.` : '';
+        if (!await appConfirm(`Delete "${shownName}"?\n\nIt's taken out of the project and its file goes to the Trash, from where it can still be put back.${linked}`)) return;
+        const result = await api.delete(item.id);
+        if (result && !result.ok) alert(result.error);
+        await opts.refresh();
       });
     } else {
       actionsCell.innerHTML = `<button class="locate-btn" title="The file has moved: choose where it is now">Find Moved File…</button> <button class="remove-ref-btn">Remove Reference</button>`;
