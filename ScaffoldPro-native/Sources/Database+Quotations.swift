@@ -87,16 +87,24 @@ extension AppDatabase {
         }
     }
 
-    /// Rental quotations charge a minimum hire period only when it's
-    /// switched on for that quotation. Quotations saved before the option
-    /// existed (nil) keep the minimum hire they always had.
+    /// The months of rent a rental quotation charges: its hire period
+    /// when that's switched on (6 months = 6 × the monthly rental), else
+    /// its minimum hire when that's on. Quotations saved before the
+    /// minimum hire option existed (nil) keep the minimum hire they always had.
     func hireMonths(_ q: Quotation) -> Int {
-        guard q.pricingMode == "Rental", q.minimumHireEnabled ?? true else { return 1 }
+        guard q.pricingMode == "Rental" else { return 1 }
+        if q.hirePeriodEnabled == true { return max(1, q.hirePeriodMonths ?? 1) }
+        guard q.minimumHireEnabled ?? true else { return 1 }
         return max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2)
     }
 
+    /// Whether the quotation charges a hire period (not a minimum hire).
+    func chargesHirePeriod(_ q: Quotation) -> Bool {
+        q.pricingMode == "Rental" && q.hirePeriodEnabled == true
+    }
+
     /// The standard quotation's arithmetic: materials subtotal (per month
-    /// for rental) × minimum hire months, plus delivery charges; then any
+    /// for rental) × the hire period or minimum hire months, plus delivery charges; then any
     /// discount and tax as usual. Delivery lines are those in the
     /// "Delivery" section.
     struct QuotationMoney {
@@ -1009,8 +1017,10 @@ extension AppDatabase {
             deliveryTotal: totals.deliveryTotal, standardDeliveryCharge: getCompanySettings().standardDeliveryCharge,
             deliveryRates: getCompanySettings().deliveryRates ?? defaultDeliveryRates,
             materialsWeightKg: weight.kg, linesWithoutWeight: weight.missing,
-            minimumHireEnabled: q.pricingMode == "Rental" && (q.minimumHireEnabled ?? true),
+            minimumHireEnabled: q.pricingMode == "Rental" && !chargesHirePeriod(q) && (q.minimumHireEnabled ?? true),
             minimumHireMonths: max(1, q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2),
+            hirePeriodEnabled: chargesHirePeriod(q),
+            hirePeriodMonths: max(1, q.hirePeriodMonths ?? q.minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2),
             markupPercent: q.markupPercent, markupRoundUp: markupRoundsUp,
             effectiveUnitPrices: Dictionary(items.map { ($0.id, effectiveUnitPrice($0, q)) }, uniquingKeysWith: { a, _ in a }),
             lineTotals: Dictionary(items.map { ($0.id, doubleOf(quotationLineTotal($0, q))) }, uniquingKeysWith: { a, _ in a }),
@@ -1254,7 +1264,7 @@ extension AppDatabase {
     }
 
     /// The standard-quotation fields (subject, refs, delivery method,
-    /// minimum hire). Only fields actually sent are changed.
+    /// minimum hire, hire period). Only fields actually sent are changed.
     func updateQuotationLetterFields(id: String, payload: [String: Any]) -> String? {
         var qs = quotationsStore.readAll()
         guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
@@ -1266,7 +1276,22 @@ extension AppDatabase {
         if payload.keys.contains("keyTerms") { qs[i].keyTerms = text(payload, "keyTerms") }
         if payload.keys.contains("currency") { qs[i].currency = text(payload, "currency").map { $0.uppercased() } }
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
-        if let enabled = payload["minimumHireEnabled"] as? Bool { qs[i].minimumHireEnabled = enabled }
+        if let enabled = payload["minimumHireEnabled"] as? Bool {
+            qs[i].minimumHireEnabled = enabled
+            // One or the other: a minimum hire replaces the hire period.
+            if enabled { qs[i].hirePeriodEnabled = nil }
+        }
+        if let m = payload["hirePeriodMonths"] as? Int { qs[i].hirePeriodMonths = max(1, m) }
+        if let enabled = payload["hirePeriodEnabled"] as? Bool {
+            qs[i].hirePeriodEnabled = enabled ? true : nil
+            if enabled {
+                qs[i].minimumHireEnabled = false
+                // First time on: start from the minimum hire's months.
+                if qs[i].hirePeriodMonths == nil {
+                    qs[i].hirePeriodMonths = max(1, qs[i].minimumHireMonths ?? getCompanySettings().defaultMinimumHireMonths ?? 2)
+                }
+            }
+        }
         if let enabled = payload["minimumMonthlyChargeEnabled"] as? Bool { qs[i].minimumMonthlyChargeEnabled = enabled ? true : nil }
         // The buy-back offer (crane jobs): a number, or null for Settings'.
         if let enabled = payload["buyBackEnabled"] as? Bool { qs[i].buyBackEnabled = enabled }
@@ -1792,6 +1817,8 @@ extension AppDatabase {
         split.deliveryMethod = q.deliveryMethod
         split.minimumHireMonths = q.minimumHireMonths
         split.minimumHireEnabled = q.minimumHireEnabled
+        split.hirePeriodEnabled = q.hirePeriodEnabled
+        split.hirePeriodMonths = q.hirePeriodMonths
         split.minimumMonthlyChargeEnabled = q.minimumMonthlyChargeEnabled
         split.language = q.language
         split.markupPercent = q.markupPercent
