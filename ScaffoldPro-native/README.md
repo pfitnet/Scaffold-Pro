@@ -5022,3 +5022,24 @@ Increase Contrast. No Swift changed.
 - The apple-design skill (`.claude/skills/apple-design`, `skills-lock.json`)
   is uninstalled. What Batch 223 changed in the app stays.
 - Not checked on a Mac: the Swift was read, not compiled.
+
+## Batch 227 — Delete drawings and documents
+
+- **Remove on every drawing** in a BOQ's or quotation's Drawings panel,
+  including those marked "From Qt…" or "From BQ…" (shared by a linked BOQ
+  and quotation). Only the BOQ's own row (in a quotation) has none.
+- Remove now offers **Delete File** as well:
+  - **Off this BOQ / quotation:** it stays with the project's drawings (not
+    offered for a shared drawing, which belongs to both).
+  - **From the Project:** the record goes; the file stays in the folder.
+  - **Delete File:** the record goes and the file goes to the Trash, from
+    where it can still be put back.
+- A shared drawing comes off both the BOQ and its linked quotations, so the
+  link keeps showing the same drawings on each.
+- **Delete** on the project's Drawings & Documents tab too (beside
+  Archive), for drawings and documents.
+- Only a file in the app's own Projects folder that nothing else uses goes
+  to the Trash. One kept elsewhere (found with Find Moved File…) is left
+  where it is. Each delete is noted in the project history.
+- New routes `drawings:delete` and `documents:delete`
+  (`AppDatabase.deleteProjectFile` in Sources/Database+DocumentsAndSettings.swift).

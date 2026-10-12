@@ -44,7 +44,7 @@
           <td class="row-actions">${d.boqId
             ? `<button data-open-boq="${d.boqId}">Open BOQ</button> <button data-locate-boq="${d.boqId}" title="Show the BOQ's exported PDF in Finder">Locate File</button>`
             : d.fileExists ? `<button data-open="${d.id}">Open</button> <button data-reveal="${d.id}" title="Show this file in Finder">Locate File</button>` : ''}
-            ${d.boqId || d.fromBOQNumber ? '' : `<button class="ld-remove" data-remove="${d.id}" data-no-icon title="Take this drawing off">Remove</button>`}</td>
+            ${d.boqId ? '' : `<button class="ld-remove" data-remove="${d.id}" data-no-icon title="Take this drawing off, or delete it">Remove</button>`}</td>
         </tr>`).join('')}</tbody></table>`;
       for (const b of container.querySelectorAll('[data-open]')) {
         b.addEventListener('click', async () => {
@@ -67,12 +67,25 @@
           const d = drawings.find((x) => x.id === b.dataset.remove);
           const name = d ? (d.storedFilename || d.originalName) : 'this drawing';
           const doc = options.kind === 'BOQ' ? 'BOQ' : 'quotation';
-          const pick = await window.appChoose(`Remove ${name}?\n\n${d && !d.fileExists ? 'Its file can’t be found any more. ' : ''}Take it off this ${doc} only (it stays with the project’s drawings), or remove it from the project altogether. The file itself is never deleted.`, [
-            { label: `Off this ${doc}`, value: 'unlink' },
-            { label: 'From the Project', value: 'remove', danger: true },
-          ]);
+          const gone = d && !d.fileExists ? 'Its file can’t be found any more. ' : '';
+          // A drawing from the linked BOQ or quotation is shared by both, so
+          // it can't come off just this one: it goes from both, or is deleted.
+          const shared = d && d.fromBOQNumber;
+          const pick = shared
+            ? await window.appChoose(`Remove ${name}?\n\n${gone}It belongs to ${d.fromBOQNumber}, which this ${doc} is linked to, so it comes off both. Remove it from the project (the file stays in the folder), or delete it (the file goes to the Trash).`, [
+              { label: 'From the Project', value: 'remove' },
+              { label: 'Delete File', value: 'delete', danger: true },
+            ])
+            : await window.appChoose(`Remove ${name}?\n\n${gone}Take it off this ${doc} only (it stays with the project’s drawings), remove it from the project (the file stays in the folder), or delete it (the file goes to the Trash).`, [
+              { label: `Off this ${doc}`, value: 'unlink' },
+              { label: 'From the Project', value: 'remove' },
+              { label: 'Delete File', value: 'delete', danger: true },
+            ]);
           if (!pick) return;
-          const r = pick === 'unlink' ? await window.api.drawings.setLink(b.dataset.remove, null, null) : await window.api.drawings.removeReference(b.dataset.remove);
+          const id = b.dataset.remove;
+          const r = pick === 'unlink' ? await window.api.drawings.setLink(id, null, null)
+            : pick === 'remove' ? await window.api.drawings.removeReference(id)
+              : await window.api.drawings.delete(id);
           if (r && r.ok === false) { await window.appAlert(r.error); return; }
           await refresh();
         });

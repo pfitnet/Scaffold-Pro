@@ -115,6 +115,8 @@
       rename: (id, newName) => callNative('drawings:rename', { id: id, newName: newName }),
       archive: (id) => callNative('drawings:archive', { id: id }),
       removeReference: (id) => callNative('drawings:removeReference', { id: id }),
+      // Record removed and the file moved to the Trash (only a file in the Projects folder).
+      delete: (id) => callNative('drawings:delete', { id: id }),
       relink: (id) => callNative('drawings:relink', { id: id }),
       replace: (id) => callNative('drawings:replace', { id: id }),
       open: (id) => callNative('drawings:open', { id: id }),
@@ -129,6 +131,7 @@
       rename: (id, newName) => callNative('documents:rename', { id: id, newName: newName }),
       archive: (id) => callNative('documents:archive', { id: id }),
       removeReference: (id) => callNative('documents:removeReference', { id: id }),
+      delete: (id) => callNative('documents:delete', { id: id }),
       relink: (id) => callNative('documents:relink', { id: id }),
       replace: (id) => callNative('documents:replace', { id: id }),
       open: (id) => callNative('documents:open', { id: id }),

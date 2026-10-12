@@ -1483,6 +1483,42 @@ extension AppDatabase {
         return nil
     }
 
+    /// Delete a drawing (or, isDrawing false, a project document) for good:
+    /// its record goes, so it comes off every BOQ and quotation it showed on
+    /// (a linked BOQ and its quotations share it), and its file goes to the
+    /// Trash, from where it can still be put back. Only a file in the app's
+    /// own Projects folder that no other drawing or document points at is
+    /// moved; one kept elsewhere (found with Find Moved File…) stays put.
+    func deleteProjectFile(id: String, isDrawing: Bool, projectsRoot: URL) -> String? {
+        let record: (projectId: String, name: String, path: String)
+        if isDrawing {
+            var items = drawingsStore.readAll()
+            guard let i = items.firstIndex(where: { $0.id == id }) else { return "Drawing not found." }
+            record = (items[i].projectId, items[i].storedFilename, items[i].filePath)
+            items.remove(at: i)
+            drawingsStore.writeAll(items)
+        } else {
+            var items = documentsStore.readAll()
+            guard let i = items.firstIndex(where: { $0.id == id }) else { return "Document not found." }
+            record = (items[i].projectId, items[i].storedFilename, items[i].filePath)
+            items.remove(at: i)
+            documentsStore.writeAll(items)
+        }
+        let url = URL(fileURLWithPath: record.path).standardizedFileURL
+        let inProjects = url.path.hasPrefix(projectsRoot.standardizedFileURL.path + "/")
+        let stillUsed = drawingsStore.readAll().contains { $0.filePath == record.path }
+            || documentsStore.readAll().contains { $0.filePath == record.path }
+        if inProjects && !stillUsed {
+            let fm = FileManager.default
+            // Not downloaded to this Mac: iCloud's placeholder stands in for it.
+            let placeholder = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).icloud")
+            if fm.fileExists(atPath: url.path) { try? fm.trashItem(at: url, resultingItemURL: nil) }
+            else if fm.fileExists(atPath: placeholder.path) { try? fm.trashItem(at: placeholder, resultingItemURL: nil) }
+        }
+        logActivity(projectId: record.projectId, isDrawing ? "Drawing deleted" : "Document deleted", reference: record.name)
+        return nil
+    }
+
     /// Section 38's "Locate File" / "Re-link" — points the record at
     /// wherever the person says the file actually is now, without
     /// moving or copying anything.
