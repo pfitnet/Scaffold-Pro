@@ -1344,6 +1344,8 @@ extension Quotation {
         buyBackAfterMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackAfterMonths)
         buyBackReductionPercent = try c.decodeIfPresent(Double.self, forKey: .buyBackReductionPercent)
         buyBackEndMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackEndMonths)
+        hirePeriodEnabled = try c.decodeIfPresent(Bool.self, forKey: .hirePeriodEnabled)
+        hirePeriodMonths = try c.decodeIfPresent(Int.self, forKey: .hirePeriodMonths)
     }
 }
 
@@ -1695,6 +1697,11 @@ struct Quotation: Codable {
     /// Rental: the monthly rental charge is at least Settings' minimum
     /// (HK$1,000 unless changed) when ticked.
     var minimumMonthlyChargeEnabled: Bool? = nil
+    /// Rental: "Hire Period of N Months" — the rent is charged for exactly
+    /// this many months (6 months = 6 × the monthly rental charge). Used
+    /// instead of the minimum hire when switched on.
+    var hirePeriodEnabled: Bool? = nil
+    var hirePeriodMonths: Int? = nil
     /// Item names on the PDF: "English" or "Chinese"; nil = Settings' choice.
     var language: String? = nil
     /// Markup on every item's unit price (e.g. 30 = +30%), each marked-up
@@ -2279,6 +2286,10 @@ struct QuotationDetail: Codable {
     var minimumHireEnabled: Bool
     /// The months used when it does.
     var minimumHireMonths: Int
+    /// "Hire Period of N Months": the rent × exactly these months (used
+    /// instead of the minimum hire when on).
+    var hirePeriodEnabled = false
+    var hirePeriodMonths = 6
     var markupPercent: Double?
     /// Marked-up prices round up to the next 0.1 (else off to the nearest).
     var markupRoundUp = false

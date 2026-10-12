@@ -588,9 +588,10 @@ extension NativeBridge {
                 charges.append(BOQCharge(code: "M", name: "Minimum Monthly Rental Charge (\(formatMoney(detail.monthlyRental)) a month)",
                                          amount: doubleOf(decimalOf(detail.monthlyRental) - decimalOf(detail.materialsSubtotal))))
             }
-            if detail.minimumHireEnabled && detail.hireMonths > 1 && detail.materialsCharge > detail.monthlyRental {
+            if (detail.minimumHireEnabled || detail.hirePeriodEnabled) && detail.hireMonths > 1 && detail.materialsCharge > detail.monthlyRental {
                 let months = detail.hireMonths == 2 ? "the 2nd month" : "months 2 – \(detail.hireMonths)"
-                charges.append(BOQCharge(code: "M", name: "Minimum Hire of \(detail.hireMonths) Months — rental for \(months)",
+                let kind = detail.hirePeriodEnabled ? "Hire Period" : "Minimum Hire"
+                charges.append(BOQCharge(code: "M", name: "\(kind) of \(detail.hireMonths) Months — rental for \(months)",
                                          amount: doubleOf(decimalOf(detail.materialsCharge) - decimalOf(detail.monthlyRental))))
             }
         }
@@ -698,7 +699,9 @@ extension NativeBridge {
                 rows.append(.summary(label: "Minimum Monthly Rental Charge:", value: formatMoney(detail.monthlyRental), emphasized: false))
             }
             // Only when it changes the amount: ticked, and more than one month.
-            if detail.minimumHireEnabled && detail.hireMonths > 1 {
+            if detail.hirePeriodEnabled && detail.hireMonths > 1 {
+                rows.append(.summary(label: "Hire Period of \(detail.hireMonths) Months:", value: formatMoney(detail.materialsCharge), emphasized: false))
+            } else if detail.minimumHireEnabled && detail.hireMonths > 1 {
                 rows.append(.summary(label: "Minimum Hire of \(detail.hireMonths) Month\(detail.hireMonths == 1 ? "" : "s"):", value: formatMoney(detail.materialsCharge), emphasized: false))
             }
         } else if !priced.materials.isEmpty {

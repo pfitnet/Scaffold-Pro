@@ -616,8 +616,9 @@ async function loadInvoiceSource() {
   const rental = q && q.pricingMode === 'Rental';
   document.getElementById('inv-rental').classList.toggle('hidden', !rental);
   if (rental) {
-    document.getElementById('inv-months').value = q.minimumHireMonths;
-    document.querySelector(`input[name="inv-charge"][value="${q.minimumHireEnabled ? 'full' : 'one'}"]`).checked = true;
+    // The quotation's hire period (or minimum hire) is the full period.
+    document.getElementById('inv-months').value = q.hirePeriodEnabled ? q.hirePeriodMonths : q.minimumHireMonths;
+    document.querySelector(`input[name="inv-charge"][value="${q.hirePeriodEnabled || q.minimumHireEnabled ? 'full' : 'one'}"]`).checked = true;
   }
   const hasDelivery = !!q && q.lineItems.some((i) => i.section === 'Delivery' && !i.blockId);
   document.getElementById('inv-delivery-row').classList.toggle('hidden', !hasDelivery);

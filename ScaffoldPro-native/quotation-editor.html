@@ -201,6 +201,10 @@
             <div class="field"><label for="q-deliveryMethod">Sent</label><input type="text" id="q-deliveryMethod" placeholder="BY EMAIL ONLY" /></div>
           </div>
           <div class="form-row cols-2">
+            <div class="option-tile" id="q-hire-period-field">
+              <label class="option-check"><input type="checkbox" id="q-hirePeriodEnabled" /><span><b>Hire period</b><small id="q-hire-period-label">Rent charged for this many months</small></span></label>
+              <span class="input-group input-group-sm"><input type="number" id="q-hirePeriodMonths" min="1" step="1" title="Months" aria-label="Hire period in months" /><span class="input-suffix">months</span></span>
+            </div>
             <div class="option-tile" id="q-hire-field">
               <label class="option-check"><input type="checkbox" id="q-minimumHireEnabled" /><span><b>Minimum hire</b><small>The shortest period the rent is charged for</small></span></label>
               <span class="input-group input-group-sm"><input type="number" id="q-minimumHireMonths" min="1" step="1" title="Months" aria-label="Minimum hire in months" /><span class="input-suffix">months</span></span>

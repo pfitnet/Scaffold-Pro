@@ -598,7 +598,9 @@ function renderTotals() {
     rows.push(['Subtotal of Monthly Rental Charge', money(d.materialsSubtotal)]);
     if (d.minimumMonthlyApplied) rows.push(['Minimum Monthly Rental Charge', money(d.monthlyRental)]);
     // Only when it changes the amount: ticked, and more than one month.
-    if (d.minimumHireEnabled && d.hireMonths > 1) {
+    if (d.hirePeriodEnabled && d.hireMonths > 1) {
+      rows.push([`Hire Period of ${d.hireMonths} Months (${d.hireMonths} × ${money(d.monthlyRental)})`, money(d.materialsCharge)]);
+    } else if (d.minimumHireEnabled && d.hireMonths > 1) {
       rows.push([`Minimum Hire of ${d.hireMonths} Month${d.hireMonths === 1 ? '' : 's'}`, money(d.materialsCharge)]);
     }
   } else {
@@ -823,6 +825,17 @@ function renderLetterFields() {
   if (document.activeElement !== hire) hire.value = d.minimumHireMonths;
   hire.disabled = locked || !d.minimumHireEnabled;
   document.getElementById('q-hire-field').classList.toggle('hidden', d.pricingMode !== 'Rental');
+  // Hire period: the rent × exactly these months (instead of a minimum hire).
+  const periodOn = document.getElementById('q-hirePeriodEnabled');
+  periodOn.checked = !!d.hirePeriodEnabled;
+  periodOn.disabled = locked;
+  const period = document.getElementById('q-hirePeriodMonths');
+  if (document.activeElement !== period) period.value = d.hirePeriodMonths;
+  period.disabled = locked || !d.hirePeriodEnabled;
+  document.getElementById('q-hire-period-label').textContent = d.hirePeriodEnabled
+    ? `${d.hirePeriodMonths} × ${currencyLabel} ${money(d.monthlyRental)} a month`
+    : 'Rent charged for this many months';
+  document.getElementById('q-hire-period-field').classList.toggle('hidden', d.pricingMode !== 'Rental');
   // Minimum monthly rental charge (Settings › Quotations).
   document.getElementById('q-min-monthly-field').classList.toggle('hidden', d.pricingMode !== 'Rental');
   const minOn = document.getElementById('q-minimumMonthlyChargeEnabled');
@@ -1231,6 +1244,14 @@ async function init() {
     saveLetterField('minimumMonthlyChargeEnabled', e.target.checked));
   document.getElementById('q-minimumHireMonths').addEventListener('change', (e) =>
     saveLetterField('minimumHireMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
+  document.getElementById('q-hirePeriodEnabled').addEventListener('change', async (e) => {
+    const on = e.target.checked;
+    await saveLetterField('hirePeriodEnabled', on);
+    // Straight into the months.
+    if (on) { const months = document.getElementById('q-hirePeriodMonths'); months.focus(); months.select(); }
+  });
+  document.getElementById('q-hirePeriodMonths').addEventListener('change', (e) =>
+    saveLetterField('hirePeriodMonths', Math.max(1, Math.round(Number(e.target.value) || 1))));
 
   document.getElementById('add-delivery-btn').addEventListener('click', addDeliveryCharge);
   document.getElementById('split-btn').addEventListener('click', splitQuotation);

@@ -5043,3 +5043,29 @@ Increase Contrast. No Swift changed.
   where it is. Each delete is noted in the project history.
 - New routes `drawings:delete` and `documents:delete`
   (`AppDatabase.deleteProjectFile` in Sources/Database+DocumentsAndSettings.swift).
+
+## Batch 228 — Hire period on rental quotations
+
+- New **Hire period** option on a rental quotation (Letter card, above
+  Minimum hire). Tick it and type the months: the rent is charged for
+  exactly that many months. A 6-month hire period charges 6 × the monthly
+  rental charge.
+- The tile shows the sum as you go, e.g. "6 × HK$ 1,200.00 a month". The
+  totals show "Hire Period of 6 Months (6 × 1,200.00)" and the amount.
+- It's one or the other: ticking Hire period takes Minimum hire off, and
+  ticking Minimum hire takes Hire period off. The first time it's ticked
+  the months start from the minimum hire's.
+- The PDF and Word file print "Hire Period of 6 Months:" where a minimum
+  hire prints "Minimum Hire of N Months:". The BQ sheet prints "Hire Period
+  of 6 Months — rental for months 2 – 6".
+- A minimum monthly rental charge still applies first; the hire period
+  multiplies the monthly charge after it.
+- Invoicing a quotation with a hire period picks "Full hire period" with
+  its months.
+- Splitting a quotation carries the hire period to the new one.
+- New Quotation fields `hirePeriodEnabled` / `hirePeriodMonths` (read in
+  the decoder), sent through `quotations:updateLetterFields`;
+  `AppDatabase.hireMonths` uses them first.
+- Checked: the editor in a browser (light and dark): ticking, typing 6
+  (1,200 a month → 7,200), switching to Minimum hire. Swift parsed with
+  tree-sitter, not compiled. The PDF wasn't seen.
