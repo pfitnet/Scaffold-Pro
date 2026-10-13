@@ -5096,3 +5096,18 @@ Increase Contrast. No Swift changed.
   the same note on BQ and Qt of one sub-project, none on another, adding,
   multi-line, Esc, clearing, the right-click item. Swift parsed with
   tree-sitter, not compiled. The assistant's card wasn't seen.
+
+## Batch 230 — A table that only just runs over is fitted on its page
+
+- Portrait letter PDFs (quotations, and the same table on invoices,
+  delivery notes and portrait BOQs): when the table would run onto the next
+  page by only a little (e.g. just the Total Amount row), every row and the
+  column titles are made slightly shorter so the whole table fits on the
+  page it starts on.
+- Only as much as needed (in 0.5% steps), and at most 12%: a normal 24.1pt
+  row never goes under about 21pt, as tall as a compact table's. A row
+  always keeps room for its text. A table that wouldn't fit even then is
+  laid out as before, over two pages.
+- The Word copy gets the same row heights.
+- `PDFGenerator.tableSqueeze` / `squeezeToFit` / `drawnHeight`.
+- Checked: Swift parsed with tree-sitter, not compiled. The PDF wasn't seen.
