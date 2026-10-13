@@ -124,9 +124,10 @@ extension AppDatabase {
     }
 
     /// The unit price a quotation line is charged at: its price with the
-    /// quotation's markup (materials only, rounded to 0.1).
+    /// quotation's markup (materials only, rounded to 0.1; not on a line
+    /// left out of it).
     func effectiveUnitPrice(_ line: QuotationLineItem, _ q: Quotation) -> Double {
-        isMaterialLine(line) ? markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent, roundUp: markupRoundsUp) : line.appliedUnitPrice
+        isMaterialLine(line) && line.noMarkup != true ? markedUpPrice(line.appliedUnitPrice, markupPercent: q.markupPercent, roundUp: markupRoundsUp) : line.appliedUnitPrice
     }
 
     /// A material (or custom item) — not a delivery charge, and not a row
@@ -550,7 +551,8 @@ extension AppDatabase {
     /// that much off each unit; with a mark-down, the rate charged becomes
     /// the price before it.
     func applyQuotationPrice(_ ql: QuotationLineItem, to b: inout BOQLineItem, boq: BillOfQuantities) {
-        if linkedPricesPassStraight(boq) {
+        b.noMarkup = ql.noMarkup
+        if linkedPricesPassStraight(boq) || ql.noMarkup == true {
             b.appliedUnitPrice = ql.appliedUnitPrice
         } else {
             let factor = 1 + decimalOf(boq.markupPercent ?? 0) / 100
@@ -635,6 +637,7 @@ extension AppDatabase {
             line.section = item.section
             line.sortOrder = index
             line.boqLineId = item.id
+            line.noMarkup = item.noMarkup
             materials.append(line)
         }
         // Everything else (delivery charges, the extra sections' rows, and
@@ -710,7 +713,7 @@ extension AppDatabase {
                 b.quantity = ql.quantity.rounded()
                 b.quantityFormula = ql.quantityFormula
                 b.section = ql.section
-                if !samePricing(ql, linkedPricing(of: b, boq: boq)) { applyQuotationPrice(ql, to: &b, boq: boq) }
+                if b.noMarkup != ql.noMarkup || !samePricing(ql, linkedPricing(of: b, boq: boq)) { applyQuotationPrice(ql, to: &b, boq: boq) }
                 bAll[bi] = b
             } else {
                 if weights == nil {
@@ -722,6 +725,7 @@ extension AppDatabase {
                                     weightKg: ql.priceListItemId.flatMap { weights?[$0] }, section: ql.section, sortOrder: nextOrder, notes: nil)
                 nextOrder += 1
                 b.quantityFormula = ql.quantityFormula
+                b.noMarkup = ql.noMarkup
                 // An item picked from the material list comes in at its list
                 // price (the BOQ's mark-up / mark-down then applies to it).
                 let atListPrice = ql.priceListUnitPrice.map { abs($0 - ql.appliedUnitPrice) < 0.005 } ?? false
@@ -914,6 +918,7 @@ extension AppDatabase {
             line.discountType = priced.discountType
             line.discountValue = priced.discountValue
             line.boqLineId = item.id
+            line.noMarkup = item.noMarkup
             return line
         }
         // The BOQ's mark-up becomes the quotation's markup % (replacing the
@@ -1482,6 +1487,21 @@ extension AppDatabase {
             items[index].discountType = d.0
             items[index].discountValue = d.1
         }
+        quotationLineItemsStore.writeAll(items)
+        touchQuotation(q.id)
+        pushQuotationToBOQ(q.id)
+        return nil
+    }
+
+    /// A quotation item left out of the markup % (charged at its own
+    /// price), or put back under it. Its linked BOQ line follows.
+    func setQuotationLineNoMarkup(id: String, noMarkup: Bool) -> String? {
+        var items = quotationLineItemsStore.readAll()
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+        guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
+        guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        guard isMaterialLine(items[index]) else { return "Only items are marked up." }
+        items[index].noMarkup = noMarkup ? true : nil
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
         pushQuotationToBOQ(q.id)

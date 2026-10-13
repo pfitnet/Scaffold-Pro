@@ -1230,7 +1230,7 @@ extension AppDatabase {
     /// A BOQ line's rate before its discount: its price with the BOQ's
     /// mark-up, rounded to 0.1 as on a quotation.
     func boqMarkedUpRate(_ line: BOQLineItem, boq: BillOfQuantities?, roundUp: Bool? = nil) -> Double {
-        guard let boq = boq, boq.markupOnRates == true else { return line.appliedUnitPrice }
+        guard let boq = boq, boq.markupOnRates == true, line.noMarkup != true else { return line.appliedUnitPrice }
         return markedUpPrice(line.appliedUnitPrice, markupPercent: boq.markupPercent, roundUp: roundUp ?? markupRoundsUp)
     }
 
@@ -1272,6 +1272,25 @@ extension AppDatabase {
         boqLineItemsStore.writeAll(items)
         touchBOQ(boq.id)
         // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
+        return nil
+    }
+
+    /// A BOQ item left out of the mark-up (its rate is its own price), or
+    /// put back under it. Linked quotations follow.
+    func setBOQLineNoMarkup(id: String, noMarkup: Bool) -> String? {
+        var items = boqLineItemsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+        guard let boq = getBOQ(id: items[i].boqId) else { return "BOQ not found." }
+        guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        items[i].noMarkup = noMarkup ? true : nil
+        // An amount off the rate can't be more than the rate now charged.
+        if items[i].discountType == "Amount", (items[i].discountValue ?? 0) > boqMarkedUpRate(items[i], boq: boq) {
+            items[i].discountType = nil
+            items[i].discountValue = nil
+        }
+        boqLineItemsStore.writeAll(items)
+        touchBOQ(boq.id)
         syncLinkedQuotations(boqId: boq.id)
         return nil
     }
@@ -1730,7 +1749,7 @@ extension AppDatabase {
             let rates = conversionRates()
             let priceItems = Dictionary(priceListItemsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             var lines = boqLineItemsStore.readAll()
-            for li in lines.indices where lines[li].boqId == id {
+            for li in lines.indices where lines[li].boqId == id && lines[li].noMarkup != true {
                 let handTyped = lines[li].priceListUnitPrice.map { abs($0 - lines[li].appliedUnitPrice) > 0.004 } ?? true
                 let listPrice = lines[li].priceListItemId.flatMap { priceItems[$0] }.flatMap { basePrice($0, mode: boqs[i].pricingMode, rates: rates) }
                     ?? lines[li].priceListUnitPrice.map { doubleOf(roundToCents(decimalOf($0) / factor)) }

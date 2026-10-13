@@ -1564,6 +1564,8 @@ struct BOQLineItem: Codable {
     /// The sum typed for the quantity (e.g. "14+28"), shown again when the
     /// box is clicked; nil when a plain number was typed.
     var quantityFormula: String? = nil
+    /// Left out of the BOQ's mark-up: its rate is its own price.
+    var noMarkup: Bool? = nil
 }
 
 /// Lightweight row for the project's BOQ list — avoids shipping every
@@ -1973,6 +1975,8 @@ struct QuotationLineItem: Codable {
     /// unit price ("(Included)", "(Free of Charge)"…; older rows "FOC" or
     /// "Included"). Its price is 0 and the words print instead of figures.
     var priceNote: String? = nil
+    /// Left out of the quotation's markup %: charged at its own price.
+    var noMarkup: Bool? = nil
 }
 
 /// How a priced row that isn't charged is printed: the words typed.

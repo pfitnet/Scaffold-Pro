@@ -5111,3 +5111,26 @@ Increase Contrast. No Swift changed.
 - The Word copy gets the same row heights.
 - `PDFGenerator.tableSqueeze` / `squeezeToFit` / `drawnHeight`.
 - Checked: Swift parsed with tree-sitter, not compiled. The PDF wasn't seen.
+
+## Batch 231 — Leave an item out of the markup
+
+- Quotations: when the quotation has a markup % (e.g. +30%), each item
+  shows a small "+30%" button under its unit price. Press it and the item
+  is left out of the markup: it's charged at its own price, and the
+  button reads "No markup". Press it again to put the markup back.
+- BOQs: the same button under each item's unit rate when the BOQ has a
+  mark-up (or mark-down), e.g. "+10%" / "No markup".
+- The price printed on the PDF, the Word copy, the BQ sheet and in all
+  totals follows it. Delivery charges are still never marked up. The
+  quotation's totals note says "Delivery charges and items set to “No
+  markup” aren't marked up" when any are.
+- A BOQ and its linked quotation keep the setting in step both ways;
+  making a quotation from a BOQ carries it. Only Draft documents can be
+  changed; an issued one shows "No markup" as text. ⌘Z undoes it.
+- New line fields `noMarkup` (QuotationLineItem, BOQLineItem), routes
+  `quotations:setLineNoMarkup` / `boq:setLineNoMarkup`; applied in
+  `effectiveUnitPrice` and `boqMarkedUpRate`. Helper
+  `window.markupToggleHTML` in js/line-discount.js.
+- Checked: both editors in a browser (light and dark) with a mock bridge:
+  the buttons, their states and the calls sent. Swift parsed with
+  tree-sitter, not compiled. The PDF wasn't seen.
