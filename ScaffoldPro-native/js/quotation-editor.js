@@ -553,6 +553,10 @@ function lineRow(item, rowNo, isLocked, draggable) {
   const listPrice = item.priceListUnitPrice;
   const overridden = listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
   const discountLabel = window.lineDiscountLabel(item, currencyLabel);
+  // With a markup %: a button to leave this item out of it (or put it back).
+  const markup = Number(currentDetail.markupPercent) || 0;
+  const markupBtn = markup > 0 && item.section !== 'Delivery' && !item.blockId
+    ? window.markupToggleHTML(markup, item.noMarkup, isLocked) : '';
   const tr = document.createElement('tr');
   tr.dataset.id = item.id;
   tr.innerHTML = `
@@ -561,7 +565,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
     <td>${item.unit}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${markupBtn}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
     <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
     <td class="num">${money(lineTotal)}</td>
     <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
@@ -574,6 +578,12 @@ function lineRow(item, rowNo, isLocked, draggable) {
   if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
   const chip = tr.querySelector('.line-link');
   if (chip) chip.addEventListener('click', () => (item.boqDetached ? relinkLine(item) : unlinkLine(item)));
+  const toggle = tr.querySelector('.markup-toggle');
+  if (toggle) toggle.addEventListener('click', async () => {
+    const r = await window.api.quotations.setLineNoMarkup(item.id, !item.noMarkup);
+    if (r && r.ok === false) { await appAlert(r.error); return; }
+    await loadDetail();
+  });
   const discountBtn = tr.querySelector('.discount-btn');
   if (discountBtn) discountBtn.addEventListener('click', () => {
     window.openLineDiscount(Object.assign({}, item, { appliedUnitPrice: effectivePrice }), currencyLabel, async (type, value) => {
@@ -618,7 +628,7 @@ function renderTotals() {
   }
   if (d.taxAmount > 0) rows.push(['Tax', money(d.taxAmount)]);
   const markupNote = d.markupPercent > 0
-    ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1 (Settings › Standard Quotation). Delivery charges aren't marked up.</p>`
+    ? `<p class="small-note">Item unit prices include a ${d.markupPercent}% markup, each rounded ${d.markupRoundUp ? 'up to the next' : 'off to the nearest'} 0.1 (Settings › Standard Quotation). Delivery charges${d.lineItems.some((i) => i.noMarkup && i.section !== 'Delivery' && !i.blockId) ? ' and items set to “No markup”' : ''} aren't marked up.</p>`
     : '';
   // As on the Dashboard: what's charged each month, and what's charged once.
   const c = d.charges;

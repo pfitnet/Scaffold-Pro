@@ -213,6 +213,9 @@ function renderLineItems() {
     const discountLabel = item.discountType === 'Percent' && dv > 0 ? `−${dv}%`
       : item.discountType === 'Amount' && dv > 0 ? `−${money(dv)}` : '';
     const lineWeight = hasWeight ? item.weightKg * item.quantity : null;
+    // With a mark-up: a button to leave this item out of it (or put it back).
+    const markup = currentDetail.markupOnRates ? Number(currentDetail.markupPercent) || 0 : 0;
+    const markupBtn = markup ? window.markupToggleHTML(markup, item.noMarkup, isIssued) : '';
 
     const tr = document.createElement('tr');
     tr.dataset.id = item.id;
@@ -225,7 +228,7 @@ function renderLineItems() {
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isIssued ? 'disabled' : ''} /></td>
-      <td class="num">${money(rate)}</td>
+      <td class="num">${money(rate)}${markupBtn}</td>
       <td>${isIssued ? '' : window.discountButtonHTML(discountLabel, "Discount this item's rate (only the new rate is printed)")}</td>
       <td class="num">${weight(item.weightKg)}</td>
       <td class="num">${weight(lineWeight)}</td>
@@ -244,6 +247,8 @@ function renderLineItems() {
     };
     const dup = tr.querySelector('.dup-btn');
     if (dup) dup.addEventListener('click', () => lineAction(() => window.api.boq.duplicateLineItem(item.id)));
+    const toggle = tr.querySelector('.markup-toggle');
+    if (toggle) toggle.addEventListener('click', () => lineAction(() => window.api.boq.setLineNoMarkup(item.id, !item.noMarkup)));
     const discountBtn = tr.querySelector('.discount-btn');
     if (discountBtn) discountBtn.addEventListener('click', () => {
       window.openLineDiscount(item, currencyLabel, async (type, value) => {

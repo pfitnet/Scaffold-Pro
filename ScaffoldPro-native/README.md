@@ -5069,3 +5069,68 @@ Increase Contrast. No Swift changed.
 - Checked: the editor in a browser (light and dark): ticking, typing 6
   (1,200 a month → 7,200), switching to Minimum hire. Swift parsed with
   tree-sitter, not compiled. The PDF wasn't seen.
+
+## Batch 229 — Sub-project notes on the Projects Overview
+
+- Each sub-project can now have a note. A sub-project is the number after
+  the project code: BQ26221-001, Qt26221-001, Qt26221-001-s1 and the
+  delivery notes and invoices made from Qt26221-001 are all 26221-001, so
+  they all show the same note.
+- Projects › Overview: rest the pointer on a document and its sub-project's
+  note appears under it, like a hover label. The pointer goes through it,
+  so the document underneath can still be reached. A small dot on a
+  document means its sub-project has a note.
+- To edit: the small pencil that appears on a document, or right-click ›
+  Edit Note… (Add Note… when there's none). Return saves, Shift-Return
+  starts a new line, Esc puts it back, clicking elsewhere saves. A blank
+  note takes it off. ⌘Z undoes it.
+- The assistant can read and change the notes: `getProject` now lists the
+  sub-projects with their documents and notes, and a new proposal
+  `setSubProjectNote` (card "Note · 26221-001", Now / Becomes, Save Note)
+  takes "26221-001", "001" or a document number. It's noted in the
+  project's history.
+- Kept on the project (new `Project.subProjectNotes`, by "001"), so every
+  Mac sees them. New route `projects:setNote`; `projects:overview` now
+  gives each document's `subProject` and each project's `notes`.
+- Checked: the Overview in a browser (light and dark) with a mock bridge:
+  the same note on BQ and Qt of one sub-project, none on another, adding,
+  multi-line, Esc, clearing, the right-click item. Swift parsed with
+  tree-sitter, not compiled. The assistant's card wasn't seen.
+
+## Batch 230 — A table that only just runs over is fitted on its page
+
+- Portrait letter PDFs (quotations, and the same table on invoices,
+  delivery notes and portrait BOQs): when the table would run onto the next
+  page by only a little (e.g. just the Total Amount row), every row and the
+  column titles are made slightly shorter so the whole table fits on the
+  page it starts on.
+- Only as much as needed (in 0.5% steps), and at most 12%: a normal 24.1pt
+  row never goes under about 21pt, as tall as a compact table's. A row
+  always keeps room for its text. A table that wouldn't fit even then is
+  laid out as before, over two pages.
+- The Word copy gets the same row heights.
+- `PDFGenerator.tableSqueeze` / `squeezeToFit` / `drawnHeight`.
+- Checked: Swift parsed with tree-sitter, not compiled. The PDF wasn't seen.
+
+## Batch 231 — Leave an item out of the markup
+
+- Quotations: when the quotation has a markup % (e.g. +30%), each item
+  shows a small "+30%" button under its unit price. Press it and the item
+  is left out of the markup: it's charged at its own price, and the
+  button reads "No markup". Press it again to put the markup back.
+- BOQs: the same button under each item's unit rate when the BOQ has a
+  mark-up (or mark-down), e.g. "+10%" / "No markup".
+- The price printed on the PDF, the Word copy, the BQ sheet and in all
+  totals follows it. Delivery charges are still never marked up. The
+  quotation's totals note says "Delivery charges and items set to “No
+  markup” aren't marked up" when any are.
+- A BOQ and its linked quotation keep the setting in step both ways;
+  making a quotation from a BOQ carries it. Only Draft documents can be
+  changed; an issued one shows "No markup" as text. ⌘Z undoes it.
+- New line fields `noMarkup` (QuotationLineItem, BOQLineItem), routes
+  `quotations:setLineNoMarkup` / `boq:setLineNoMarkup`; applied in
+  `effectiveUnitPrice` and `boqMarkedUpRate`. Helper
+  `window.markupToggleHTML` in js/line-discount.js.
+- Checked: both editors in a browser (light and dark) with a mock bridge:
+  the buttons, their states and the calls sent. Swift parsed with
+  tree-sitter, not compiled. The PDF wasn't seen.

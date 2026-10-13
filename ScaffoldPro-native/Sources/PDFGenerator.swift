@@ -122,6 +122,8 @@ final class PDFGenerator {
         // A column title can run to two lines ("Unit\nMonthly Rental").
         let headingLines = doc.columns.map { $0.title.components(separatedBy: "\n").count }.max() ?? 1
         headerHeight = (doc.compactTable ? 23.0 : 24.1) + CGFloat(max(0, headingLines - 1)) * 13.0
+        headingLineCount = headingLines
+        tableSqueeze = 1
         baselineBelowMiddle = doc.tableRowHeight.map { max(3.2, CGFloat($0) / 2 - 6.2) } ?? (doc.compactTable ? 4.1 : 5.2)
     }
 
@@ -680,6 +682,64 @@ final class PDFGenerator {
         }
     }
 
+    /// Lines of text in a row, for how short it can be made (tableSqueeze).
+    func textLines(of row: LetterTableRow, in doc: LetterDocument) -> Int {
+        switch row {
+        case .item(let cells), .partial(let cells, _):
+            let font = body(11)
+            let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
+            var lines = 1
+            for (i, cell) in cells.enumerated() where i < doc.columns.count {
+                lines = max(lines, cellLines(cell, column: doc.columns[i], font: font, currencyWidth: currencyWidth).count)
+            }
+            return lines
+        case .section: return 1
+        case .summary(let label, _, let emphasized): return summaryLabelLines(label, emphasized: emphasized, doc: doc).count
+        case .wide(_, let text): return wideLines(text, doc: doc).count
+        case .note(let note): return wrap(note, noteFont, noteWidth(doc)).count
+        }
+    }
+
+    /// When the table would run onto the next page by only a little, every
+    /// row (and the column titles) is made a little shorter so that it all
+    /// fits on the page it starts on. 1 = as normal; never under
+    /// tableSqueezeLimit (a 24.1pt row stays over 21pt, as tall as a compact
+    /// table's), and never so short the text gets tight.
+    var tableSqueeze: CGFloat = 1
+    static let tableSqueezeLimit: CGFloat = 0.88
+
+    /// A height made shorter by tableSqueeze, keeping room for its text:
+    /// the lines, 14.25pt apart, and 3.5pt above and below.
+    func squeezed(_ h: CGFloat, lines: Int, by squeeze: CGFloat) -> CGFloat {
+        guard squeeze < 1 else { return h }
+        return min(h, max(h * squeeze, CGFloat(max(1, lines) - 1) * cellPitch + 18))
+    }
+
+    /// A row's height as drawn (made shorter when the table is squeezed).
+    func drawnHeight(of row: LetterTableRow, in doc: LetterDocument) -> CGFloat {
+        squeezed(height(of: row, in: doc), lines: textLines(of: row, in: doc), by: tableSqueeze)
+    }
+
+    var headingLineCount: Int = 1
+    var drawnHeaderHeight: CGFloat { squeezed(headerHeight, lines: headingLineCount, by: tableSqueeze) }
+
+    /// How much to squeeze a table that starts at `cursor`: the least that
+    /// makes it fit on this page, else 1 (it doesn't fit even squeezed, or
+    /// fits as it is).
+    func squeezeToFit(_ doc: LetterDocument) -> CGFloat {
+        let rows = doc.rows.map { (h: height(of: $0, in: doc), lines: textLines(of: $0, in: doc)) }
+        let room = contentBottom - cursor
+        func total(_ s: CGFloat) -> CGFloat {
+            rows.reduce(squeezed(headerHeight, lines: headingLineCount, by: s)) { $0 + squeezed($1.h, lines: $1.lines, by: s) }
+        }
+        let limit = PDFGenerator.tableSqueezeLimit
+        guard total(1) > room, total(limit) <= room else { return 1 }
+        // The gentlest that fits, in steps of 0.5%.
+        var s: CGFloat = 0.995
+        while s > limit && total(s) > room { s -= 0.005 }
+        return max(s, limit)
+    }
+
     /// A wide row's text, wrapped across every column but the first.
     func wideLines(_ text: String, doc: LetterDocument) -> [String] {
         let width = doc.columns.dropFirst().reduce(CGFloat(0)) { $0 + $1.width } - 10
@@ -726,6 +786,7 @@ final class PDFGenerator {
 
     func drawHeaderRow(_ columns: [LetterColumn], _ edges: [CGFloat]) {
         let top = cursor
+        let headerHeight = drawnHeaderHeight
         hRule(edges, top)
         hRule(edges, top + headerHeight)
         for x in edges { vRule(x, top, headerHeight) }
@@ -746,6 +807,7 @@ final class PDFGenerator {
         guard !doc.columns.isEmpty else { return }
         let edges = columnEdges(doc.columns)
         let last = edges.count - 1
+        tableSqueeze = doc.rows.isEmpty ? 1 : squeezeToFit(doc)
         drawHeaderRow(doc.columns, edges)
         if doc.rows.isEmpty {
             text("No items.", x: textLeft, baseline: cursor + 17.25, font: body(11, italic: true))
@@ -753,7 +815,7 @@ final class PDFGenerator {
             return
         }
         for row in doc.rows {
-            let h = height(of: row, in: doc)
+            let h = drawnHeight(of: row, in: doc)
             if cursor + h > contentBottom {
                 newPage()
                 cursor = continuationTableTop
@@ -1121,11 +1183,15 @@ final class PDFGenerator {
     func wordLayout(_ doc: LetterDocument) -> WordLayout {
         configure(for: doc)
         var receiptNewPage = false
-        if !doc.receiptRows.isEmpty, let trial = PDFGenerator(paperSize: paperSize) {
-            _ = trial.layOut(doc)
-            receiptNewPage = trial.receiptOnNewPage
-        }
+        // A trial PDF: whether the receipt starts a new page, and how much
+        // the table was squeezed to fit on its page (the same here).
         let breaks = keptTogetherBreaks(doc)
+        if let trial = PDFGenerator(paperSize: paperSize) {
+            trial.sectionsOnNewPage = breaks
+            _ = trial.layOut(doc)
+            receiptNewPage = !doc.receiptRows.isEmpty && trial.receiptOnNewPage
+            tableSqueeze = trial.tableSqueeze
+        }
         let font = body(11)
         let currencyWidth = lineWidth(makeLine(doc.currencySymbol, font, .black))
         func lines(_ cells: [String]) -> [[String]] {
@@ -1134,7 +1200,7 @@ final class PDFGenerator {
             }
         }
         let rows: [WordRow] = doc.rows.map { row in
-            let h = Double(height(of: row, in: doc))
+            let h = Double(drawnHeight(of: row, in: doc))
             switch row {
             case .item(let cells): return WordRow(type: "item", height: h, cells: lines(cells))
             case .section(let title): return WordRow(type: "section", height: h, text: title)
@@ -1175,7 +1241,7 @@ final class PDFGenerator {
             signatures: doc.signatures.map { WordSignature(heading: $0.heading, subheading: $0.subheading, lines: $0.lines.map { WordSignatureLine(text: $0.text, colon: $0.colon, value: $0.value) }) },
             closingLine: nonBlank(doc.closingLine),
             infoRows: doc.infoRows.map { WordInfoRow(label: $0.label, lines: infoValueLines($0), bold: $0.boldValue) },
-            headerHeight: Double(headerHeight),
+            headerHeight: Double(drawnHeaderHeight),
             receiptRows: doc.receiptRows.map { [$0.0, $0.1] },
             receiptNewPage: receiptNewPage
         )

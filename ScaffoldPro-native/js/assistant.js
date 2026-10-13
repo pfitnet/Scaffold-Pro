@@ -227,10 +227,11 @@
   // ---- the proposals ----
   const KIND_TITLE = { createQuotation: 'New quotation', addQuotationItems: 'Add to quotation', createTask: 'New task', open: 'Open',
     editQuotationItems: 'Change quotation lines', updateQuotationDetails: 'Change quotation details', duplicateQuotation: 'Copy quotation',
-    createProject: 'New project', createClient: 'New client', completeTask: 'Mark task done', createBOQ: 'New BOQ' };
+    createProject: 'New project', createClient: 'New client', completeTask: 'Mark task done', createBOQ: 'New BOQ',
+    setSubProjectNote: 'Sub-project note' };
   const ICON = { createTask: '✓', completeTask: '✓', open: '↗', createProject: '▣', createClient: '◉', duplicateQuotation: '⧉',
-    editQuotationItems: '✎', updateQuotationDetails: '✎' };
-  const BLOCKING = /no project|no quotation|only a draft|no items|no title|isn't a date|can't do|couldn't be found|nothing to change|no name|already a client|say which|needs a|no open task|no line matches|matches \d+ lines/i;
+    editQuotationItems: '✎', updateQuotationDetails: '✎', setSubProjectNote: '✎' };
+  const BLOCKING = /no project|no sub-project|no quotation|only a draft|no items|no title|isn't a date|can't do|couldn't be found|nothing to change|no name|already a client|say which|needs a|no open task|no line matches|matches \d+ lines/i;
   const rowsHTML = (rows) => `<div class="as-facts">${rows.filter((r) => r[1] !== undefined && r[1] !== null && r[1] !== '')
     .map(([k, v]) => `<div><span>${esc(k)}</span><b>${v}</b></div>`).join('')}</div>`;
   const itemsTotal = (items) => (items || []).reduce((a, i) => a + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
@@ -306,6 +307,13 @@
       body = rowsHTML([['Contact', esc(p.contactPerson)], ['Phone', esc(p.phone)], ['Email', esc(p.email)],
         ['Address', [p.address, p.addressLine2, p.addressLine3].filter(Boolean).map(esc).join('<br>')]]);
       button = 'Add Client';
+    } else if (p.type === 'setSubProjectNote') {
+      title = `Note · ${esc(p.ref || p.subProject || '?')}${p.projectName ? ` ${esc(p.projectName)}` : ''}`;
+      const note = (v) => (v ? `<span class="as-note">${esc(v)}</span>` : '—');
+      body = `${(p.documents || []).length ? `<div class="as-card-sub">Shown on ${esc(p.documents.join(', '))}</div>` : ''}
+        <div class="as-table-wrap"><table class="as-items"><thead><tr><th>Now</th><th>Becomes</th></tr></thead>
+          <tbody><tr><td class="as-old">${note(p.old)}</td><td><b>${p.note ? note(p.note) : 'No note'}</b></td></tr></tbody></table></div>`;
+      button = p.note ? 'Save Note' : 'Take Note Off';
     } else if (p.type === 'completeTask') {
       title = 'Mark task done';
       body = rowsHTML([['Task', esc(p.title || '')]]);

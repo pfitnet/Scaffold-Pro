@@ -185,21 +185,73 @@ extension AppDatabase {
     /// The Projects page's Overview: each project's documents by kind, and
     /// what each was made from (`linked`: still kept in step with it).
     struct OverviewLink: Codable { var id: String; var linked: Bool }
-    struct OverviewDoc: Codable { var id: String; var number: String; var status: String; var from: [OverviewLink] }
+    /// `subProject`: the number after the project code it's filed under
+    /// ("001"), whose note it shows.
+    struct OverviewDoc: Codable { var id: String; var number: String; var status: String; var from: [OverviewLink]; var subProject: String? = nil }
     struct ProjectOverview: Codable {
         var projectId: String
         var boqs: [OverviewDoc] = []
         var quotations: [OverviewDoc] = []
         var deliveryNotes: [OverviewDoc] = []
         var invoices: [OverviewDoc] = []
+        /// The sub-projects' notes, by sub-project ("001").
+        var notes: [String: String] = [:]
+    }
+
+    /// A document's sub-project: its number after the project code ("001"
+    /// for BQ26221-001, Qt26221-001-s1 or DN26221-001-2). The project's
+    /// code first, else any "26100-001" (a number given before the
+    /// project's was changed). nil if the number follows neither.
+    func subProjectKey(_ number: String, projectNumber: String?) -> String? {
+        if let code = projectNumber, !code.isEmpty,
+           let r = number.range(of: NSRegularExpression.escapedPattern(for: code) + "-[0-9]+", options: .regularExpression) {
+            return String(String(number[r]).dropFirst(code.count + 1))
+        }
+        guard let r = number.range(of: "[0-9]+-[0-9]+", options: .regularExpression) else { return nil }
+        return String(number[r]).split(separator: "-").last.map(String.init)
+    }
+
+    /// A sub-project's note. A blank note takes it off. → an error, or nil.
+    func setSubProjectNote(projectId: String, key: String, note: String) -> String? {
+        let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return "Say which sub-project." }
+        var items = projectsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == projectId }) else { return "Project not found." }
+        var notes = items[i].subProjectNotes ?? [:]
+        let clean = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (notes[key] ?? "") == clean { return nil }
+        notes[key] = clean.isEmpty ? nil : clean
+        items[i].subProjectNotes = notes.isEmpty ? nil : notes
+        projectsStore.writeAll(items)
+        return nil
+    }
+
+    /// A project's sub-projects ("001"…, in order): the documents filed
+    /// under each, and its note. Sub-projects with a note but no documents
+    /// (any more) are kept, so the note isn't lost.
+    func subProjects(projectId: String) -> [(key: String, documents: [String], note: String)] {
+        let notes = getProject(id: projectId)?.subProjectNotes ?? [:]
+        var docs: [String: [String]] = [:]
+        if let o = projectsOverview().first(where: { $0.projectId == projectId }) {
+            for d in o.boqs + o.quotations + o.deliveryNotes + o.invoices {
+                if let k = d.subProject { docs[k, default: []].append(d.number) }
+            }
+        }
+        return Set(docs.keys).union(notes.keys).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+            .map { (key: $0, documents: docs[$0] ?? [], note: notes[$0] ?? "") }
     }
 
     func projectsOverview() -> [ProjectOverview] {
         var out: [String: ProjectOverview] = [:]
         func get(_ id: String) -> ProjectOverview { out[id] ?? ProjectOverview(projectId: id) }
+        let projects = projectsStore.readAll()
+        let codes = Dictionary(projects.map { ($0.id, $0.projectNumber) }, uniquingKeysWith: { a, _ in a })
+        // Delivery notes and invoices are filed under their quotation's sub-project.
+        var quoteSub: [String: String] = [:], noteSub: [String: String] = [:]
         for b in boqsStore.readAll() {
             var o = get(b.projectId)
-            o.boqs.append(OverviewDoc(id: b.id, number: b.boqNumber, status: b.status, from: []))
+            o.boqs.append(OverviewDoc(id: b.id, number: b.boqNumber, status: b.status, from: [],
+                                      subProject: subProjectKey(b.boqNumber, projectNumber: codes[b.projectId])))
             out[b.projectId] = o
         }
         let quotations = quotationsStore.readAll()
@@ -208,26 +260,35 @@ extension AppDatabase {
             var from: [OverviewLink] = []
             if let bid = q.sourceBOQId { from.append(OverviewLink(id: bid, linked: q.boqLinked == true)) }
             if let parent = parentQuotation(of: q, in: quotations) { from.append(OverviewLink(id: parent.id, linked: true)) }
-            o.quotations.append(OverviewDoc(id: q.id, number: q.quotationNumber, status: q.status, from: from))
+            let sub = subProjectKey(q.quotationNumber, projectNumber: codes[q.projectId])
+            quoteSub[q.id] = sub
+            o.quotations.append(OverviewDoc(id: q.id, number: q.quotationNumber, status: q.status, from: from, subProject: sub))
             out[q.projectId] = o
         }
         for d in deliveryNotesStore.readAll() {
             var o = get(d.projectId)
+            let sub = d.sourceQuotationId.flatMap { quoteSub[$0] } ?? subProjectKey(d.deliveryNoteNumber, projectNumber: codes[d.projectId])
+            noteSub[d.id] = sub
             o.deliveryNotes.append(OverviewDoc(id: d.id, number: d.deliveryNoteNumber, status: d.status,
-                                               from: d.sourceQuotationId.map { [OverviewLink(id: $0, linked: true)] } ?? []))
+                                               from: d.sourceQuotationId.map { [OverviewLink(id: $0, linked: true)] } ?? [], subProject: sub))
             out[d.projectId] = o
         }
         for i in invoicesStore.readAll() {
             var o = get(i.projectId)
             var from = (i.sourceDeliveryNoteIds ?? []).map { OverviewLink(id: $0, linked: true) }
             if from.isEmpty, let qid = i.sourceQuotationId { from.append(OverviewLink(id: qid, linked: true)) }
-            o.invoices.append(OverviewDoc(id: i.id, number: i.invoiceNumber, status: i.status, from: from))
+            var sub = i.sourceQuotationId.flatMap { quoteSub[$0] }
+            if sub == nil { sub = (i.sourceDeliveryNoteIds ?? []).compactMap { noteSub[$0] }.first }
+            if sub == nil { sub = subProjectKey(i.invoiceNumber, projectNumber: codes[i.projectId]) }
+            o.invoices.append(OverviewDoc(id: i.id, number: i.invoiceNumber, status: i.status, from: from, subProject: sub))
             out[i.projectId] = o
         }
+        let notes = Dictionary(projects.map { ($0.id, $0.subProjectNotes ?? [:]) }, uniquingKeysWith: { a, _ in a })
         let byNumber: (OverviewDoc, OverviewDoc) -> Bool = { $0.number.localizedStandardCompare($1.number) == .orderedAscending }
         return out.values.map { o in
             var o = o
             o.boqs.sort(by: byNumber); o.quotations.sort(by: byNumber); o.deliveryNotes.sort(by: byNumber); o.invoices.sort(by: byNumber)
+            o.notes = notes[o.projectId] ?? [:]
             return o
         }
     }
@@ -1169,7 +1230,7 @@ extension AppDatabase {
     /// A BOQ line's rate before its discount: its price with the BOQ's
     /// mark-up, rounded to 0.1 as on a quotation.
     func boqMarkedUpRate(_ line: BOQLineItem, boq: BillOfQuantities?, roundUp: Bool? = nil) -> Double {
-        guard let boq = boq, boq.markupOnRates == true else { return line.appliedUnitPrice }
+        guard let boq = boq, boq.markupOnRates == true, line.noMarkup != true else { return line.appliedUnitPrice }
         return markedUpPrice(line.appliedUnitPrice, markupPercent: boq.markupPercent, roundUp: roundUp ?? markupRoundsUp)
     }
 
@@ -1211,6 +1272,25 @@ extension AppDatabase {
         boqLineItemsStore.writeAll(items)
         touchBOQ(boq.id)
         // Linked quotations change with it.
+        syncLinkedQuotations(boqId: boq.id)
+        return nil
+    }
+
+    /// A BOQ item left out of the mark-up (its rate is its own price), or
+    /// put back under it. Linked quotations follow.
+    func setBOQLineNoMarkup(id: String, noMarkup: Bool) -> String? {
+        var items = boqLineItemsStore.readAll()
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+        guard let boq = getBOQ(id: items[i].boqId) else { return "BOQ not found." }
+        guard boq.status == "Draft" else { return "This BOQ is issued and can no longer be edited." }
+        items[i].noMarkup = noMarkup ? true : nil
+        // An amount off the rate can't be more than the rate now charged.
+        if items[i].discountType == "Amount", (items[i].discountValue ?? 0) > boqMarkedUpRate(items[i], boq: boq) {
+            items[i].discountType = nil
+            items[i].discountValue = nil
+        }
+        boqLineItemsStore.writeAll(items)
+        touchBOQ(boq.id)
         syncLinkedQuotations(boqId: boq.id)
         return nil
     }
@@ -1669,7 +1749,7 @@ extension AppDatabase {
             let rates = conversionRates()
             let priceItems = Dictionary(priceListItemsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             var lines = boqLineItemsStore.readAll()
-            for li in lines.indices where lines[li].boqId == id {
+            for li in lines.indices where lines[li].boqId == id && lines[li].noMarkup != true {
                 let handTyped = lines[li].priceListUnitPrice.map { abs($0 - lines[li].appliedUnitPrice) > 0.004 } ?? true
                 let listPrice = lines[li].priceListItemId.flatMap { priceItems[$0] }.flatMap { basePrice($0, mode: boqs[i].pricingMode, rates: rates) }
                     ?? lines[li].priceListUnitPrice.map { doubleOf(roundToCents(decimalOf($0) / factor)) }

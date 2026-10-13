@@ -105,6 +105,8 @@
       contents: (id) => callNative('projects:contents', { id: id }),
       // Every project's documents and what each was made from (the Overview).
       overview: () => callNative('projects:overview'),
+      // A sub-project's note ("001"); blank takes it off.
+      setNote: (id, subProject, note) => callNative('projects:setNote', { id: id, subProject: subProject, note: note }),
       remove: (id, confirm) => callNative('projects:delete', { id: id, confirm: confirm || null }),
     },
     drawings: {
@@ -158,6 +160,8 @@
       setOrientation: (id, orientation) => callNative('boq:setOrientation', { id: id, orientation: orientation }),
       // A discount on an item's unit rate: 'None' | 'Percent' | 'Amount' (off each unit).
       updateLineDiscount: (id, discountType, discountValue) => callNative('boq:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
+      // Leave an item out of the BOQ's mark-up (or put it back).
+      setLineNoMarkup: (id, noMarkup) => callNative('boq:setLineNoMarkup', { id: id, noMarkup: !!noMarkup }),
       // Rates listed after the total ({ title, rates: [{ name, rate, unit }], note }), or null to remove.
       setRatesSection: (id, section) => callNative('boq:setRatesSection', { id: id, section: section }),
       setCharges: (id, charges) => callNative('boq:setCharges', { id: id, charges: charges }),
@@ -209,6 +213,8 @@
       updateLineItem: (id, changes) => callNative('quotations:updateLineItem', Object.assign({ id: id }, changes)),
       removeLineItem: (id) => callNative('quotations:removeLineItem', { id: id }),
       updateLineDiscount: (id, discountType, discountValue) => callNative('quotations:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
+      // Leave an item out of the quotation's markup % (or put it back).
+      setLineNoMarkup: (id, noMarkup) => callNative('quotations:setLineNoMarkup', { id: id, noMarkup: !!noMarkup }),
       // Extra sections: kind 'Priced' | 'Rates' | 'Note'.
       addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
       updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),

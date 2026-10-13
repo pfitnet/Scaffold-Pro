@@ -620,6 +620,11 @@ struct Project: Codable {
     /// "Scaffolding" or "Crane" — asked when the project is made. nil
     /// (projects made before) counts as scaffolding.
     var jobType: String? = nil
+    /// A note for each sub-project, by its number after the project code:
+    /// "001" for BQ26221-001, Qt26221-001, Qt26221-001-s1 and the delivery
+    /// notes and invoices made from Qt26221-001. Shown on resting on any of
+    /// them in Projects › Overview. nil = no notes.
+    var subProjectNotes: [String: String]? = nil
 }
 
 /// A project's kind of job as kept: "Crane", else "Scaffolding".
@@ -1559,6 +1564,8 @@ struct BOQLineItem: Codable {
     /// The sum typed for the quantity (e.g. "14+28"), shown again when the
     /// box is clicked; nil when a plain number was typed.
     var quantityFormula: String? = nil
+    /// Left out of the BOQ's mark-up: its rate is its own price.
+    var noMarkup: Bool? = nil
 }
 
 /// Lightweight row for the project's BOQ list — avoids shipping every
@@ -1968,6 +1975,8 @@ struct QuotationLineItem: Codable {
     /// unit price ("(Included)", "(Free of Charge)"…; older rows "FOC" or
     /// "Included"). Its price is 0 and the words print instead of figures.
     var priceNote: String? = nil
+    /// Left out of the quotation's markup %: charged at its own price.
+    var noMarkup: Bool? = nil
 }
 
 /// How a priced row that isn't charged is printed: the words typed.

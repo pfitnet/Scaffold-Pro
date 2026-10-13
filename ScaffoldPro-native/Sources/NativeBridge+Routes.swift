@@ -199,6 +199,11 @@ extension NativeBridge {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "projects:overview":
             respond(id: id, encodable: db.projectsOverview())
+        case "projects:setNote":
+            // A sub-project's note (Projects › Overview).
+            let error = db.setSubProjectNote(projectId: (payload["id"] as? String) ?? "", key: (payload["subProject"] as? String) ?? "",
+                                             note: (payload["note"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "projects:contents":
             respond(id: id, encodable: db.projectContents(id: (payload["id"] as? String) ?? ""))
         case "projects:delete":
@@ -492,6 +497,9 @@ extension NativeBridge {
                 unit: (payload["unit"] as? String) ?? "", quantity: (payload["quantity"] as? Double) ?? 1,
                 price: (payload["price"] as? Double) ?? 0, priceNote: payload["priceNote"] as? String)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:setLineNoMarkup":
+            let error = db.setQuotationLineNoMarkup(id: (payload["id"] as? String) ?? "", noMarkup: (payload["noMarkup"] as? Bool) ?? false)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:updateLineDiscount":
             let error = db.updateQuotationLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
                                                        value: payload["discountValue"] as? Double)
@@ -713,6 +721,9 @@ extension NativeBridge {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "employees:recordPayroll":
             respond(id: id, encodable: db.recordPayroll(payload))
+        case "boq:setLineNoMarkup":
+            let error = db.setBOQLineNoMarkup(id: (payload["id"] as? String) ?? "", noMarkup: (payload["noMarkup"] as? Bool) ?? false)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "boq:updateLineDiscount":
             let error = db.updateBOQLineDiscount(id: (payload["id"] as? String) ?? "", type: payload["discountType"] as? String,
                                                  value: payload["discountValue"] as? Double)

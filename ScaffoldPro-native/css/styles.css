@@ -898,6 +898,17 @@ button.add-section.hm-active::after { transform: rotate(225deg); margin-top: 3px
 .discount-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; color: var(--text-secondary); }
 .discount-btn:hover { color: var(--text); }
 .discount-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+/* A line's markup button (js/line-discount.js): "+30%" while marked up,
+   "No markup" while left out of it. Small, under the price. */
+.markup-toggle { display: inline-block; margin-top: 3px; min-width: 0; min-height: 0; height: auto; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600; line-height: 1.5; text-transform: none; letter-spacing: normal; white-space: nowrap;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; box-shadow: none; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s; }
+.markup-toggle:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); box-shadow: none; }
+.markup-toggle.off { color: var(--text-secondary); background: transparent; border-color: var(--border-strong); }
+.markup-toggle.off:hover { color: var(--text); border-color: var(--text-tertiary); }
+.markup-toggle.static { cursor: default; }
+td.num .markup-toggle { display: table; margin-left: auto; }
 
 /* Drag-and-drop reordering (js/drag-reorder.js) */
 .drag-handle {
@@ -2363,6 +2374,35 @@ a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); 
 .ov-bracket.tracing .ov-line.lit { stroke-width: 3; }
 .ov-doc.lit { border-color: #22d36b; }
 @media (max-width: 1180px) { .ov-bracket { column-gap: 22px; grid-template-columns: minmax(150px, 1fr) repeat(4, minmax(100px, 1fr)); } }
+/* A sub-project's note (js/projects.js): a dot on its documents, and a
+   card on resting on one of them. */
+.ov-doc { position: relative; }
+.ov-note-mark { display: none; position: absolute; top: 6px; right: 7px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dk, var(--accent)); opacity: .8; }
+.ov-doc.has-note .ov-note-mark { display: block; }
+.ov-note-btn { display: none; position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; place-items: center; border-radius: 6px;
+  color: var(--text-tertiary); cursor: pointer; }
+.ov-doc:hover .ov-note-btn, .ov-doc:focus-visible .ov-note-btn { display: grid; }
+.ov-doc:hover .ov-note-mark { display: none; }
+.ov-note-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.ov-note { position: fixed; z-index: 900; width: 280px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 9px 12px 12px;
+  border-radius: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow-menu);
+  font-size: 13px; line-height: 1.45; pointer-events: none; }
+/* A hover label (the pointer goes through to the documents under it), until it's being typed in. */
+.ov-note.editing { pointer-events: auto; }
+.ov-note[hidden] { display: none; }
+.ov-note.in { animation: ovNoteIn .16s var(--spring); }
+.ov-note.above.in { animation-name: ovNoteInUp; }
+@keyframes ovNoteIn { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes ovNoteInUp { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ov-note.in { animation: none; } }
+.ov-note-head { display: flex; align-items: center; gap: 8px; min-height: 18px; margin-bottom: 3px; }
+.ov-note-ref { flex: 1; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+.ov-note-saved { font-size: 11.5px; color: var(--success); opacity: 0; transition: opacity .2s; }
+.ov-note.saved .ov-note-saved { opacity: 1; }
+.ov-note-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: hidden; }
+.ov-note-input { display: block; width: 100%; box-sizing: border-box; min-height: 76px; max-height: 260px; resize: vertical; font: inherit; line-height: 1.45; }
+.ov-note-hint { margin-top: 6px; font-size: 11px; color: var(--text-tertiary); }
 
 /* A linked quotation's line: kept in step with its BOQ line, or unlinked. */
 .line-link { display: inline-flex; align-items: center; gap: 4px; height: 20px; min-width: 0; padding: 0 6px; margin-left: 6px; vertical-align: 1px;

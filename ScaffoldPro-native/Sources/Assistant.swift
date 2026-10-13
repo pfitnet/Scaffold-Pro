@@ -203,7 +203,10 @@ extension NativeBridge {
         How the app works: projects have numbers such as 26219 and a name. Each project has BOQs (BQ26219-001), quotations \
         (Qt26219-001; subsidiaries Qt26219-001-s1), delivery notes and invoices. A quotation is "Rental" (prices per month) or "Sale". \
         Its lines are materials (from the material/price list, by item code), delivery charges, and other charges (labour, design, \
-        erection…) in sections with a heading.
+        erection…) in sections with a heading. \
+        A project's sub-projects are its documents grouped by the number after the project code: BQ26219-001, Qt26219-001, \
+        Qt26219-001-s1 and the delivery notes and invoices made from Qt26219-001 are all sub-project 26219-001. Each sub-project \
+        can have a note, shown when the pointer rests on any of its documents in Projects › Overview.
 
         ALWAYS answer with ONLY one JSON object, no other text — never tool-call syntax or function calls:
         {"reply": "what you say to the person (plain text; short; use - for lists)",
@@ -222,7 +225,7 @@ extension NativeBridge {
         {"type": "findItems", "query": "words of an item, e.g. 2.0m standard", "limit": 12}  → the material list with item codes, units and Sale / Rental prices in \(company.currency)
         {"type": "getQuotation", "number": "Qt26219-001"}  → its lines (with ids), totals and letter details
         {"type": "listQuotations", "projectNumber": "26219"}
-        {"type": "getProject", "number": "26219"}  → client, site, BOQs, quotations, delivery notes, invoices, open tasks
+        {"type": "getProject", "number": "26219"}  → client, site, BOQs, quotations, delivery notes, invoices, open tasks, sub-projects and their notes
         {"type": "findClients", "query": "company, contact or site words"}  → clients and sites
         {"type": "listTasks", "projectNumber": "26219 or null", "includeDone": false, "events": false}
         {"type": "listInvoices", "projectNumber": "26219 or null", "unpaidOnly": true}  → totals, paid and balance due
@@ -245,6 +248,8 @@ extension NativeBridge {
          "items": [ same as a quotation's items ]}
         {"type": "createClient", "companyName": "...", "contactPerson": null, "phone": null, "email": null, "address": "line 1", "addressLine2": null, "addressLine3": null}
         {"type": "completeTask", "taskId": "id from listTasks"}
+        {"type": "setSubProjectNote", "projectNumber": "26219", "subProject": "26219-001 (or a document number such as Qt26219-001)",
+         "note": "the whole note as it should read; \"\" takes it off"}
         An event on the calendar is a createTask with "dueTime" and "endTime" ("HH:mm").
         {"type": "open", "page": "project" | "quotation", "number": "26219 or Qt26219-001"}
 
@@ -258,6 +263,8 @@ extension NativeBridge {
         - Quantities are whole numbers. Keep descriptions as written on the file or by the person.
         - Read attached files carefully: every priced row, in order; leave out totals, discounts and terms.
         - To change a quotation's lines, getQuotation first and use the lines' ids. Only draft quotations can be changed.
+        - To change a sub-project's note, getProject first: the note you propose replaces the whole note, so keep what should stay \
+        (to add a line, give the old note with the new line after it).
         - For a new project, findClients first: use the client's and site's names exactly as found; a name not found makes a new one.
         - Use lookups only when you need them, at most a few at once. When you propose, say briefly in "reply" what you prepared.
         - You can propose several things at once (e.g. a new project and its quotation: create the project first; the quotation \
@@ -733,10 +740,14 @@ extension NativeBridge {
             let tasks = db.listTasks(projectId: p.id, includeEvents: true).filter { !$0.task.done }.map { t -> [String: Any] in
                 ["id": t.task.id, "title": t.task.title, "dueDate": t.task.dueDate ?? "", "assignee": t.task.assignee ?? t.task.team ?? "anyone"]
             }
+            let subs = db.subProjects(projectId: p.id).map { s -> [String: Any] in
+                ["subProject": "\(p.projectNumber)-\(s.key)", "documents": s.documents, "note": s.note]
+            }
             let out: [String: Any] = ["projectNumber": p.projectNumber, "name": p.name, "status": p.status, "jobType": normalJobType(p.jobType),
                                       "client": client?.companyName ?? "", "clientContact": client?.contactPerson ?? "", "site": site?.name ?? "",
                                       "siteAddress": site?.address ?? "", "description": p.projectDescription ?? "",
-                                      "boqs": boqs, "quotations": quotes, "deliveryNotes": notes, "invoices": invoices, "openTasks": tasks]
+                                      "boqs": boqs, "quotations": quotes, "deliveryNotes": notes, "invoices": invoices, "openTasks": tasks,
+                                      "subProjects": subs]
             return out
         case "findClients":
             let clients = db.listClients(includeArchived: false).filter { c in
@@ -948,6 +959,23 @@ extension NativeBridge {
             if found.count == 1, let t = found.first { out["taskId"] = t.id; out["title"] = t.title } else {
                 problems.append(found.isEmpty ? "No open task matches." : "More than one task matches; say which.")
             }
+        case "setSubProjectNote":
+            let raw = ((p["subProject"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            guard let found = subProjectOf(projectNumber: p["projectNumber"] as? String, raw) else {
+                problems.append("There's no sub-project \(raw.isEmpty ? "chosen" : raw)."); break
+            }
+            let (project, key) = found
+            let sub = db.subProjects(projectId: project.id).first { $0.key == key }
+            let note = ((p["note"] as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            out["projectNumber"] = project.projectNumber
+            out["projectName"] = project.name
+            out["subProject"] = key
+            out["ref"] = "\(project.projectNumber)-\(key)"
+            out["documents"] = sub?.documents ?? []
+            out["old"] = sub?.note ?? ""
+            out["note"] = note
+            if sub == nil { problems.append("There's no sub-project \(project.projectNumber)-\(key).") }
+            else if sub?.note == note { problems.append("There's nothing to change.") }
         default:
             problems.append("The app can't do “\(type)” yet.")
         }
@@ -957,6 +985,41 @@ extension NativeBridge {
 
     func quotation(_ number: String) -> Quotation? {
         db.quotationsStore.readAll().first { $0.quotationNumber.caseInsensitiveCompare(number) == .orderedSame }
+    }
+
+    /// The project and sub-project ("001") the assistant means: "001",
+    /// "26219-001", or a document's number (a delivery note or invoice
+    /// counts under its quotation's sub-project).
+    func subProjectOf(projectNumber: String?, _ raw: String) -> (Project, String)? {
+        let text = raw.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        let same = { (a: String, b: String) in a.caseInsensitiveCompare(b) == .orderedSame }
+        // The document it names, if any: its project, and the number its sub-project is read from.
+        var projectId: String? = nil
+        var number = text
+        if let b = db.boqsStore.readAll().first(where: { same($0.boqNumber, text) }) { projectId = b.projectId }
+        else if let q = quotation(text) { projectId = q.projectId }
+        else if let d = db.deliveryNotesStore.readAll().first(where: { same($0.deliveryNoteNumber, text) }) {
+            projectId = d.projectId
+            if let q = db.getQuotation(id: d.sourceQuotationId ?? "") { number = q.quotationNumber }
+        } else if let i = db.invoicesStore.readAll().first(where: { same($0.invoiceNumber, text) }) {
+            projectId = i.projectId
+            if let q = db.getQuotation(id: i.sourceQuotationId ?? "") { number = q.quotationNumber }
+        }
+        let project = projectId.flatMap { db.getProject(id: $0) }
+            ?? nonBlank(projectNumber).flatMap { db.getProjectByNumber($0.trimmingCharacters(in: .whitespaces)) }
+            ?? text.range(of: "^[0-9]+(?=-)", options: .regularExpression).flatMap { db.getProjectByNumber(String(text[$0])) }
+        guard let p = project else { return nil }
+        let key: String
+        if number.allSatisfy(\.isNumber) {
+            // "1" is the "001" already there.
+            key = db.subProjects(projectId: p.id).first(where: { Int($0.key) == Int(number) })?.key
+                ?? String(repeating: "0", count: max(0, 3 - number.count)) + number
+        } else {
+            guard let k = db.subProjectKey(number, projectNumber: p.projectNumber) else { return nil }
+            key = k
+        }
+        return (p, key)
     }
 
     func assistantHref(_ p: [String: Any]) -> String? {
@@ -1102,6 +1165,14 @@ extension NativeBridge {
         case "completeTask":
             guard let taskId = p["taskId"] as? String else { reply(false, "Task not found."); return }
             if let error = db.setTaskDone(id: taskId, done: true) { reply(false, error) } else { reply(true, "Marked done.", href: "tasks.html") }
+        case "setSubProjectNote":
+            guard let project = db.getProjectByNumber(((p["projectNumber"] as? String) ?? "").trimmingCharacters(in: .whitespaces)),
+                  let key = nonBlank(p["subProject"] as? String) else { reply(false, "Sub-project not found."); return }
+            let note = (p["note"] as? String) ?? ""
+            if let error = db.setSubProjectNote(projectId: project.id, key: key, note: note) { reply(false, error); return }
+            let ref = "\(project.projectNumber)-\(key)"
+            db.logActivity(projectId: project.id, "Sub-project note changed by the assistant", reference: ref)
+            reply(true, nonBlank(note) == nil ? "Note for \(ref) taken off." : "Note for \(ref) saved.", href: "projects.html?view=overview")
         default:
             reply(false, "That can't be done from here.")
         }
