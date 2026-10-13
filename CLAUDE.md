@@ -1,3 +1,19 @@
+## Workflow — auto-merge into main (standing permission)
+
+Read `HANDOFF.md` first; its section 2 is the workflow. The user has given
+durable permission, which counts as asking for a PR: when a task is done,
+commit, push, open a PR against `main` (pfitnet/Scaffold-Pro) and **merge it
+straight away** (merge method "merge"), without asking. Hold only for red CI
+or a merge conflict; fix it, then merge. If the branch's earlier PR was
+already merged, restart the branch from `origin/main` and open a new PR.
+
+## Skills
+
+Design and motion skills are installed in `.claude/skills/` (from
+`Leonxlnx/taste-skill` and `emilkowalski/skills`, tracked in
+`skills-lock.json`). Use them for UI, animation and Swift work, keeping to the
+look the user likes (HANDOFF.md section 3: calm, roomy, no flashing).
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

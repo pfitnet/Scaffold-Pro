@@ -64,12 +64,21 @@ business:
 | Calendar and the task / event box | `js/calendar.js` (drag to schedule), `js/task-editor.js`; Swift `calendarEvents`, `saveTask` (`endTime`, `team`) |
 | Quotation import / duplicate | `js/quotation-import.js`, `js/settings-ai.js`; Swift `QuotationImportReader`, `QuotationAI`, `createImportedQuotation`, `duplicateQuotation` |
 | Knowledge graph | `graphify-out/` (see `CLAUDE.md`: `graphify query "…"`, run `graphify update .` after code changes) |
+| Design and motion skills | `.claude/skills/` (from `Leonxlnx/taste-skill` and `emilkowalski/skills`, tracked in `skills-lock.json`). Use them for UI and animation work, e.g. `emil-design-eng`, `review-animations`, `animate`, `apple-design`, `minimalist-ui`, `redesign-existing-projects`, `write-swift`. Update with `npx skills update -p -y` |
 
 ---
 
 ## 2. The standing workflow (do this every time, without asking)
 
 The user said: *"no need to ask me next time, auto merge it once the task is done."*
+
+> **Standing permission — auto-merge every PR into main.** This is the
+> user's explicit, durable instruction and counts as asking for a PR. When a
+> task is done: push, open the PR against `main`, and merge it yourself
+> right away. Don't stop at a pushed branch and don't ask first. Only hold
+> back if CI is red or there's a merge conflict; fix that, then merge. If
+> the session's branch already had its PR merged, restart it from
+> `origin/main` (step 1) and open a new PR.
 
 1. Start each task from the latest main:
    `git fetch origin main && git checkout -B claude/macos-construction-app-zmobce origin/main`
@@ -336,4 +345,4 @@ Paste something like this as the first message:
 
 > Read HANDOFF.md in the repo root first, then the last few "Batch"
 > entries in ScaffoldPro-native/README.md. Follow the workflow in section 2
-> (auto-merge, no need to ask). Then: <your request>.
+> (auto-merge every PR into main, no need to ask). Then: <your request>.
