@@ -8,6 +8,11 @@ const state = (() => {
   try { return Object.assign({ status: 'All', sort: 'number', view: 'cards' }, JSON.parse(localStorage.getItem(STATE_KEY) || '{}')); } catch (e) { return { status: 'All', sort: 'number', view: 'cards' }; }
 })();
 const keep = () => { try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } };
+// Opened as projects.html?view=overview (the assistant's Open): that view.
+{
+  const v = new URLSearchParams(location.search).get('view');
+  if (['cards', 'list', 'overview'].includes(v)) { state.view = v; keep(); }
+}
 
 const STATUS_ORDER = ['Planning', 'Quotation', 'Active', 'On Hold', 'Completed', 'Archived'];
 const statusClass = (s) => `st-${String(s || '').toLowerCase().replace(/[^a-z]+/g, '-')}`;
@@ -51,7 +56,11 @@ function openProject(p, tab) {
 }
 
 function contextMenu(e, p) {
+  // On a document in the Overview: its sub-project's note first.
+  const doc = e.target.closest && e.target.closest('.ov-doc');
+  const sub = doc && doc.dataset.sub;
   window.showContextMenu(e, [
+    ...(sub ? [{ label: noteOf(p.id, sub) ? 'Edit Note…' : 'Add Note…', action: () => showNote(doc, true) }, 'separator'] : []),
     { label: 'Open Project', action: () => openProject(p) },
     { label: 'Show in Finder', action: () => window.api.projects.revealFolder(p.projectNumber) },
     'separator',
@@ -130,10 +139,11 @@ const OV_COLS = [['boqs', 'BOQ', 'boq-editor.html', 'dk-boq'], ['quotations', 'Q
 
 function bracket(p, i) {
   const o = (overview && overview[p.id]) || {};
+  const notes = o.notes || {};
   const cols = OV_COLS.map(([key, title, page, colour]) => {
     const docs = o[key] || [];
-    const tile = (d, sub) => `<a class="ov-doc${sub ? ' ov-sub' : ''} ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-from="${esc(JSON.stringify(d.from || []))}">
-          <b>${esc(d.number)}</b><span class="ov-st">${sub ? 'Subsidiary · ' : ''}${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}</span></a>`;
+    const tile = (d, sub) => `<a class="ov-doc${sub ? ' ov-sub' : ''}${d.subProject && notes[d.subProject] ? ' has-note' : ''} ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-sub="${esc(d.subProject || '')}" data-from="${esc(JSON.stringify(d.from || []))}">
+          <span class="ov-note-mark" aria-hidden="true"></span><span class="ov-note-btn" role="button" title="Sub-project note" aria-label="Edit the sub-project note">${NOTE_PENCIL}</span><b>${esc(d.number)}</b><span class="ov-st">${sub ? 'Subsidiary · ' : ''}${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}</span></a>`;
     // A document made from another in the same column (a quotation's
     // subsidiaries) sits under it, indented, in one family box.
     const here = new Set(docs.map((d) => d.id));
@@ -150,7 +160,7 @@ function bracket(p, i) {
       ? tops.map(family).join('')
       : '<span class="ov-empty">—</span>'}</div></div>`;
   }).join('');
-  return `<section class="ov-bracket ${statusClass(p.status)}" data-number="${esc(p.projectNumber)}" style="--i:${Math.min(i, 14)}">
+  return `<section class="ov-bracket ${statusClass(p.status)}" data-number="${esc(p.projectNumber)}" data-pid="${esc(p.id)}" style="--i:${Math.min(i, 14)}">
     <a class="ov-project" href="project-detail.html?number=${encodeURIComponent(p.projectNumber)}">
       <span class="ov-num">${esc(p.projectNumber)}</span><span class="ov-name">${esc(p.name)}</span>
       <span class="ov-site">${ICON.site}${esc(p.siteName || 'No site')}</span>
@@ -220,6 +230,167 @@ document.getElementById('list-container').addEventListener('pointerover', (e) =>
   for (const l of lines) l.classList.toggle('lit', chain.has(l.dataset.a) && chain.has(l.dataset.b));
 });
 window.addEventListener('resize', () => { if (state.view === 'overview') drawOverviewLines(); });
+
+// ---- Sub-project notes ----
+// Resting on a document shows its sub-project's note: BQ26221-001,
+// Qt26221-001 (and its -s1…) and the delivery notes and invoices made from
+// Qt26221-001 share one. It's a hover label: the pointer goes through it to
+// the documents under it. The small pencil on a document (or right-click ›
+// Edit Note…) edits it in place: Return saves, Shift-Return starts a new
+// line, Esc puts it back. Kept with the project, so every Mac sees it; the
+// assistant can change it too (setSubProjectNote). A dot on a document
+// says its sub-project has a note.
+const NOTE_PENCIL = '<svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5a1.8 1.8 0 0 1 2.5 2.5L7 15l-3.5 1 1-3.5z"/></svg>';
+const notePop = document.createElement('div');
+notePop.className = 'ov-note';
+notePop.hidden = true;
+document.body.appendChild(notePop);
+let noteAt = null;        // { doc, pid, sub }
+let noteEditing = false;
+let noteSaving = false;
+let noteTimer = 0;
+let notePending = null;   // the document waiting to show its note
+
+const noteOf = (pid, sub) => ((overview && overview[pid] && overview[pid].notes) || {})[sub] || '';
+const sameNote = (a, b) => !!a && !!b && a.pid === b.pid && a.sub === b.sub;
+const noteRef = (at) => `${(allProjects.find((p) => p.id === at.pid) || {}).projectNumber || ''}-${at.sub}`;
+
+function drawNote() {
+  const ref = esc(noteRef(noteAt));
+  notePop.setAttribute('role', noteEditing ? 'dialog' : 'tooltip');
+  notePop.setAttribute('aria-label', `Note for ${noteRef(noteAt)}`);
+  notePop.classList.toggle('editing', noteEditing);
+  notePop.innerHTML = `<div class="ov-note-head"><span class="ov-note-ref">Sub-project ${ref}</span><span class="ov-note-saved">Saved</span></div>${noteEditing
+    ? `<textarea class="ov-note-input" rows="3" placeholder="A note for ${ref}" aria-label="Note for ${ref}">${esc(noteOf(noteAt.pid, noteAt.sub))}</textarea>
+      <div class="ov-note-hint">Return saves · ⇧Return new line · Esc cancels</div>`
+    : `<div class="ov-note-text">${esc(noteOf(noteAt.pid, noteAt.sub))}</div>`}`;
+}
+
+// Under the document (over it where there's no room), inside the window.
+function placeNote() {
+  if (!noteAt) return;
+  if (!noteAt.doc.isConnected) {
+    // The page was redrawn: the same document, if it's still there.
+    const again = document.querySelector(`.ov-bracket[data-pid="${CSS.escape(noteAt.pid)}"] .ov-doc[data-doc="${CSS.escape(noteAt.doc.dataset.doc)}"]`);
+    if (!again) { if (!noteEditing) hideNote(true); return; }
+    noteAt.doc = again;
+  }
+  const r = noteAt.doc.getBoundingClientRect();
+  const w = notePop.offsetWidth, h = notePop.offsetHeight, gap = 8, edge = 12;
+  const left = Math.max(edge, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - edge));
+  const above = r.bottom + gap + h > window.innerHeight - edge && r.top - gap - h > edge;
+  notePop.style.left = `${Math.round(left)}px`;
+  notePop.style.top = `${Math.round(above ? r.top - gap - h : r.bottom + gap)}px`;
+  notePop.classList.toggle('above', above);
+}
+
+// `edit`: open for typing. Otherwise shown only when there's a note.
+function showNote(doc, edit) {
+  clearTimeout(noteTimer);
+  notePending = null;
+  const box = doc && doc.closest('.ov-bracket');
+  if (!box || !doc.dataset.sub) return;
+  const at = { doc, pid: box.dataset.pid, sub: doc.dataset.sub };
+  // While a note is being typed, it stays where it is.
+  if (noteEditing) {
+    if (edit && sameNote(at, noteAt)) { const t = notePop.querySelector('textarea'); if (t) t.focus(); }
+    return;
+  }
+  if (!edit && !noteOf(at.pid, at.sub)) { hideNote(true); return; }
+  const wasHidden = notePop.hidden;
+  const redraw = wasHidden || !sameNote(at, noteAt) || edit;
+  noteAt = at;
+  noteEditing = !!edit;
+  if (redraw) drawNote();
+  notePop.hidden = false;
+  placeNote();
+  if (wasHidden && !calm) { notePop.classList.remove('in'); void notePop.offsetWidth; notePop.classList.add('in'); }
+  if (edit) {
+    const t = notePop.querySelector('textarea');
+    if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+  }
+}
+
+function hideNote(now) {
+  clearTimeout(noteTimer);
+  notePending = null;
+  if (noteEditing || notePop.hidden) return;
+  const go = () => { notePop.hidden = true; notePop.classList.remove('saved', 'editing'); noteAt = null; };
+  if (now) go(); else noteTimer = setTimeout(go, 160);
+}
+
+// The note dots on the sub-project's documents, after a change.
+function markNotes(pid, sub) {
+  const on = !!noteOf(pid, sub);
+  for (const d of document.querySelectorAll(`.ov-bracket[data-pid="${CSS.escape(pid)}"] .ov-doc[data-sub="${CSS.escape(sub)}"]`)) d.classList.toggle('has-note', on);
+}
+
+async function finishNote(save) {
+  if (!noteEditing || noteSaving || !noteAt) return;
+  const t = notePop.querySelector('textarea');
+  const text = t ? t.value.trim() : '';
+  const { pid, sub } = noteAt;
+  const changed = save && text !== noteOf(pid, sub);
+  if (changed) {
+    noteSaving = true;
+    let r = null;
+    try { r = await window.api.projects.setNote(pid, sub, text); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+    noteSaving = false;
+    if (!r || r.ok === false) {
+      if (window.appAlert) window.appAlert((r && r.error) || 'The note couldn’t be saved.');
+      if (t && t.isConnected) t.focus();
+      return;
+    }
+    if (overview && overview[pid]) {
+      const notes = overview[pid].notes || (overview[pid].notes = {});
+      if (text) notes[sub] = text; else delete notes[sub];
+    }
+    markNotes(pid, sub);
+  }
+  noteEditing = false;
+  // Still resting on the document: the note stays up (with "Saved").
+  if (!noteOf(pid, sub) || !noteAt.doc.matches(':hover')) { hideNote(true); return; }
+  drawNote();
+  placeNote();
+  if (changed) {
+    notePop.classList.add('saved');
+    setTimeout(() => notePop.classList.remove('saved'), 1400);
+  }
+}
+
+{
+  const list = document.getElementById('list-container');
+  list.addEventListener('pointerover', (e) => {
+    const doc = e.target.closest && e.target.closest('.ov-doc');
+    if (!doc || !doc.dataset.sub) { hideNote(); return; }
+    if (!notePop.hidden) { showNote(doc); return; }   // straight on to the next
+    if (notePending === doc) return;
+    clearTimeout(noteTimer);
+    notePending = doc;
+    noteTimer = setTimeout(() => showNote(doc), 350);
+  });
+  list.addEventListener('pointerleave', () => hideNote());
+  // The pencil on a document: edit its note (instead of opening it).
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('.ov-note-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showNote(btn.closest('.ov-doc'), true);
+  }, true);
+  // Reached with the keyboard too.
+  list.addEventListener('focusin', (e) => { const doc = e.target.closest('.ov-doc'); if (doc && doc.dataset.sub) showNote(doc); });
+  list.addEventListener('focusout', () => hideNote());
+}
+notePop.addEventListener('keydown', (e) => {
+  if (!e.target.matches('textarea')) return;
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); finishNote(true); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finishNote(false); }
+});
+notePop.addEventListener('focusout', (e) => { if (e.target.matches('textarea') && !notePop.contains(e.relatedTarget)) finishNote(true); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !noteEditing) hideNote(true); });
+document.addEventListener('scroll', (e) => { if (notePop.contains(e.target)) return; if (noteEditing) placeNote(); else hideNote(true); }, true);
+window.addEventListener('resize', () => { if (noteEditing) placeNote(); else hideNote(true); });
 
 // Folded away (remembered on this Mac): "who" or "who|client" keys.
 let closed = new Set();

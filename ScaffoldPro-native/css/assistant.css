@@ -88,6 +88,7 @@
 .as-facts b { font-weight: 500; }
 .as-change { font-size: 12.5px; line-height: 1.6; }
 .as-change s, .as-old { color: var(--text-tertiary); }
+.as-note { white-space: pre-wrap; }
 .as-del { color: var(--danger, #d0453a); font-weight: 600; }
 .as-task { display: flex; flex-direction: column; gap: 3px; padding: 4px 14px 6px 48px; font-size: 13px; }
 .as-task span { color: var(--text-secondary); font-size: 12.5px; }

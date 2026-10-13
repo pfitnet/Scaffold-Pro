@@ -5069,3 +5069,30 @@ Increase Contrast. No Swift changed.
 - Checked: the editor in a browser (light and dark): ticking, typing 6
   (1,200 a month → 7,200), switching to Minimum hire. Swift parsed with
   tree-sitter, not compiled. The PDF wasn't seen.
+
+## Batch 229 — Sub-project notes on the Projects Overview
+
+- Each sub-project can now have a note. A sub-project is the number after
+  the project code: BQ26221-001, Qt26221-001, Qt26221-001-s1 and the
+  delivery notes and invoices made from Qt26221-001 are all 26221-001, so
+  they all show the same note.
+- Projects › Overview: rest the pointer on a document and its sub-project's
+  note appears under it, like a hover label. The pointer goes through it,
+  so the document underneath can still be reached. A small dot on a
+  document means its sub-project has a note.
+- To edit: the small pencil that appears on a document, or right-click ›
+  Edit Note… (Add Note… when there's none). Return saves, Shift-Return
+  starts a new line, Esc puts it back, clicking elsewhere saves. A blank
+  note takes it off. ⌘Z undoes it.
+- The assistant can read and change the notes: `getProject` now lists the
+  sub-projects with their documents and notes, and a new proposal
+  `setSubProjectNote` (card "Note · 26221-001", Now / Becomes, Save Note)
+  takes "26221-001", "001" or a document number. It's noted in the
+  project's history.
+- Kept on the project (new `Project.subProjectNotes`, by "001"), so every
+  Mac sees them. New route `projects:setNote`; `projects:overview` now
+  gives each document's `subProject` and each project's `notes`.
+- Checked: the Overview in a browser (light and dark) with a mock bridge:
+  the same note on BQ and Qt of one sub-project, none on another, adding,
+  multi-line, Esc, clearing, the right-click item. Swift parsed with
+  tree-sitter, not compiled. The assistant's card wasn't seen.

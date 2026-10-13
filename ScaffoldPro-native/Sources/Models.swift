@@ -620,6 +620,11 @@ struct Project: Codable {
     /// "Scaffolding" or "Crane" — asked when the project is made. nil
     /// (projects made before) counts as scaffolding.
     var jobType: String? = nil
+    /// A note for each sub-project, by its number after the project code:
+    /// "001" for BQ26221-001, Qt26221-001, Qt26221-001-s1 and the delivery
+    /// notes and invoices made from Qt26221-001. Shown on resting on any of
+    /// them in Projects › Overview. nil = no notes.
+    var subProjectNotes: [String: String]? = nil
 }
 
 /// A project's kind of job as kept: "Crane", else "Scaffolding".

@@ -199,6 +199,11 @@ extension NativeBridge {
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "projects:overview":
             respond(id: id, encodable: db.projectsOverview())
+        case "projects:setNote":
+            // A sub-project's note (Projects › Overview).
+            let error = db.setSubProjectNote(projectId: (payload["id"] as? String) ?? "", key: (payload["subProject"] as? String) ?? "",
+                                             note: (payload["note"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "projects:contents":
             respond(id: id, encodable: db.projectContents(id: (payload["id"] as? String) ?? ""))
         case "projects:delete":

@@ -105,6 +105,8 @@
       contents: (id) => callNative('projects:contents', { id: id }),
       // Every project's documents and what each was made from (the Overview).
       overview: () => callNative('projects:overview'),
+      // A sub-project's note ("001"); blank takes it off.
+      setNote: (id, subProject, note) => callNative('projects:setNote', { id: id, subProject: subProject, note: note }),
       remove: (id, confirm) => callNative('projects:delete', { id: id, confirm: confirm || null }),
     },
     drawings: {
