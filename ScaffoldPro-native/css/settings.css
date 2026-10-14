@@ -19,12 +19,12 @@
   background: none; box-shadow: none; color: var(--text-secondary); font-size: 13px; font-weight: 550; text-align: left; cursor: pointer;
   transition: background .15s, color .15s; }
 .st-nav-item:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
-.st-nav-item .st-ico { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; color: var(--accent);
-  background: var(--accent-soft); transition: transform .25s var(--spring, cubic-bezier(.22, 1, .36, 1)); }
-.st-nav-item.on { background: color-mix(in srgb, var(--accent) 11%, transparent); color: var(--text); }
-.st-nav-item.on::before { content: ''; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: var(--accent);
+.st-nav-item .st-ico { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px; color: var(--text-secondary);
+  background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--hairline); transition: transform .25s var(--spring, cubic-bezier(.22, 1, .36, 1)); }
+.st-nav-item.on { background: var(--row-selected); color: var(--text); font-weight: 560; }
+.st-nav-item.on::before { content: ''; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: var(--select-ink);
   animation: st-bar .25s var(--ease, ease) both; }
-.st-nav-item.on .st-ico { background: var(--accent); color: #fff; transform: scale(1.04); }
+.st-nav-item.on .st-ico { background: var(--select-ink); color: var(--panel); transform: scale(1.04); }
 .st-nav-item.dim { opacity: .35; }
 @keyframes st-bar { from { transform: scaleY(0); } to { transform: none; } }
 
@@ -95,8 +95,8 @@
 /* The pencil at the end of a row. */
 .st-edit { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: none; border-radius: 8px; background: none; box-shadow: none;
   color: var(--text-tertiary); cursor: pointer; transition: color .15s, background .15s, transform .2s; }
-.st-row:hover .st-edit { color: var(--accent); }
-.st-edit:hover { background: var(--accent-soft); transform: rotate(-8deg); }
+.st-row:hover .st-edit { color: var(--accent-text); }
+.st-edit:hover { background: var(--row-selected); transform: rotate(-8deg); }
 .st-edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Editing one: its controls open under the label, the rest stays as text. */
@@ -206,7 +206,7 @@
 .cl-entry { padding: 0; overflow: hidden; }
 .cl-entry summary { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; cursor: pointer; list-style: none; }
 .cl-entry summary::-webkit-details-marker { display: none; }
-.cl-entry summary:hover .cl-title { color: var(--accent); }
+.cl-entry summary:hover .cl-title { color: var(--accent-text); }
 .cl-batch { flex: none; min-width: 34px; font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .cl-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
 .cl-body { padding: 0 14px 12px 58px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }

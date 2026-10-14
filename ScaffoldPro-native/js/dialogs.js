@@ -51,7 +51,7 @@
         background: rgba(20, 22, 26, 0.32); animation: appDialogFade 0.12s ease-out; padding: 16px; }
       .app-dialog { width: 400px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; background: var(--panel, #fff); color: var(--text, #1d1d1f);
         border-radius: 12px; box-shadow: var(--shadow-sheet, 0 18px 50px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.12));
-        padding: 20px 20px 16px; animation: appDialogPop 0.14s ease-out; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+        padding: 20px 20px 16px; animation: appDialogPop 0.14s ease-out; font-family: "Geist", var(--font-ui, "Geist", -apple-system, sans-serif); }
       .app-dialog.wide { width: 600px; }
       .app-dialog-head { display: flex; gap: 12px; align-items: flex-start; }
       .app-dialog-icon { flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;

@@ -9,7 +9,7 @@
     .qty-input { width: 60px; padding: 3px 6px; }
     .price-input { width: 80px; padding: 3px 6px; }
     .ref-price { font-size: 11px; color: var(--text-secondary); display: block; }
-    .override { color: var(--accent); font-weight: 600; }
+    .override { color: var(--accent-text); font-weight: 600; }
     .totals-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
     .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
     .totals-box .row.grand { font-size: 18px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
@@ -31,10 +31,10 @@
     .boq-reference .link-actions.hidden { display: none; }
     .boq-import-controls { display: inline-flex; align-items: center; gap: 8px; }
     .boq-import-controls.hidden { display: none; }
-    #boq-import-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    #boq-import-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
     .inline-check { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text); }
     .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
-    .markup-price { display: block; font-size: 11px; color: var(--accent); }
+    .markup-price { display: block; font-size: 11px; color: var(--accent-text); }
     .extra-section { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
     .extra-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
     .extra-head .controls { display: flex; gap: 4px; }
@@ -93,7 +93,7 @@
     .qs-group-head { position: sticky; top: 30px; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 7px 14px;
       font-size: 12.5px; font-weight: 600; background: color-mix(in srgb, var(--text) 4%, var(--panel, var(--bg))); border-bottom: 1px solid var(--border); }
     .qs-group-head label { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
-    .qs-group-note { font-weight: 500; color: var(--accent); font-size: 12px; }
+    .qs-group-note { font-weight: 500; color: var(--accent-text); font-size: 12px; }
     .qs-row { min-height: 42px; font-size: 13px; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
       transition: background-color .15s ease; }
     .qs-row:hover { background: color-mix(in srgb, var(--text) 3.5%, transparent); }
@@ -106,14 +106,14 @@
     .qs-row:not(.on) .qs-side.new input { color: var(--text-tertiary, var(--text-secondary)); }
     /* Rows not splitting read as plain figures; the boxes show on hover or when typed in. */
     .qs-row:not(.on):not(:hover) .qs-side input:not(:focus) { border-color: transparent; background-color: transparent; box-shadow: none; }
-    .qs-row.on .qs-side.new input { border-color: color-mix(in srgb, var(--accent) 55%, var(--field-border)); color: var(--accent); font-weight: 600; }
+    .qs-row.on .qs-side.new input { border-color: color-mix(in srgb, var(--accent) 55%, var(--field-border)); color: var(--accent-text); font-weight: 600; }
     .qs-sheet[data-mode="keep"] .qs-row.on .qs-side.here input { border-color: color-mix(in srgb, var(--accent) 55%, var(--field-border)); font-weight: 600; }
     .qs-sheet[data-mode="keep"] .qs-row.on .qs-side.new input { border-color: var(--field-border); }
     .qs-arrow { color: var(--text-tertiary, var(--text-secondary)); text-align: center; }
-    .qs-row.on .qs-arrow { color: var(--accent); }
+    .qs-row.on .qs-arrow { color: var(--accent-text); }
     .qs-whole { grid-column: 4 / 7; text-align: center; font-size: 12px; color: var(--text-tertiary, var(--text-secondary)); }
-    .qs-row.on .qs-whole { color: var(--accent); }
-    .qs-amt { text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); }
+    .qs-row.on .qs-whole { color: var(--accent-text); }
+    .qs-amt { text-align: right; font-variant-numeric: tabular-nums; color: var(--accent-text); }
     .qs-empty { padding: 28px; text-align: center; color: var(--text-secondary); }
     /* Part of an item: which days of the schedule its deliveries come off. */
     .qs-days { margin: 0 14px 10px 80px; padding: 10px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
@@ -130,7 +130,7 @@
     .qs-card.goes { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, transparent); }
     .qs-card-label { font-size: 12px; color: var(--text-secondary); }
     .qs-card b { font-size: 15px; font-variant-numeric: tabular-nums; text-align: right; grid-row: span 2; align-self: center; }
-    .qs-card.goes b { color: var(--accent); }
+    .qs-card.goes b { color: var(--accent-text); }
     .qs-card > span:last-child { font-size: 12px; color: var(--text-tertiary, var(--text-secondary)); }
     .qs-message { min-height: 18px; margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); }
     .qs-message.warn { color: var(--danger, #d0453a); }

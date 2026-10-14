@@ -17,7 +17,7 @@
 
   const css = `
     #web-loading { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 18px; color: #e9eef8; font: 500 14px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      gap: 18px; color: #e9eef8; font: 500 14px "Geist", -apple-system, "Segoe UI", system-ui, sans-serif;
       background: radial-gradient(120% 90% at 50% 0%, #21407e 0%, #102451 48%, #081330 100%);
       opacity: 0; animation: wl-in .25s ease ${first ? '0s' : '.35s'} forwards; transition: opacity .3s ease; }
     #web-loading.done { opacity: 0 !important; animation: none; pointer-events: none; }

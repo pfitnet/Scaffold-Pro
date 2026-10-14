@@ -18,8 +18,8 @@ import CryptoKit
 final class PageBackdropView: NSView {
     static let color = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(srgbRed: 0x10 / 255, green: 0x11 / 255, blue: 0x15 / 255, alpha: 1)
-            : NSColor(srgbRed: 0xf4 / 255, green: 0xf5 / 255, blue: 0xf8 / 255, alpha: 1)
+            ? NSColor(srgbRed: 0x12 / 255, green: 0x14 / 255, blue: 0x17 / 255, alpha: 1)
+            : NSColor(srgbRed: 0xee / 255, green: 0xf0 / 255, blue: 0xf2 / 255, alpha: 1)
     }
     override func draw(_ dirtyRect: NSRect) {
         PageBackdropView.color.setFill()
