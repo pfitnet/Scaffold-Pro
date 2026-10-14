@@ -152,17 +152,25 @@
     const size = o.size || 11;
     const style = { size, bold: o.bold };
     const inner = width - CELL.left - CELL.right;
+    // Money and weights: two parts, one at each side of the cell, in a small
+    // borderless table (left | right) rather than on tab stops, which
+    // docx-preview places a little out (the figures fell short of the edge).
+    const pair = (leftW, left, right, leftAlign) => tbl([leftW, inner - leftW], [tr([
+      tc(leftW, para(left, { line: CELL_LINE, align: leftAlign }), { vAlign: 'top' }),
+      tc(inner - leftW, para(right, { line: CELL_LINE, align: 'right' }), { vAlign: 'top' }),
+    ])]) + para('', { line: 1 });
     if (column.kind === 'money') {
       if (!lines.length || !lines[0]) return para('', { line: CELL_LINE });
-      const text = `${o.currency}\t${lines[0]}${lines.slice(1).map((l) => `\n\t${l}`).join('')}`;
-      return para(run(text, style), { line: CELL_LINE, tabs: [{ val: 'right', pos: inner }] });
+      if (!o.currency) return para(run(lines.join('\n'), style), { line: CELL_LINE, align: 'right' });
+      // Room for the symbol (about 6.5pt a character at 11pt); the amount fills the rest.
+      const symbolW = Math.min(inner / 2, Math.max(18, String(o.currency).length * 6.5) * size / 11 + 2);
+      return pair(symbolW, run(o.currency, style), run(lines.join('\n'), style), 'left');
     }
     if (column.kind === 'weight') {
       // The figure, then "kg" at the right of the cell (as drawWeight on the PDF).
       if (!lines.length || !lines[0]) return para('', { line: CELL_LINE });
       const suffix = KG_WIDTH * size / 11 + 8.4;
-      const text = `\t${lines[0]}\tkg${lines.slice(1).map((l) => `\n\t${l}`).join('')}`;
-      return para(run(text, style), { line: CELL_LINE, tabs: [{ val: 'right', pos: inner - suffix }, { val: 'right', pos: inner }] });
+      return pair(inner - suffix, run(lines.join('\n'), style), run('kg', style), 'right');
     }
     const align = { center: 'center', right: 'right', left: 'left' }[column.kind] || 'left';
     return para(run(lines.join('\n'), style), { line: CELL_LINE, align });
@@ -273,7 +281,7 @@
     // "BY EMAIL ONLY" goes under the references (beside the client's last
     // line when the address is longer), the title under both.
     const clientCount = String(d.clientName).split('\n').length + d.clientLines.length;
-    const refCount = d.refRows.reduce((a, r) => a + (r.wraps ? 2 : 1), 0);
+    const refCount = d.refRows.reduce((a, r) => a + (String(r.value).split('\n').length), 0);
     const clientLast = (Math.max(clientCount, 1) - 1) * pitch;
     const refLast = (Math.max(refCount, 1) - 1) * pitch;
     const methodAt = refLast + 19.5;
@@ -286,7 +294,7 @@
       tc(rightCol, right.join('') || para(''), { vAlign: 'top', mar: { left: 5, right: L.textRight - 550.5 } }),
     ])], { indent: 0 }));
 
-    const blockLines = Math.max(1 + d.clientLines.length, d.refRows.reduce((a, r) => a + (r.wraps ? 2 : 1), 0), 1);
+    const blockLines = Math.max(1 + d.clientLines.length, d.refRows.reduce((a, r) => a + (String(r.value).split('\n').length), 0), 1);
     let prevLine = pitch;
     // Extra space above and below the title, as on the PDF (titlePadding).
     const TITLE_PADDING = 6.0;
@@ -298,8 +306,9 @@
       titleGap = Math.max(methodAt + 21.0, clientLast + 24.0) + TITLE_PADDING - blockLast;
     }
     const center = L.pageWidth / 2 - L.textLeft;
-    const titleRuns = run('\t') + run(d.title, { bold: true, size: 15, underline: true }) +
-      (d.status !== 'Issued' ? run('\t') + run(String(d.status).toUpperCase(), { bold: true, color: GREY }) : '');
+    // (A draft says so across the page: the native side draws the word into
+    // the letterhead picture, behind the text — a watermark, as on the PDF.)
+    const titleRuns = run('\t') + run(d.title, { bold: true, size: 15, underline: true });
     // A letter (it has a body of its own) prints no title: its subject line
     // follows the references.
     const titled = d.bodyHTML == null;
