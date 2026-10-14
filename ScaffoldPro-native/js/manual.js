@@ -82,7 +82,16 @@
     arrow: '<path d="M4 12h15M13.5 6.5 19 12l-5.5 5.5"/>',
     book: '<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5h13v14h-13a2 2 0 0 0-2 2z"/><path d="M4.5 19.5a2 2 0 0 0 2 2h13v-4"/>',
   };
-  const icon = (name, size = 20) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.doc}</svg>`;
+  // The app's own icons (js/icons.js) where it has the glyph; these names
+  // map onto it. The drawings above are kept only for anything it lacks.
+  const ALIAS = { bank: 'building', bolt: 'lightning', box: 'cube', 'calendar-days': 'calendar', clip: 'paperclip', doc: 'file-text', 'folder-open': 'folder',
+    gear: 'settings', helmet: 'workers', help: 'question', layers: 'stack', monitor: 'desktop', pen: 'sign', people: 'team', pointer: 'arrow-up-right',
+    resize: 'columns', rotate: 'sync', route: 'arrow-right', sheet: 'table', sparkle: 'assistant', stamp: 'chop', tag: 'price-lists', arrow: 'arrow-right', menu: 'list' };
+  const icon = (name, size = 20) => {
+    const reg = ALIAS[name] || name;
+    if (window.icon && window.ICON_PATHS && window.ICON_PATHS[reg]) return window.icon(reg, { size, cls: 'mx-glyph' });
+    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.doc}</svg>`;
+  };
 
   // ---- text: **bold**, {⌘K} keys, [Button], [*Main button] ----
   const keysOf = (spec) => spec.trim().split(/\s+/).map((t) => {
@@ -96,7 +105,7 @@
     return `<b>${bold}</b>`;
   });
 
-  const KIND = { boq: '#3f938b', qt: '#5374b8', dn: '#b0843f', inv: '#5d9150', letter: '#8a6cb0', client: '#c0627a', project: '#6d5cff', money: '#2f8a57', team: '#d07a2c', grey: '#7a808c' };
+  const KIND = { boq: '#3f938b', qt: '#5374b8', dn: '#b0843f', inv: '#5d9150', letter: '#8a6cb0', client: '#c0627a', project: '#c9561f', money: '#2f8a57', team: '#d07a2c', grey: '#7a808c' };
 
   // ---- blocks ----
   const head = (b) => (b.title ? `<h3 class="mx-h3">${b.step ? `<span class="mx-step-n">${esc(b.step)}</span>` : ''}${fmt(b.title)}</h3>` : '');
@@ -116,7 +125,7 @@
   let figures = 0;
   function shot(b) {
     const data = SHOTS[b.shot] || { w: 1440, h: 900, marks: [] };
-    const [vx, vy, vw, vh] = b.view || [15.6, 0, 84.4, 100];
+    const [vx, vy, vw, vh] = b.view || [4.2, 0, 95.8, 100]; // without the sidebar's icon rail
     const ratio = (data.w * vw) / (data.h * vh);
     const fig = `fig${figures++}`;
     const pins = [];
@@ -169,7 +178,7 @@
     if (parts.length) parts[parts.length - 1].chapters.push(c);
     c.n = i + 1;
   });
-  const PART_ICON = { 'Getting started': 'book', Overview: 'home', Team: 'people', Operations: 'layers', Company: 'building', 'Working together': 'sync', Reference: 'keyboard' };
+  const PART_ICON = { 'Getting started': 'book', Work: 'home', Overview: 'home', Team: 'people', Operations: 'layers', Company: 'building', 'Working together': 'sync', Reference: 'keyboard' };
 
   function render() {
     $('#mx-parts').innerHTML = parts.map((p, i) => `<a class="mx-part-tile" href="#${esc(p.first.id)}" style="--c:${p.first.color};--i:${i}">
