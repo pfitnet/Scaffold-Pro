@@ -88,6 +88,10 @@
     // Saved order first; panels added since keep their place after them.
     for (const id of layout.order) if (byId[id]) grid.appendChild(byId[id]);
     for (const w of widgets()) {
+      // A panel that starts off (data-default-off): hidden until the person
+      // puts it on; a layout saved before it existed keeps it as it was.
+      const id = w.dataset.widget;
+      if (w.dataset.defaultOff !== undefined && !layout.order.includes(id) && !layout.hidden.includes(id)) layout.hidden.push(id);
       if (!w.dataset.defaultSpan) w.dataset.defaultSpan = String(defaultSpan(w));
       w.dataset.span = String(spanOf(w));
       w.classList.toggle('widget-off', layout.hidden.includes(w.dataset.widget));
@@ -438,6 +442,7 @@
   // is picked; Cancel (or Escape) puts back the arrangement from before.
   function stagedEditing(button) {
     let before = null;
+    let keepHidden = false;
     let cancelBtn = null;
     let changeBtn = null;
     const stop = () => {
@@ -445,7 +450,7 @@
       if (cancelBtn) cancelBtn.remove();
       if (changeBtn) changeBtn.remove();
       cancelBtn = changeBtn = null;
-      button.classList.remove('hidden');
+      if (!keepHidden) button.classList.remove('hidden');
       document.removeEventListener('keydown', onKey, true);
       refresh();
     };
@@ -461,6 +466,7 @@
       if (customising()) return;
       layout.order = widgets().map((w) => w.dataset.widget);
       before = JSON.stringify(layout);
+      keepHidden = button.classList.contains('hidden'); // opened from a ··· menu
       grid.classList.add('customising');
       button.classList.add('hidden');
       cancelBtn = document.createElement('button');
