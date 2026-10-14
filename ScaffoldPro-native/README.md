@@ -5316,3 +5316,28 @@ Increase Contrast. No Swift changed.
   on this Mac, straight away. It's on to start with.
 - Checked: in a browser (light and dark): folded, opening only after
   resting, folding on leaving, the page not moving, and the switch.
+
+## Batch 241 — A plan to redesign every page
+
+- No change to the app yet. `docs/redesign/PLAN.md` is the plan for
+  rebuilding every page into one look, to be done in batches R0–R12.
+- The look ("Steel & Signal"):
+  - cool steel greys, with one muted safety-orange accent used only for
+    the main button, links and focus;
+  - Geist type, with Geist Mono for document numbers, codes and money;
+  - one icon set (Phosphor);
+  - one way of doing each of tabs, sheets, toasts, tables and page
+    headers.
+- **Pages:**
+  - Tasks and Calendar become one Schedule page;
+  - Chat joins Team;
+  - the sidebar goes from 15 items to 11;
+  - the document editors share one layout: a document bar on top, an
+    inspector on the right, and Export plus a ··· menu instead of six
+    buttons;
+  - every page also gets an iPad and phone layout for ScaffoldPro Web.
+- **Motion:** the app will no longer follow the Mac's Reduce Motion,
+  Reduce Transparency or Increase Contrast. The rules from the earlier
+  Apple design pass (Batch 223) no longer apply. HANDOFF.md says so now.
+- Checked: the plan was reviewed against the code twice, and every
+  finding was checked before it went in. Nothing was built or compiled.

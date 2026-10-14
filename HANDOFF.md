@@ -2,7 +2,15 @@
 
 Read this whole file before starting. It is what the previous chat knew. The
 detailed history of every change is in `ScaffoldPro-native/README.md`: one
-"## Batch N" section per change, newest at the bottom, up to Batch 228.
+"## Batch N" section per change, newest at the bottom.
+
+**A full redesign is planned: `docs/redesign/PLAN.md`.** It rebuilds every
+page into one look ("Steel & Signal": steel greys, one safety-orange
+accent, Geist type, Phosphor icons), merges Tasks into Calendar ("Schedule")
+and Chat into Team, and adds iPad and phone layouts. It runs in batches
+R0–R12, in order. Before any UI work, read it and carry on from the first
+batch that isn't done yet (it says which, at R0). Don't use the apple-design
+skill for it.
 
 ---
 
@@ -85,7 +93,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **241**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **242**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -111,8 +119,10 @@ Keep the reply short and plain. Say clearly what was tested and what wasn't
   design brief, not hostility.
 - **Interaction:** hover menus and hover labels (tooltips), arrow-key
   navigation everywhere, Return / Esc behaving naturally, undo (⌘Z / ⌘Y)
-  without a flash or full reload (`window.appRefresh`), and small
-  micro-animations that respect Reduce Motion.
+  without a flash or full reload (`window.appRefresh`), and
+  micro-animations everywhere. The app does **not** follow the Mac's
+  Reduce Motion (or Reduce Transparency / Increase Contrast): the user
+  doesn't want the animations reduced.
 - **No flashing, ever:** the screen must never flash or blank when a page
   updates (sync from other Macs, undo, settings changes…). Redraw in place
   with `window.appRefresh` where the page has one; otherwise use
