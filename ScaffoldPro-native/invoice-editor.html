@@ -5,26 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Invoice · ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    .boq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-    .qty-input { width: 60px; padding: 3px 6px; }
-    .price-input { width: 80px; padding: 3px 6px; }
-    .totals-box { margin-top: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
-    .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
-    .totals-box .row.grand { font-size: 18px; font-weight: 700; border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; }
-    .totals-box .row.balance { font-weight: 600; color: var(--danger); }
-    .header-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; margin-bottom: 16px; padding: 14px 16px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-    .header-fields .field.rental-field { grid-column: span 2; }
-    @media (max-width: 1100px) { .header-fields { grid-template-columns: 1fr 1fr; } }
-    .header-fields .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-    .header-fields .field input:not([type="checkbox"]), .header-fields .field select { width: 100%; }
-    .header-fields .field.full { grid-column: 1 / -1; }
-    .payment-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-    .payment-row input { width: 100px; }
-      .source-note { font-size: 12px; color: var(--text-secondary); }
-    .source-note a { color: var(--accent-text); }
-    .line-discount-note { display: block; font-size: 11px; color: var(--text-secondary); }
-  </style>
+  <link rel="stylesheet" href="css/invoice-editor.css" />
 </head>
 <body data-page="project-detail">
   <nav id="sidebar"></nav>
@@ -74,7 +55,7 @@
         </div>
         <div class="field"><label>Discount Value</label><input type="number" id="discount-value-input" min="0" step="0.01" /></div>
         <!-- No sales tax in Hong Kong: shown only on an older document that still has a tax rate, so it can be set to 0. -->
-        <div class="field hidden" id="tax-rate-field"><label>Tax Rate (%) — set to 0</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
+        <div class="field hidden" id="tax-rate-field"><label>Tax Rate (%), set to 0</label><input type="number" id="tax-rate-input" min="0" step="0.01" /></div>
         <div class="field full"><label for="payment-terms-input">Terms (payment and bank details) <span class="terms-source" id="terms-source"></span></label>
           <textarea id="payment-terms-input" rows="7" placeholder="e.g. Within 30 days of the invoice date"></textarea>
         </div>
@@ -87,7 +68,7 @@
             <h2>Add Materials</h2>
             <input type="text" id="search-box" placeholder="Search items" />
             <div class="tb-pick am-filter">
-              <button type="button" class="tb-ico group-menu" id="materials-menu-btn" data-no-icon data-selects="source-select:Price list,category-select:Category" aria-label="Price list and category"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg><span class="am-dot" aria-hidden="true"></span></button>
+              <button type="button" class="tb-ico group-menu" id="materials-menu-btn" data-no-icon data-selects="source-select:Price list,category-select:Category" aria-label="Price list and category"><i data-icon="list" data-size="18"></i><span class="am-dot" aria-hidden="true"></span></button>
               <select id="source-select">
               <option value="SP">SP Material &amp; Price List 2026</option>
               <option value="SCAFOM">SCAFOM Material &amp; Price List</option>
@@ -103,9 +84,9 @@
             <h2>Line Items</h2>
             <!-- Multiply is in the ☰ list (js/hover-menu.js, .lines-menu); the real button stays here, hidden. -->
             <span class="hidden">
-              <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities — e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
+              <button type="button" class="multiply-btn hidden" id="multiply-btn" data-no-icon title="Multiply the quantities, e.g. ×2 for 2 sets of the same scaffold">× Multiply…</button>
             </span>
-            <span class="ml-menu"><button type="button" class="tb-ico lines-menu" id="lines-menu-btn" data-no-icon data-multiply="multiply-btn" aria-label="Multiply quantities"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg></button></span>
+            <span class="ml-menu"><button type="button" class="tb-ico lines-menu" id="lines-menu-btn" data-no-icon data-multiply="multiply-btn" aria-label="Multiply quantities"><i data-icon="list" data-size="18"></i></button></span>
           </div>
           <div id="line-items"></div>
           <details class="custom-item" id="custom-item-box">

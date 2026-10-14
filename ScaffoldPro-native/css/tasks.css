@@ -31,20 +31,16 @@
   position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 28px;
   margin: 0 0 16px; padding: 26px 30px; border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--tk-a) 18%, var(--border));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tk-a) 10%, var(--panel)), color-mix(in srgb, var(--tk-b) 8%, var(--panel)));
+  background: var(--panel);
   box-shadow: var(--tk-shadow);
 
 }
 .tk-hero-glow { position: absolute; inset: -40%; pointer-events: none; opacity: .55;
-  background:
-    radial-gradient(30% 35% at 20% 30%, color-mix(in srgb, var(--tk-a) 35%, transparent), transparent 70%),
-    radial-gradient(28% 30% at 75% 70%, color-mix(in srgb, var(--tk-b) 32%, transparent), transparent 70%);
-  filter: blur(20px); animation: none; }
+  display: none; }
 .tk-hero-text, .tk-ring { position: relative; }
 .tk-date { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--tk-a) 75%, var(--text-secondary)); }
 .tk-greeting { margin: 4px 0 6px; font-size: 30px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(90deg, var(--text), color-mix(in srgb, var(--text) 55%, var(--tk-a)));
-  -webkit-background-clip: text; background-clip: text; color: transparent; }
+  color: var(--text); }
 .tk-summary { margin: 0; font-size: 14px; color: var(--text-secondary); }
 .tk-summary b { color: var(--text); font-weight: 650; }
 .tk-summary b.late { color: var(--tk-late); }
@@ -61,11 +57,11 @@
 .tk-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .tk-ring circle { fill: none; stroke-width: 10; }
 .tk-ring-track { stroke: color-mix(in srgb, var(--text-tertiary) 18%, transparent); }
-.tk-ring-fill { stroke: url(#tk-ring-grad); stroke-linecap: round; transition: stroke-dashoffset 1.1s var(--tk-ease); filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--tk-a) 35%, transparent)); }
+.tk-ring-fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1.1s var(--tk-ease); }
 .tk-ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .tk-ring-label b { font-size: 26px; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .tk-ring-label span { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
-.tk-ring.full .tk-ring-label b { background: linear-gradient(135deg, var(--tk-a), var(--tk-b)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tk-ring.full .tk-ring-label b { color: var(--accent-text); }
 
 /* ---------- Quick add ---------- */
 .tk-quick {
@@ -76,8 +72,8 @@
 }
 .tk-quick:focus-within { border-color: color-mix(in srgb, var(--tk-a) 55%, var(--border));
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--tk-a) 14%, transparent), var(--tk-shadow-lift); transform: translateY(-1px); }
-.tk-quick-plus { width: 28px; height: 28px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 9px; color: #fff;
-  background: linear-gradient(135deg, var(--tk-a), var(--tk-b)); box-shadow: 0 2px 8px color-mix(in srgb, var(--tk-a) 40%, transparent);
+.tk-quick-plus { width: 28px; height: 28px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 9px; color: var(--on-accent);
+  background: var(--accent-fill); box-shadow: var(--shadow-control);
   transition: transform .35s var(--tk-spring); }
 .tk-quick:focus-within .tk-quick-plus { transform: rotate(90deg); }
 #tk-quick-input { flex: 1; min-width: 240px; border: 0; background: none; box-shadow: none; padding: 8px 2px; font-size: 14.5px; outline: none; }
@@ -150,7 +146,7 @@
 .tk-card:hover::before, .tk-card:focus-visible::before { opacity: 1; }
 .tk-card:focus-visible { border-color: var(--tk-a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tk-a) 20%, transparent); }
 .tk-card:active { transform: translateY(0) scale(.995); }
-.tk-card.late { background: linear-gradient(90deg, color-mix(in srgb, var(--tk-late) 6%, var(--tk-card)), var(--tk-card) 40%); }
+.tk-card.late { background: color-mix(in srgb, var(--tk-late) 4%, var(--tk-card)); }
 .tk-list.animate .tk-card { }
 .tk-card.flash { animation: tkFlash 1.6s var(--tk-ease); }
 @keyframes tkFlash { 0%, 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tk-b) 45%, transparent), var(--tk-shadow-lift); border-color: var(--tk-b); } 100% { box-shadow: var(--tk-shadow); } }
@@ -206,8 +202,8 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 
 .tk-avatar { flex: none; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; letter-spacing: .02em; color: #fff;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--pc) 85%, #fff), var(--pc));
-  box-shadow: 0 0 0 2px var(--tk-card), 0 1px 3px rgba(0, 0, 0, .15); }
+  background: var(--pc);
+  box-shadow: 0 0 0 2px var(--tk-card); }
 .tk-avatar.anyone { color: var(--text-tertiary); background: none; border: 1.5px dashed color-mix(in srgb, var(--text-tertiary) 60%, transparent); box-shadow: none; font-size: 14px; }
 .tk-avatar.team { border-radius: 9px; }
 .tk-avatar.sm { width: 24px; height: 24px; font-size: 10px; }

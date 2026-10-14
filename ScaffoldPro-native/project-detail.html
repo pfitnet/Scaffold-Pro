@@ -5,11 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Project · ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    .inline-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); margin: 4px 0; }
-    .inline-check input[type="number"] { width: 56px; }
-    .choice-group { display: flex; flex-direction: column; gap: 2px; }
-  </style>
+  <link rel="stylesheet" href="css/project-detail.css" />
 </head>
 <body data-page="project-detail">
   <nav id="sidebar"></nav>
@@ -107,7 +103,7 @@
         <div class="section-toolbar">
           <h2>Quotations</h2>
           <div class="toolbar-actions" id="quotation-actions">
-            <button id="import-quotation-btn" title="Make a quotation from a file — an old quotation, another template, a scan or a photo">Import…</button>
+            <button id="import-quotation-btn" title="Make a quotation from a file, an old quotation, another template, a scan or a photo">Import…</button>
             <button class="primary" id="new-quotation-btn">+ New Quotation</button>
           </div>
         </div>
@@ -153,7 +149,7 @@
           <h2>Drawings</h2>
           <div class="controls">
             <select id="drawing-link-select" title="The BOQ or quotation this drawing is for"></select>
-            <button class="primary" id="upload-drawing-btn" title="PDF, DWG, DXF or images — you can choose several at once">Upload Drawings…</button>
+            <button class="primary" id="upload-drawing-btn" title="PDF, DWG, DXF or images, you can choose several at once">Upload Drawings…</button>
           </div>
         </div>
         <div id="drawing-list"></div>

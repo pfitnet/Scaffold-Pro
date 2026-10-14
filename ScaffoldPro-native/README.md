@@ -5700,3 +5700,31 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium: Settings (every pane), the Manual, and the sign-in
   page at Mac and phone width; WebServer.swift parses with no errors. Not
   checked: WebKit on a Mac, the Swift build, signing in for real.
+
+## Batch 255 — Consistency pass: last gradients, inline styles and drawn icons (redesign R12a)
+
+- **No decorative gradients left:**
+  - Schedule's list panel, its ring, its avatars and its late-task rows;
+  - the week view's events and today's column;
+  - the Schedule and task titles;
+  - the project page's header wash;
+  - the project cards' pointer glow.
+  The progress ring is a flat orange stroke.
+- **No inline `<style>` blocks** except the launch screen's. The editors' and
+  the project page's own rules now live in `css/<page>.css`, linked where
+  the block was, so nothing changes in how they look.
+- **One icon set in the pages too.** The icons drawn into the HTML
+  (search, +, ‹ ›, duplicate, language, export, split, revert, link, ☰,
+  print, emoji, picture, send, stocktake) now come from the app's icon set.
+  An `<i data-icon="…">` in a page becomes the icon when it loads. Kept as
+  they were: the scaffolding and crane drawings on the job-type switch,
+  the Google Sheets mark, and the lines on Clients & Sites.
+- **No dashes in the pages' wording:** about 50 tooltips, labels and options
+  now use a comma, a colon or "·" instead (for example "Landscape · BQ
+  sheet", "HK$ · Hong Kong dollar"). Dashes in what the Mac side writes
+  stay, as agreed.
+- The audit greps come back clean: no Reduce Motion, Reduce Transparency or
+  Increase Contrast rules, no old blue (Completed's own `#3a66f0` aside),
+  and no `transition: all`.
+- Checked in Chromium: every page on Mac and phone, light and dark, with no
+  page errors. Not checked: WebKit on a Mac.

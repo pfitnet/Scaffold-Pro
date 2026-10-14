@@ -36,7 +36,7 @@
     <!-- Stock: every item, by category -->
     <section class="sk-pane" id="pane-stock">
       <div class="sk-bar">
-        <label class="sk-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg>
+        <label class="sk-search"><i data-icon="search" data-size="15"></i>
           <input type="search" id="sk-q" placeholder="Search code, item or category" autocomplete="off" /></label>
         <div class="sk-chips" id="sk-lists" role="group" aria-label="Material list">
           <button type="button" data-list="" class="on" data-no-icon>All</button>
@@ -47,11 +47,11 @@
         <label class="sk-toggle" title="Hide items with none in the yard or on hire"><input type="checkbox" id="sk-held" checked /><span></span>Only items we hold</label>
         <span class="sk-spacer"></span>
         <button type="button" id="sk-stocktake" data-no-icon title="Type the counted quantities straight into the list, then save them all">
-          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="12" height="15" rx="1.8"/><path d="M7.5 3V2h5v1M7 8.5l1.5 1.5L11 7.5M7 13.5h6"/></svg>
+          <i data-icon="tasks" data-size="16"></i>
           Stocktake</button>
       </div>
       <div class="sk-stocktake-note hidden" id="sk-take-note">
-        <b>Stocktake</b> Type what you counted in the yard into <b>Counted</b> — ↑ ↓ or Return to move. Leave an item blank to keep its figure. The differences are saved together as one stock count.
+        <b>Stocktake</b> Type what you counted in the yard into <b>Counted</b>, ↑ ↓ or Return to move. Leave an item blank to keep its figure. The differences are saved together as one stock count.
       </div>
       <div id="sk-list"></div>
     </section>
@@ -65,7 +65,7 @@
     <!-- On Hire: by the site the materials are at -->
     <section class="sk-pane hidden" id="pane-hire">
       <div class="sk-bar">
-        <label class="sk-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg>
+        <label class="sk-search"><i data-icon="search" data-size="15"></i>
           <input type="search" id="sk-hire-q" placeholder="Search site, item, project or company" autocomplete="off" /></label>
       </div>
       <div id="sk-hire"></div>
@@ -74,12 +74,12 @@
     <!-- Rented: what we rent from other companies, by company -->
     <section class="sk-pane hidden" id="pane-rented">
       <div class="sk-bar">
-        <label class="sk-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg>
+        <label class="sk-search"><i data-icon="search" data-size="15"></i>
           <input type="search" id="sk-rent-q" placeholder="Search company or item" autocomplete="off" /></label>
         <span class="sk-bar-note">Rented from other companies: in the yard or on site, but not counted as owned.</span>
         <span class="sk-spacer"></span>
         <button type="button" id="sk-rent-new" data-no-icon title="Record materials rented from another company">
-          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 10H6M9.5 6.5 6 10l3.5 3.5M16 4.5v11"/></svg>
+          <i data-icon="arrow-left" data-size="16"></i>
           Rent In…</button>
       </div>
       <div id="sk-rented"></div>
@@ -88,7 +88,7 @@
     <!-- History: every receipt, return, count and delivery, by day -->
     <section class="sk-pane hidden" id="pane-history">
       <div class="sk-bar">
-        <label class="sk-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg>
+        <label class="sk-search"><i data-icon="search" data-size="15"></i>
           <input type="search" id="sk-hist-q" placeholder="Search item, project or reference" autocomplete="off" /></label>
         <div class="sk-chips" id="sk-kinds" role="group" aria-label="Kind"></div>
       </div>
@@ -132,8 +132,8 @@
         <div class="sk-lines-head"><span>Item</span><span class="num" id="rec-now-head">In yard</span><span class="num" id="rec-qty-head">Quantity</span><span class="num rec-diff">Change</span><span></span></div>
         <div id="rec-lines"></div>
         <div class="sk-add">
-          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
-          <input type="text" id="rec-find" placeholder="Add an item — type a code or name, or paste rows from Excel" autocomplete="off" spellcheck="false" />
+          <i data-icon="plus" data-size="15"></i>
+          <input type="text" id="rec-find" placeholder="Add an item, type a code or name, or paste rows from Excel" autocomplete="off" spellcheck="false" />
           <div class="sk-suggest" id="rec-suggest" role="listbox" hidden></div>
         </div>
       </div>

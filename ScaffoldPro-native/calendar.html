@@ -21,15 +21,15 @@
         <div class="cal-summary" id="cal-summary" aria-live="polite"></div>
       </div>
       <div class="cal-hero-actions">
-        <button class="primary cal-new" id="cal-add" data-no-icon title="New task (N)"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>New Task</span></button>
-        <button class="cal-new-event" id="cal-add-event" data-no-icon title="New event (E)"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>New Event</span></button>
+        <button class="primary cal-new" id="cal-add" data-no-icon title="New task (N)"><i data-icon="plus" data-size="13"></i><span>New Task</span></button>
+        <button class="cal-new-event" id="cal-add-event" data-no-icon title="New event (E)"><i data-icon="calendar" data-size="13"></i><span>New Event</span></button>
       </div>
     </header>
 
     <div class="tk-quick" id="tk-quick">
-      <span class="tk-quick-plus" aria-hidden="true"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg></span>
+      <span class="tk-quick-plus" aria-hidden="true"><i data-icon="plus" data-size="18"></i></span>
       <input type="text" id="tk-quick-input" autocomplete="off" spellcheck="false"
-        placeholder="Add a task — try “Send revised BOQ to Mr. Law tomorrow 3pm @Tom #26212 !high”" aria-label="Add a task" />
+        placeholder="Add a task, try “Send revised BOQ to Mr. Law tomorrow 3pm @Tom #26212 !high”" aria-label="Add a task" />
       <div class="tk-quick-chips" id="tk-quick-chips"></div>
       <button type="button" class="tk-quick-more" id="new-task-btn" data-no-icon title="Open the full form">More…</button>
       <kbd class="tk-kbd" title="Press N to add a task">N</kbd>
@@ -37,9 +37,9 @@
 
     <div class="cal-toolbar">
       <div class="cn-nav">
-        <button id="cal-prev" class="cal-round" data-no-icon title="Previous" aria-label="Previous"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="cal-prev" class="cal-round" data-no-icon title="Previous" aria-label="Previous"><i data-icon="caret-left" data-size="14"></i></button>
         <button id="cal-today" class="cn-today" data-no-icon title="Go to today (T)">Today</button>
-        <button id="cal-next" class="cal-round" data-no-icon title="Next" aria-label="Next"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="cal-next" class="cal-round" data-no-icon title="Next" aria-label="Next"><i data-icon="caret-right" data-size="14"></i></button>
       </div>
       <h2 class="cal-period" id="cal-title"></h2>
       <div class="segmented" id="cal-view" role="tablist" aria-label="View">
@@ -48,7 +48,7 @@
         <button data-view="month" data-no-icon title="Month (M)">Month</button>
       </div>
       <label class="cal-week-start" title="Which day the week view starts on">
-        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <i data-icon="calendar" data-size="13"></i>
         <select id="cal-week-start" aria-label="Week starts">
           <option value="yesterday">From yesterday</option>
           <option value="today">From today</option>
@@ -71,7 +71,7 @@
             <button data-view="done" role="tab">Done <span class="tk-count" data-count="done"></span></button>
           </div>
           <div class="tk-filters">
-            <label class="tk-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg>
+            <label class="tk-search"><i data-icon="search" data-size="15"></i>
               <input type="text" id="task-search" placeholder="Search" /><kbd class="tk-kbd">/</kbd></label>
             <select id="task-person"><option value="">Everyone</option></select>
             <select id="task-project"><option value="">All projects</option></select>
@@ -86,17 +86,11 @@
       <div class="tk-hero-text">
         <div class="tk-date" id="tk-date"></div>
         <div class="tk-greeting" id="tk-greeting">Today</div>
-        <p class="tk-summary" id="tk-summary">What the team needs to do — for a project or not — who it’s for, and when.</p>
+        <p class="tk-summary" id="tk-summary">What the team needs to do, for a project or not, who it’s for, and when.</p>
         <div class="tk-stats" id="tk-stats"></div>
       </div>
       <div class="tk-ring" id="tk-ring" title="Today: done of due">
         <svg viewBox="0 0 120 120" aria-hidden="true">
-          <defs>
-            <linearGradient id="tk-ring-grad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" style="stop-color: var(--tk-a)" />
-              <stop offset="100%" style="stop-color: var(--tk-b)" />
-            </linearGradient>
-          </defs>
           <circle class="tk-ring-track" cx="60" cy="60" r="50" />
           <circle class="tk-ring-fill" id="tk-ring-fill" cx="60" cy="60" r="50" />
         </svg>
@@ -129,7 +123,7 @@
           <div class="cal-dayp-head">
             <div class="cal-dayp-num" id="day-num"></div>
             <div class="cal-dayp-text"><div class="cal-dayp-title" id="day-title">Today</div><div class="cal-dayp-sub" id="day-sub"></div></div>
-            <button class="cal-round cal-dayp-add" id="day-add" data-no-icon title="Add a task on this day" aria-label="Add a task on this day"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            <button class="cal-round cal-dayp-add" id="day-add" data-no-icon title="Add a task on this day" aria-label="Add a task on this day"><i data-icon="plus" data-size="13"></i></button>
           </div>
           <div id="day-events"></div>
         </section>

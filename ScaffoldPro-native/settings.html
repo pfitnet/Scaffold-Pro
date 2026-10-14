@@ -13,7 +13,7 @@
     <div class="st-shell">
       <aside class="st-nav" aria-label="Settings sections">
         <h1>Settings</h1>
-        <label class="st-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg><input type="search" id="st-search" placeholder="Search settings" autocomplete="off" /></label>
+        <label class="st-search"><i data-icon="search" data-size="15"></i><input type="search" id="st-search" placeholder="Search settings" autocomplete="off" /></label>
         <nav id="st-nav-list"></nav>
       </aside>
       <div class="st-main">
@@ -339,13 +339,13 @@
     </section>
     <section class="st-pane" id="ai-import" data-title="AI Import" data-icon="spark" data-group="Company" hidden>
       <header class="st-pane-head"><h2>AI Import</h2><p>Reading old quotations and scans</p></header>
-      <p class="st-intro">Importing a quotation (Project › Quotations › Import…) reads the file on this Mac first. When it can’t make out the items — a scan, a photo, an unusual layout — a free cloud AI can read it instead. You always check what it read before a quotation is made.</p>
+      <p class="st-intro">Importing a quotation (Project › Quotations › Import…) reads the file on this Mac first. When it can’t make out the items, a scan, a photo, an unusual layout, a free cloud AI can read it instead. You always check what it read before a quotation is made.</p>
       <div class="ai-body">
         <div class="ai-state" id="ai-state"></div>
         <ol class="gs-steps" id="ai-steps">
           <li><span class="gs-n">1</span><div><b>Choose a provider.</b>
             <div class="ai-providers" role="radiogroup" aria-label="Provider">
-              <label class="ai-provider"><input type="radio" name="ai-provider" value="gemini" /><span><b>Google Gemini</b><small>Free tier, no card needed. Reads PDFs and scans itself — the best choice.</small></span></label>
+              <label class="ai-provider"><input type="radio" name="ai-provider" value="gemini" /><span><b>Google Gemini</b><small>Free tier, no card needed. Reads PDFs and scans itself, the best choice.</small></span></label>
               <label class="ai-provider"><input type="radio" name="ai-provider" value="openrouter" /><span><b>OpenRouter</b><small>Free models, picked by OpenRouter. Sent the text read on this Mac.</small></span></label>
             </div></div></li>
           <li><span class="gs-n">2</span><div><b>Get a free key.</b> <span id="ai-key-help"></span></div></li>
@@ -370,7 +370,7 @@
               <li>In Finder, share that folder with the others if it isn't shared already: Control-click it › <b>Share</b> › <b>Share Folder…</b>, add them, and set <b>Permission</b> to <b>Can make changes</b>.</li>
               <li>On each of their Macs: install ScaffoldPro, accept the invitation, then in Settings press <b>Join a Shared Folder…</b> and choose the ScaffoldPro Team folder.</li>
             </ol>
-            <p class="small-note">Joining leaves that Mac's own data untouched — it comes back if sharing is turned off there.</p>
+            <p class="small-note">Joining leaves that Mac's own data untouched, it comes back if sharing is turned off there.</p>
             <div class="backup-actions">
               <button class="primary" id="team-start-btn">Share My Data…</button>
               <button id="team-join-btn">Join a Shared Folder…</button>
@@ -392,7 +392,7 @@
     </section>
     <section class="st-pane" id="backup" data-title="Backup &amp; Restore" data-icon="shield" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Backup & Restore</h2><p>Backups, restoring, automatic iCloud backup</p></header>
-      <p class="st-intro">A backup is a complete copy of everything — the database, every project folder with its drawings and PDFs, and the company documents — in one folder you can also copy to a USB drive.</p>
+      <p class="st-intro">A backup is a complete copy of everything, the database, every project folder with its drawings and PDFs, and the company documents, in one folder you can also copy to a USB drive.</p>
         <p class="small-note"><b>Automatic backups:</b> ScaffoldPro also makes a backup by itself every day at 12:00 a.m. and 12:00 p.m. (or as soon as it's open again, if the Mac was asleep or ScaffoldPro was closed then). Automatic backups more than 3 days old are deleted; backups you make yourself are kept.</p>
         <div class="cloud-row auto-row"><span class="cloud-label">Status</span><span id="auto-status">—</span></div>
         <div class="backup-actions">
@@ -406,7 +406,7 @@
 
         <div class="cloud-backup hidden" id="local-copy">
           <h3>Local Copy in Documents</h3>
-          <p class="small-note">While ScaffoldPro works from the shared folder, the project files live there — so <b>Documents › ScaffoldPro</b> on this Mac is kept up to date as a local copy of everything (Database, Projects, Administration). Only what changed is copied, about a minute after anything is saved, every 15 minutes and when ScaffoldPro opens; nothing is deleted from it. Files that are still only in iCloud are downloaded and copied on a later run. It can be restored with <b>Restore from Folder…</b>.</p>
+          <p class="small-note">While ScaffoldPro works from the shared folder, the project files live there, so <b>Documents › ScaffoldPro</b> on this Mac is kept up to date as a local copy of everything (Database, Projects, Administration). Only what changed is copied, about a minute after anything is saved, every 15 minutes and when ScaffoldPro opens; nothing is deleted from it. Files that are still only in iCloud are downloaded and copied on a later run. It can be restored with <b>Restore from Folder…</b>.</p>
           <div class="cloud-row"><span class="cloud-label">Folder</span><span class="location-path" id="local-folder">—</span></div>
           <div class="cloud-row"><span class="cloud-label">Status</span><span id="local-status">—</span></div>
           <div class="backup-actions">
@@ -417,7 +417,7 @@
 
         <div class="cloud-backup" id="cloud-backup">
           <h3>Automatic iCloud Backup</h3>
-          <p class="small-note">Keeps an up-to-date copy of everything — the database, every project folder and all worker and company documents — straight into the shared iCloud Drive folder <b>Proficiency › William's Work</b> (its Database, Projects, Administration, Configuration and Database History folders). It updates itself about a minute after anything is saved, every 15 minutes, and when ScaffoldPro opens; only files that changed are copied. A copy of the database is also kept for each of the last 30 days. Nothing is ever deleted from the iCloud copy. To restore from it, use <b>Restore from Folder…</b> above and choose the William's Work folder.</p>
+          <p class="small-note">Keeps an up-to-date copy of everything, the database, every project folder and all worker and company documents, straight into the shared iCloud Drive folder <b>Proficiency › William's Work</b> (its Database, Projects, Administration, Configuration and Database History folders). It updates itself about a minute after anything is saved, every 15 minutes, and when ScaffoldPro opens; only files that changed are copied. A copy of the database is also kept for each of the last 30 days. Nothing is ever deleted from the iCloud copy. To restore from it, use <b>Restore from Folder…</b> above and choose the William's Work folder.</p>
           <div class="st-card st-inline-card">        <div class="st-row choice">
           <div class="st-label"><b>Back up to iCloud automatically</b></div>
           <div class="st-control"><label class="st-switch"><input type="checkbox" id="cloud-enabled" /><span></span></label></div>
@@ -462,7 +462,7 @@
     </section>
     <section class="st-pane" id="web-access" data-title="Web Access" data-icon="globe" data-group="This Mac &amp; data" hidden>
       <header class="st-pane-head"><h2>Web Access</h2><p>ScaffoldPro in a web browser</p></header>
-      <p class="st-intro">This Mac serves ScaffoldPro to web browsers on the office network — for the team’s Windows PCs, iPads and phones. Everyone signs in with their name and the office password. Keep ScaffoldPro open on this Mac.</p>
+      <p class="st-intro">This Mac serves ScaffoldPro to web browsers on the office network, for the team’s Windows PCs, iPads and phones. Everyone signs in with their name and the office password. Keep ScaffoldPro open on this Mac.</p>
       <div class="st-group">
         
         <div class="st-card">
@@ -519,7 +519,7 @@
                 </div>
                 <div class="gs-inline"><button class="primary" id="gs-connect" data-no-icon>Connect</button><span class="error-text hidden" id="gs-error"></span></div></div></li>
             </ol>
-            <p class="small-note" style="max-width:780px;">Set it up on one Mac — the office Mac that's usually open — and that Mac keeps the sheet up to date for everyone. The URL and secret are kept on this Mac only.</p>
+            <p class="small-note" style="max-width:780px;">Set it up on one Mac, the office Mac that's usually open, and that Mac keeps the sheet up to date for everyone. The URL and secret are kept on this Mac only.</p>
           </div>
         </div>
     </section>

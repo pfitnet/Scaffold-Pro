@@ -159,6 +159,16 @@
   }
   window.icon = icon;
 
+  // Static icons in a page's markup: <i data-icon="search" data-size="15"></i>
+  // becomes the <svg> itself (so CSS aimed at `svg` still applies).
+  function fillMarkup() {
+    for (const el of document.querySelectorAll('i[data-icon]')) {
+      el.outerHTML = icon(el.dataset.icon, { size: Number(el.dataset.size) || 16, cls: el.className || 'ico' });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fillMarkup, { once: true });
+  else fillMarkup();
+
   const ICONS = {};
   for (const n of ['locate', 'trash', 'print', 'open', 'edit', 'duplicate', 'folder', 'archive', 'rename', 'pdf', 'select', 'upload', 'import', 'dismiss']) ICONS[n] = icon(n);
   window.ICONS = ICONS;

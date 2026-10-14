@@ -1,0 +1,4 @@
+/* Project page (project-detail.html): its own rules, moved from the page (redesign R12). */
+.inline-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); margin: 4px 0; }
+.inline-check input[type="number"] { width: 56px; }
+.choice-group { display: flex; flex-direction: column; gap: 2px; }
