@@ -115,7 +115,7 @@
     if (!current) {
       box.innerHTML = `<div class="pr-blank"><div class="pr-blank-art" aria-hidden="true"><svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20v8l22 10V10L8 20z"/><path d="M30 18c4 0 6 2.5 6 6s-2 6-6 6"/><path d="M12 28l3 10h5l-2-8"/></svg></div>
         <h2>Promotions</h2><p>Plan who to approach, write one promotional letter for all of them, and keep track of who replied.</p>
-        <button type="button" class="primary" id="pr-new-2" data-no-icon>+ New Campaign</button></div>`;
+        <button type="button" id="pr-new-2" data-no-icon>New Campaign</button></div>`;
       document.getElementById('pr-new-2').addEventListener('click', create);
       return;
     }
@@ -142,7 +142,7 @@
       </section>
 
       <section class="pr-block">
-        <div class="pr-block-head"><h3>The letter</h3><span class="small-note">Written for each target — <button type="button" class="pr-token" data-token="{Company}" data-no-icon>{Company}</button> and <button type="button" class="pr-token" data-token="{Contact}" data-no-icon>{Contact}</button> become their name and contact.</span></div>
+        <div class="pr-block-head"><h3>The letter</h3><span class="small-note">Written for each target: <button type="button" class="pr-token" data-token="{Company}" data-no-icon>{Company}</button> and <button type="button" class="pr-token" data-token="{Contact}" data-no-icon>{Contact}</button> become their name and contact.</span></div>
         <label class="pr-subject">Re:<input type="text" id="pr-subject" value="${esc(p.subject || '')}" /></label>
         <div class="pr-paper"><div id="pr-body" class="pr-body" contenteditable="true" spellcheck="true">${p.bodyHTML || ''}</div></div>
       </section>`;
@@ -193,7 +193,7 @@
     const box = document.getElementById('pr-targets');
     const rows = current.targets.filter((t) => !filter || t.status === filter);
     if (!current.targets.length) {
-      box.innerHTML = '<div class="pr-empty">No one yet — add leads, clients or any other company with <b>+ Add Targets…</b></div>';
+      box.innerHTML = '<div class="pr-empty">No one yet. Add leads, clients or any other company with <b>+ Add Targets…</b></div>';
       updateWrite();
       return;
     }
@@ -222,7 +222,7 @@
         save(); drawFunnel(); drawTargets(); liveCard();
       });
       tr.querySelector('.pr-note-btn').addEventListener('click', async () => {
-        const v = await window.appPrompt(`A note about ${t.name}`, t.note || '', { ok: 'Save', placeholder: 'e.g. Spoke to Mr. Chan — call back in March' });
+        const v = await window.appPrompt(`A note about ${t.name}`, t.note || '', { ok: 'Save', placeholder: 'e.g. Spoke to Mr. Chan, call back in March' });
         if (v === null) return;
         t.note = v.trim() || null;
         save(); drawTargets();
@@ -298,7 +298,7 @@
         <div class="segmented pr-pick-kind" role="group"><button type="button" data-k="" class="active" data-no-icon>All</button><button type="button" data-k="Lead" data-no-icon>Leads</button><button type="button" data-k="Client" data-no-icon>Clients</button></div>
       </div>
       <div class="pr-pick-list"></div>
-      <details class="pr-other"><summary>Someone else — not a lead or client yet</summary>
+      <details class="pr-other"><summary>Someone else, not a lead or client yet</summary>
         <div class="form-grid">
           <div class="field"><label>Company</label><input type="text" class="o-name" /></div>
           <div class="field"><label>Contact person</label><input type="text" class="o-contact" /></div>

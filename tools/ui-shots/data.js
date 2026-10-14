@@ -826,6 +826,14 @@ module.exports = { routes: {
   // ---- marketing
   'marketing:summary': MARKETING,
   'marketing:leads': LEADS,
+  'marketing:clientReport': (p) => ({
+    currency: 'HKD', clientName: 'Gammon Construction Limited', from: '2026-01-01', to: '2026-12-31', total: 412600, wonCount: 2, wonValue: 284300,
+    rows: [
+      { id: 'q1', number: 'Qt26219-001', date: '2026-03-02', projectNumber: '26219', projectName: 'Kai Tak Sports Park', subject: 'Main Stadium Roof Access', value: 196500, won: true, pricingMode: 'rental' },
+      { id: 'q2', number: 'Qt26219-003', date: '2026-10-13', projectNumber: '26219', projectName: 'Kai Tak Sports Park', subject: 'Zone B truss-out', value: 69683, won: false, pricingMode: 'rental' },
+      { id: 'q3', number: 'Qt26214-002', date: '2026-06-18', projectNumber: '26214', projectName: 'Kai Tak Cruise Terminal', subject: 'Façade access', value: 146417, won: true, pricingMode: 'sale' },
+    ],
+  }),
   'promotions:list': [{ id: 'pr1', name: 'Q4 boom-lift hire mailer', channel: 'Letter', status: 'Running', goal: 'Three new boom-lift hires before Christmas', subject: 'Boom-lift hire for your sites',
     bodyHTML: '<p>Dear {Contact},</p><p>…</p>', createdAt: '2026-09-20T09:00:00Z', updatedAt: '2026-10-10T09:00:00Z', targets: [
       { id: 'pt1', kind: 'Lead', refId: 'ld3', name: 'Build King Holdings', contact: 'Mr. Gary Mok', address: null, status: 'Sent', letterId: null, lastAt: '2026-10-02T09:00:00Z', note: null },

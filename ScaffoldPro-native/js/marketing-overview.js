@@ -133,7 +133,7 @@
     $('mo-meter').classList.toggle('none', !t.count);
     $('mo-meter').setAttribute('aria-valuenow', String(Math.round(rate * 100)));
     $('mo-meter').setAttribute('aria-label', 'Win rate');
-    $('mo-meter-label').innerHTML = `<b>${Math.round(rate * 100)}% won</b> — ${t.wonCount} of ${t.count}${t.wonValue ? ` · ${esc(cur())} ${money(t.wonValue)}` : ''}`;
+    $('mo-meter-label').innerHTML = `<b>${Math.round(rate * 100)}% won</b>: ${t.wonCount} of ${t.count}${t.wonValue ? ` · ${esc(cur())} ${money(t.wonValue)}` : ''}`;
 
     // Figures beside it.
     const months = rangeMonths();
@@ -324,10 +324,10 @@
   function renderQuotes() {
     const qs = quotesIn(rangeMonths(), { month: state.month });
     const t = totals(qs);
-    $('mo-list-title').textContent = `Quotations — ${state.month ? monthLong(state.month) : `last ${state.range} months`}`;
+    $('mo-list-title').textContent = `Quotations · ${state.month ? monthLong(state.month) : `last ${state.range} months`}`;
     $('mo-list-note').textContent = `${plural(t.count, 'quotation')} · ${cur()} ${short(t.value)}${state.client ? ` · ${clientName(state.client)}` : ''}`;
     const box = $('mo-list');
-    if (!qs.length) { box.innerHTML = '<div class="mo-empty">Nothing here — try a longer period, or another month or client.</div>'; return; }
+    if (!qs.length) { box.innerHTML = '<div class="mo-empty">Nothing here. Try a longer period, or another month or client.</div>'; return; }
     const list = state.quotesOpen ? qs : qs.slice(0, QUOTES_SHOWN);
     box.innerHTML = `<div class="mo-quotes">${list.map((q, i) => `<a class="mo-quote" href="quotation-editor.html?id=${encodeURIComponent(q.id)}" style="--d:${Math.min(i, 12) * 0.025}s">
         <span class="num">${esc(q.number)}<span class="mo-pill ${q.won ? 'won' : 'wait'}">${q.won ? '✓ Won' : 'Waiting'}</span></span>

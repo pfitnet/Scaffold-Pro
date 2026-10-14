@@ -5649,3 +5649,24 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium on Mac, narrow, iPad and phone, light and dark: each
   tab's primary and ···, the Reports switch, the old links, the upload sheet
   calling the upload. Not checked: WebKit on a Mac.
+
+## Batch 253 — Marketing: one primary per tab, the charts in the app's colours (redesign R10b)
+
+- **Header:** "48 quotations in 12 months · 50% won · 5 open leads"; the
+  explanation is its tooltip.
+- **One primary that follows the tab:**
+  - **New Lead** on Overview, Follow-ups and Leads;
+  - **Export Reference List** on References;
+  - none on Report;
+  - on Promotions the one primary is the campaign's **Write Letters**, and
+    New Campaign heads the campaign list.
+- **Tabs** read Overview · Follow-ups · Leads · References · Report ·
+  Promotions.
+- **Charts:** won is the accent, not won yet is a pale step of it, and the
+  grid and hover wash use the app's hairline and accent tint. The old blues
+  are gone.
+- The inline style moved into css/marketing.css, and the dashes are gone
+  from its wording ("50% won: 24 of 48", "Quotations · last 12 months").
+- The screenshot tool now has data for Report, so that tab can be checked.
+- Checked in Chromium on Mac, narrow, iPad and phone, light and dark: every
+  tab's primary, `?tab=leads&new=1`. Not checked: WebKit on a Mac.

@@ -84,7 +84,7 @@
       const [from, to] = range();
       const clientId = document.getElementById('cr-client').value || null;
       const r = await window.docPreview.pdf(() => window.api.marketing.clientReportPDF(clientId, from, to),
-        { title: `Quotations issued — ${last ? last.clientName : ''}` });
+        { title: `Quotations issued · ${last ? last.clientName : ''}` });
       if (r && r.ok === false) window.appAlert(r.error);
     });
     load();

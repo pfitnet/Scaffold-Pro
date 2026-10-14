@@ -1,20 +1,11 @@
 /* Marketing › Overview (js/marketing-overview.js): an interactive look at how
-   quotations turn into work. Colours for the data: one blue in two steps —
-   the stronger step is "won", the lighter one "not won yet" (checked for
-   colour-blind readers and contrast on both surfaces). */
+   quotations turn into work. One hue in two steps, from the app's accent:
+   the strong step is "won", the pale one "not won yet". */
 .mo-viz {
-  --viz-won: #256abf;
-  --viz-open: #86b6ef;
-  --viz-grid: rgba(0, 0, 0, 0.07);
-  --viz-wash: rgba(36, 99, 199, 0.06);
-}
-@media (prefers-color-scheme: dark) {
-  .mo-viz {
-    --viz-won: #6da7ec;
-    --viz-open: #1c5cab;
-    --viz-grid: rgba(255, 255, 255, 0.08);
-    --viz-wash: rgba(109, 167, 236, 0.08);
-  }
+  --viz-won: var(--accent);
+  --viz-open: color-mix(in srgb, var(--accent) 26%, var(--panel-2));
+  --viz-grid: var(--hairline);
+  --viz-wash: var(--accent-soft);
 }
 
 /* Filters: one row above everything they change. */
@@ -271,3 +262,16 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .pr-pick-count { margin-right: auto; }
 
 @media (max-width: 1000px) { .pr-layout { grid-template-columns: 1fr; } .pr-list { position: static; } }
+
+/* Leads board, references (moved from marketing.html). */
+.kind-pill { font-size: 11px; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.board-col { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px; min-height: 120px; }
+.board-col h3 { font-size: 12px; margin: 2px 4px 8px; color: var(--text-secondary); display: flex; justify-content: space-between; }
+.lead-card { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--content); cursor: pointer; font-size: 13px; }
+.lead-card:hover { border-color: var(--border-strong); }
+.lead-card .company { font-weight: 600; }
+.lead-card .meta { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.lead-card .due { color: var(--warning); }
+.ref-check { width: 16px; }
+@media (max-width: 1100px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
