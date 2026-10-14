@@ -200,3 +200,17 @@
 .you-list .you-line .when { flex: none; font-size: 11.5px; color: var(--text-tertiary); }
 .you-list .empty { font-size: 12.5px; color: var(--text-tertiary); }
 @media (max-width: 1100px) { .you-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .you-lists { grid-template-columns: minmax(0, 1fr); } }
+
+/* What's New (js/changelog.js): one card per change, newest first. */
+.cl-list { display: flex; flex-direction: column; gap: 8px; }
+.cl-entry { padding: 0; overflow: hidden; }
+.cl-entry summary { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; cursor: pointer; list-style: none; }
+.cl-entry summary::-webkit-details-marker { display: none; }
+.cl-entry summary:hover .cl-title { color: var(--accent); }
+.cl-batch { flex: none; min-width: 34px; font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.cl-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.cl-body { padding: 0 14px 12px 58px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.cl-body ul { margin: 0; padding-left: 16px; }
+.cl-body li { margin: 0 0 4px; }
+.cl-body p { margin: 0 0 6px; }
+.cl-body code { font-size: 12px; padding: 0 4px; border-radius: 4px; background: color-mix(in srgb, var(--text) 7%, transparent); }
