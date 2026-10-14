@@ -745,6 +745,18 @@ module.exports = { routes: {
 
   // ---- projects
   'projects:list': () => PROJECTS.map(projectEntry),
+  // Projects › Overview: each project's documents in columns, joined to what they came from.
+  'projects:overview': () => [
+    { projectId: 'p26219', notes: { a: 'Zones A–C, roof perimeter' },
+      boqs: [{ id: 'b1', number: 'BOQ26219-001', status: 'Issued', subProject: 'a', mark: 'issued' }],
+      quotations: [{ id: 'q1', number: 'Qt26219-002', status: 'Issued', subProject: 'a', mark: 'chopped', from: [{ id: 'b1', linked: true }] },
+        { id: 'q2', number: 'Qt26219-002-s1', status: 'Draft', from: [{ id: 'q1', linked: true }] },
+        { id: 'q3', number: 'Qt26219-003', status: 'Issued', mark: 'client', from: [{ id: 'b1', linked: false }] }],
+      deliveryNotes: [{ id: 'd1', number: 'DN26219-001', status: 'Issued', from: [{ id: 'q1', linked: true }] }, { id: 'd2', number: 'DN26219-002', status: 'Issued', from: [{ id: 'q1', linked: true }] }],
+      invoices: [{ id: 'i1', number: 'Inv26219-001', status: 'PartiallyPaid', from: [{ id: 'd1', linked: true }] }] },
+    { projectId: 'p26221', boqs: [{ id: 'b2', number: 'BOQ26221-001', status: 'Issued' }],
+      quotations: [{ id: 'q4', number: 'Qt26221-001', status: 'Issued', mark: 'issued', from: [{ id: 'b2', linked: true }] }], deliveryNotes: [], invoices: [] },
+  ],
   'projects:proposeNumber': '26228',
   'projects:get': (p) => { const x = PROJECT_BY_NUMBER[p.projectNumber]; if (!x) return null;
     return { id: x.id, projectNumber: x.projectNumber, name: x.name, status: x.status, projectDescription: x.projectDescription, startDate: x.startDate, expectedCompletionDate: x.expectedCompletionDate,

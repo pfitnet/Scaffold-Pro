@@ -1,5 +1,20 @@
 # ScaffoldPro: one design, every page (redesign plan)
 
+> **Status (14 Oct 2026):** R0–R12 carried out in Batches 241–256. Not done,
+> on purpose or still open:
+> - R9b: the shared `openPartySheet`. Projects' quick New Client / New Site
+>   keep their own form.
+> - R10a: a shared `periodPicker`. Accounting keeps its dropdown. Admin's
+>   Upload asks for the category first: choosing files first needs the
+>   Swift side.
+> - R11: Backup & Restore's buttons are not yet folded into Back Up Now plus
+>   `···`. Settings › You still shows "Your work".
+> - R12: the break-ui worst-case pass and the animation review were not run.
+>   `data:image/svg` select carets remain in styles.css. Some JS-made
+>   strings still use dashes (Swift-made ones keep theirs by design).
+> - Not checked anywhere: WebKit on a Mac and the Swift build. Ask the user
+>   to look after updating.
+
 ## Context
 
 ScaffoldPro's interface (26 HTML pages in a WKWebView, `ScaffoldPro-native/`) grew one batch at a time. It now reads as generic and dull, and as separate parts forced together:

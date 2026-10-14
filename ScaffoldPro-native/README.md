@@ -5728,3 +5728,30 @@ Increase Contrast. No Swift changed.
   and no `transition: all`.
 - Checked in Chromium: every page on Mac and phone, light and dark, with no
   page errors. Not checked: WebKit on a Mac.
+
+## Batch 256 — The manual shows the new look; the handoff describes it (redesign R12b)
+
+- **All 33 manual pictures retaken** from the new pages, with their numbered
+  marks placed again. Two new chapters with pictures:
+  - **The Assistant:** Ask in the sidebar, {⌘J};
+  - **Workers:** the tiles, the roster, the next step and the agreement.
+- **The chapters follow the new pages:**
+  - Home (was Dashboard);
+  - Schedule (Calendar), with Tasks as its List;
+  - Team › Chat;
+  - the project page's five tabs, with Documents holding BOQ to Letters;
+  - New Item and Unit Rates PDF… on Costs;
+  - one primary and ··· everywhere;
+  - the sidebar's three groups, and your name at its foot for Settings,
+    Appearance and this manual;
+  - shortcuts: {⌘1} Home, {⌘J} Assistant, {⌥⌘I} Details.
+- The manual's own drawn icons now come from the app's icon set; its
+  pictures are cropped to leave out the sidebar's icon rail.
+- **Retaking pictures is one command:** `node tools/ui-shots/manual.js
+  [--only stock,projects]`. Its list says which element each numbered mark
+  is, so a moved button is found again.
+- HANDOFF.md §1 and §3 now describe the redesign: where the design system
+  lives, and the look. docs/redesign/PLAN.md starts with what was done and
+  what was left.
+- Checked in Chromium: every shot's marks found and on the picture; the
+  manual page draws with no errors. Not checked: WebKit on a Mac.

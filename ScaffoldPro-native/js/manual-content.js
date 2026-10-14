@@ -26,11 +26,11 @@ window.MANUAL_CONTENT = [
     id: 'welcome', part: 'Getting started', title: 'How it fits together', color: '#c9561f', icon: 'grid',
     tag: 'Every job, from the first enquiry to the paid invoice, in one place.',
     blocks: [
-      { type: 'cards', title: 'The sidebar, in four groups', cards: [
-        ['home', 'Overview', 'Dashboard · Calendar · Tasks'],
-        ['people', 'Team', 'Chat · Team'],
-        ['layers', 'Operations', 'Costs · Clients & Sites · Projects · Stock'],
-        ['building', 'Company', 'Accounting · Marketing · Admin · Settings'],
+      { type: 'cards', title: 'The sidebar, in three groups', cards: [
+        ['home', 'Work', 'Home · Schedule · Projects · Team'],
+        ['layers', 'Operations', 'Stock · Costs · Clients & Sites · Workers'],
+        ['building', 'Company', 'Accounting · Marketing · Admin'],
+        ['user', 'Your name, at the foot', 'You · Settings · Appearance · this manual'],
       ] },
       { type: 'flow', title: 'Documents grow from one another', chain: 'boq|BOQ|Materials and rates|BQ26212-001 > qt|Quotation|The priced offer|Qt26212-001 > dn|Delivery Note|What goes to site|DN26212-001 > inv|Invoice|What’s billed|H26212-001',
         note: 'Linked documents share a number. Each kind keeps its own colour everywhere.' },
@@ -54,7 +54,19 @@ window.MANUAL_CONTENT = [
         ['eye', 'Preview first', 'Every export opens a preview. {⌘S} saves it.'],
       ] },
       { type: 'tip', icon: 'check', text: 'Everything saves by itself — even what you were typing when you quit.' },
-      { type: 'tip', icon: 'drag', text: 'Put the sidebar in your own order: press the pencil by **Overview**, drag the tabs, then **Done**.' },
+      { type: 'tip', icon: 'drag', text: 'Put the sidebar in your own order: press your name at the foot of the sidebar › **Edit Sidebar Order**, drag the tabs, then **Done**.' },
+    ],
+  },
+  {
+    id: 'assistant', title: 'The Assistant', color: '#c9561f', icon: 'sparkle',
+    tag: 'Ask about the page you’re on, or have it do the work. It shows you what it would do first.',
+    blocks: [
+      { type: 'shot', shot: 'assistant', points: [[2, 'Ask', 'At the top of the sidebar · {⌘J}'], [1, 'The chat', 'Beside your work · ⤢ for the full page']] },
+      { type: 'cards', cards: [
+        ['doc', 'Quotation from a file', 'Attach it, say which project.'],
+        ['search', 'Look things up', 'Prices, stock, what’s owed.'],
+        ['check', 'Nothing changes', 'Until you press the card’s button.'],
+      ] },
     ],
   },
   {
@@ -76,12 +88,12 @@ window.MANUAL_CONTENT = [
 
   // ------------------------------------------------------------ Overview
   {
-    id: 'dashboard', part: 'Overview', title: 'Dashboard', color: '#5a6b7f', icon: 'home', keys: '{⌘1}',
+    id: 'dashboard', part: 'Work', title: 'Home', color: '#5a6b7f', icon: 'home', keys: '{⌘1}',
     tag: 'Your day at a glance: what’s waiting, what’s owed, what’s next.',
     blocks: [
       { type: 'shot', shot: 'dashboard', points: [
-        [2, 'Today', 'What needs you now'], [5, 'Number tiles', 'Each opens its source'],
-        [6, 'Quick Actions', 'Start anything in one click'], [3, 'Announce', 'A message to everyone'], [4, 'Customise', 'Arrange the panels'],
+        [3, 'Today', 'What needs you now · click one'], [6, 'For you', 'Sign requests and announcements'], [4, 'Number tiles', 'Each opens its list'],
+        [5, 'The panels', 'Your tasks, quotations, invoices'], [1, 'New', 'A project, quotation, task…'], [2, '···', 'Customise · Announce'], [7, 'Search · Ask', '{⌘K} · {⌘J}'],
       ] },
       { type: 'cards', title: 'The panels', cards: [
         ['check', 'My Tasks', 'Tick to finish.'],
@@ -90,7 +102,7 @@ window.MANUAL_CONTENT = [
         ['bell', 'Needs attention', 'Expiring documents. Backup reminders.'],
       ] },
       { type: 'steps', title: 'Make it yours', steps: [
-        ['grid', 'Customise', 'Opens the widget tray.'],
+        ['grid', '··· › Customise', 'Opens the widget tray.'],
         ['drag', 'Drag a panel', 'By its bar, to move it.'],
         ['resize', 'Drag its edge', '¼, ½, ¾ or full width.'],
         ['trash', 'Drop in the tray', 'To remove it. [Reset Layout] undoes all.'],
@@ -98,43 +110,44 @@ window.MANUAL_CONTENT = [
     ],
   },
   {
-    id: 'calendar', title: 'Calendar', color: '#5a6b7f', icon: 'calendar',
-    tag: 'Everything with a date — and your schedule: meetings, site visits, deliveries, payments due.',
+    id: 'calendar', title: 'Schedule', color: '#5a6b7f', icon: 'calendar',
+    tag: 'Tasks and everything with a date, in one place: a list, a week or a month.',
     blocks: [
       { type: 'shot', shot: 'calendar', points: [
-        [1, '‹ Today ›', 'A week or month at a time'], [2, 'Week · Month', 'And which day weeks start'],
+        [7, 'Quick add', 'Type it as you’d say it'], [1, '‹ Today ›', 'A week or month at a time'], [2, 'List · Week · Month', '{L} {W} {M}'],
         [3, 'Filters', '⌥-click shows only that kind'], [4, 'The week', 'Drag down an hour column for an event'],
-        [5, 'Mini month', 'Dots mark busy days'], [6, 'The chosen day', 'Then the next 14 days'],
+        [5, 'Mini month', 'Dots mark busy days'], [6, 'The chosen day', 'Then what’s next'], [8, 'New Task · New Event', '{⇧N} · {E}'],
       ] },
       { type: 'flow', title: 'Scheduling an event', chain: 'grey|Press at 10:00|On the day > grey|Drag to 12:30|Snaps to quarter hours > team|Name it|For a person, a team or anyone' },
-      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{W}  {M}', 'Week · Month'], ['{N}', 'New task'], ['{E}', 'New event']] },
+      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{L} {W} {M}', 'List · Week · Month'], ['{N}', 'Quick add'], ['{⇧N}', 'New task'], ['{E}', 'New event']] },
       { type: 'tip', icon: 'pointer', text: 'Rest on anything for its details. Click to open it — or, for an event, to change it.' },
     ],
   },
   {
     id: 'tasks', title: 'Tasks', color: '#5a6b7f', icon: 'check',
-    tag: 'The team’s to-dos, for a person, a project and a day.',
+    tag: 'The team’s to-dos, for a person, a project and a day. Schedule › List.',
     blocks: [
       { type: 'example', title: 'Type it the way you’d say it', parts: [
         ['Send revised BOQ to Mr. Law', ''], ['tomorrow 3pm', 'When'], ['@Tom', 'Who'], ['#26212', 'Project'], ['!high', 'Priority'],
       ], note: '{Return} adds it. [More…] opens the full form.' },
       { type: 'shot', shot: 'tasks', points: [
-        [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
-        [4, 'The list', 'Tick to finish · ⟳ tomorrow'], [5, 'This week', 'Click a day to filter'], [6, 'Team load', 'Who has how much'],
+        [7, 'List', 'The tasks view of Schedule · {L}'], [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
+        [3, 'The list', 'Tick to finish · ⟳ tomorrow'], [4, 'Today', 'How far through the day'], [5, 'This week', 'Click a day to filter'], [6, 'Team load', 'Who has how much'],
       ] },
       { type: 'tip', icon: 'people', text: 'A task can be **for a whole team** (e.g. Site) instead of one person: choose the team under **For**. Everyone in it sees it as theirs.' },
-      { type: 'keys', keys: [['{N}', 'New task'], ['{/}', 'Search']] },
+      { type: 'keys', keys: [['{N}', 'Quick add'], ['{⇧N}', 'New task'], ['{/}', 'Search']] },
     ],
   },
 
   // ------------------------------------------------------------ Team
   {
-    id: 'chat', part: 'Team', title: 'Chat', color: '#d07a2c', icon: 'chat',
-    tag: 'Everyone, your team, or one person. Arrives in about a second.',
+    id: 'chat', title: 'Team › Chat', color: '#d07a2c', icon: 'chat',
+    tag: 'Everyone, your team, or one person. Arrives in about a second. The first tab of Team.',
     blocks: [
-      { type: 'shot', shot: 'chat', view: [15.6, 0, 84.4, 100], points: [
-        [2, 'Messages', 'Hover to react, reply or edit'], [3, 'Write', '{Return} sends · {↑} edits · @name'],
-        [4, 'Emoji', ''], [5, 'GIFs', ''], [6, 'Attach', 'A picture from the Mac'],
+      { type: 'shot', shot: 'chat', points: [
+        [1, 'Chat first', 'Then People · Signatures · Announcements'], [2, 'Conversations', 'Everyone, a team or one person'],
+        [3, 'Messages', 'Hover to react, reply or edit'], [4, 'Write', '{Return} sends · {↑} edits · @name'],
+        [5, 'Emoji', ''], [6, 'GIFs', ''], [7, 'Attach', 'A picture from the Mac'],
       ] },
     ],
   },
@@ -142,11 +155,11 @@ window.MANUAL_CONTENT = [
     id: 'team', title: 'Team & signatures', color: '#d07a2c', icon: 'people',
     tag: 'Who’s who, and directors signing quotations.',
     blocks: [
-      { type: 'shot', shot: 'team', view: [15.6, 0, 84.4, 62], points: [
-        [1, 'Three tabs', 'People · Signatures · Announcements'], [2, 'People', 'Teams, devices, who signs'], [3, 'Announce', 'To all, a team or one'],
+      { type: 'shot', shot: 'team', points: [
+        [1, 'Tabs', 'Chat · People · Signatures · Announcements'], [2, 'People', 'Teams, devices, who signs · drag to move'], [3, '+ New Team', ''],
       ] },
       { type: 'flow', title: 'Signing a quotation', chain: 'qt|Send to Sign…|From the quotation > team|Notice|The director sees it at once > team|Review|The PDF as printed > money|Sign & Chop|Saved as a signed PDF || client|Decline|With a reason' },
-      { type: 'shot', shot: 'team-signatures', view: [15.6, 0, 84.4, 48], points: [[1, 'Waiting for you', 'Who asked, and their note'], [2, 'Review', 'Then [*Sign & Chop] or [Decline]']] },
+      { type: 'shot', shot: 'team-signatures', points: [[1, 'Waiting for you', 'Who asked, and their note'], [2, 'Review', 'Then [*Sign & Chop] or [Decline]'], [3, 'You asked', 'And how it went']] },
       { type: 'tip', icon: 'pen', text: 'Directors add their **signature** and the company **chop** once, on their own card.' },
     ],
   },
@@ -157,17 +170,17 @@ window.MANUAL_CONTENT = [
     tag: 'What materials and manpower cost, and what we charge.',
     blocks: [
       { type: 'shot', shot: 'costs', points: [
-        [2, 'Price list', 'SP or SCAFOM (EUR → HK$)'], [3, 'Search', 'English or 中文'],
-        [4, '☰ Rates', 'Import and export'], [5, '+ Add Item', ''], [6, 'The list', 'Drag ⋮⋮ · ★ to pin'],
+        [8, 'Materials · Manpower Rates', ''], [1, 'Price list', 'SP or SCAFOM (EUR → HK$)'], [2, 'Search', 'English or 中文'], [3, 'Category', ''],
+        [4, 'Unit Rates PDF…', 'Rates for a client'], [5, '···', 'Import · Export'], [6, 'New Item', ''], [7, 'The list', 'Drag ⋮⋮ · ★ to pin'],
       ] },
       { type: 'steps', title: 'A Unit Rates sheet for a client', steps: [
-        ['menu', '☰ › Export › PDF', 'The list turns into ticks.'],
+        ['doc', 'Unit Rates PDF…', 'The list turns into ticks.'],
         ['check', 'Tick items', 'From either list.'],
         ['percent', 'Make Unit Rates PDF…', 'Client and markup.'],
         ['eye', 'Preview, save', 'Into Unit Rates.'],
       ] },
       { type: 'shot', shot: 'costs-manpower', points: [
-        [1, 'Our rate · their rate', 'For each kind of worker'], [2, 'What’s left', 'Red when we lose money'], [3, '+ Add Provider', ''],
+        [1, 'Our rate · their rate', 'For each kind of worker'], [2, 'What’s left', 'Red when we lose money'], [3, 'New Provider…', ''], [4, 'New Worker', 'A kind of worker'],
       ] },
     ],
   },
@@ -176,8 +189,8 @@ window.MANUAL_CONTENT = [
     tag: 'Who we work for, and where. Lines show who’s been where.',
     blocks: [
       { type: 'shot', shot: 'clients', points: [
-        [2, 'Clients', 'Hover to light up their sites'], [3, 'Sites', 'Click a line for its projects'],
-        [1, 'Search', ''], [4, 'Excel', 'Import · export'], [6, '+ New Client', '{⇧⌘N}'], [5, '+ New Site', '{⌥⌘N}'],
+        [2, 'Clients', 'Hover to light up their sites'], [3, 'Sites', 'Click a line for its projects'], [1, 'Search', '{/}'],
+        [6, 'Archived', 'Show them too'], [5, 'New Client', '▾ for New Site'], [4, '···', 'Import · Export, for each list'], [7, 'ⓘ', 'How the lines work'],
       ] },
       { type: 'tip', icon: 'drag', text: '**Drag a client onto a site** to start a project for both.' },
       { type: 'tip', icon: 'percent', text: 'A client’s **Default Markup %** starts every new BOQ and quotation for them.' },
@@ -189,7 +202,7 @@ window.MANUAL_CONTENT = [
     blocks: [
       { type: 'shot', shot: 'projects', points: [
         [1, 'New Project', '{⌘N}'], [2, 'Search', '{/}'], [3, 'Status', 'Filters with counts'],
-        [5, 'Cards · List · Overview', ''], [7, 'A project', 'Right-click for more'],
+        [6, 'Sort', ''], [4, 'Cards · List · Overview', ''], [5, 'A project', 'Right-click for more'],
       ] },
       { type: 'shot', title: 'Overview: every document, linked', shot: 'projects-overview', points: [
         [1, 'The project', ''], [2, 'BOQ', ''], [3, 'Quotation', 'Its subsidiary indented'], [4, 'Invoice', 'Joined to its note'],
@@ -211,17 +224,22 @@ window.MANUAL_CONTENT = [
     tag: 'Home for everything about one job.',
     blocks: [
       { type: 'shot', shot: 'project-page', points: [
-        [1, 'Stage', 'Click one to move there'], [3, 'Edit Details', 'And delete'], [4, 'Tiles', 'Each opens its tab'],
-        [5, 'Tabs', ''], [6, 'Quick Actions', ''], [7, 'Customise', 'This project, or all'],
+        [7, 'Where you are', 'Click to go back'], [1, 'Stage', 'Click one to move there'], [2, 'Status', ''],
+        [3, 'New', 'Follows the tab · ▾ for any kind'], [4, '···', 'Edit Details · Show in Finder · Customise'],
+        [5, 'Five tabs', 'Overview · Documents · Drawings · Site · History'], [6, 'Overview', 'Details, activity, notes'],
       ] },
-      { type: 'shot', title: 'Every tab works the same way', shot: 'project-quotations', points: [
-        [1, '+ New', 'From the BOQ, or blank'], [2, 'A document', 'Monthly and one-time charges'], [3, 'Select', 'Export PDF · Combine'],
+      { type: 'shot', shot: 'project-quotations', points: [
+        [3, 'Documents', 'BOQ · Quotations · Delivery Notes · Invoices · Letters'], [1, 'New Quotation', 'From the BOQ, or blank'],
+        [2, 'A document', 'Monthly and one-time charges'], [4, 'Select · Import…', 'Export PDF · Combine'],
       ] },
-      { type: 'cards', title: 'The tabs', cards: [
+      { type: 'cards', title: 'Under Documents', cards: [
         ['layers', 'BOQ', 'With the total weight.', '#3f938b'], ['doc', 'Quotations', 'Monthly and one-time totals.', '#5374b8'],
         ['truck', 'Delivery Notes', 'From a quotation.', '#b0843f'], ['receipt', 'Invoices', 'From notes or a quotation.', '#5d9150'],
-        ['mail', 'Letters', 'On the letterhead.', '#8a6cb0'], ['image', 'Drawings & Docs', 'Drop files in.', '#8a8d94'],
-        ['shield', 'Inspections', 'Form 5. Next due in 14 days.'], ['clock', 'Tasks & History', 'Who did what, when.'],
+        ['mail', 'Letters', 'On the letterhead.', '#8a6cb0'],
+      ] },
+      { type: 'cards', title: 'And the other tabs', cards: [
+        ['image', 'Drawings', 'Drawings and documents. Drop files in.', '#8a8d94'],
+        ['shield', 'Site', 'Inspections (Form 5, next due in 14 days) and tasks.'], ['clock', 'History', 'Who did what, when.'],
       ] },
     ],
   },
@@ -229,14 +247,13 @@ window.MANUAL_CONTENT = [
     id: 'boq', title: 'BOQ', color: '#3f938b', icon: 'layers',
     tag: 'The materials for a scaffold, with weights and rates.',
     blocks: [
-      { type: 'shot', shot: 'boq-editor', view: [15.6, 16, 84.4, 52], points: [
-        [2, 'Page', 'Landscape priced · portrait not'], [4, 'Make Quotation', 'Linked to this BOQ'],
-        [5, 'Rental · Sale', ''], [6, 'Mark-up %', 'The client’s, offered'],
-        [7, 'Add Materials', '★ pins favourites'], [9, 'Line items', 'Sums · % discount · drag'],
+      { type: 'shot', shot: 'boq-editor', points: [
+        [1, 'Status', ''], [2, 'Make Quotation', 'Linked to this BOQ'], [3, 'Export', 'PDF, Word, Print'], [4, '···', 'Locate, duplicate, delete'],
+        [5, 'Rental · Sale', ''], [6, 'Mark-up %', 'The client’s, offered'], [7, 'Add Materials', '★ pins favourites'],
+        [8, 'Line items', 'Sums · % discount · drag'], [9, 'Details', 'Show or hide · {⌥⌘I}'],
       ] },
-      { type: 'shot', title: 'Sections, notes and terms', shot: 'boq-sections', points: [
-        [1, '+ Add Section', 'Delivery, fees, manpower, notes'], [2, 'Notes', 'Printed under the sheet'],
-        [3, 'Use Standard Terms', 'From Settings'], [4, 'Delivery Schedule', ''],
+      { type: 'shot', title: 'Notes and the delivery schedule', shot: 'boq-sections', points: [
+        [1, 'Notes', 'Printed under the sheet'], [2, 'Delivery Schedule', 'What goes on which day'],
       ] },
       { type: 'example', title: 'Multiply quantities, for sets', parts: [['×2', 'Two sets'], ['+10%', 'Spare'], ['½', 'Half'], ['×n', 'Any']],
         note: 'Line Items ☰ › Multiply. A preview shows before and after.' },
@@ -247,14 +264,15 @@ window.MANUAL_CONTENT = [
     id: 'quotation', title: 'Quotation', color: '#5374b8', icon: 'doc',
     tag: 'The priced offer. The page used most.',
     blocks: [
-      { type: 'shot', shot: 'quotation-editor', view: [15.6, 17, 84.4, 66], points: [
-        [1, 'Status', 'Subsidiaries follow'], [3, 'Split…', 'Lines into a subsidiary'], [4, 'Letter', 'Re:, refs, minimum hire'],
-        [5, 'Date · Pricing', ''], [6, 'Markup / Discount', 'See below'], [8, 'Send to Sign…', ''], [10, 'Line items', ''],
+      { type: 'shot', shot: 'quotation-editor', view: [4.2, 0, 95.8, 70], points: [
+        [1, 'Status', 'Subsidiaries follow'], [2, 'Export', 'PDF, Word, Print'], [3, '···', 'Split…, Duplicate…, Delete'],
+        [4, 'Letter', 'Re:, refs, minimum hire'], [5, 'Date · Pricing', ''], [6, 'Markup / Discount', 'See below'],
+        [8, 'Add Materials', '★ pins favourites'], [7, 'Line items', ''], [9, 'Details', 'Show or hide · {⌥⌘I}'],
       ] },
       { type: 'example', title: 'One box for markup and discount', parts: [['+30%', 'Every price up'], ['-15%', 'Off the total'], ['-1000', 'Off the total']],
         note: 'Blank means neither. Delivery is never marked up.' },
-      { type: 'shot', title: 'Sections, totals and key terms', shot: 'quotation-sections', points: [
-        [1, '+ Add Section', ''], [2, 'Totals', 'Monthly vs one-time'], [4, 'Key Terms', 'Blank = the standard ones'],
+      { type: 'shot', title: 'Sections, totals and notes', shot: 'quotation-sections', points: [
+        [1, '+ Add Section', ''], [2, 'Totals', 'Monthly vs one-time'], [3, 'Notes', 'Small print after the total'],
       ] },
       { type: 'cards', title: 'Sections you can add', cards: [
         ['truck', 'Delivery Charges', 'Weighs the load, suggests the band.'],
@@ -276,9 +294,8 @@ window.MANUAL_CONTENT = [
     id: 'schedule', title: 'Delivery schedule', color: '#5374b8', icon: 'calendar-days',
     tag: 'What goes to site, on which day.',
     blocks: [
-      { type: 'shot', shot: 'delivery-schedule', view: [15.6, 55, 84.4, 45], points: [
-        [1, '+ Add Day', ''], [2, 'Export', 'For the client, or internal'], [3, 'Copy from BOQ', ''],
-        [4, 'The grid', 'Days across · what’s left'],
+      { type: 'shot', shot: 'delivery-schedule', points: [
+        [1, '+ Add Day', ''], [2, 'Export', 'For the client, or internal'], [3, 'The grid', 'Days across · what’s left'],
       ] },
       { type: 'tip', icon: 'print', text: 'Printed after the quotation by itself. Internal notes never are.' },
     ],
@@ -289,7 +306,7 @@ window.MANUAL_CONTENT = [
     blocks: [
       { type: 'shot', shot: 'delivery-note', points: [
         [1, 'Import from Quotation', ''], [2, 'Date · Address', 'From the site'], [3, 'Contact', 'Printed in bold'],
-        [5, 'Items', 'Quantities and weights'], [6, 'Export', 'PDF · 文A for Chinese'],
+        [4, 'Items', 'Quantities and weights'], [5, 'Export', 'PDF · 中文 item names'], [6, 'Status', ''],
       ] },
       { type: 'flow', title: 'The signed copy', chain: 'dn|Issue it > client|Signed on site > dn|Upload Signed Copy|Books the stock out > inv|Invoice|Signed copies follow its pages' },
       { type: 'tip', tone: 'warn', icon: 'box', text: 'Stock leaves the yard when the **signed copy** is uploaded, not when the note is issued.' },
@@ -299,9 +316,9 @@ window.MANUAL_CONTENT = [
     id: 'invoice', title: 'Invoices & payments', color: '#5d9150', icon: 'receipt',
     tag: 'What’s billed, and what’s been paid.',
     blocks: [
-      { type: 'shot', shot: 'invoice', view: [15.6, 15, 84.4, 85], points: [
-        [1, 'Made from', 'Notes or a quotation'], [2, 'Date · Due', ''], [3, 'Terms', 'Follow Settings'],
-        [4, 'Line items', ''], [5, 'Totals', 'Balance Due'],
+      { type: 'shot', shot: 'invoice', points: [
+        [1, 'Made from', 'Notes or a quotation'], [2, 'Date · Due', ''], [3, 'Signed notes', 'Their copies follow its pages'],
+        [4, 'Line items', ''], [5, 'Export', ''], [6, 'Status', 'Partly paid → Paid'],
       ] },
       { type: 'steps', title: 'Recording a payment', steps: [
         ['send', 'Issue it', 'Drafts can’t be paid.'],
@@ -318,9 +335,9 @@ window.MANUAL_CONTENT = [
     id: 'letters', title: 'Letters', color: '#8a6cb0', icon: 'mail',
     tag: 'On the letterhead, written like a Google Doc.',
     blocks: [
-      { type: 'shot', shot: 'letter', points: [
-        [3, 'Details', 'The letter’s opening'], [4, 'From a client', 'Fills in the address'],
-        [5, 'Toolbar', 'Styles, tables, lists'], [6, 'The page', 'Saves as you type'], [2, 'Export', ''],
+      { type: 'shot', shot: 'letter', view: [4.2, 0, 95.8, 85], points: [
+        [4, 'From a client', 'Fills in the address'], [2, 'Toolbar', 'Styles, tables, lists'], [3, 'The page', 'Saves as you type'],
+        [5, 'Attachments', 'As annexures'], [1, 'Export', ''], [6, 'Status', ''],
       ] },
       { type: 'steps', title: 'Attachments, as annexures', steps: [
         ['clip', '+ Add Attachment…', 'PDFs or pictures.'],
@@ -351,8 +368,9 @@ window.MANUAL_CONTENT = [
     tag: 'In the yard, on site, rented in, and owned.',
     blocks: [
       { type: 'shot', shot: 'stock', points: [
-        [1, 'Totals', ''], [2, 'Record Stock', 'Many items at once · {N}'], [3, 'Tabs', 'Returns · On Hire · Rented'],
-        [5, 'Stocktake', 'Count straight into the list'], [6, 'By category', 'Click an item for more'],
+        [1, 'Totals', ''], [2, 'Record Stock', 'Many items at once · the kind in the sheet'], [7, '···', 'Export to Excel'],
+        [6, 'Back from site?', 'Returns that are due'], [3, 'Tabs', 'Returns · On Hire · Rented'],
+        [4, 'Stocktake', 'Count straight into the list'], [5, 'By category', 'Click an item for more'],
       ] },
       { type: 'flow', title: 'How stock moves', chain: 'grey|Yard|Receive adds > dn|Signed note|Out to site > project|On hire > grey|Returns|All or part back' },
       { type: 'cards', cards: [
@@ -364,13 +382,27 @@ window.MANUAL_CONTENT = [
     ],
   },
 
+  {
+    id: 'workers', title: 'Workers', color: '#3f938b', icon: 'helmet',
+    tag: 'The people on site: details, employment agreements and certificates.',
+    blocks: [
+      { type: 'shot', shot: 'workers', points: [
+        [1, 'Tiles', 'Click one to show only those'], [2, 'The roster', 'The bars: how far each agreement has got'],
+        [3, 'Next step', 'What this worker needs now'], [4, 'Agreement · Details · Documents', ''],
+        [5, 'The agreement', 'As it reads, their details marked'], [7, 'Search', '{/}'], [6, 'New Worker', '{⌘N} here'],
+      ] },
+      { type: 'flow', title: 'An employment agreement', chain: 'grey|Written|From the template > team|Signed & chopped|By a director > client|Signed by the worker|Upload their copy' },
+    ],
+  },
+
   // ------------------------------------------------------------ Company
   {
     id: 'accounting', part: 'Company', title: 'Accounting', color: '#c0627a', icon: 'chart', keys: '{⌘6}',
     tag: 'Money in and out, for any period.',
     blocks: [
       { type: 'shot', shot: 'accounting', points: [
-        [1, 'Period', ''], [2, 'Totals', ''], [3, 'Tabs', 'Receivables to By Month'], [5, 'Export to Excel', ''],
+        [1, 'Period', ''], [2, 'Totals', ''], [3, 'Tabs', 'Receivables to Reports'], [6, 'Filters', 'As chips'],
+        [5, 'The table', 'Click a row to open it'], [4, '···', 'Export to Excel'],
       ] },
       { type: 'cards', cards: [
         ['receipt', 'Expenses', 'Payroll adds Salaries & MPF itself.'],
@@ -383,12 +415,12 @@ window.MANUAL_CONTENT = [
     tag: 'Quotations turning into work, and who to chase next.',
     blocks: [
       { type: 'shot', shot: 'marketing', points: [
-        [1, 'Headline figures', 'Win rate and more'], [2, 'Tabs', ''], [5, 'Month chart', 'Click a month'], [6, '+ New Lead', ''],
+        [1, 'Headline figures', 'Win rate and more'], [2, 'Tabs', ''], [3, 'Period', ''], [4, 'Month chart', 'Click a month'], [5, 'New Lead', 'Follows the tab'],
       ] },
-      { type: 'shot', title: 'Leads', shot: 'marketing-leads', view: [15.6, 28, 84.4, 32], points: [[1, 'The board', 'New → Won'], [2, 'A lead', '[Convert to Client]']] },
+      { type: 'shot', title: 'Leads', shot: 'marketing-leads', points: [[1, 'The board', 'New → Won'], [2, 'A lead', '[Convert to Client]']] },
       { type: 'tip', icon: 'check', text: 'An issued quotation counts as **won** only once the client has signed it (upload the signed copy) or you press **Client Agreed**.' },
       { type: 'shot', title: 'Client report', shot: 'marketing-report', points: [
-        [1, 'Client', ''], [2, 'Period', ''], [3, 'Totals', 'Quoted vs accepted'], [5, 'Export Report…', 'A PDF on the letterhead'],
+        [1, 'Client', ''], [2, 'Period', ''], [3, 'Totals', 'Quoted vs accepted'], [4, 'Export Report…', 'A PDF on the letterhead'],
       ] },
       { type: 'flow', title: 'A promotion campaign', chain: 'client|Targets > letter|One letter|{Company}, {Contact} > letter|Write Letters|One each > team|Mark Sent > money|Won' },
     ],
@@ -397,16 +429,16 @@ window.MANUAL_CONTENT = [
     id: 'admin', title: 'Admin', color: '#c0627a', icon: 'id', keys: '{⌘7}',
     tag: 'Company papers and payroll. Site workers have their own page (Workers): details, employment agreements and certificates.',
     blocks: [
-      { type: 'shot', shot: 'admin', points: [[2, 'Needs Attention', 'Expiring within 30 days'], [3, '+ New Worker', ''], [4, 'Company documents', 'With expiry dates']] },
+      { type: 'shot', shot: 'admin', points: [[4, 'Tabs', 'Company Documents · Employees'], [1, 'Needs Attention', 'Expiring within 30 days'], [2, 'Upload…', 'Category and expiry, then the files'], [3, 'Company documents', 'With expiry dates']] },
       { type: 'shot', title: 'Employees and payroll', shot: 'admin-employees', points: [
-        [1, 'Totals', 'Pay, MPF, cost'], [2, 'Record Pay…', 'One expense each'], [3, '+ New Employee', ''],
+        [1, 'Totals', 'Pay, MPF, cost'], [3, 'New Employee', ''], [2, '···', 'Record Pay… · Export'], [4, 'Former', 'Show them too'],
       ] },
       { type: 'tip', icon: 'shield', text: 'Files are copied in, never moved. Workers are archived, never deleted.' },
     ],
   },
   {
     id: 'settings', title: 'Settings', color: '#c0627a', icon: 'gear', keys: '{⌘,}',
-    tag: 'The gear beside your name, bottom left ({⌘,}). You, the company and this Mac — each in its own section.',
+    tag: 'Your name at the foot of the sidebar › Settings ({⌘,}). You, the company and this Mac, each in its own section.',
     blocks: [
       { type: 'shot', shot: 'settings', points: [
         [1, 'Search', '{⌘F}'], [2, 'Sections', '{↑} {↓}'], [3, 'The value', ''], [4, 'The pencil', 'Changes just that one'], [5, 'Switches', 'Work at once'],
@@ -416,14 +448,14 @@ window.MANUAL_CONTENT = [
         ['building', 'Company', 'Letterhead, numbering, pricing, terms for rental and for sale.'],
         ['monitor', 'This Mac & data', 'Sharing, backups, updates, AI Import.'],
       ] },
-      { type: 'tip', icon: 'check', text: 'Every change saves itself. Look for **Saved** in the corner.' },
+      { type: 'tip', icon: 'check', text: 'Every change saves itself. Look for **Saved** at the bottom.' },
     ],
   },
   {
     id: 'user', title: 'You', color: '#c0627a', icon: 'user', keys: '{⌘0}',
     tag: 'Who you are to the rest of the team. The first section of Settings.',
     blocks: [
-      { type: 'shot', shot: 'user', points: [[1, 'Your name', 'On everything you do'], [2, 'Your team', ''], [3, 'Your colour', 'On every Mac'], [4, 'Your work', '']] },
+      { type: 'shot', shot: 'user', points: [[1, 'Your name', 'On everything you do'], [2, 'Profile', 'Name, team, colour'], [3, 'Your colour', 'On every Mac'], [4, 'Appearance', 'System · Light · Dark'], [5, 'Fold the sidebar', 'To icons']] },
     ],
   },
 
@@ -483,13 +515,13 @@ window.MANUAL_CONTENT = [
     tag: 'Faster than the mouse.',
     blocks: [
       { type: 'keys', title: 'Pages', keys: [
-        ['{⌘1}', 'Dashboard'], ['{⌘2}', 'Costs'], ['{⌘3}', 'Clients & Sites'], ['{⌘4}', 'Projects'],
+        ['{⌘1}', 'Home'], ['{⌘2}', 'Costs'], ['{⌘3}', 'Clients & Sites'], ['{⌘4}', 'Projects'],
         ['{⌘5}', 'Stock'], ['{⌘6}', 'Accounting'], ['{⌘7}', 'Admin'], ['{⌘,}', 'Settings'], ['{⌘0}', 'You'],
       ] },
       { type: 'keys', title: 'Anywhere', keys: [
-        ['{⌘K}', 'Search'], ['{⌘N}', 'New project'], ['{⇧⌘N}', 'New client'], ['{⌥⌘N}', 'New site'],
+        ['{⌘K}', 'Search'], ['{⌘J}', 'Ask the Assistant'], ['{⌘N}', 'New project'], ['{⇧⌘N}', 'New client'], ['{⌥⌘N}', 'New site'],
         ['{⌘E}', 'Export PDF'], ['{⌘P}', 'Print'], ['{⌘S}', 'Save preview'], ['{⇧⌘B}', 'Back up'],
-        ['{⌘Z}', 'Undo'], ['{⇧⌘Z}', 'Redo'], ['{/}', 'Search the page'], ['{N}', 'New task'],
+        ['{⌘Z}', 'Undo'], ['{⇧⌘Z}', 'Redo'], ['{/}', 'Search the page'], ['{⌥⌘I}', 'Details in an editor'],
       ] },
     ],
   },
