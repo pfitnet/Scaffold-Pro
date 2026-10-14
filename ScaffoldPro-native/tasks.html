@@ -2,88 +2,16 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Tasks · ScaffoldPro</title>
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/tasks.css" />
+  <title>Schedule · ScaffoldPro</title>
+  <!-- Tasks are on the Schedule page now (List view); old links still land there. -->
+  <script>
+    (function () {
+      const q = new URLSearchParams(location.search);
+      let to = 'calendar.html?view=list';
+      if (q.get('task')) to += `&task=${encodeURIComponent(q.get('task'))}`;
+      location.replace(to);
+    })();
+  </script>
 </head>
-<body data-page="tasks">
-  <nav id="sidebar"></nav>
-  <main id="content" class="tk-page">
-    <!-- Hero: greeting, today in a sentence, today's progress ring -->
-    <section class="tk-hero" id="tk-hero">
-      <div class="tk-hero-glow" aria-hidden="true"></div>
-      <div class="tk-hero-text">
-        <div class="tk-date" id="tk-date"></div>
-        <h1 class="tk-greeting" id="tk-greeting">Tasks</h1>
-        <p class="tk-summary" id="tk-summary">What the team needs to do — for a project or not — who it’s for, and when.</p>
-        <div class="tk-stats" id="tk-stats"></div>
-      </div>
-      <div class="tk-ring" id="tk-ring" title="Today: done of due">
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <defs>
-            <linearGradient id="tk-ring-grad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" style="stop-color: var(--tk-a)" />
-              <stop offset="100%" style="stop-color: var(--tk-b)" />
-            </linearGradient>
-          </defs>
-          <circle class="tk-ring-track" cx="60" cy="60" r="50" />
-          <circle class="tk-ring-fill" id="tk-ring-fill" cx="60" cy="60" r="50" />
-        </svg>
-        <div class="tk-ring-label"><b id="tk-ring-pct">0%</b><span id="tk-ring-sub">today</span></div>
-      </div>
-    </section>
-
-    <!-- Quick add: type it the way you'd say it -->
-    <div class="tk-quick" id="tk-quick">
-      <span class="tk-quick-plus" aria-hidden="true"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg></span>
-      <input type="text" id="tk-quick-input" autocomplete="off" spellcheck="false"
-        placeholder="Add a task — try “Send revised BOQ to Mr. Law tomorrow 3pm @Tom #26212 !high”" aria-label="Add a task" />
-      <div class="tk-quick-chips" id="tk-quick-chips"></div>
-      <button type="button" class="tk-quick-more" id="new-task-btn" data-no-icon title="Open the full form">More…</button>
-      <kbd class="tk-kbd" title="Press N to add a task">N</kbd>
-    </div>
-
-    <div class="tk-layout">
-      <div class="tk-main">
-        <div class="tk-controls">
-          <div class="tk-seg" id="task-tabs" role="tablist">
-            <span class="tk-seg-pill" aria-hidden="true"></span>
-            <button data-view="mine" class="active" role="tab">My Tasks <span class="tk-count" data-count="mine"></span></button>
-            <button data-view="team" role="tab">Everyone’s <span class="tk-count" data-count="team"></span></button>
-            <button data-view="done" role="tab">Done <span class="tk-count" data-count="done"></span></button>
-          </div>
-          <div class="tk-filters">
-            <label class="tk-search"><svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="M13.2 13.2 17 17"/></svg>
-              <input type="text" id="task-search" placeholder="Search" /><kbd class="tk-kbd">/</kbd></label>
-            <select id="task-person"><option value="">Everyone</option></select>
-            <select id="task-project"><option value="">All projects</option></select>
-          </div>
-        </div>
-        <div id="task-list" class="tk-list"></div>
-      </div>
-
-      <aside class="tk-side">
-        <section class="tk-panel">
-          <h3>This week</h3>
-          <div class="tk-week" id="tk-week"></div>
-        </section>
-        <section class="tk-panel">
-          <h3>Team load</h3>
-          <div class="tk-team" id="tk-team"></div>
-        </section>
-      </aside>
-    </div>
-  </main>
-
-  <script src="js/dialogs.js"></script>
-  <script src="js/icons.js"></script>
-  <script src="js/ui-kit.js"></script>
-  <script src="js/sidebar.js"></script>
-  <script src="js/undo.js"></script>
-  <script src="js/hover-menu.js"></script>
-  <script src="js/controls.js"></script>
-  <script src="js/task-editor.js"></script>
-  <script src="js/tasks.js"></script>
-</body>
+<body></body>
 </html>

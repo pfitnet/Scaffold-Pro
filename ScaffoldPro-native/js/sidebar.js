@@ -39,12 +39,11 @@ document.addEventListener('click', (e) => {
 
 // Three groups (docs/redesign/PLAN.md §3.2). ⌘1–7 stay on the same pages as
 // before (the Go menu in main.swift), whatever their place in the list.
-// Tasks and Chat keep their own items until they join Calendar and Team.
+// Chat keeps its own item until it joins Team.
 const NAV_ITEMS = [
   { section: 'Work' },
   { page: 'dashboard', label: 'Home', href: 'index.html', key: '1', icon: 'home' },
-  { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
-  { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
+  { page: 'calendar', label: 'Schedule', href: 'calendar.html', icon: 'schedule' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },

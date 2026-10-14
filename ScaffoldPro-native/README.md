@@ -5502,3 +5502,28 @@ Increase Contrast. No Swift changed.
 - Checked: all five editors in a browser with sample data (light, dark,
   phone). The ··· menu, the Details switch, and `#print-btn` and the
   other hidden buttons were tried.
+
+## Batch 248 — Schedule: Tasks and Calendar are one page (redesign R7)
+
+- **The Calendar page is now Schedule,** with three views:
+  - **List:** the old Tasks page, with My Tasks / Everyone's / Done,
+    search and filters, and at the side Today's progress, This week and
+    Team load;
+  - **Week** and **Month**, as before.
+  The page remembers the last view.
+- **The quick-add bar** ("Send revised BOQ to Mr. Law tomorrow 3pm @Tom")
+  sits under the title in every view.
+- **Keys:**
+  - N goes to the quick-add bar; ⇧N opens the full task form;
+  - E makes a new event, T goes to today;
+  - L, W and M switch views, and / searches the list;
+  - in the List the arrow keys stay with the list. In Week and Month
+    they move the day.
+- **The sidebar** has one item, Schedule, instead of Calendar and Tasks.
+  The Go menu does too.
+- **`tasks.html`** still opens: it goes to Schedule › List (and to the
+  task, for links from search or the Assistant).
+- **Tasks take the steel colours,** and no title or figure uses a
+  gradient any more.
+- Checked: in a browser with sample data (light and dark): the views,
+  the old link, and no page errors. Swift (one Go-menu entry) not compiled.

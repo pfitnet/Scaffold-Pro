@@ -2,34 +2,22 @@
    Tasks page (tasks.html, js/tasks.js)
    A greeting hero with today's progress ring, a smart quick-add bar,
    tasks as cards grouped by when they're due, and a side column with the
-   week and the team's load. Calm colours, soft depth, small motions —
-   all switched off with macOS Reduce Motion.
+   week and the team's load. Now the List view of Schedule (calendar.html).
    ===================================================================== */
 
-.tk-page {
-  --tk-a: #6a7ff0;
-  --tk-b: #4bb3a3;
-  --tk-warm: #d99a4e;
-  --tk-late: #d9645a;
+.tk-page, .cal-page {
+  /* Steel & Signal: the accent for progress and focus, ink for the rest. */
+  --tk-a: var(--accent);
+  --tk-b: var(--accent);
+  --tk-warm: var(--warning);
+  --tk-late: var(--danger);
   --tk-card: var(--panel);
-  --tk-card-hover: color-mix(in srgb, var(--panel) 92%, var(--tk-a));
-  --tk-line: color-mix(in srgb, var(--border) 85%, transparent);
-  --tk-shadow: 0 1px 2px rgba(15, 20, 35, .05), 0 2px 8px rgba(15, 20, 35, .04);
-  --tk-shadow-lift: 0 2px 4px rgba(15, 20, 35, .06), 0 10px 24px rgba(15, 20, 35, .10);
-  --tk-ease: cubic-bezier(.2, .8, .2, 1);
-  --tk-spring: cubic-bezier(.22, 1, .36, 1);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tk-page {
-    --tk-a: #8b9cff; --tk-b: #5fd0bd; --tk-warm: #f0b56a; --tk-late: #ff8a7f;
-    --tk-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 10px rgba(0, 0, 0, .2);
-    --tk-shadow-lift: 0 2px 6px rgba(0, 0, 0, .35), 0 14px 30px rgba(0, 0, 0, .35);
-  }
-}
-:root[data-theme="dark"] .tk-page {
-  --tk-a: #8b9cff; --tk-b: #5fd0bd; --tk-warm: #f0b56a; --tk-late: #ff8a7f;
-  --tk-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 10px rgba(0, 0, 0, .2);
-  --tk-shadow-lift: 0 2px 6px rgba(0, 0, 0, .35), 0 14px 30px rgba(0, 0, 0, .35);
+  --tk-card-hover: color-mix(in srgb, var(--panel) 94%, var(--text));
+  --tk-line: var(--hairline);
+  --tk-shadow: var(--shadow-card);
+  --tk-shadow-lift: var(--shadow-lift);
+  --tk-ease: var(--ease-out);
+  --tk-spring: var(--spring);
 }
 
 .tk-kbd {
