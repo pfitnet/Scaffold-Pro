@@ -5264,3 +5264,21 @@ Increase Contrast. No Swift changed.
 - Checked: What's New in a browser with this README (light and dark).
   The Assistant changes were checked by reading only (they need the AI);
   Swift parsed with tree-sitter, not compiled.
+
+## Batch 238 — Choose and reorder a quotation's columns
+
+- Line Items' ☰ › Columns…: the printed table's columns between No. and
+  Total Price. Drag them into any order, remove the added ones, or add
+  Unit, Unit Weight (each item's weight from the material list, in kg) or
+  a custom column with its own title (e.g. Height, Model).
+- Description, Unit Rate and Qty always stay; up to 3 more can be added,
+  so the description keeps enough room. "Default Columns" puts it back.
+- A custom column's value is typed on each item, in the editor's table.
+- The PDF and the Word copy print the chosen columns; the description
+  takes what room is left (at least 150 pt, the others narrowed if need be).
+- New Quotation fields `columnLayout` and `customColumns`, QuotationLineItem
+  `customValues`; routes `quotations:setColumns` and
+  `quotations:setLineValue`; js/quotation-columns.js.
+- Checked: the Columns sheet and the editor's table in a browser (light and
+  dark): adding, removing, the limit, saving, typing a value. Swift parsed
+  with tree-sitter, not compiled. PDFs and Word copies not seen.

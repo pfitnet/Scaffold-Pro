@@ -1350,6 +1350,8 @@ extension Quotation {
         buyBackReductionPercent = try c.decodeIfPresent(Double.self, forKey: .buyBackReductionPercent)
         buyBackEndMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackEndMonths)
         buyBackAmount = try c.decodeIfPresent(Double.self, forKey: .buyBackAmount)
+        columnLayout = try c.decodeIfPresent([String].self, forKey: .columnLayout)
+        customColumns = try c.decodeIfPresent([QuotationCustomColumn].self, forKey: .customColumns)
         hirePeriodEnabled = try c.decodeIfPresent(Bool.self, forKey: .hirePeriodEnabled)
         hirePeriodMonths = try c.decodeIfPresent(Int.self, forKey: .hirePeriodMonths)
     }
@@ -1763,6 +1765,18 @@ struct Quotation: Codable {
     /// materials back, taken off the total (while it has a Buy Back Offer
     /// section). nil = not set.
     var buyBackAmount: Double? = nil
+    /// The printed table's columns between "No" and "Total Price", in order:
+    /// "desc", "rate", "qty", and any of "unit", "weight" or a custom
+    /// column's id. nil = desc, rate, qty.
+    var columnLayout: [String]? = nil
+    /// Columns typed in per item (their values: QuotationLineItem.customValues).
+    var customColumns: [QuotationCustomColumn]? = nil
+}
+
+/// A column of a quotation's table typed in per item, e.g. "Model".
+struct QuotationCustomColumn: Codable {
+    var id: String
+    var title: String
 }
 
 /// A crane quotation's buy-back offer, as printed: we buy the equipment
@@ -1985,6 +1999,8 @@ struct QuotationLineItem: Codable {
     /// On a rental quotation: charged once, not each month (a custom item
     /// such as transport or a site visit).
     var chargeOnce: Bool? = nil
+    /// Its values in the quotation's custom columns, by column id.
+    var customValues: [String: String]? = nil
 }
 
 /// How a priced row that isn't charged is printed: the words typed.
@@ -2329,6 +2345,10 @@ struct QuotationDetail: Codable {
     var buyBackAmount: Double = 0
     /// A rental's items charged once (not each month), added once.
     var oneTimeItemsTotal: Double = 0
+    /// The printed table's middle columns, in order (Quotation.columnLayout,
+    /// checked), and its custom columns.
+    var columnLayout: [String] = ["desc", "rate", "qty"]
+    var customColumns: [QuotationCustomColumn] = []
     var charges: ChargeSplit? = nil
     /// This quotation's own key terms; nil = the standard ones below.
     var keyTerms: String?

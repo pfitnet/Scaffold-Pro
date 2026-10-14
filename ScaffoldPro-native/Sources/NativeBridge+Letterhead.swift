@@ -688,6 +688,47 @@ extension NativeBridge {
     /// A scaffolding sale's buy-back offer, as worded on the company's sheet.
     var scaffoldingBuyBackWording: String { "We offer to buy-back the materials stated above at the lump sum of:" }
 
+    /// A quotation's printed columns: No, its middle columns in order (see
+    /// Quotation.columnLayout), Total Price. Added columns take their room
+    /// from the description, which keeps at least 150pt.
+    func quotationColumns(_ detail: QuotationDetail) -> [LetterColumn] {
+        let custom = Dictionary(detail.customColumns.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
+        var middle: [(key: String, title: String, width: CGFloat, kind: LetterColumnKind)] = detail.columnLayout.map { key in
+            switch key {
+            case "desc": return (key: key, title: "Item Description", width: 0, kind: .left)
+            case "rate": return (key: key, title: "Unit Rate", width: 110.25, kind: .money)
+            case "qty": return (key: key, title: "Qty", width: 39.0, kind: .center)
+            case "unit": return (key: key, title: "Unit", width: 42.0, kind: .center)
+            case "weight": return (key: key, title: "Unit\nWeight", width: 64.0, kind: .weight)
+            default: return (key: key, title: custom[key] ?? "", width: 72.0, kind: .left)
+            }
+        }
+        let room: CGFloat = 507.0 - 29.25 - 108.75
+        let others = middle.reduce(CGFloat(0)) { $0 + $1.width }
+        let scale: CGFloat = others > room - 150 ? (room - 150) / others : 1
+        for i in middle.indices where middle[i].key != "desc" { middle[i].width = (middle[i].width * scale * 4).rounded() / 4 }
+        let desc = room - middle.reduce(CGFloat(0)) { $0 + $1.width }
+        return [pricedColumns[0]] + middle.map { LetterColumn(title: $0.title, width: $0.key == "desc" ? desc : $0.width, kind: $0.kind) } + [pricedColumns[4]]
+    }
+
+    /// A row of the usual five columns (No, Description, Unit Rate, Qty,
+    /// Total) placed in a quotation's own columns; `extra`: its values in
+    /// the added ones (by key).
+    func arrangedRow(_ row: LetterTableRow, layout: [String], extra: [String: String]) -> LetterTableRow {
+        switch row {
+        case .item(let c) where c.count >= 5:
+            let known = ["desc": c[1], "rate": c[2], "qty": c[3]]
+            return .item([c[0]] + layout.map { known[$0] ?? extra[$0] ?? "" } + [c[4]])
+        case .partial(let c, let tail):
+            // Its values up to the rate (No, Description, Rate), then the tail across the rest.
+            let known = ["desc": c.count > 1 ? c[1] : "", "rate": c.count > 2 ? c[2] : ""]
+            let upTo = c.count > 2 ? (layout.firstIndex(of: "rate") ?? 1) : (layout.firstIndex(of: "desc") ?? 0)
+            return .partial([c.first ?? ""] + layout[0...upTo].map { known[$0] ?? "" }, tail: tail)
+        default:
+            return row
+        }
+    }
+
     /// A quotation laid out on the letterhead (as Qt26193).
     func quotationLetter(_ detail: QuotationDetail, company: CompanySettings) -> LetterDocument {
         // A quotation in another currency (a crane job's, say) prints in it.
@@ -708,7 +749,21 @@ extension NativeBridge {
                                                          price: detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
                                 currency: currencySymbol(company), rateSuffix: { _ in isRental ? " /Month" : "" })
+        // Each item row's values in the columns that can be added (Unit, Unit
+        // Weight, custom ones), by its place in `rows`.
+        var rowExtras: [Int: [String: String]] = [:]
+        let weights = db.quotationLineWeights(detail.lineItems)
+        func extras(_ l: QuotationLineItem) -> [String: String] {
+            var e = l.customValues ?? [:]
+            e["unit"] = l.unit
+            if let kg = weights[l.id] { e["weight"] = String(format: "%.1f", kg) }
+            return e
+        }
+        let tableLines = detail.lineItems.filter { $0.blockId == nil && !isOnce($0) }
+        let materialLines = tableLines.filter { $0.section != "Delivery" }
+        let deliveryLines = tableLines.filter { $0.section == "Delivery" }
         var rows = priced.materials
+        for (i, l) in materialLines.enumerated() where i < rows.count { rowExtras[i] = extras(l) }
         // No items (only priced sections, say): no subtotal of them.
         if isRental && !priced.materials.isEmpty {
             rows.append(.summary(label: "Subtotal of Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
@@ -733,7 +788,11 @@ extension NativeBridge {
                                                    discountType: $0.discountType, discountValue: $0.discountValue) },
                                   currency: currencySymbol(company), rateSuffix: { unit in unit.isEmpty || unit == "pc" ? "" : " /\(unit)" })
             for (i, row) in once.materials.enumerated() {
-                if case .item(var cells) = row { cells[0] = "C\(i + 1)"; rows.append(.item(cells)) }
+                if case .item(var cells) = row {
+                    cells[0] = "C\(i + 1)"
+                    if i < onceLines.count { rowExtras[rows.count] = extras(onceLines[i]) }
+                    rows.append(.item(cells))
+                }
             }
         }
         // A scaffolding sale's buy-back offer: a lump sum, taken off.
@@ -746,7 +805,10 @@ extension NativeBridge {
         }
         if !priced.delivery.isEmpty {
             rows.append(.section("Delivery Charges"))
-            rows += priced.delivery
+            for (i, row) in priced.delivery.enumerated() {
+                if i < deliveryLines.count { rowExtras[rows.count] = extras(deliveryLines[i]) }
+                rows.append(row)
+            }
         }
         // Priced sections (design fees, erection prices…) count towards the
         // total; rates-only sections and notes follow the Total Amount.
@@ -776,6 +838,12 @@ extension NativeBridge {
         terms += formattedParagraphs(nonBlank(detail.keyTerms) ?? detail.standardKeyTerms)
         terms.append(.text(company.quotationAcceptance ?? defaultQuotationAcceptance, link: nil))
 
+        // The columns chosen for this quotation (added ones, their order).
+        let layout = detail.columnLayout
+        if layout != ["desc", "rate", "qty"] {
+            rows = rows.enumerated().map { arrangedRow($0.element, layout: layout, extra: rowExtras[$0.offset] ?? [:]) }
+        }
+
         return LetterDocument(
             number: detail.quotationNumber, status: detail.status, title: "QUOTATION",
             clientName: client.name, clientLines: client.lines,
@@ -784,7 +852,7 @@ extension NativeBridge {
             deliveryMethod: nonBlank(detail.deliveryMethod), salutation: "Dear Sir / Madam,",
             subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
             intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
-            currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
+            currencySymbol: currencySymbol(company), columns: quotationColumns(detail), rows: rows,
             sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
                                                                       alwaysNewPage: company.termsNewPage == "Always")],
             // The company's name right under "For and on Behalf of" (who

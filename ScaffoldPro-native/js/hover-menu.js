@@ -408,10 +408,12 @@
 
   // Line Items' ☰: "Multiply quantities…" (greyed out while the page's
   // Multiply button is hidden: an issued document, or no items) and the
-  // Sort choices — data-multiply="multiply-btn" data-sort="line-sort".
+  // Sort choices — data-multiply="multiply-btn" data-sort="line-sort" — and,
+  // with data-columns="columns-btn", "Columns…".
   function linesMenu(button) {
     const multiply = document.getElementById(button.dataset.multiply || '');
     const sort = document.getElementById(button.dataset.sort || '');
+    const columns = document.getElementById(button.dataset.columns || '');
     const refresh = () => {
       button.title = [multiply ? 'Multiply quantities' : '', sort && sort.selectedOptions[0] ? `Sort: ${sort.selectedOptions[0].textContent}` : '']
         .filter(Boolean).join('\n');
@@ -423,10 +425,12 @@
       align: 'right',
       items: () => [
         ...(multiply ? [{ label: 'Multiply quantities…', sub: 'e.g. ×2 for 2 sets of the same scaffold', value: 'multiply', disabled: multiply.classList.contains('hidden') || multiply.disabled }] : []),
+        ...(columns ? [{ label: 'Columns…', sub: 'Add, remove or reorder the printed columns', value: 'columns', disabled: columns.disabled }] : []),
         ...(sort ? [{ group: 'Sort' }, ...selectItems(sort).filter((it) => it.group == null).map((it) => ({ ...it, value: `sort:${it.value}` }))] : []),
       ],
       onPick: (v) => {
         if (v === 'multiply') multiply.click();
+        else if (v === 'columns') columns.click();
         else if (v.startsWith('sort:')) { pickInSelect(sort, v.slice(5)); refresh(); }
       },
     });

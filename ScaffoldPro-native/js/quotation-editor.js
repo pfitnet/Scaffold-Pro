@@ -30,6 +30,8 @@ const multiply = window.multiplyLines.attach({
   include: (line) => !line.blockId && line.section !== 'Delivery',
   reload: () => loadDetail(),
 });
+// "Columns…" (js/quotation-columns.js): the printed table's columns.
+document.getElementById('columns-btn').addEventListener('click', () => window.quotationColumns.open(currentDetail, loadDetail));
 // Currency label from Settings (section 50) — "HK$" for HKD, as on the PDF.
 let currencyLabel = '';
 // The company's currency (Settings); a crane quotation can have its own.
@@ -436,6 +438,11 @@ function setupSignedBar() {
   });
 }
 
+// The editor's heads for the quotation's custom columns (Line Items' ☰ › Columns…).
+function customHeads() {
+  return window.quotationColumns.customInOrder(currentDetail).map((c) => `<th>${esc(c.title)}</th>`).join('');
+}
+
 function renderLineItems() {
   multiply.update();
   const container = document.getElementById('line-items');
@@ -446,6 +453,7 @@ function renderLineItems() {
   const sort = document.getElementById('line-sort');
   sort.value = currentDetail.lineSort || 'list';
   sort.disabled = isLocked;
+  document.getElementById('columns-btn').disabled = isLocked;
   sort.title = currentDetail.boqLinked ? `Linked: ${currentDetail.sourceBOQNumber} is sorted the same way` : 'How the items are listed and printed. Dragging a line switches to “As arranged”.';
 
   if (items.length === 0) {
@@ -457,7 +465,7 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
@@ -496,7 +504,7 @@ function renderDelivery() {
       <span class="extra-kind"><span class="line-tag">Delivery charges · added to the total</span></span>
       ${isLocked ? '' : '<span class="controls"><button type="button" class="delivery-add">+ Add Delivery</button></span>'}
     </div>
-    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th><th>Discount</th><th class="num">Total</th><th></th></tr></thead><tbody></tbody></table>`;
+    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead><tbody></tbody></table>`;
   const tbody = card.querySelector('tbody');
   lines.forEach((item, n) => tbody.appendChild(lineRow(item, `D${n + 1}`, isLocked, false)));
   const add = card.querySelector('.delivery-add');
@@ -572,6 +580,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td>${item.unit}${onceSwitch}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
     <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+    ${window.quotationColumns.customInOrder(currentDetail).map((c) => `<td><input type="text" class="cv-input" data-col="${esc(c.id)}" maxlength="60" value="${esc((item.customValues || {})[c.id] || '')}" aria-label="${esc(c.title)}" ${isLocked ? 'disabled' : ''} /></td>`).join('')}
     <td><div class="line-tools">${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}${markupBtn}</div></td>
     <td class="num">${money(lineTotal)}</td>
     <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
@@ -580,6 +589,11 @@ function lineRow(item, rowNo, isLocked, draggable) {
   const priceInput = tr.querySelector('.price-input');
   window.calcChange(qtyInput, (v, f) => updateLine(item.id, { quantity: Math.max(1, Math.round(v)), quantityFormula: f }));
   window.calcChange(priceInput, (v, f) => updateLine(item.id, { appliedUnitPrice: Math.max(0, v), priceFormula: f }));
+  tr.querySelectorAll('.cv-input').forEach((input) => input.addEventListener('change', async () => {
+    const r = await window.api.quotations.setLineValue(item.id, input.dataset.col, input.value);
+    if (r && r.ok === false) { await appAlert(r.error); return; }
+    item.customValues = Object.assign({}, item.customValues, { [input.dataset.col]: input.value.trim() });
+  }));
   const removeBtn = tr.querySelector('.remove-btn');
   if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
   const chip = tr.querySelector('.line-link');
