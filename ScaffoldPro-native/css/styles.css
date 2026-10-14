@@ -183,42 +183,38 @@ a:hover { text-decoration: underline; }
   overflow-y: auto;
 }
 
-.sidebar-search {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  margin: 0 0 14px;
-  padding: 7px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel) 80%, transparent);
-  color: var(--text-tertiary);
-  font-size: 13px;
-  text-align: left;
-  box-shadow: var(--shadow-control);
-  transition: color .15s, border-color .15s, box-shadow .2s var(--ease), transform .2s var(--ease);
+/* Search (⌘K) and Ask (⌘J) on one rounded track. */
+.sidebar-tools { display: flex; gap: 2px; margin: 0 0 16px; padding: 2px; border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 5%, transparent); box-shadow: inset 0 0 0 1px var(--hairline); }
+.sidebar-search, .sidebar-ask {
+  display: flex; align-items: center; gap: 7px; height: 30px; min-width: 0; padding: 0 9px;
+  border: none; border-radius: 8px; background: transparent; box-shadow: none;
+  color: var(--text-secondary); font-size: 13px; text-align: left;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
-.sidebar-search:hover { color: var(--text-secondary); border-color: var(--border-strong); box-shadow: var(--shadow-card); transform: translateY(-1px); }
+.sidebar-search { flex: 1; }
+.sidebar-search:hover:not(:disabled), .sidebar-ask:hover:not(:disabled) { color: var(--text); background: var(--panel); box-shadow: var(--shadow-control); border-color: transparent; }
 .sidebar-search span { flex: 1; }
-.sidebar-search .nav-icon { width: 14px; height: 14px; }
+.sidebar-search kbd, .sidebar-ask kbd { font-size: 10.5px; color: var(--text-tertiary); background: none; border: none; padding: 0; }
+.sidebar-search .nav-icon, .sidebar-ask .nav-icon { width: 15px; height: 15px; }
+.sidebar-ask .nav-icon { color: var(--accent); }
+.as-launcher { display: none !important; }
 
 .sidebar-section {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 560;
   color: var(--text-tertiary);
-  padding: 14px 10px 4px;
+  padding: 18px 10px 5px;
 }
-/* The first group's heading sits just under the search box. */
-.sidebar-search + .sidebar-section { padding-top: 0; }
+/* The first group's heading sits just under the search row. */
+.sidebar-tools + .sidebar-section { padding-top: 0; }
 
 #sidebar a {
   position: relative; z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 32px;
   padding: 6px 10px;
   border-radius: 9px;
   color: var(--text-secondary);
@@ -249,11 +245,12 @@ html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-inde
   transition: width .3s var(--ease), box-shadow .3s var(--ease); }
 html.sidebar-rail #sidebar.expanded { width: 224px; box-shadow: var(--shadow-sheet); }
 html.sidebar-rail #content { margin-left: 60px; }
-html.sidebar-rail #sidebar :is(a, .sidebar-search, .sidebar-section, .sidebar-team) { white-space: nowrap; min-width: 0; overflow: hidden; flex-shrink: 0; }
-html.sidebar-rail #sidebar :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
+html.sidebar-rail #sidebar :is(a, .sidebar-search, .sidebar-ask, .sidebar-user, .sidebar-section, .sidebar-team) { white-space: nowrap; min-width: 0; overflow: hidden; flex-shrink: 0; }
+html.sidebar-rail #sidebar :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span:not(.user-avatar), .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
   transition: opacity .2s var(--ease); }
-html.sidebar-rail #sidebar:not(.expanded) :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
+html.sidebar-rail #sidebar:not(.expanded) :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span:not(.user-avatar), .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
   opacity: 0; pointer-events: none; }
+html.sidebar-rail #sidebar:not(.expanded) .sidebar-tools { flex-direction: column; background: none; box-shadow: none; padding: 0; gap: 4px; }
 /* Folded: the chat's unread count as a dot on its icon. */
 html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: absolute; left: 22px; top: 3px; min-width: 8px; width: 8px; height: 8px; padding: 0; font-size: 0; }
 
@@ -625,30 +622,57 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(12, 14, 22, 0.32);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: rgba(17, 19, 22, 0.32);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 9vh;
-  z-index: 20;
-  animation: fade-in 0.12s ease;
+  padding-top: max(9vh, calc(var(--titlebar-safe) + 16px));
+  z-index: var(--z-sheet);
+  animation: fade-in var(--dur-fast) var(--ease-out);
 }
+/* One sheet look for every sheet and dialog: a double bezel (a panel in a
+   steel tray), radius 16, sizes sm 420 · md 560 · lg 760. Opens with a
+   short spring; closes at once (HANDOFF §3). */
 .modal {
   background: var(--panel);
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--hairline);
   padding: 22px 24px 20px;
   width: 440px;
   max-width: 92vw;
   max-height: 84vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-sheet);
-  animation: sheet-in 0.32s var(--spring);
+  box-shadow: var(--shadow-sheet), 0 0 0 5px color-mix(in srgb, var(--panel-2) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  animation: sheet-in var(--dur-sheet) var(--spring);
 }
-.modal h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 16px; }
-.modal.wide { width: 660px; }
+.modal h2 { font-size: 18px; font-weight: 620; letter-spacing: -0.01em; margin-bottom: 16px; }
+.modal.wide, .modal.sheet-lg { width: 760px; }
+.modal.sheet-sm { width: 420px; }
+.modal.sheet-md { width: 560px; }
+.modal.sheet-full { width: min(1200px, 94vw); max-height: 88vh; }
+.sheet-head h2 { margin-bottom: 14px; }
+
+/* Dialogs (js/dialogs.js: alerts, questions, typed answers): the sheet look, smaller. */
+.app-dialog-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog); display: flex; align-items: center; justify-content: center;
+  background: rgba(17, 19, 22, 0.32); animation: fade-in var(--dur-fast) var(--ease-out); padding: 16px; }
+.app-dialog { width: 420px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); color: var(--text);
+  border-radius: var(--radius-xl); border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-sheet), 0 0 0 5px color-mix(in srgb, var(--panel-2) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  padding: 20px 20px 16px; animation: sheet-in var(--dur-sheet) var(--spring); }
+.app-dialog.wide { width: 600px; }
+.app-dialog-head { display: flex; gap: 12px; align-items: flex-start; }
+.app-dialog-icon { flex: none; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: var(--panel-2); color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--hairline); }
+.app-dialog.danger .app-dialog-icon { background: var(--danger-soft); color: var(--danger); box-shadow: none; }
+.app-dialog-title { font-size: 14.5px; font-weight: 600; line-height: 1.35; margin: 6px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.app-dialog-body { font-size: 13.5px; line-height: 1.48; color: var(--text-secondary); margin: 8px 0 0 44px; white-space: pre-line; overflow-wrap: anywhere; }
+.app-dialog-input { display: block; width: calc(100% - 44px); box-sizing: border-box; margin: 12px 0 0 44px; }
+.app-dialog-buttons { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.app-dialog-buttons button { min-width: 84px; }
+.app-dialog-buttons button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.app-dialog-buttons button.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 88%, #000); color: #fff; }
 .modal .field { margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
 .modal .field label { font-size: 12px; color: var(--text-secondary); }
 .modal .field input, .modal .field select { width: 100%; }
@@ -935,15 +959,39 @@ button.danger-btn { color: var(--danger); }
 button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-soft); }
 
 /* "Updated with changes from …" — another Mac's changes arrived (team sharing). */
-.sync-toast {
-  position: fixed; right: 18px; bottom: 18px; z-index: 1000;
-  padding: 8px 14px; border-radius: 8px; font-size: 12px;
-  background: var(--panel); color: var(--text); border: 1px solid var(--border);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  opacity: 0; transform: translateY(6px); transition: opacity 0.25s ease, transform 0.25s ease;
+/* Toasts: one look, bottom centre (js/ui-kit.js appToast; the sync and undo
+   notes share it). They rise 8px and fade in, and leave the same way. */
+.sync-toast, .toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: var(--z-toast);
+  padding: 9px 14px; border-radius: 12px; font-size: 13px;
+  background: var(--text); color: var(--panel); border: none;
+  box-shadow: var(--shadow-menu);
+  opacity: 0; transform: translate(-50%, 8px); transition: opacity var(--dur-move) var(--ease-out), transform var(--dur-move) var(--spring);
   pointer-events: none;
 }
-.sync-toast.show { opacity: 1; transform: translateY(0); }
+.sync-toast.show, .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast-stack { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-toast); pointer-events: none; }
+.toast { position: absolute; display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.toast button, .sync-toast button { height: 24px; padding: 0 10px; border-radius: 7px; border: none; box-shadow: none; font-size: 12.5px; font-weight: 600;
+  background: color-mix(in srgb, var(--panel) 16%, transparent); color: var(--panel); }
+.toast button:hover:not(:disabled), .sync-toast button:hover:not(:disabled) { background: color-mix(in srgb, var(--panel) 26%, transparent); color: var(--panel); }
+.toast-danger { background: var(--danger); color: #fff; }
+
+/* Page header: title and a fact line on the left, [···] [Primary] on the right. */
+.page-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.page-actions .more-btn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius); }
+.page-actions button.primary { height: 34px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; }
+.crumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 8px; }
+.crumbs a { color: var(--text-secondary); text-decoration: none; border-radius: 5px; padding: 1px 3px; margin: 0 -3px; }
+.crumbs a:hover { color: var(--text); background: var(--row-hover); }
+.crumb-sep { display: inline-flex; opacity: .6; }
+.crumb-here { color: var(--text-secondary); font-weight: 500; }
+/* Search with an icon, Esc to clear and / to focus (js/ui-kit.js searchField). */
+.search-field { position: relative; display: inline-flex; align-items: center; min-width: 220px; }
+.search-field > svg { position: absolute; left: 10px; color: var(--text-tertiary); pointer-events: none; }
+.search-field > input { width: 100%; padding-left: 32px; padding-right: 30px; }
+.search-field > kbd { position: absolute; right: 8px; font-size: 10.5px; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--border); color: var(--text-tertiary); background: var(--panel); pointer-events: none; }
+.search-field > input:focus + kbd, .search-field > input:not(:placeholder-shown) + kbd { opacity: 0; }
 
 /* Sidebar foot, pinned to the bottom left: sharing status and the User tab. */
 .sidebar-foot {
@@ -951,17 +999,12 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
   padding: 8px 0 0; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 4px;
 }
 /* You and Settings: one button — your name, the gear at its right. */
-.sidebar-user-row { display: flex; align-items: stretch; border: 1px solid var(--hairline); border-radius: 11px; overflow: hidden;
-  background: color-mix(in srgb, var(--text) 3%, transparent); box-shadow: var(--shadow-control); }
-.sidebar-user-row .sidebar-user { flex: 1; min-width: 0; }
-#sidebar .sidebar-user-row a { border-radius: 0; box-shadow: none; }
-#sidebar a.sidebar-user { padding: 7px 8px 7px 10px; }
-.sidebar-user .user-gear { flex: none; display: inline-flex; color: var(--text-secondary); }
-.sidebar-user .user-gear svg { width: 17px; height: 17px; transition: transform .45s var(--ease); }
-#sidebar a.sidebar-user:hover .user-gear { color: var(--text); }
-#sidebar a.sidebar-user:hover .user-gear svg { transform: rotate(45deg); }
-#sidebar .sidebar-user-row a.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text); }
-#sidebar a.sidebar-user.active .user-gear { color: var(--accent-text); }
+.sidebar-user-row { display: flex; align-items: stretch; }
+#sidebar .sidebar-user { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 10px 0 6px;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; box-shadow: none; color: var(--text); font-size: 13px; font-weight: 560; text-align: left; }
+#sidebar .sidebar-user:hover:not(:disabled), #sidebar .sidebar-user.hm-active { background: var(--sidebar-hover); border-color: var(--hairline); }
+#sidebar .sidebar-user.active { background: var(--sidebar-selected); border-color: var(--hairline); box-shadow: var(--shadow-control); }
+.sidebar-user .user-caret { display: inline-flex; color: var(--text-tertiary); }
 .sidebar-user .user-avatar {
   width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   color: var(--accent-text); font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
@@ -1650,7 +1693,7 @@ button.mx-chip.on { background: var(--row-selected); border-color: var(--border-
 .cv-input { width: 88px; }
 .mx-table input[type="checkbox"] { margin: 0; }
 .undo-toast { display: flex; align-items: center; gap: 12px; pointer-events: auto; font-size: 12.5px; }
-.undo-toast button { padding: 2px 10px; font-size: 12px; font-weight: 600; color: var(--accent-text); }
+.undo-toast button { padding: 0 10px; font-size: 12px; font-weight: 600; }
 button.multiply-btn { font-size: 12px; padding: 3px 10px; }
 
 /* Delivery charges by weight: Settings table and the "+ Delivery Charge" sheet (js/delivery-rates.js). */
@@ -2709,3 +2752,74 @@ button:active:not(:disabled), a:active, summary:active, label:active { transitio
 .segmented.seg-mini { padding: 2px; gap: 1px; border-radius: 8px; vertical-align: middle; }
 .segmented.seg-mini button { padding: 2px 8px; min-height: 0; height: auto; font-size: 11px; line-height: 1.5; border-radius: 6px; text-transform: none; letter-spacing: normal; }
 td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
+
+/* =====================================================================
+   Small screens (docs/redesign/PLAN.md §3.4)
+   wide ≥ 1440 · desktop 1100–1439 · compact 768–1099 (icon rail, set by
+   js/sidebar.js) · phone < 768 (drawer + top bar). The phone rules only
+   apply to app pages (body[data-page]); the Mac window is never < 1000px.
+   ===================================================================== */
+.phone-bar, .drawer-scrim { display: none; }
+
+@media (max-width: 767px) {
+  body[data-page] { display: block; height: auto; min-height: 100dvh; overflow: auto; }
+  body[data-page] .phone-bar {
+    display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: var(--z-sticky);
+    height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0;
+    background: color-mix(in srgb, var(--content) 88%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .phone-menu { width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: none; background: none; box-shadow: none; }
+  .phone-title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The sidebar as a drawer from the left. */
+  html #sidebar, html.sidebar-rail #sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: var(--z-sheet); width: min(300px, 86vw);
+    padding-top: calc(16px + env(safe-area-inset-top)); padding-bottom: env(safe-area-inset-bottom);
+    background: var(--panel); box-shadow: var(--shadow-sheet);
+    transform: translateX(-104%); transition: transform 280ms var(--ease-drawer);
+  }
+  html.drawer-open #sidebar { transform: none; }
+  html.sidebar-rail #sidebar:not(.expanded) :is(a > span, .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span, .sidebar-section) { opacity: 1; pointer-events: auto; }
+  html.sidebar-rail #sidebar .sidebar-tools { flex-direction: row; background: color-mix(in srgb, var(--text) 5%, transparent); padding: 2px; }
+  body[data-page] .drawer-scrim { display: block; position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1); background: rgba(17, 19, 22, 0.32);
+    opacity: 0; pointer-events: none; transition: opacity 240ms var(--ease-out); }
+  html.drawer-open .drawer-scrim { opacity: 1; pointer-events: auto; }
+  html.sidebar-rail #content, #content { margin-left: 0; padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); overflow: visible; }
+  #content > * { max-width: none; }
+  h1 { font-size: 22px; }
+  /* Headers and toolbars wrap; the primary action stays visible. */
+  .page-header, .toolbar, .section-toolbar { flex-wrap: wrap; }
+  .page-header > div:first-child { min-width: 0; flex: 1 1 100%; }
+  .page-actions, .header-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .toolbar > input[type="text"], .toolbar > input[type="search"], .search-field { flex: 1 1 100%; min-width: 0; }
+  /* Grids and splits become one column. */
+  .stat-grid, .dash-grid, .form-row, .form-grid, .overview-grid, .details-bar { grid-template-columns: 1fr !important; }
+  .dash-grid > [data-widget] { grid-column: auto !important; }
+  /* Tables scroll sideways inside their own box, never the page. */
+  #content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  /* Sheets open full screen; menus stay where they are. */
+  .modal-backdrop { padding: 0; align-items: stretch; }
+  .modal, .modal.wide, .modal.sheet-sm, .modal.sheet-md, .modal.sheet-lg, .modal.sheet-full {
+    width: 100vw; max-width: 100vw; max-height: none; min-height: 100dvh; border-radius: 0; border: none;
+    padding: calc(18px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: none; }
+  .modal .actions { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom)); background: var(--panel); padding-bottom: 12px; margin-bottom: -12px; }
+  .app-dialog { width: 100%; }
+  .as-float { left: 0 !important; top: 0 !important; width: 100vw !important; height: 100dvh !important; border-radius: 0 !important; }
+}
+
+/* Touch: bigger targets, no hover-only actions, no zoom on typing. */
+@media (pointer: coarse) {
+  button, .button-like, input[type="text"], input[type="search"], input[type="number"], input[type="email"], select { min-height: 40px; }
+  input, select, textarea { font-size: 16px; }
+  #sidebar a { min-height: 44px; }
+  .row-actions, .hover-actions { opacity: 1 !important; visibility: visible !important; }
+  * { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Printing: the app's own chrome stays off the page. */
+@media print {
+  #sidebar, .phone-bar, .drawer-scrim, .toast-stack, .toast, .sync-toast, .as-float, .as-launcher, .notify-stack { display: none !important; }
+  body { display: block; height: auto; overflow: visible; }
+  #content { padding: 0; overflow: visible; }
+}

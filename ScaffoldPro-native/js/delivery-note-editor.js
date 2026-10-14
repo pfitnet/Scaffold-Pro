@@ -68,7 +68,7 @@ async function loadDetail() {
 
 function render() {
   const d = currentDetail;
-  document.title = `${d.deliveryNoteNumber} — ScaffoldPro`;
+  document.title = `${d.deliveryNoteNumber} · ScaffoldPro`;
   document.getElementById('dn-header').innerHTML = `
     <h1>${d.deliveryNoteNumber}</h1>
     <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.clientName || 'No client'} · ${d.siteName || 'No site'}</div>`;

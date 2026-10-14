@@ -80,7 +80,7 @@ const PROJECTS = [
   { id: 'p26218', projectNumber: '26218', name: 'Kai Tak Cruise Terminal – Canopy Maintenance', clientId: 'c1', siteId: 's9', status: 'Completed', jobType: 'Scaffolding', startDate: '2026-02-09', expectedCompletionDate: '2026-06-30', projectManager: 'Harry', createdBy: 'William', lastEditedBy: 'William' },
   { id: 'p26227', projectNumber: '26227', name: 'Wong Chuk Hang Station – Spider Crane Lift', clientId: 'c2', siteId: 's10', status: 'Planning', jobType: 'Crane', projectManager: 'Tom', createdBy: 'Tom', lastEditedBy: 'Tom' },
   { id: 'p26205', projectNumber: '26205', name: 'Lam Tin Estate – Lift Shaft Scaffold', clientId: 'c3', siteId: 's8', status: 'Archived', jobType: 'Scaffolding', startDate: '2025-11-03', expectedCompletionDate: '2026-02-27', projectManager: 'Harry', createdBy: 'William', lastEditedBy: 'William' },
-].map((p, i) => Object.assign({ projectDescription: null, startDate: null, expectedCompletionDate: null, internalNotes: null, createdAt: at(addDays('2026-09-28', -i * 9), '09:15') }, p));
+].map((p, i) => Object.assign({ projectDescription: null, startDate: null, expectedCompletionDate: null, internalNotes: null, createdAt: at(addDays(p.startDate && p.startDate < TODAY ? p.startDate : '2026-10-06', -24 + i), '09:15') }, p));
 const PROJECT = byId(PROJECTS);
 const PROJECT_BY_NUMBER = Object.fromEntries(PROJECTS.map((p) => [p.projectNumber, p]));
 const projectRef = (p) => ({ id: p.id, projectNumber: p.projectNumber, name: p.name, siteId: p.siteId, siteName: SITE[p.siteId].name, siteAddress: SITE[p.siteId].address, clientName: CLIENT[p.clientId].companyName });
@@ -209,9 +209,9 @@ function boqLine(bid, n, name, qty, notes) {
     priceListUnitPrice: it.unitRentalPrice, appliedUnitPrice: it.unitRentalPrice, weightKg: it.weightKg, section: it.category, sortOrder: n, notes: notes || null };
 }
 const BOQ_ZONE_A = [
-  ['600mm Base Jack', 96], ['Timber Sole Board', 96], ['2.0m standard with spigot', 144], ['1.0m standard with spigot', 48], ['2.07m Ledger', 288], ['0.73m Ledger', 192],
-  ['2.07m x 2.0m Face Brace', 72], ['2.07m x 0.32m Steel Deck', 216], ['2.07m Toe Board', 96], ['0.73m Toe Board', 64], ['2.57m Aluminumn Staircase', 6], ['Right Angle Coupler (fixed)', 120],
-  ['1.2m Wall Tie Tube', 40],
+  ['600mm Base Jack', 288], ['Timber Sole Board', 288], ['2.0m standard with spigot', 432], ['1.0m standard with spigot', 144], ['2.07m Ledger', 864], ['0.73m Ledger', 576],
+  ['2.07m x 2.0m Face Brace', 216], ['2.07m x 0.32m Steel Deck', 648], ['2.07m Toe Board', 288], ['0.73m Toe Board', 192], ['2.57m Aluminumn Staircase', 18], ['Right Angle Coupler (fixed)', 360],
+  ['1.2m Wall Tie Tube', 120],
 ];
 const BOQS_RAW = [
   { id: 'doc1', projectId: 'p26219', boqNumber: 'BOQ26219-001', status: 'Issued', pricingMode: 'Rental', structure: 'Zone A – roof access tower and perimeter platform', date: '2026-09-02', rows: BOQ_ZONE_A, createdBy: 'Irene', lastEditedBy: 'Irene' },
@@ -329,7 +329,7 @@ for (const d of DN_SPECS) {
 
 // ---------------------------------------------------------------- invoices
 const INV_SPECS = [
-  { id: 'doc1', projectId: 'p26219', number: 'Inv26219-001', status: 'PartiallyPaid', date: '2026-10-02', quotationId: 'doc1', dns: ['dn3', 'dn2'], paid: 40000, period: '10 Sep – 9 Oct 2026' },
+  { id: 'doc1', projectId: 'p26219', number: 'Inv26219-001', status: 'PartiallyPaid', date: '2026-10-02', quotationId: 'doc1', dns: ['dn3', 'dn2'], paidShare: 0.6, period: '10 Sep – 9 Oct 2026' },
   { id: 'i2', projectId: 'p26220', number: 'Inv26220-001', status: 'Paid', date: '2026-09-01', quotationId: 'q4', dns: ['dn4'], paidAll: true, period: '19 Aug – 18 Sep 2026' },
   { id: 'i3', projectId: 'p26220', number: 'Inv26220-002', status: 'Issued', date: '2026-10-01', quotationId: 'q4', dns: ['dn4'], period: '19 Sep – 18 Oct 2026' },
   { id: 'i4', projectId: 'p26222', number: 'Inv26222-001', status: 'Overdue', date: '2026-09-08', quotationId: 'q6', dns: ['dn5'], period: '21 Sep – 20 Oct 2026' },
@@ -349,7 +349,7 @@ for (const s of INV_SPECS) {
   const delivery = s.id === 'doc1' || s.id === 'i2' || s.id === 'i4' ? r2(lines.filter((l) => l.section === 'Delivery').reduce((a, l) => a + l.quantity * l.appliedUnitPrice, 0)) : 0;
   const finalLines = delivery ? lines : lines.filter((l) => l.section !== 'Delivery');
   const total = r2(materials + delivery);
-  const paid = s.paidAll ? total : s.paid || 0;
+  const paid = s.paidAll ? total : r2(total * (s.paidShare || 0));
   const dueDate = addDays(s.date, 30);
   INV[s.id] = {
     id: s.id, invoiceNumber: s.number, status: s.status, invoiceDate: at(s.date), dueDate: at(dueDate), paymentTerms: '30 days from invoice date', discountType: 'None', discountValue: 0, taxRatePercent: 0,
@@ -448,7 +448,7 @@ const CALENDAR = [
   { date: '2026-10-12', kind: 'Inspection', title: 'Form 5 – Zone A roof access tower', detail: '26219 · Safe', url: 'project-detail.html?number=26219&tab=inspections', done: true },
   { date: '2026-10-16', kind: 'Inspection', title: 'Form 5 due – Block B north façade', detail: '26220', url: 'project-detail.html?number=26220&tab=inspections' },
   { date: '2026-10-16', kind: 'Quotation', title: 'Qt26221-001 valid until', detail: 'Chun Wo – Tuen Mun Road', url: 'quotation-editor.html?id=q5' },
-  { date: '2026-10-08', kind: 'Invoice', title: 'Inv26222-001 due', detail: 'Leighton – HK$ 197,600.00', url: 'invoice-editor.html?id=i4', overdue: true },
+  { date: '2026-10-08', kind: 'Invoice', title: 'Inv26222-001 due', detail: 'Leighton Contractors (Asia)', url: 'invoice-editor.html?id=i4', overdue: true },
   { date: '2026-10-31', kind: 'Invoice', title: 'Inv26220-002 due', detail: 'Hip Hing', url: 'invoice-editor.html?id=i3' },
   { date: '2026-10-14', kind: 'Lead', title: 'Follow up: Kerry Properties', detail: 'Tender for Tai Wai residential', url: 'marketing.html?tab=leads&lead=ld2', person: 'Jeremie' },
   { date: '2026-10-18', kind: 'Expiry', title: 'Green card expires – Chan Siu-keung', detail: 'Construction Workers Registration', url: 'workers.html?worker=w2' },
@@ -610,6 +610,14 @@ const STOCK = { items: STOCK_ROWS, movements: MOVEMENTS, projects: PROJECTS.filt
 const ACC_INVOICES = Object.values(INV_SUMMARY).filter((s) => s.status !== 'Draft').map((s) => { const p = PROJECT[s._projectId]; return {
   id: s.id, invoiceNumber: s.invoiceNumber, projectId: p.id, projectNumber: p.projectNumber, projectName: p.name, clientName: CLIENT[p.clientId].companyName, status: s.status,
   invoiceDate: s._date, dueDate: s._dueDate, total: s.total, amountPaid: s.amountPaid, balanceDue: r2(s.total - s.amountPaid) }; });
+// Earlier invoices of finished work, so the year's figures are full.
+const PAST_INV = [
+  ['pi1', 'Inv26205-003', 'p26205', '2026-01-30', 96400], ['pi2', 'Inv26205-004', 'p26205', '2026-02-27', 88150], ['pi3', 'Inv26226-001', 'p26226', '2026-03-31', 124800],
+  ['pi4', 'Inv26226-002', 'p26226', '2026-04-30', 131250], ['pi5', 'Inv26226-003', 'p26226', '2026-05-29', 128900], ['pi6', 'Inv26218-002', 'p26218', '2026-03-16', 54200],
+  ['pi7', 'Inv26218-003', 'p26218', '2026-06-30', 61850], ['pi8', 'Inv26223-001', 'p26223', '2026-07-31', 83600], ['pi9', 'Inv26223-002', 'p26223', '2026-08-31', 83600],
+].map(([id, invoiceNumber, pid, invoiceDate, total]) => { const p = PROJECT[pid]; return { id, invoiceNumber, projectId: pid, projectNumber: p.projectNumber, projectName: p.name,
+  clientName: CLIENT[p.clientId].companyName, status: 'Paid', invoiceDate, dueDate: addDays(invoiceDate, 30), total, amountPaid: total, balanceDue: 0 }; });
+ACC_INVOICES.push(...PAST_INV);
 const ACC_PAYMENTS = ACC_INVOICES.filter((i) => i.amountPaid > 0).map((i, n) => ({ id: `pay${n + 1}`, invoiceId: i.id, invoiceNumber: i.invoiceNumber, projectId: i.projectId,
   date: addDays(i.invoiceDate, 24), amount: i.amountPaid, method: n % 2 ? 'FPS' : 'Cheque', reference: n % 2 ? 'FPS 20261013' : `HSBC chq ${408120 + n}`, undated: false }));
 const EXPENSES = [
@@ -648,12 +656,27 @@ const LEADS = [
   source, status, estimatedValue, nextFollowUp, notes, owner, clientId: status === 'Won' ? 'c6' : null, createdAt: '2026-09-01T09:00:00Z', updatedAt: '2026-10-12T09:00:00Z' }));
 const MONTHS = ['2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'];
 const M_QUOTED = [[3, 410000, 1], [2, 280000, 1], [4, 620000, 2], [3, 515000, 2], [5, 880000, 3], [4, 690000, 2], [3, 470000, 1], [5, 940000, 3], [4, 760000, 2], [6, 1120000, 3], [5, 980000, 3], [4, 840000, 1]];
-const MKT_QUOTES = QUOTES.filter((x) => x.q.status !== 'Cancelled').map((x) => ({ id: x.q.id, number: x.q.number, date: x.q.date, month: x.q.date.slice(0, 7), clientId: x.project.clientId,
-  clientName: CLIENT[x.project.clientId].companyName, projectNumber: x.project.projectNumber, projectName: x.project.name, subject: x.q.subject, value: x.detail.total, won: !!x.q.signed }))
-  .sort((a, b) => b.date.localeCompare(a.date));
+const REAL_QUOTES = QUOTES.filter((x) => x.q.status !== 'Cancelled' && x.q.date >= '2025-11-01').map((x) => ({ id: x.q.id, number: x.q.number, date: x.q.date, month: x.q.date.slice(0, 7), clientId: x.project.clientId,
+  clientName: CLIENT[x.project.clientId].companyName, projectNumber: x.project.projectNumber, projectName: x.project.name, subject: x.q.subject, value: x.detail.total, won: !!x.q.signed }));
+// Older quotations (projects not in this sample) fill each month up to M_QUOTED's count.
+const PAST_SUBJECTS = ['Scaffolding Materials \u2013 Rental \u2013 fa\u00e7ade access', 'Truss-out platform \u2013 Rental', 'Boom-lift Hire \u2013 3 months', 'Scaffolding Materials \u2013 Sale', 'Lift shaft scaffold \u2013 Rental', 'Spider crane hire'];
+let pastNo = 150;
+const MKT_QUOTES = REAL_QUOTES.concat(...MONTHS.map((month, i) => {
+  const [count, value, won] = M_QUOTED[i];
+  const real = REAL_QUOTES.filter((q) => q.month === month);
+  const need = Math.max(0, count - real.length);
+  const left = Math.max(60000, value - real.reduce((a, q) => a + q.value, 0));
+  const wonLeft = Math.max(0, won - real.filter((q) => q.won).length);
+  return Array.from({ length: need }, (_, k) => { const c = CLIENTS[(i + k) % CLIENTS.length]; const n = pastNo++;
+    return { id: `mq${n}`, number: `Qt26${n}-001`, date: `${month}-${String(4 + k * 6).padStart(2, '0')}`, month, clientId: c.id, clientName: c.companyName, projectNumber: `26${n}`,
+      projectName: `${c.clientReference} \u2013 ${['Kowloon Bay', 'Sai Kung', 'Yuen Long', 'Aberdeen', 'Mong Kok', 'Tsing Yi'][(i + k) % 6]}`, subject: `26${n} ${PAST_SUBJECTS[(i + k) % PAST_SUBJECTS.length]}`,
+      value: Math.round(left / need * (0.7 + 0.6 * ((k * 7 + i) % 5) / 4) / 10) * 10, won: k < wonLeft }; });
+})).sort((a, b) => b.date.localeCompare(a.date));
+const MKT_WON = MKT_QUOTES.filter((q) => q.won);
+const MKT_VALUE = r2(MKT_QUOTES.reduce((a, q) => a + q.value, 0));
 const MARKETING = {
-  currency: 'HKD', months: MONTHS.map((month, i) => ({ month, quotedCount: M_QUOTED[i][0], quotedValue: M_QUOTED[i][1], wonCount: M_QUOTED[i][2] })),
-  quotedCount: 48, quotedValue: 8505000, wonCount: 24, winRate: 0.5, averageQuote: 177187.5, newClients: 3, openLeads: 5, pipelineValue: 7180000,
+  currency: 'HKD', months: MONTHS.map((month) => { const qs = MKT_QUOTES.filter((q) => q.month === month); return { month, quotedCount: qs.length, quotedValue: r2(qs.reduce((a, q) => a + q.value, 0)), wonCount: qs.filter((q) => q.won).length }; }),
+  quotedCount: MKT_QUOTES.length, quotedValue: MKT_VALUE, wonCount: MKT_WON.length, winRate: MKT_WON.length / MKT_QUOTES.length, averageQuote: r2(MKT_VALUE / MKT_QUOTES.length), newClients: 3, openLeads: 5, pipelineValue: 7180000,
   leadSources: { Tender: 2, Referral: 1, Website: 1, 'Cold Call': 1, 'Repeat Client': 1, 'Site Visit': 1 },
   topClients: [['c1', 1240000, 9, 6], ['c2', 860000, 7, 4], ['c4', 395200, 3, 2], ['c8', 612000, 5, 3], ['c3', 210000, 6, 2]].map(([id, invoiced, quotations, won]) => ({ id, name: CLIENT[id].companyName, invoiced, quotations, won, lastActivity: '2026-10-13' })),
   quotes: MKT_QUOTES,

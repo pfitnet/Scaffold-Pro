@@ -1439,7 +1439,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
         // Go — ⌘1…⌘7 for the sidebar sections (letters are in each project; sites are with clients) (Settings is ⌘,), ⌘[ / ⌘] for back/forward.
         let go = NSMenu(title: "Go")
-        let sections: [(String, String)] = [("Dashboard", "index.html"), ("Costs", "price-lists.html"),
+        let sections: [(String, String)] = [("Home", "index.html"), ("Costs", "price-lists.html"),
                                             ("Clients & Sites", "clients.html"), ("Projects", "projects.html"),
                                             ("Stock", "stock.html"), ("Accounting", "accounts.html"), ("Admin", "admin.html")]
         for (index, entry) in sections.enumerated() {

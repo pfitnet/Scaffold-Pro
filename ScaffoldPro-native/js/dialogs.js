@@ -42,33 +42,8 @@
     return m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
   }
 
-  function ensureStyles() {
-    if (document.getElementById('app-dialog-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'app-dialog-styles';
-    style.textContent = `
-      .app-dialog-backdrop { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center;
-        background: rgba(20, 22, 26, 0.32); animation: appDialogFade 0.12s ease-out; padding: 16px; }
-      .app-dialog { width: 400px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; background: var(--panel, #fff); color: var(--text, #1d1d1f);
-        border-radius: 12px; box-shadow: var(--shadow-sheet, 0 18px 50px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.12));
-        padding: 20px 20px 16px; animation: appDialogPop 0.14s ease-out; font-family: "Geist", var(--font-ui, "Geist", -apple-system, sans-serif); }
-      .app-dialog.wide { width: 600px; }
-      .app-dialog-head { display: flex; gap: 12px; align-items: flex-start; }
-      .app-dialog-icon { flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        background: var(--accent-soft, rgba(36,99,199,0.1)); color: var(--accent, #2463c7); font-weight: 700; font-size: 15px; }
-      .app-dialog.danger .app-dialog-icon { background: var(--danger-soft, rgba(201,58,50,0.1)); color: var(--danger, #c93a32); }
-      .app-dialog-title { font-size: 14px; font-weight: 650; line-height: 1.35; margin: 5px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
-      .app-dialog-body { font-size: 13px; line-height: 1.45; color: var(--text-secondary, #6e6e73); margin: 8px 0 0 42px; white-space: pre-line; overflow-wrap: anywhere; }
-      .app-dialog-input { display: block; width: calc(100% - 42px); box-sizing: border-box; margin: 12px 0 0 42px; }
-      .app-dialog-buttons { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
-      .app-dialog-buttons button { min-width: 84px; }
-      .app-dialog-buttons button.danger { background: var(--danger, #c93a32); border-color: var(--danger, #c93a32); color: #fff; }
-      .app-dialog-buttons button.danger:hover { filter: brightness(0.95); }
-      @keyframes appDialogFade { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes appDialogPop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
-    `;
-    (document.head || document.documentElement).appendChild(style);
-  }
+  // The dialog's look lives in css/styles.css ("Dialogs"), with the sheets.
+  function ensureStyles() {}
 
   // The dialog itself. buttons: [{ label, value, primary?, danger?, cancel? }]
   // — the last is on the right; Return picks the primary one, Escape the
@@ -82,7 +57,7 @@
         backdrop.className = 'app-dialog-backdrop';
         backdrop.innerHTML = `
           <div class="app-dialog${danger ? ' danger' : ''}${opts.buttons.length > 3 ? ' wide' : ''}" data-no-icon role="${opts.buttons.length > 1 ? 'alertdialog' : 'dialog'}" aria-modal="true">
-            <div class="app-dialog-head"><div class="app-dialog-icon" aria-hidden="true">${danger ? '!' : opts.buttons.length > 1 ? '?' : 'i'}</div>
+            <div class="app-dialog-head"><div class="app-dialog-icon" aria-hidden="true">${window.icon ? window.icon(danger ? 'warning' : opts.buttons.length > 1 ? 'question' : 'info', { size: 17 }) : (danger ? '!' : opts.buttons.length > 1 ? '?' : 'i')}</div>
               <div class="app-dialog-title">${esc(title)}</div></div>
             ${body ? `<div class="app-dialog-body">${esc(body)}</div>` : ''}
             ${opts.input ? `<input type="text" class="app-dialog-input" value="${esc(opts.input.value || '')}" placeholder="${esc(opts.input.placeholder || '')}" />` : ''}

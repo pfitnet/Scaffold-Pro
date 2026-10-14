@@ -1141,7 +1141,7 @@
     const page = document.body.dataset.page || (location.pathname.split('/').pop() || '').replace('.html', '');
     const params = new URLSearchParams(location.search);
     const heading = (document.querySelector('#content h1') || {}).textContent || '';
-    const title = (document.title || '').replace(/\s*—\s*ScaffoldPro$/, '');
+    const title = (document.title || '').replace(/\s*[—·]\s*ScaffoldPro$/, '');
     const docNumber = (document.querySelector('[data-doc-number], .doc-number, #doc-number') || {}).textContent || '';
     const sel = (window.getSelection && String(window.getSelection())) || '';
     const panel = document.getElementById('as-float');

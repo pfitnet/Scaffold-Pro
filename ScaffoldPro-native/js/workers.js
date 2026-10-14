@@ -346,7 +346,7 @@
     box.classList.toggle('enter', !!animate);
     drawPanel();
     placeInk();
-    if (w) document.title = `${w.name} — Workers — ScaffoldPro`;
+    if (w) document.title = `${w.name} — Workers · ScaffoldPro`;
   }
   function placeInk() {
     const on = document.querySelector('.wk-tabs button.on');

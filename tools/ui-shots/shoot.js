@@ -33,7 +33,7 @@ fs.mkdirSync(OUT, { recursive: true });
     const ctx = await browser.newContext({ ...opts, colorScheme: scheme });
     await ctx.exposeFunction('__mockReply', (action, payload) => JSON.stringify(reply(action, payload)));
     await ctx.addInitScript(`
-      ${web ? 'window.__scaffoldProWeb = true; document.documentElement.classList.add("web");' : ''}
+      ${web ? 'document.addEventListener("DOMContentLoaded", () => document.documentElement.classList.add("web"));' : ''}
       window.__calls = [];
       window.webkit = { messageHandlers: { native: { postMessage(m) {
         window.__calls.push(m.action);
