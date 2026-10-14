@@ -980,6 +980,22 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
 .page-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 .page-actions .more-btn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius); margin: 0; color: var(--text); }
 .page-actions .more-btn svg { opacity: 1; }
+/* A filter that is on or off, as a chip: <label class="check-chip"><input type="checkbox">Archived</label>. */
+.check-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--panel); color: var(--text-secondary); font-size: 12.5px; font-weight: 500; cursor: pointer; user-select: none;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.check-chip input { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; margin: 0; }
+.check-chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid currentColor; opacity: .55;
+  transition: transform var(--dur-fast) var(--spring), background-color var(--dur-fast); }
+@media (hover: hover) { .check-chip:hover { color: var(--text); border-color: var(--border-strong); } }
+.check-chip:has(input:checked) { background: var(--row-selected); border-color: var(--border-strong); color: var(--text); }
+.check-chip:has(input:checked)::before { background: currentColor; opacity: 1; transform: scale(1.1); }
+.check-chip:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--focus-ring); }
+/* ⓘ beside a fact line: the explanation, as a tooltip. */
+.info-tip { display: inline-grid; place-items: center; width: 15px; height: 15px; margin-left: 4px; vertical-align: -2px; border-radius: 50%;
+  border: 1.2px solid var(--text-tertiary); color: var(--text-tertiary); font-size: 10px; font-weight: 650; font-style: normal; cursor: help; }
+.info-tip::before { content: 'i'; }
+.info-tip:hover, .info-tip:focus-visible { color: var(--text); border-color: var(--text); outline: none; }
 .page-actions button.primary { height: 34px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; }
 .crumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 8px; }
 .crumbs a { color: var(--text-secondary); text-decoration: none; border-radius: 5px; padding: 1px 3px; margin: 0 -3px; }
@@ -1529,7 +1545,13 @@ body.widget-dragging-any, body.widget-dragging-any * { cursor: grabbing !importa
 /* The dot a line leaves from; drag it to the other side. */
 .conn-port { position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: var(--panel);
   border: 2px solid var(--border-strong); cursor: crosshair; z-index: 3; transition: transform .12s, border-color .12s, background .12s; touch-action: none; }
-.conn-card.client .conn-port { right: -7px; }
+.conn-card.client .conn-port { right: -7px; cursor: grab; }
+/* Phone: clients, then sites, one column; the lines need two columns, so they go. */
+@media (max-width: 767px) {
+  .conn-board { display: flex !important; flex-direction: column; gap: 18px; }
+  .conn-board.hidden { display: none !important; }
+  .conn-gap, .conn-lines, .conn-port { display: none; }
+}
 .conn-card.site .conn-port { left: -7px; }
 .conn-card:hover .conn-port, .conn-card.lit .conn-port { border-color: var(--accent); }
 .conn-port:hover { transform: scale(1.35); background: var(--accent); border-color: var(--accent); }

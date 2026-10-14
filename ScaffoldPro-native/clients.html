@@ -9,17 +9,24 @@
 <body data-page="clients">
   <nav id="sidebar"></nav>
   <main id="content">
-    <h1>Clients &amp; Sites</h1>
-    <div class="subtitle">Who you work for, and where. A line joins a client to each site you’ve had a project at — hover or click either side to follow its lines, click a line for its projects, or drag a client’s dot onto a site to start a new project there.</div>
+    <header class="page-header" id="cs-head">
+      <div>
+        <h1>Clients &amp; Sites</h1>
+        <div class="subtitle"><span id="cs-fact">Who you work for, and where</span>
+          <span class="info-tip" tabindex="0" title="A line joins a client to each site you’ve had a project at. Hover or click either side to follow its lines, click a line for its projects, or drag a client’s dot onto a site to start a new project there." aria-label="How the lines work"></span></div>
+      </div>
+    </header>
 
     <div class="toolbar">
       <input type="text" id="search-box" placeholder="Search clients and sites" />
-      <label class="small-note"><input type="checkbox" id="show-archived" /> Show archived</label>
-      <span class="toolbar-spacer"></span>
-      <button id="import-xlsx-btn" data-no-icon title="Add or update clients or sites from an Excel workbook (.xlsx)">Import from Excel…</button>
-      <button id="export-xlsx-btn" data-no-icon title="Save the clients or the sites as an Excel file (.xlsx)">Export to Excel…</button>
-      <button id="new-site-btn" data-no-icon>+ New Site</button>
-      <button class="primary" id="new-client-btn" data-no-icon>+ New Client</button>
+      <label class="check-chip"><input type="checkbox" id="show-archived" />Archived</label>
+      <!-- The menus press these (js/connections.js). -->
+      <span class="hidden">
+        <button id="import-xlsx-btn" data-no-icon>Import from Excel…</button>
+        <button id="export-xlsx-btn" data-no-icon>Export to Excel…</button>
+        <button id="new-site-btn" data-no-icon>New Site</button>
+        <button id="new-client-btn" data-no-icon>New Client</button>
+      </span>
     </div>
 
     <div id="list-container"></div>
