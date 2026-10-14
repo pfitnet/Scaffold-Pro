@@ -195,6 +195,7 @@ window.MANUAL_CONTENT = [
         [1, 'The project', ''], [2, 'BOQ', ''], [3, 'Quotation', 'Its subsidiary indented'], [4, 'Invoice', 'Joined to its note'],
       ] },
       { type: 'swatches', items: [['#22a35a', 'Linked', 'Kept the same'], ['#9196a3', 'Unlinked', 'Dashed'], ['#8b6cf0', 'Subsidiary', 'Violet branch']] },
+      { type: 'swatches', items: [['#5374b8', 'Issued', 'Border in its own colour'], ['#c25444', 'Chopped', 'Signed by a director'], ['#c9a227', 'Client signed', 'Gold border']] },
       { type: 'tip', icon: 'note', text: 'Rest on a document in **Overview** to see its sub-project’s note. BQ26221-001, Qt26221-001 and what’s made from them share one. The small pencil on a document edits it; a dot means there’s a note.' },
       { type: 'steps', title: 'A new project', steps: [
         ['plus', 'New Project', 'The number is proposed.'],

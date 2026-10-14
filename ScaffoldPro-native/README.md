@@ -5154,3 +5154,21 @@ Increase Contrast. No Swift changed.
   back to the item above; now: the next one), the markup icon and the
   Discount button both working (light and dark). Swift parsed with
   tree-sitter, not compiled. PDFs and Word files not seen.
+
+## Batch 233 — Reference on every page; borders for issued and signed documents
+
+- Quotations (and every other letter-style PDF: invoices, delivery notes,
+  portrait BOQs): from page 2 on, "Our Ref.: Qt26221-002" sits top right,
+  on the line of "LIMITED", just above the orange rule. Page 1 already
+  shows it in the references. It uses empty space, so nothing moves.
+  The Word copy does the same (a first-page header without it, and one
+  with it for the other pages).
+- Projects › Overview: a document's border says how far it has gone —
+  issued: its own colour at full strength; signed by a director: the
+  chop's red, "· Chopped" after its status; the client's signed copy in:
+  gold, "· Client signed". Drafts stay as they were.
+- `OverviewDoc.mark` ("issued" / "chopped" / "signed"); `PDFGenerator.runningRef`.
+- Checked: the Overview in a browser (light and dark); a sample Word file
+  built in Node, its XML checked and opened in LibreOffice (page 2 shows the
+  reference, page 1 doesn't). Swift parsed with tree-sitter, not compiled.
+  The PDF wasn't seen.

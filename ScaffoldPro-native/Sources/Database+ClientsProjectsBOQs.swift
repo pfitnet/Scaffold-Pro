@@ -186,8 +186,16 @@ extension AppDatabase {
     /// what each was made from (`linked`: still kept in step with it).
     struct OverviewLink: Codable { var id: String; var linked: Bool }
     /// `subProject`: the number after the project code it's filed under
-    /// ("001"), whose note it shows.
-    struct OverviewDoc: Codable { var id: String; var number: String; var status: String; var from: [OverviewLink]; var subProject: String? = nil }
+    /// ("001"), whose note it shows. `mark`: how far it has gone, for its
+    /// border — "signed" (the client's signed copy is in), "chopped"
+    /// (signed by a director), "issued", or nil (a draft).
+    struct OverviewDoc: Codable { var id: String; var number: String; var status: String; var from: [OverviewLink]; var subProject: String? = nil; var mark: String? = nil }
+
+    func overviewMark(status: String, signedCopy: String? = nil, director: String? = nil) -> String? {
+        if signedCopy.map({ fileIsPresent($0) }) == true { return "signed" }
+        if nonBlank(director) != nil { return "chopped" }
+        return status == "Draft" || status == "Cancelled" ? nil : "issued"
+    }
     struct ProjectOverview: Codable {
         var projectId: String
         var boqs: [OverviewDoc] = []
@@ -251,7 +259,7 @@ extension AppDatabase {
         for b in boqsStore.readAll() {
             var o = get(b.projectId)
             o.boqs.append(OverviewDoc(id: b.id, number: b.boqNumber, status: b.status, from: [],
-                                      subProject: subProjectKey(b.boqNumber, projectNumber: codes[b.projectId])))
+                                      subProject: subProjectKey(b.boqNumber, projectNumber: codes[b.projectId]), mark: overviewMark(status: b.status)))
             out[b.projectId] = o
         }
         let quotations = quotationsStore.readAll()
@@ -262,7 +270,8 @@ extension AppDatabase {
             if let parent = parentQuotation(of: q, in: quotations) { from.append(OverviewLink(id: parent.id, linked: true)) }
             let sub = subProjectKey(q.quotationNumber, projectNumber: codes[q.projectId])
             quoteSub[q.id] = sub
-            o.quotations.append(OverviewDoc(id: q.id, number: q.quotationNumber, status: q.status, from: from, subProject: sub))
+            o.quotations.append(OverviewDoc(id: q.id, number: q.quotationNumber, status: q.status, from: from, subProject: sub,
+                                            mark: overviewMark(status: q.status, signedCopy: q.signedCopyPath, director: q.directorSignedBy)))
             out[q.projectId] = o
         }
         for d in deliveryNotesStore.readAll() {
@@ -270,7 +279,8 @@ extension AppDatabase {
             let sub = d.sourceQuotationId.flatMap { quoteSub[$0] } ?? subProjectKey(d.deliveryNoteNumber, projectNumber: codes[d.projectId])
             noteSub[d.id] = sub
             o.deliveryNotes.append(OverviewDoc(id: d.id, number: d.deliveryNoteNumber, status: d.status,
-                                               from: d.sourceQuotationId.map { [OverviewLink(id: $0, linked: true)] } ?? [], subProject: sub))
+                                               from: d.sourceQuotationId.map { [OverviewLink(id: $0, linked: true)] } ?? [], subProject: sub,
+                                               mark: overviewMark(status: d.status, signedCopy: d.signedCopyPath)))
             out[d.projectId] = o
         }
         for i in invoicesStore.readAll() {
@@ -280,7 +290,7 @@ extension AppDatabase {
             var sub = i.sourceQuotationId.flatMap { quoteSub[$0] }
             if sub == nil { sub = (i.sourceDeliveryNoteIds ?? []).compactMap { noteSub[$0] }.first }
             if sub == nil { sub = subProjectKey(i.invoiceNumber, projectNumber: codes[i.projectId]) }
-            o.invoices.append(OverviewDoc(id: i.id, number: i.invoiceNumber, status: i.status, from: from, subProject: sub))
+            o.invoices.append(OverviewDoc(id: i.id, number: i.invoiceNumber, status: i.status, from: from, subProject: sub, mark: overviewMark(status: i.status)))
             out[i.projectId] = o
         }
         let notes = Dictionary(projects.map { ($0.id, $0.subProjectNotes ?? [:]) }, uniquingKeysWith: { a, _ in a })

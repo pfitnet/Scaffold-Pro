@@ -537,10 +537,13 @@
     const letter = d.paperSize === 'Letter';
     const pageW = letter ? 12240 : 11906;
     const pageH = letter ? 15840 : 16838;
-    const sect = `<w:sectPr><w:headerReference w:type="default" r:id="rIdHeader${n}"/><w:footerReference w:type="default" r:id="rIdFooter${n}"/>` +
+    // The first page's header is the letterhead alone; the others' add the
+    // document's number top right (as the PDF: "Our Ref.: Qt26221-002").
+    const sect = `<w:sectPr><w:headerReference w:type="first" r:id="rIdHeader${n}"/><w:headerReference w:type="default" r:id="rIdHeaderRef${n}"/>` +
+      `<w:footerReference w:type="first" r:id="rIdFooter${n}"/><w:footerReference w:type="default" r:id="rIdFooter${n}"/>` +
       `<w:pgSz w:w="${pageW}" w:h="${pageH}"/>` +
       `<w:pgMar w:top="${TW(top)}" w:right="${TW(L.pageWidth - L.textRight)}" w:bottom="${TW(L.pageHeight - L.contentBottom - 4)}" ` +
-      `w:left="${TW(L.textLeft)}" w:header="0" w:footer="${TW(12.4)}" w:gutter="0"/></w:sectPr>`;
+      `w:left="${TW(L.textLeft)}" w:header="0" w:footer="${TW(12.4)}" w:gutter="0"/><w:titlePg/></w:sectPr>`;
     return sect;
   }
 
@@ -611,7 +614,9 @@
     'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
     'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
 
-  function headerXML(d) {
+  // `ref`: the document's number, printed top right on the line of
+  // "LIMITED" (baseline 74pt), just above the orange rule.
+  function headerXML(d, ref) {
     const cx = EMU(d.pageWidth);
     const cy = EMU(d.pageHeight);
     const pic = `<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">` +
@@ -623,8 +628,9 @@
       `<pic:blipFill><a:blip r:embed="rIdLetterhead"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
       `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
       `</pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing>`;
+    const refPara = ref ? para(run(`Our Ref.: ${ref}`, { size: 10.5, color: DARK_GREY }), { line: 14, before: 61.8, align: 'right' }) : '';
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:hdr ${NS}>` +
-      `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr><w:r>${pic}</w:r></w:p></w:hdr>`;
+      `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/></w:pPr><w:r>${pic}</w:r></w:p>${refPara}</w:hdr>`;
   }
 
   function footerXML(d) {
@@ -806,6 +812,7 @@
         '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>' +
         '<Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>' +
         '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' +
+        '<Override PartName="/word/header2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' +
         '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' +
         '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
         '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
@@ -825,6 +832,7 @@
         '<Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>',
         '<Relationship Id="rIdFonts" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>',
         '<Relationship Id="rIdHeader" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>',
+        '<Relationship Id="rIdHeaderRef" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header2.xml"/>',
         '<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>',
       ]) },
       { name: 'word/styles.xml', data: stylesXML() },
@@ -833,6 +841,10 @@
       { name: 'word/_rels/fontTable.xml.rels', data: rels(fontRels) },
       { name: 'word/header1.xml', data: headerXML(d) },
       { name: 'word/_rels/header1.xml.rels', data: rels([
+        '<Relationship Id="rIdLetterhead" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/letterhead.png"/>',
+      ]) },
+      { name: 'word/header2.xml', data: headerXML(d, d.number) },
+      { name: 'word/_rels/header2.xml.rels', data: rels([
         '<Relationship Id="rIdLetterhead" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/letterhead.png"/>',
       ]) },
       { name: 'word/footer1.xml', data: footerXML(d) },
@@ -1033,10 +1045,14 @@
       files.push(
         { name: `word/header${n}.xml`, data: headerXML(d) },
         { name: `word/_rels/header${n}.xml.rels`, data: rels([`<Relationship Id="rIdLetterhead" Type="${REL}/image" Target="media/letterhead${image + 1}.png"/>`]) },
+        { name: `word/header${n}r.xml`, data: headerXML(d, d.number) },
+        { name: `word/_rels/header${n}r.xml.rels`, data: rels([`<Relationship Id="rIdLetterhead" Type="${REL}/image" Target="media/letterhead${image + 1}.png"/>`]) },
         { name: `word/footer${n}.xml`, data: footerXML(d) },
       );
-      overrides.push(`<Override PartName="/word/header${n}.xml" ContentType="${HDR}"/>`, `<Override PartName="/word/footer${n}.xml" ContentType="${FTR}"/>`);
-      docRels.push(`<Relationship Id="rIdHeader${n}" Type="${REL}/header" Target="header${n}.xml"/>`, `<Relationship Id="rIdFooter${n}" Type="${REL}/footer" Target="footer${n}.xml"/>`);
+      overrides.push(`<Override PartName="/word/header${n}.xml" ContentType="${HDR}"/>`, `<Override PartName="/word/header${n}r.xml" ContentType="${HDR}"/>`,
+        `<Override PartName="/word/footer${n}.xml" ContentType="${FTR}"/>`);
+      docRels.push(`<Relationship Id="rIdHeader${n}" Type="${REL}/header" Target="header${n}.xml"/>`, `<Relationship Id="rIdHeaderRef${n}" Type="${REL}/header" Target="header${n}r.xml"/>`,
+        `<Relationship Id="rIdFooter${n}" Type="${REL}/footer" Target="footer${n}.xml"/>`);
       return letterParts(d, n);
     });
     if (hasLetter && layouts.some((d) => d.kind === 'sheet')) {
@@ -1046,7 +1062,8 @@
       docRels.push(`<Relationship Id="rIdHeaderBlank" Type="${REL}/header" Target="headerBlank.xml"/>`, `<Relationship Id="rIdFooterBlank" Type="${REL}/footer" Target="footerBlank.xml"/>`);
     }
     // Each document's pages are numbered from 1.
-    for (const p of sections) p.sect = p.sect.replace('</w:sectPr>', '<w:pgNumType w:start="1"/></w:sectPr>');
+    // (Before <w:titlePg/>, as Word's schema orders them.)
+    for (const p of sections) p.sect = p.sect.replace(/(<w:titlePg\/>)?<\/w:sectPr>/, '<w:pgNumType w:start="1"/>$1</w:sectPr>');
     // Each section ends with a (tiny) paragraph holding its settings; the last with the body's.
     const body = sections.map((p, i) => (i < sections.length - 1
       ? `${p.body}<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>${p.sect}</w:pPr></w:p>`
