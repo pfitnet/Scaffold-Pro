@@ -5527,3 +5527,25 @@ Increase Contrast. No Swift changed.
   gradient any more.
 - Checked: in a browser with sample data (light and dark): the views,
   the old link, and no page errors. Swift (one Go-menu entry) not compiled.
+
+## Batch 249 — Team: Chat is its first tab; the Assistant restyled (redesign R8)
+
+- **Chat now lives in Team,** as its first tab: Chat · People · Signatures ·
+  Announcements. The sidebar loses its Chat item; the unread badge sits on
+  Team, and an open conversation on the Chat tab isn't counted as unread.
+- **Old links still land:** `chat.html?with=Harry` opens
+  `team.html?tab=chat&with=Harry`. People's chat links go straight there.
+- **The header** says facts ("5 people · 1 to sign"). Announce is the
+  primary, shown only on the Announcements tab.
+- **People:** the tree icons and the chat link use the app's icons; the empty
+  text points to Settings › You.
+- **On a phone** the conversations sit in a short list above the thread, and
+  long messages and quoted replies wrap inside the screen.
+- **The Assistant:** the floating chat opens from Ask in the sidebar (⌘J) as
+  a panel on the page surface with the sheet shadow and a small spring. Its
+  cards, questions and context popover use the app's colours (no gradient),
+  and its wording drops the old "sparkle at the bottom right" and the dashes.
+- **Go menu:** Chat removed (Team is there).
+- Checked in Chromium: Team on Mac, narrow, iPad and phone, light and dark;
+  the four old and new links; the floating chat and the Assistant page. Not
+  checked: WebKit on a Mac; the Swift build.

@@ -39,13 +39,11 @@ document.addEventListener('click', (e) => {
 
 // Three groups (docs/redesign/PLAN.md §3.2). ⌘1–7 stay on the same pages as
 // before (the Go menu in main.swift), whatever their place in the list.
-// Chat keeps its own item until it joins Team.
 const NAV_ITEMS = [
   { section: 'Work' },
   { page: 'dashboard', label: 'Home', href: 'index.html', key: '1', icon: 'home' },
   { page: 'calendar', label: 'Schedule', href: 'calendar.html', icon: 'schedule' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
-  { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },
   { section: 'Operations' },
   { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },
@@ -255,7 +253,7 @@ function renderSidebar(activePage) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
     }
-    if (item.page === 'chat') link.insertAdjacentHTML('beforeend', '<span class="nav-badge hidden" id="chat-badge"></span>');
+    if (item.page === 'team') link.insertAdjacentHTML('beforeend', '<span class="nav-badge hidden" id="chat-badge"></span>');
     sidebar.appendChild(link);
   }
   if (window.refreshChatBadge) window.refreshChatBadge();
@@ -711,7 +709,7 @@ window.refreshChatBadge = async function refreshChatBadge() {
   let marks = {};
   try { marks = JSON.parse(localStorage.getItem(`chat.read:${page.me.toLowerCase()}`) || '{}'); } catch (e) { marks = {}; }
   let current = null;
-  try { current = document.body.dataset.page === 'chat' ? localStorage.getItem('chat.current') : null; } catch (e) { /* ignore */ }
+  try { current = document.body.dataset.page === 'team' && document.querySelector('#team-tabs [data-tab="chat"].active') ? localStorage.getItem('chat.current') : null; } catch (e) { /* ignore */ }
   const unread = page.conversations.filter((c) => c.lastAt && c.lastAuthor && c.lastAuthor.toLowerCase() !== page.me.toLowerCase()
     && (!marks[c.id] || marks[c.id] < c.lastAt) && c.id !== current).length;
   badge.textContent = unread > 9 ? '9+' : String(unread);

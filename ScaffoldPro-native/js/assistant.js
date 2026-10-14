@@ -16,8 +16,8 @@
 //
 // Two places, the same chat open in both:
 //   • assistant.html — the whole page;
-//   • a small floating chat on every other page (the sparkle button at the
-//     bottom right, or ⌘J). It sees what's on screen — the page, the
+//   • a small floating chat on every other page (Ask in the sidebar, or ⌘J).
+//     It sees what's on screen — the page, the
 //     document open on it, the text selected and what the page shows — so
 //     "check this quotation" or "what does this mean?" just works, and
 //     after it changes something the page redraws in place.
@@ -355,8 +355,8 @@
         </div>
         <div class="as-head-actions">
           <button type="button" class="as-ctx" data-r="ctx" data-no-icon aria-haspopup="dialog"></button>
-          ${compact ? `<button type="button" class="as-icon-btn" data-r="hist" data-no-icon title="Chats — earlier conversations">${SVG.history}</button>` : ''}
-          <button type="button" class="as-new" data-r="new" data-no-icon title="Start a new chat${compact ? '' : ' (⌘N)'} — this one stays in the list">${SVG.plus}${compact ? '' : 'New Chat'}</button>
+          ${compact ? `<button type="button" class="as-icon-btn" data-r="hist" data-no-icon title="Chats: earlier conversations">${SVG.history}</button>` : ''}
+          <button type="button" class="as-new" data-r="new" data-no-icon title="Start a new chat${compact ? '' : ' (⌘N)'}. This one stays in the list">${SVG.plus}${compact ? '' : 'New Chat'}</button>
           ${compact ? `<button type="button" class="as-icon-btn" data-r="expand" data-no-icon title="Open the Assistant page">${SVG.expand}</button>
           <button type="button" class="as-icon-btn" data-r="close" data-no-icon title="Close (Esc)">${SVG.close}</button>` : ''}
         </div>
@@ -370,7 +370,7 @@
           <div class="as-files hidden" data-r="files"></div>
           <div class="as-input-row">
             <button type="button" class="as-attach" data-r="attach" data-no-icon title="Attach a file — a quotation, BOQ, list, drawing or photo" aria-label="Attach a file">${SVG.clip}</button>
-            <textarea data-r="input" rows="1" placeholder="${compact ? 'Ask about this page, or say what to do…' : 'Ask, or tell it what to do — e.g. “Make a rental quotation for 26219 with 200 2.0m standards”'}" autocomplete="off"></textarea>
+            <textarea data-r="input" rows="1" placeholder="${compact ? 'Ask about this page, or say what to do…' : 'Ask, or tell it what to do, e.g. “Make a rental quotation for 26219 with 200 2.0m standards”'}" autocomplete="off"></textarea>
             <button type="button" class="as-send" data-r="send" data-no-icon title="Send (Return)" aria-label="Send" disabled>${SVG.send}</button>
           </div>
         </div>
@@ -401,7 +401,7 @@
         : `<span class="as-steps-sum">Took ${n} step${n === 1 ? '' : 's'}${ms ? ` · ${elapsed(ms)}` : ''}</span>`;
       const list = steps.map((t, i) => `<li class="${live && i === n - 1 ? 'now' : 'done'}"><span class="as-step-mark" aria-hidden="true"></span>${esc(t)}</li>`).join('');
       return `<div class="as-steps${open ? ' open' : ''}${live ? ' live' : ''}">
-        <div class="as-steps-row"><button type="button" class="as-steps-head" data-act="steps" aria-expanded="${open}" data-no-icon>${head}<span class="as-steps-chev" aria-hidden="true">›</span></button>${live ? '<button type="button" class="as-stop" data-act="stop" data-no-icon title="Stop (Esc) — or just type something else to interrupt">Stop</button>' : ''}</div>
+        <div class="as-steps-row"><button type="button" class="as-steps-head" data-act="steps" aria-expanded="${open}" data-no-icon>${head}<span class="as-steps-chev" aria-hidden="true">›</span></button>${live ? '<button type="button" class="as-stop" data-act="stop" data-no-icon title="Stop (Esc), or type something else to interrupt">Stop</button>' : ''}</div>
         ${n ? `<ol class="as-steps-list">${list}</ol>` : ''}
       </div>`;
     }
@@ -478,14 +478,14 @@
         return `<div class="as-empty small">
           <div class="as-empty-mark">${MARK}</div>
           <h2>How can I help?</h2>
-          <p>I can see this page. Ask about it, or have me do the work — I’ll show you before anything changes.</p>
+          <p>I can see this page. Ask about it, or have me do the work. I’ll show you before anything changes.</p>
           <div class="as-chips">${list.map((t) => `<button type="button" class="as-chip" data-chip="${esc(t)}" data-no-icon>${esc(t)}</button>`).join('')}</div>
         </div>`;
       }
       return `<div class="as-empty">
         <div class="as-empty-mark">${MARK}</div>
         <h2>What shall we do?</h2>
-        <p>Ask about projects, prices, stock, tasks and invoices, or have it do the work: quotations from a file or a list, changes to a draft, new projects and clients, tasks and events. It looks things up in ScaffoldPro itself, and shows you what it would do before anything is made or changed. On any other page, the sparkle at the bottom right (⌘J) opens it beside your work.</p>
+        <p>Ask about projects, prices, stock, tasks and invoices, or have it do the work: quotations from a file or a list, changes to a draft, new projects and clients, tasks and events. It looks things up in ScaffoldPro itself, and shows you what it would do before anything is made or changed. On any other page, Ask in the sidebar (⌘J) opens it beside your work.</p>
         <div class="as-suggest">${SUGGESTIONS.map((s, i) => `<button type="button" class="as-sug" data-sug="${i}" data-no-icon><b>${esc(s.title)}</b><span>${esc(s.hint || s.text.split('\n')[0])}</span></button>`).join('')}</div>
       </div>`;
     }
@@ -830,7 +830,7 @@
         stopWaiting = resolve;
         // Never left waiting: the Mac gives up on the AI before this.
         // (The app itself always answers within 270 s: a best try, or plainly why not.)
-        setTimeout(() => resolve({ ok: false, error: 'The AI didn’t answer in time. Try again, perhaps one thing at a time — or choose a quicker model in Settings › AI Import.' }), 300000);
+        setTimeout(() => resolve({ ok: false, error: 'The AI didn’t answer in time. Try again, perhaps one thing at a time, or choose a quicker model in Settings › AI Import.' }), 300000);
       });
       try {
         // Too much for its context window: the older messages are summarised first.
@@ -839,7 +839,7 @@
           const s = await Promise.race([summarise(), stopped]);
           if (s && s.interrupted) r = s;
           else if (s && s.ok) onStep(`Summarised ${s.count} earlier message${s.count === 1 ? '' : 's'}`);
-          else onStep('Couldn’t summarise — sending the conversation as it is');
+          else onStep('Couldn’t summarise. Sending the conversation as it is');
         }
         if (!r) {
           r = await Promise.race([
@@ -910,7 +910,7 @@
       const names = { gemini: 'Google Gemini', openrouter: 'OpenRouter' };
       $('status').innerHTML = aiReady
         ? `<span class="as-dot on"></span>${compact ? '' : `${esc(names[s.provider] || s.provider)} · `}${esc(s.model || s.defaultModel || '')}`
-        : '<span class="as-dot"></span>No AI connected — <a href="settings.html#ai-import">set one up</a>';
+        : '<span class="as-dot"></span>No AI connected. <a href="settings.html#ai-import">set one up</a>';
       updateSend();
     }
     function notReady() { window.appAlert('No AI is connected yet.\n\nAdd a free key in Settings › AI Import, then come back.'); }
@@ -930,7 +930,7 @@
       b.title = stop ? 'Stop (Esc)' : busy ? 'Interrupt and send this instead (Return)' : 'Send (Return)';
       b.setAttribute('aria-label', stop ? 'Stop' : 'Send');
       $('input').placeholder = busy ? 'Working… type to interrupt with something else'
-        : compact ? 'Ask about this page, or say what to do…' : 'Ask, or tell it what to do — e.g. “Make a rental quotation for 26219 with 200 2.0m standards”';
+        : compact ? 'Ask about this page, or say what to do…' : 'Ask, or tell it what to do, e.g. “Make a rental quotation for 26219 with 200 2.0m standards”';
     }
 
     // ---- wiring ----
@@ -1167,7 +1167,7 @@
     launcher.type = 'button';
     launcher.className = 'as-launcher';
     launcher.dataset.noIcon = '';
-    launcher.title = 'Assistant (⌘J) — ask about this page, or have it do something';
+    launcher.title = 'Assistant (⌘J): ask about this page, or have it do something';
     launcher.setAttribute('aria-label', 'Open the Assistant');
     launcher.innerHTML = MARK;
     const panel = document.createElement('div');
