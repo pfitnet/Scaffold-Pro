@@ -2853,3 +2853,60 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
 
 .pj-view button { display: inline-flex; align-items: center; gap: 6px; width: auto !important; padding: 0 10px !important; }
 .pj-num, .pj-card .pj-number, .ov-num { font-family: var(--font-mono); }
+
+/* ---------- The document workspace (redesign R5–R6; js/doc-authors.js) ---------- */
+.doc-shell > .doc-bar {
+  position: sticky; top: var(--titlebar-safe); z-index: var(--z-sticky);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin: 0 calc(-1 * 12px) 16px; padding: 8px 12px; border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--content) 86%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid transparent;
+}
+.doc-shell > .doc-bar:hover { border-color: var(--hairline); }
+.doc-bar .doc-in-menu { display: none !important; }
+.doc-bar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.doc-bar-actions .icon-btn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.doc-bar-actions .inspector-toggle.on { color: var(--text); background: var(--row-selected); }
+.doc-bar-actions .export-menu.primary { height: 34px; padding: 0 14px; }
+.doc-columns { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+.doc-shell.inspector-off .doc-columns { grid-template-columns: minmax(0, 1fr); }
+.doc-shell.inspector-off .inspector { display: none; }
+.doc-main { min-width: 0; }
+.inspector { position: sticky; top: calc(var(--titlebar-safe) + 20px); max-height: calc(100vh - var(--titlebar-safe) - 40px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px; padding: 2px 2px 20px; }
+.inspector-title { font-size: 12px; font-weight: 560; color: var(--text-tertiary); padding: 0 4px; }
+/* What the inspector holds: one column of its own cards. */
+.inspector .q-top-grid, .inspector .q-terms-row, .inspector .header-fields, .inspector .letter-fields, .inspector .details-bar { display: grid !important; grid-template-columns: 1fr !important; gap: 12px !important; margin: 0 !important; }
+.inspector .q-top-side { display: flex; flex-direction: column; gap: 12px; }
+.inspector .form-row, .inspector .form-row.cols-2, .inspector .form-row.cols-3, .inspector .form-row.cols-4 { grid-template-columns: 1fr !important; }
+.inspector .header-fields, .inspector .letter-fields, .inspector .details-bar {
+  padding: 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.inspector .field.full, .inspector .field.wide, .inspector .field.grow { grid-column: auto !important; }
+.inspector .linked-drawings-panel, .inspector .annex-panel, .inspector .sheet-extras, .inspector .quotation-import, .inspector .signed-bar, .inspector .linked-bar {
+  margin: 0 !important; padding: 14px 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); }
+.inspector .signed-bar.hidden, .inspector .linked-bar.hidden, .inspector .dn-signed-list.hidden { display: none; }
+/* The items: Add Materials above the lines, both full width of the main column. */
+.doc-main .boq-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 18px !important; }
+.doc-main .boq-grid > div:first-child .picker-results { max-height: 340px; overflow-y: auto; }
+@media (max-width: 1279px) {
+  .doc-columns { grid-template-columns: minmax(0, 1fr); }
+  .inspector { position: static; max-height: none; overflow: visible; }
+}
+/* The linked documents in the header: the current one outlined, not filled. */
+.chain-doc.current, .df-doc.current { background: var(--panel) !important; color: var(--text) !important; box-shadow: inset 0 0 0 1.5px var(--dk, var(--select-ink)) !important; }
+.dh-kind { font-weight: 600; }
+
+/* Short fields two to a row in the inspector; text, notes and long ones across. */
+.inspector .header-fields { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.inspector .header-fields > .field:has(input[type="text"], textarea, .terms-table, .source-note), .inspector .header-fields > .field.full { grid-column: 1 / -1 !important; }
+.inspector .field { min-width: 0; }
+.inspector input, .inspector select, .inspector textarea { min-width: 0; max-width: 100%; }
+/* Add Materials folds to its search row until it's wanted (js/doc-authors.js). */
+.doc-main .picker-folded .picker-results, .doc-main .picker-folded .am-filters { display: none; }
+.doc-main .am-head h2 { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
+.doc-main .am-head .picker-fold { width: 26px; height: 26px; padding: 0; border: none; background: none; box-shadow: none; display: inline-flex; align-items: center; justify-content: center; color: var(--text-tertiary); transition: transform var(--dur-move) var(--ease-out); }
+.doc-main .picker-folded .picker-fold { transform: rotate(-90deg); }
+/* One main button in the bar: Export. Others (BOQ's Make Quotation) are secondary. */
+.doc-bar button.primary:not(.export-menu) { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow-control); }
+.doc-bar button.primary:not(.export-menu):hover:not(:disabled) { background: color-mix(in srgb, var(--panel) 94%, var(--text)); color: var(--text); }

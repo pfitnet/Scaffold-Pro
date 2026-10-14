@@ -185,7 +185,156 @@
     };
     wait(25);
   }
+
+  // ---- The document workspace (docs/redesign/PLAN.md §4.4) ----
+  // One layout for every editor: a sticky document bar (status, page and
+  // language, Export as the main button, everything else under ···), the
+  // document itself in the main column, and its details in an inspector on
+  // the right that can be hidden (the button in the bar, or ⌥⌘I in the app).
+  // Nodes are moved, never rebuilt, so every id and listener stays.
+  const SHELL = {
+    quotation: { body: 'quotation-body', side: ['.q-top-grid', '.q-terms-row'] },
+    boq: { body: 'boq-body', side: ['.details-bar', '#linked-bar', '.linked-drawings-panel', '#sheet-extras'] },
+    deliveryNote: { body: 'dn-body', side: ['#dn-signed-bar', '#quotation-import', '.header-fields'] },
+    invoice: { body: 'invoice-body', side: ['#inv-signed-notes', '.header-fields'] },
+    letter: { body: 'letter-page', side: ['.letter-fields', '#annex-panel'] },
+  };
+  const MOVE_TO_MENU = ['print-btn', 'locate-file-btn', 'duplicate-doc-btn', 'split-btn', 'revert-split-btn', 'delete-doc-btn', 'delete-btn'];
+  const SIDE_KEY = 'doc.inspector';
+
+  function setupDocShell(kind) {
+    const cfg = SHELL[kind];
+    const body = cfg && document.getElementById(cfg.body);
+    if (!body || body.classList.contains('doc-shell')) return;
+    const bar = body.querySelector(':scope > .toolbar');
+    body.classList.add('doc-shell');
+    if (bar) {
+      bar.classList.add('doc-bar');
+      bar.removeAttribute('style');
+      // Print, Locate, Duplicate, Split, Delete: under ···, clicking the real
+      // buttons (Swift clicks #print-btn for ⌘P; document-actions.js wires the rest).
+      const moved = MOVE_TO_MENU.map((id) => document.getElementById(id)).filter((b) => b && bar.contains(b));
+      for (const b of moved) b.classList.add('doc-in-menu');
+      const right = document.createElement('div');
+      right.className = 'doc-bar-actions';
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'icon-btn more-btn';
+      more.dataset.noIcon = '';
+      more.title = 'More';
+      more.setAttribute('aria-label', 'More');
+      more.innerHTML = window.icon ? window.icon('more', 18) : '···';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'icon-btn inspector-toggle';
+      toggle.dataset.noIcon = '';
+      toggle.title = 'Show or hide the details (⌥⌘I)';
+      toggle.setAttribute('aria-label', 'Show or hide the details');
+      toggle.innerHTML = window.icon ? window.icon('sidebar', 18) : 'Details';
+      const exportBtn = bar.querySelector('.export-menu');
+      if (exportBtn) exportBtn.classList.add('primary');
+      right.append(toggle, more);
+      if (exportBtn) right.appendChild(exportBtn);
+      bar.appendChild(right);
+      const label = (b) => (b.dataset.iconLabel || b.textContent || b.getAttribute('aria-label') || b.title || '').trim().replace(/\s+/g, ' ');
+      if (window.hoverMenu) {
+        window.hoverMenu.attach(more, {
+          openOn: 'press',
+          items: () => moved.filter((b) => !b.hidden && !b.classList.contains('hidden') && b.style.display !== 'none')
+            .map((b) => ({ label: label(b) || b.id, sub: b.title && b.title !== label(b) ? b.title : '', value: b.id, disabled: b.disabled })),
+          onPick: (id) => { const b = document.getElementById(id); if (b && !b.disabled) b.click(); },
+        });
+      }
+      // The inspector, shown unless hidden on this Mac.
+      const setSide = (on) => {
+        body.classList.toggle('inspector-off', !on);
+        toggle.classList.toggle('on', on);
+        try { localStorage.setItem(SIDE_KEY, on ? 'on' : 'off'); } catch (e) { /* not kept */ }
+      };
+      let on = true;
+      try { on = localStorage.getItem(SIDE_KEY) !== 'off'; } catch (e) { on = true; }
+      toggle.addEventListener('click', () => setSide(body.classList.contains('inspector-off')));
+      document.addEventListener('keydown', (e) => {
+        if (e.altKey && e.metaKey && (e.key === 'i' || e.key === 'I' || e.code === 'KeyI') && !window.__scaffoldProWeb) { e.preventDefault(); setSide(body.classList.contains('inspector-off')); }
+      });
+      setTimeout(() => setSide(on), 0);
+    }
+    // Main column and inspector.
+    const main = document.createElement('div');
+    main.className = 'doc-main';
+    const side = document.createElement('aside');
+    side.className = 'inspector';
+    side.setAttribute('aria-label', 'Details');
+    side.innerHTML = '<div class="inspector-title">Details</div>';
+    const sideNodes = cfg.side.map((sel) => body.querySelector(`:scope > ${sel}`) || body.querySelector(sel)).filter(Boolean);
+    const rest = [...body.children].filter((el) => el !== bar && !sideNodes.includes(el));
+    for (const el of rest) main.appendChild(el);
+    for (const el of sideNodes) side.appendChild(el);
+    const wrap = document.createElement('div');
+    wrap.className = 'doc-columns';
+    wrap.append(main, side);
+    body.appendChild(wrap);
+    setupPickerFold(main);
+  }
+
+  // Add Materials: its list folds away (kept on this Mac) and opens by itself
+  // as soon as you search; the line items stay in view.
+  const FOLD_KEY = 'doc.pickerFolded';
+  function setupPickerFold(main) {
+    const results = main.querySelector('#picker-results');
+    const col = results && results.parentElement;
+    const head = col && col.querySelector('.am-head');
+    const title = head && head.querySelector('h2');
+    if (!col || !head || !title) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'picker-fold';
+    btn.dataset.noIcon = '';
+    btn.title = 'Show or hide the list of materials';
+    btn.setAttribute('aria-label', 'Show or hide the list of materials');
+    btn.innerHTML = window.icon ? window.icon('caret-down', 14) : '▾';
+    title.prepend(btn);
+    const set = (folded) => {
+      col.classList.toggle('picker-folded', folded);
+      btn.setAttribute('aria-expanded', folded ? 'false' : 'true');
+      try { localStorage.setItem(FOLD_KEY, folded ? '1' : ''); } catch (e) { /* not kept */ }
+    };
+    let folded = false;
+    try { folded = localStorage.getItem(FOLD_KEY) === '1'; } catch (e) { folded = false; }
+    set(folded);
+    btn.addEventListener('click', () => set(!col.classList.contains('picker-folded')));
+    const search = head.querySelector('input');
+    if (search) search.addEventListener('input', () => { if (search.value.trim()) set(false); });
+  }
+
+  // Breadcrumbs: Projects › the project › this document.
+  function docCrumbs(kind) {
+    const content = document.getElementById('content');
+    if (!content || content.querySelector(':scope > .crumbs') || !window.crumbs) return;
+    const back = document.getElementById('back-link');
+    const href = back && back.getAttribute('href');
+    const number = href && /number=([^&#]+)/.exec(href);
+    const h1 = content.querySelector('h1');
+    const here = h1 ? h1.textContent.trim() : (KIND[kind] || 'Document');
+    const trail = [{ label: 'Projects', href: 'projects.html' }];
+    if (number) trail.push({ label: decodeURIComponent(number[1]), href });
+    else if (kind === 'letter') trail.push({ label: 'Letters', href: href || 'letters.html' });
+    trail.push({ label: here });
+    content.prepend(window.crumbs(trail));
+  }
+
   window.docHeader = { refresh: show };
+  function startShell() {
+    const kind = PAGES[location.pathname.split('/').pop()];
+    if (!kind || kind === 'project') return;
+    setupDocShell(kind);
+    // The title arrives with the document: crumbs once it's there.
+    let tries = 30;
+    const crumb = () => { const h1 = document.querySelector('#content h1'); if (h1 && h1.textContent.trim()) docCrumbs(kind); else if (tries-- > 0) setTimeout(crumb, 150); };
+    crumb();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startShell);
+  else startShell();
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
   else show();
