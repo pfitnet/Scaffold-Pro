@@ -221,6 +221,23 @@ a:hover { text-decoration: underline; }
 
 .nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
 
+/* The sidebar as a rail of icons (js/sidebar.js › setupRail): it opens out
+   over the page when the pointer rests on it. The icons stay where they
+   are; the names fade in beside them. */
+html.sidebar-rail { --sidebar-width: 60px; }
+html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: 60px; overflow-x: hidden;
+  transition: width .3s var(--ease), box-shadow .3s var(--ease); }
+html.sidebar-rail #sidebar.expanded { width: 224px; box-shadow: var(--shadow-sheet); }
+html.sidebar-rail #content { margin-left: 60px; }
+html.sidebar-rail #sidebar :is(a, .sidebar-search, .sidebar-section, .sidebar-team) { white-space: nowrap; min-width: 0; overflow: hidden; flex-shrink: 0; }
+html.sidebar-rail #sidebar :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
+  transition: opacity .2s var(--ease); }
+html.sidebar-rail #sidebar:not(.expanded) :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
+  opacity: 0; pointer-events: none; }
+/* Folded: the chat's unread count as a dot on its icon. */
+html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: absolute; left: 22px; top: 3px; min-width: 8px; width: 8px; height: 8px; padding: 0; font-size: 0; }
+@media (prefers-reduced-motion: reduce) { html.sidebar-rail #sidebar, html.sidebar-rail #sidebar * { transition: none !important; } }
+
 /* ---------- Main content ---------- */
 
 /* The page is a column up to --page-max wide. On a big screen it grows a
