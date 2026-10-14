@@ -5341,3 +5341,23 @@ Increase Contrast. No Swift changed.
   Apple design pass (Batch 223) no longer apply. HANDOFF.md says so now.
 - Checked: the plan was reviewed against the code twice, and every
   finding was checked before it went in. Nothing was built or compiled.
+
+## Batch 242 — New colours and type everywhere ("Steel & Signal", redesign R0–R1a)
+
+- **The whole app has new colours:** cool steel greys, and one muted
+  safety-orange accent. The accent is used only for the main button on a
+  page, links, the focus ring and the chosen sidebar icon. The blue-violet
+  gradient, the glows and the coloured wash behind every page are gone.
+- **Selection is shown in dark ink, not in colour:** the chosen tab's
+  underline, a chosen menu item or row, and the chosen day.
+- **A new typeface, Geist,** is bundled with the app (no internet needed),
+  with Geist Mono for codes and numbers. Chinese still shows in PingFang.
+  Page titles no longer fade into colour.
+- **Project status colours are now fixed.** Completed stays blue
+  (#3a66f0) as in the Google Sheet, Quotation amber and Active green.
+- The Mac window's backdrop behind the pages matches the new background
+  (`PageBackdropView`).
+- A screenshot tool for checking pages: `tools/ui-shots/` (with sample
+  data). It is not part of the app.
+- Checked: the pages in a browser (light and dark). Not checked on a Mac;
+  Swift (one colour) not compiled.
