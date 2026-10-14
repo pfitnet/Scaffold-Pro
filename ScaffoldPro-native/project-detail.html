@@ -24,35 +24,43 @@
       <!-- The project at a glance: number and status, name, client and site,
            who made it, its stage, and what it holds (js/project-detail.js) -->
       <header class="pd-hero" id="pd-hero">
-        <span class="pd-hero-glow" aria-hidden="true"></span>
-        <div class="pd-hero-main">
+                <div class="pd-hero-main">
           <div id="project-header"></div>
           <div id="doc-authors" class="doc-authors pd-authors"></div>
         </div>
         <div class="pd-hero-side">
           <div class="header-actions">
             <select id="status-select" title="Project status"></select>
-            <button id="edit-project-btn">Edit Details</button>
-            <button id="reveal-folder-btn">Show in Finder</button>
+            <button id="edit-project-btn" class="hidden" data-no-icon>Edit Details</button>
+            <button id="reveal-folder-btn" class="hidden" data-no-icon>Show in Finder</button>
           </div>
         </div>
         <!-- Its stage: Planning › Quotation › Active › Completed (a click moves it) -->
         <ol class="pd-stages" id="pd-stages" aria-label="Project stage"></ol>
         <!-- What it holds: a tile for each kind of document, opening its tab -->
-        <div class="pd-stats" id="pd-stats"></div>
+        <div class="pd-stats hidden" id="pd-stats"></div>
       </header>
 
-      <nav class="tabs" id="tabs">
-        <button data-tab="overview">Overview</button>
+      <!-- Five tabs; Documents and Site open a second row for their kinds.
+           The original ten buttons stay (in #tabs) for the code and old links. -->
+      <nav class="tabs" id="tabs-main" aria-label="Project">
+        <button data-group="overview">Overview</button>
+        <button data-group="documents">Documents <span class="tab-count" id="count-documents"></span></button>
+        <button data-group="files">Drawings &amp; Files <span class="tab-count" id="count-files-main"></span></button>
+        <button data-group="site">Site <span class="tab-count" id="count-site"></span></button>
+        <button data-group="history">History</button>
+      </nav>
+      <nav class="segmented tabs-sub" id="tabs" aria-label="Kind">
+        <button data-tab="overview" class="hidden">Overview</button>
         <button data-tab="boq" class="dk-boq"><span class="dk-dot" aria-hidden="true"></span>BOQ <span class="tab-count" id="count-boq"></span></button>
         <button data-tab="quotations" class="dk-quotation"><span class="dk-dot" aria-hidden="true"></span>Quotations <span class="tab-count" id="count-quotations"></span></button>
         <button data-tab="delivery" class="dk-delivery"><span class="dk-dot" aria-hidden="true"></span>Delivery Notes <span class="tab-count" id="count-delivery"></span></button>
         <button data-tab="invoices" class="dk-invoice"><span class="dk-dot" aria-hidden="true"></span>Invoices <span class="tab-count" id="count-invoices"></span></button>
         <button data-tab="letters" class="dk-letter"><span class="dk-dot" aria-hidden="true"></span>Letters <span class="tab-count" id="count-letters"></span></button>
-        <button data-tab="files" class="dk-file"><span class="dk-dot" aria-hidden="true"></span>Drawings &amp; Documents <span class="tab-count" id="count-files"></span></button>
+        <button data-tab="files" class="hidden">Drawings &amp; Documents <span class="tab-count" id="count-files"></span></button>
         <button data-tab="inspections">Inspections <span class="tab-count" id="count-inspections"></span></button>
         <button data-tab="tasks">Tasks <span class="tab-count" id="count-tasks"></span></button>
-        <button data-tab="history">History</button>
+        <button data-tab="history" class="hidden">History</button>
       </nav>
 
       <!-- Overview (section 17) -->
@@ -65,7 +73,7 @@
             <dl class="pd-details" id="overview-details"></dl>
           </div>
           <!-- As the Dashboard's Quick Actions panel -->
-          <div class="panel pd-actions-panel" data-widget="actions" data-title="Quick Actions" data-span="2">
+          <div class="panel pd-actions-panel" data-widget="actions" data-title="Quick Actions" data-span="2" data-default-off>
             <h3 class="panel-title">Quick Actions</h3>
             <div class="qa-grid pd-qa" id="pd-quick-actions"></div>
           </div>

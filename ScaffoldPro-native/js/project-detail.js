@@ -737,17 +737,60 @@ function setCount(tab, n) {
   const el = document.getElementById(`count-${tab}`);
   if (el) el.textContent = n > 0 ? String(n) : '';
   tabCounts[tab] = n;
+  const sum = (tabs) => tabs.reduce((t, k) => t + (tabCounts[k] || 0), 0);
+  const put = (id, v) => { const c = document.getElementById(id); if (c) c.textContent = v > 0 ? String(v) : ''; };
+  put('count-documents', sum(TAB_GROUPS.documents));
+  put('count-site', sum(TAB_GROUPS.site));
+  put('count-files-main', tabCounts.files || 0);
   renderStats();
 }
 
+// Five tabs; Documents and Site hold several kinds, picked in a second row.
+const TAB_GROUPS = {
+  overview: ['overview'], documents: ['boq', 'quotations', 'delivery', 'invoices', 'letters'],
+  files: ['files'], site: ['inspections', 'tasks'], history: ['history'],
+};
+const groupOf = (tab) => Object.keys(TAB_GROUPS).find((g) => TAB_GROUPS[g].includes(tab)) || 'overview';
+// The header's main button follows the tab: the "New …" for what's shown.
+const TAB_NEW = {
+  boq: ['New BOQ', 'new-boq'], quotations: ['New Quotation', 'new-quotation'], delivery: ['New Delivery Note', 'new-delivery-note'],
+  invoices: ['New Invoice', 'new-invoice'], letters: ['New Letter', 'new-letter'], files: ['Upload Drawings', 'upload-drawing'],
+  inspections: ['Record Inspection', 'record-inspection'], tasks: ['New Task', 'new-task'],
+};
+let currentTab = 'overview';
+
 function showTab(name) {
-  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('active', b.dataset.tab === name);
+  if (!TAB_GROUPS[groupOf(name)].includes(name) && !document.querySelector(`.tab-panel[data-panel="${name}"]`)) name = 'overview';
+  currentTab = name;
+  const group = groupOf(name);
+  for (const b of document.querySelectorAll('#tabs-main button')) {
+    const on = b.dataset.group === group;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  }
+  const sub = document.getElementById('tabs');
+  sub.classList.toggle('hidden', TAB_GROUPS[group].length < 2);
+  for (const b of sub.querySelectorAll('button')) {
+    b.classList.toggle('active', b.dataset.tab === name);
+    b.classList.toggle('out-of-group', !TAB_GROUPS[group].includes(b.dataset.tab));
+  }
   for (const p of document.querySelectorAll('.tab-panel')) p.classList.toggle('active', p.dataset.panel === name);
-  try { sessionStorage.setItem(`project-tab-${currentProject.projectNumber}`, name); } catch (e) { /* ignore */ }
+  try {
+    sessionStorage.setItem(`project-tab-${currentProject.projectNumber}`, name);
+    sessionStorage.setItem(`project-group-${group}`, name);
+  } catch (e) { /* ignore */ }
+  if (window.renderProjectActions) window.renderProjectActions();
 }
 
 function setupTabs() {
   for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
+  for (const b of document.querySelectorAll('#tabs-main button')) b.addEventListener('click', () => {
+    const g = b.dataset.group;
+    let last = null;
+    try { last = sessionStorage.getItem(`project-group-${g}`); } catch (e) { last = null; }
+    const visible = TAB_GROUPS[g].filter((t) => { const el = document.querySelector(`#tabs [data-tab="${t}"]`); return el && !el.classList.contains('hidden') || TAB_GROUPS[g].length === 1; });
+    showTab(last && visible.includes(last) ? last : visible[0] || TAB_GROUPS[g][0]);
+  });
   const params = new URLSearchParams(location.search);
   let initial = params.get('tab');
   if (!initial && (location.hash === '#drawings' || location.hash === '#documents')) initial = 'files';
@@ -808,7 +851,39 @@ function renderProjectHeader() {
   renderStages();
   renderStats();
   renderOverview();
+  renderProjectActions();
+  if (!document.querySelector('#project-body > .crumbs')) {
+    document.getElementById('project-body').prepend(window.crumbs([{ label: 'Projects', href: 'projects.html' }, { label: `${p.projectNumber} ${p.name}` }]));
+  }
 }
+
+// [···] (Edit Details, Show in Finder, Customise, Delete) and the one main
+// button, which follows the tab, with every other "New …" under its arrow.
+window.renderProjectActions = function renderProjectActions() {
+  const side = document.querySelector('.pd-hero-side .header-actions');
+  if (!side || !window.pageActions) return;
+  let holder = side.querySelector('.pd-actions');
+  if (!holder) { holder = document.createElement('div'); holder.className = 'pd-actions'; side.appendChild(holder); }
+  const [label, action] = TAB_NEW[currentTab] || ['New Quotation', 'new-quotation'];
+  window.pageActions(holder, {
+    overflow: [
+      { label: 'Edit Details…', run: () => document.getElementById('edit-project-btn').click() },
+      { label: 'Show in Finder', run: () => document.getElementById('reveal-folder-btn').click() },
+      { label: 'Customise Overview…', run: () => { showTab('overview'); const c = document.getElementById('pd-customise-btn'); if (c) c.click(); } },
+    ],
+  });
+  const split = document.createElement('div');
+  split.className = 'split-btn';
+  split.innerHTML = `<button type="button" class="primary" data-no-icon>${window.icon('plus', 15)}<span></span></button><button type="button" class="primary split-caret" data-no-icon aria-label="Make something else" title="Make something else">${window.icon('caret-down', 13)}</button>`;
+  split.querySelector('span').textContent = label;
+  split.firstElementChild.addEventListener('click', () => runQuickAction(action));
+  holder.querySelector('.page-actions').appendChild(split);
+  window.hoverMenu.attach(split.lastElementChild, {
+    openOn: 'press',
+    items: () => PD_ACTIONS.filter((a) => !(currentProject && currentProject.jobType === 'Crane' && a.action === 'new-boq')).map((a) => ({ label: a.label, value: a.action })),
+    onPick: (v) => runQuickAction(v),
+  });
+};
 
 // Planning › Quotation › Active › Completed, the project's stage lit up; a click moves it there.
 function renderStages() {

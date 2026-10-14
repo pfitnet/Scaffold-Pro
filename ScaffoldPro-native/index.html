@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Dashboard · ScaffoldPro</title>
+  <title>Home · ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body data-page="dashboard">
@@ -11,12 +11,12 @@
   <main id="content">
     <div class="page-header">
       <div>
-        <h1>Dashboard</h1>
+        <h1>Home</h1>
         <div class="subtitle" id="today-line"></div>
       </div>
-      <div class="header-actions">
-        <button id="announce-btn" data-no-icon title="Post an announcement to everyone, or to your team">Announce</button>
-        <button id="customise-btn" data-no-icon title="Move, resize, hide or show the Dashboard’s panels">Customise</button>
+      <div class="header-actions" id="home-actions">
+        <button id="announce-btn" class="hidden" data-no-icon title="Post an announcement to everyone, or to your team">Announce</button>
+        <button id="customise-btn" class="hidden" data-no-icon title="Move, resize, hide or show the panels">Customise</button>
       </div>
     </div>
 
@@ -27,13 +27,17 @@
     <div class="stat-grid" id="stat-grid"></div>
 
     <div class="dash-grid" id="dash-grid">
-      <section class="panel" data-widget="quick" data-title="Quick Actions" data-span="1">
+      <section class="panel" data-widget="quick" data-title="Quick Actions" data-span="1" data-default-off>
         <h3 class="panel-title">Quick Actions</h3>
         <div class="qa-grid" id="quick-actions"></div>
       </section>
       <section class="panel" data-widget="tasks" data-title="My Tasks" data-span="3">
         <h3 class="panel-title panel-title-row"><span>My Tasks</span><span class="panel-actions"><a href="tasks.html" class="panel-link">All tasks</a></span></h3>
         <div id="my-tasks-list"></div>
+      </section>
+      <section class="panel" data-widget="quotations" data-title="My Quotations Awaiting Reply" data-span="1">
+        <h3 class="panel-title" id="quotation-title">My Quotations Awaiting Reply</h3>
+        <div id="quotation-list"></div>
       </section>
       <section data-widget="inspections" data-title="Scaffold Inspections Due" class="panel hidden" id="inspections-panel">
         <h3 class="panel-title">Scaffold Inspections Due</h3>
@@ -43,11 +47,7 @@
         <h3 class="panel-title">My Active &amp; Recent Projects</h3>
         <div id="recent-projects"></div>
       </section>
-      <section class="panel" data-widget="quotations" data-title="My Quotations Awaiting Reply">
-        <h3 class="panel-title" id="quotation-title">My Quotations Awaiting Reply</h3>
-        <div id="quotation-list"></div>
-      </section>
-      <section class="panel" data-widget="unpaid" data-title="Unpaid Invoices">
+      <section class="panel" data-widget="unpaid" data-title="Unpaid Invoices" data-span="1">
         <h3 class="panel-title">Unpaid Invoices</h3>
         <div id="unpaid-list"></div>
       </section>

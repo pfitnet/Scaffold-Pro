@@ -1,5 +1,8 @@
 'use strict';
 
+// Icons named in the page (data-icon) come from the shared set (js/icons.js).
+document.querySelectorAll('.pj-view-ico[data-icon]').forEach((el) => { el.outerHTML = window.icon(el.dataset.icon, { size: 15 }); });
+
 let allProjects = [];
 
 // The page's choices, kept on this Mac: status filter, order, cards or list.

@@ -490,12 +490,11 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 }
 .panel:hover { border-color: color-mix(in srgb, var(--accent) 16%, var(--border)); }
 .panel-title {
-  font-size: 11px;
-  font-weight: 650;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0 0 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.005em;
+  margin: 0 0 12px;
 }
 
 .stat-grid {
@@ -761,7 +760,7 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .page-header .subtitle a { color: inherit; }
 .page-header .subtitle a:hover { color: var(--accent-text); }
 .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
-.eyebrow { font-size: 12px; font-weight: 600; color: var(--accent-text); margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; font-variant-numeric: tabular-nums; }
 
 .tabs { position: relative; display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
 .tabs button {
@@ -1957,10 +1956,10 @@ button.pj-filter.on { background: color-mix(in srgb, var(--st) 15%, transparent)
 a.pj-card { position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px 18px 13px; border-radius: 14px;
   background: var(--panel); border: 1px solid var(--border); color: var(--text); text-decoration: none; overflow: hidden; isolation: isolate;
   transition: transform .22s cubic-bezier(.2, .8, .2, 1), box-shadow .22s ease, border-color .22s ease; }
-a.pj-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--st), color-mix(in srgb, var(--st) 20%, transparent));
-  transform: scaleX(.28); transform-origin: left; transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
-a.pj-card:hover, a.pj-card:focus-visible { transform: translateY(-3px); border-color: color-mix(in srgb, var(--st) 45%, var(--border));
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .14), 0 2px 6px rgba(0, 0, 0, .06); outline: none; }
+a.pj-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--st);
+  transform: scaleX(1); transform-origin: left; }
+a.pj-card:hover, a.pj-card:focus-visible { transform: translateY(-2px); border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift); outline: none; }
 a.pj-card:hover::before, a.pj-card:focus-visible::before { transform: scaleX(1); }
 a.pj-card:active { transform: translateY(-1px) scale(.995); }
 .pj-spot { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .25s ease;
@@ -2823,3 +2822,34 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
   body { display: block; height: auto; overflow: visible; }
   #content { padding: 0; overflow: visible; }
 }
+
+/* ---------- Project page (redesign R4) ---------- */
+#tabs-main { margin-top: 18px; }
+.tabs-sub { margin: 12px 0 16px; }
+.tabs-sub .out-of-group { display: none; }
+/* The header's main button follows the tab; its arrow holds every other "New …". */
+.split-btn { display: inline-flex; align-items: stretch; }
+.split-btn > button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px 0 13px; }
+.split-btn > .split-caret { border-top-left-radius: 0; border-bottom-left-radius: 0; height: 34px; padding: 0 9px; margin-left: 1px; }
+.pd-actions .page-actions { gap: 8px; }
+/* Each tab's own "+ New …" and its repeated title: the header has them now
+   (the buttons stay, hidden, for the code and ?new=1). */
+.tab-panel > .section-toolbar > button.primary, .tab-panel > .section-toolbar .controls > button.primary { display: none; }
+.tab-panel:not([data-panel="files"]) > .section-toolbar > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.tab-panel > .section-toolbar { justify-content: flex-end; min-height: 0; margin-bottom: 10px; }
+.tab-panel > .section-toolbar:not(:has(> :not(h2):not(.hidden):not(.primary))) { display: none; }
+/* Breadcrumbs replace "Back" where a page has them. */
+#content:has(.crumbs) > .page-back { display: none; }
+/* The project's header: a panel in a steel tray, its status as a thin top edge. */
+.pd-hero { background: var(--panel) !important; border: 1px solid var(--hairline) !important; border-radius: var(--radius-xl) !important;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--panel-2) 80%, transparent), var(--shadow-card) !important; }
+.pd-hero::before { background: var(--st, var(--text-tertiary)) !important; height: 3px !important; opacity: 1 !important; }
+.pd-hero-glow, .pj-spot { display: none !important; }
+.pd-number { font-family: var(--font-mono) !important; color: var(--text) !important; background: var(--panel-2) !important; box-shadow: inset 0 0 0 1px var(--hairline) !important; text-transform: none !important; }
+#new-boq-btn, #new-quotation-btn, #new-invoice-btn, #new-delivery-note-btn, #new-letter-btn, #record-inspection-btn, #new-task-btn { display: none !important; }
+.tabs-sub .dk-dot { margin-right: 6px; }
+.tabs-sub button { display: inline-flex; align-items: center; }
+td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); font-size: 12.5px; }
+
+.pj-view button { display: inline-flex; align-items: center; gap: 6px; width: auto !important; padding: 0 10px !important; }
+.pj-num, .pj-card .pj-number, .ov-num { font-family: var(--font-mono); }

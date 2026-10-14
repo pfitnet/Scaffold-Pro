@@ -5439,3 +5439,34 @@ Increase Contrast. No Swift changed.
 - Checked: in a browser at Mac, narrow-window and phone sizes. The dialogs
   Swift calls (`appDialog`, `appUpdatePrompt`) still answer as before.
   Swift (one menu title) not compiled.
+
+## Batch 246 — Home, Projects and the project page, redesigned (redesign R3–R4)
+
+- **Home** (was the Dashboard):
+  - one main button, **New ▾**, opens a menu of every "New …";
+  - Announce and Customise Home are under **···**;
+  - the Quick Actions panel starts hidden (Customise can bring it back),
+    and a saved layout keeps what you had;
+  - My Tasks and My Projects are wider by default, with Quotations
+    Awaiting Reply and Unpaid Invoices beside them;
+  - panel titles are no longer in capitals.
+- **Projects:**
+  - the view switch reads Cards / List / Overview;
+  - each card's top edge is its status colour, solid;
+  - cards lift a little on hover, with no glow.
+- **A project's page:**
+  - breadcrumbs (Projects › 26219 …) instead of Back;
+  - **five tabs** instead of ten: Overview, Documents, Drawings & Files,
+    Site, History. Documents opens a second row (BOQ, Quotations,
+    Delivery Notes, Invoices, Letters), and Site opens Inspections and
+    Tasks. Old links and remembered tabs still open the right one;
+  - **one main button** that follows the tab ("New Quotation", "Record
+    Inspection", …), with every other "New …" under its arrow. Edit
+    Details, Show in Finder and Customise Overview are under **···**;
+  - the six count tiles and each tab's own "+ New …" button are gone,
+    because the tabs show the counts and the header does the rest;
+  - the header is one panel in a steel tray, with the status as a thin
+    top edge;
+  - the Overview's Quick Actions panel starts hidden.
+- Checked: in a browser with sample data (light and dark). The
+  `?new=1`, `?tab=` and quick-action ids still work.
