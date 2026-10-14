@@ -7,7 +7,7 @@
   margin: 0 0 14px; padding: 26px 28px 24px; border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--wk-a) 18%, var(--border));
   background: linear-gradient(135deg, color-mix(in srgb, var(--wk-a) 11%, var(--panel)), color-mix(in srgb, var(--wk-b) 9%, var(--panel)) 60%, var(--panel));
-  box-shadow: var(--shadow-card); animation: wkRise .5s var(--wk-ease) both; }
+  box-shadow: var(--shadow-card); }
 .wk-hero-glow { position: absolute; inset: -60% -20%; pointer-events: none; opacity: .6;
   background: radial-gradient(26% 40% at 18% 40%, color-mix(in srgb, var(--wk-a) 34%, transparent), transparent 70%),
               radial-gradient(24% 36% at 78% 30%, color-mix(in srgb, var(--wk-b) 30%, transparent), transparent 70%),
@@ -36,7 +36,7 @@
 .wk-stat { --t: var(--accent); position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 13px; row-gap: 0;
   align-items: center; height: auto; padding: 14px 16px; border-radius: 16px; text-align: left; white-space: normal; font-weight: 400;
   border: 1px solid var(--border); background: var(--panel); box-shadow: var(--shadow-card); cursor: pointer;
-  transition: transform .2s var(--wk-ease), box-shadow .2s, border-color .2s, background-color .2s; animation: wkRise .45s var(--wk-ease) both; animation-delay: calc(var(--i) * 60ms + 80ms); }
+  transition: transform .2s var(--wk-ease), box-shadow .2s, border-color .2s, background-color .2s; }
 .wk-stat.t-blue { --t: #4b78ff; } .wk-stat.t-violet { --t: #8a5cf5; } .wk-stat.t-amber { --t: #e08a1f; } .wk-stat.t-rose { --t: #e0485f; }
 @media (prefers-color-scheme: dark) { .wk-stat.t-blue { --t: #7c9bff; } .wk-stat.t-violet { --t: #a98af0; } .wk-stat.t-amber { --t: #f0aa4a; } .wk-stat.t-rose { --t: #ff7488; } }
 .wk-stat:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--t) 35%, var(--border)); background: var(--panel); }
@@ -55,7 +55,7 @@
 
 /* ---------- Roster ---------- */
 .wk-roster { position: sticky; top: 12px; display: flex; flex-direction: column; max-height: calc(100vh - 24px); border-radius: 18px;
-  border: 1px solid var(--border); background: var(--panel); box-shadow: var(--shadow-card); overflow: hidden; animation: wkRise .45s var(--wk-ease) .15s both; }
+  border: 1px solid var(--border); background: var(--panel); box-shadow: var(--shadow-card); overflow: hidden; }
 .wk-roster-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px 11px; border-bottom: 1px solid var(--hairline);
   font-size: 12.5px; font-weight: 650; }
 .wk-roster-head span span { margin-left: 4px; padding: 1px 7px; border-radius: 99px; font-size: 11px; color: var(--text-secondary); background: color-mix(in srgb, var(--text) 7%, transparent); }
@@ -63,7 +63,7 @@
 .wk-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; outline: none; }
 .wk-card { display: flex; align-items: center; gap: 11px; width: 100%; height: auto; padding: 9px 10px; border-radius: 13px; text-align: left; font-weight: 400;
   border: 1px solid transparent; background: transparent; box-shadow: none; white-space: normal; cursor: pointer;
-  transition: background-color .15s, border-color .15s, transform .15s var(--wk-ease); animation: wkRise .35s var(--wk-ease) both; animation-delay: calc(var(--i) * 25ms); }
+  transition: background-color .15s, border-color .15s, transform .15s var(--wk-ease); }
 .wk-card:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 4%, transparent); border-color: transparent; box-shadow: none; }
 .wk-card.on { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 .wk-card.on:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
@@ -253,7 +253,7 @@
 .wk-doc-exp input { width: 138px; }
 .wk-doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .wk-doc { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--panel);
-  box-shadow: var(--shadow-card); transition: transform .2s var(--wk-ease), box-shadow .2s; animation: wkRise .3s var(--wk-ease) both; }
+  box-shadow: var(--shadow-card); transition: transform .2s var(--wk-ease), box-shadow .2s; }
 .wk-doc:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 .wk-doc.missing { border-style: dashed; }
 .wk-doc-kind { position: absolute; top: 14px; right: 14px; font: 700 10px/1 var(--font-ui, "Geist", -apple-system, sans-serif); padding: 5px 7px; border-radius: 7px; color: #fff; background: #8a8f98; }
@@ -331,7 +331,4 @@
   .wk-sheet { grid-template-columns: 1fr; }
   .wk-sheet-side { border-left: none; border-top: 1px solid var(--hairline); }
   .wk-mini-paper { display: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wk-hero, .wk-hero-glow, .wk-stat, .wk-roster, .wk-card, .wk-doc, .wk-panel.swap, .wk-profile.enter .wk-hero-card, .wk-welcome-art span, .wk-next-dot::after { animation: none !important; }
 }

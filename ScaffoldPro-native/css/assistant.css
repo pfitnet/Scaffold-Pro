@@ -16,7 +16,7 @@
 .as-messages { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 
 /* Before anything is said. */
-.as-empty { text-align: center; padding: 6vh 0 2vh; animation: as-in .35s var(--ease) both; }
+.as-empty { text-align: center; padding: 6vh 0 2vh; }
 .as-empty-mark { width: 54px; height: 54px; margin: 0 auto 14px; border-radius: 16px; display: grid; place-items: center; color: var(--accent-text);
   background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .as-empty-mark svg { width: 28px; height: 28px; }
@@ -140,9 +140,6 @@
   .as-suggest { grid-template-columns: 1fr; }
   .as-head, .as-scroll, .as-composer-wrap { padding-left: 16px; padding-right: 16px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .as-msg, .as-empty, .as-dots i { animation: none; }
-}
 
 /* Header actions (both places). */
 .as-head-actions { display: flex; align-items: center; gap: 6px; }
@@ -206,7 +203,6 @@
   border: 1px solid var(--border); background: var(--panel); box-shadow: none; transition: border-color .15s, transform .15s var(--ease); }
 .as-chip:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); transform: translateX(2px); }
 .as-chat.compact .as-drop { border-radius: 18px; }
-@media (prefers-reduced-motion: reduce) { .as-float, .as-launcher, .as-launcher svg { animation: none; transition: none; } }
 @media print { .as-launcher, .as-float { display: none !important; } }
 
 /* Moving and resizing the floating chat. */
@@ -383,4 +379,3 @@ body.as-resizing-nw, body.as-resizing-nw *, body.as-resizing-se, body.as-resizin
 .as-summ-kicker { margin-bottom: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
 .as-summ-body p { margin: 0 0 6px; }
 .as-summ-body ul { margin: 4px 0 6px; padding-left: 18px; }
-@media (prefers-reduced-motion: reduce) { .as-chat.compact .as-side, .as-ctx-pop, .as-summ.open .as-summ-body { animation: none; } }

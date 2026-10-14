@@ -5,15 +5,14 @@
 //   • the sidebar's selection marker slides from the page you left to this one;
 //   • a line slides under the chosen tab (.tabs), a pill under the chosen
 //     choice of a segmented control (.segmented);
-//   • numbers on stat cards count up to their value;
-//   • cards catch a soft light where the pointer is (.panel, .stat-card, .form-card).
+//   • numbers on stat cards count up to their value, once a session per page;
 // Buttons press in as the pointer goes down (css/styles.css), as on the Mac.
-// Everything is skipped with "Reduce motion" (System Settings › Accessibility).
+// The app doesn't follow the Mac's Reduce Motion (the user's choice; see HANDOFF §3).
 
 (function () {
   if (window.__motion) return;
   window.__motion = true;
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = false;
   const root = document.documentElement;
   const raf = (fn) => requestAnimationFrame(fn);
   const store = {
@@ -92,18 +91,6 @@
       ink.className = cls;
       ink.setAttribute('aria-hidden', 'true');
       ink.style.transition = 'none';
-      // A page that colours its chosen choice (e.g. blue): the pill wears that.
-      if (cls === 'seg-ink') {
-        // Read the settled colours, not a colour change still under way.
-        const was = active.style.transition;
-        active.style.transition = 'none';
-        const cs = getComputedStyle(active);
-        void cs.color;
-        if (cs.backgroundImage !== 'none') ink.style.backgroundImage = cs.backgroundImage;
-        else if (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor)) ink.style.backgroundColor = cs.backgroundColor;
-        container.style.setProperty('--seg-text', cs.color);
-        active.style.transition = was;
-      }
       container.appendChild(ink);
       container.classList.add('has-ink');
       raf(() => { ink.style.transition = ''; });
@@ -121,8 +108,16 @@
   // ---------- Counting numbers ----------
   const NUM = /^(\D*?)(-?[\d,]*\.?\d+)(\D*)$/;
   const running = new WeakSet();
+  const seenKey = `count.${location.pathname.split('/').pop()}`;
+  const seen = new Set((store.get(seenKey) || '').split('|').filter(Boolean));
+  const saveSeen = () => store.set(seenKey, [...seen].slice(-40).join('|'));
+  window.addEventListener('pagehide', saveSeen);
+  setTimeout(saveSeen, 3000);
   function countUp(el) {
     if (reduce || running.has(el)) return;
+    // Once a session per page: the first visit counts up, later ones show the figure.
+    if (seen.has(el.textContent.trim())) return;
+    seen.add(el.textContent.trim());
     const text = el.textContent.trim();
     const m = NUM.exec(text);
     if (!m) return;
@@ -158,30 +153,6 @@
       counted.add(el);
       countUp(el);
     }
-  }
-
-  // ---------- Light under the pointer ----------
-  const SPOT = '.panel, .stat-card, .form-card';
-  let spotEl = null;
-  let spotXY = null;
-  document.addEventListener('pointermove', (e) => {
-    if (reduce || e.pointerType === 'touch') return;
-    const el = e.target.closest && e.target.closest(SPOT);
-    if (!el) return;
-    if (!el.classList.contains('spot')) {
-      if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
-      el.classList.add('spot');
-    }
-    spotEl = el;
-    spotXY = [e.clientX, e.clientY];
-    if (!placeSpot.queued) { placeSpot.queued = true; raf(placeSpot); }
-  }, { passive: true });
-  function placeSpot() {
-    placeSpot.queued = false;
-    if (!spotEl || !spotXY) return;
-    const r = spotEl.getBoundingClientRect();
-    spotEl.style.setProperty('--mx', `${spotXY[0] - r.left}px`);
-    spotEl.style.setProperty('--my', `${spotXY[1] - r.top}px`);
   }
 
   // ---------- Keeping up with the page ----------

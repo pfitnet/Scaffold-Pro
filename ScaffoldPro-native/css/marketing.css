@@ -124,7 +124,7 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .mo-name { grid-area: name; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mo-val { grid-area: val; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mo-bar { grid-area: bar; display: flex; gap: 2px; height: 8px; }
-.mo-bar i { display: block; height: 100%; border-radius: 0; transform-origin: left; animation: mo-bar-in .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d, 0s); }
+.mo-bar i { display: block; height: 100%; border-radius: 0; transform-origin: left; }
 .mo-bar i:last-child { border-radius: 0 4px 4px 0; }
 .mo-bar i.won { background: var(--viz-won); }
 .mo-bar i.open { background: var(--viz-open); }
@@ -135,7 +135,7 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 /* The quotations behind what's picked. */
 .mo-quotes { display: flex; flex-direction: column; }
 .mo-quote { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 9px 8px; border-radius: 8px; color: var(--text); text-decoration: none;
-  border-bottom: 1px solid var(--hairline); animation: mo-fade .3s ease both; animation-delay: var(--d, 0s); }
+  border-bottom: 1px solid var(--hairline); }
 .mo-quote:last-child { border-bottom: none; }
 .mo-quote:hover { background: var(--viz-wash); }
 .mo-quote .num { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 8px; }
@@ -147,10 +147,6 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .mo-pill.wait { color: var(--text-secondary); background: color-mix(in srgb, var(--text) 7%, transparent); }
 @keyframes mo-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
-@media (prefers-reduced-motion: reduce) {
-  .mo-chart.grow .bars, .mo-bar i, .mo-quote, .mo-chip { animation: none; }
-  .mo-meter-fill { transition: none; }
-}
 
 /* Marketing › Client Report (js/marketing-report.js): the quotations one
    client was sent in a period, with what they came to and what was won. */
@@ -160,7 +156,7 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .cr-custom { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
 .cr-custom.hidden, .cr-month.hidden { display: none; }
 .cr-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 18px; padding: 18px 20px; margin: 0 0 14px;
-  border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); background: var(--panel); animation: mo-fade .3s ease both; }
+  border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); background: var(--panel); }
 .cr-eyebrow { font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
 .cr-head h2 { margin: 2px 0 2px; font-size: 22px; }
 .cr-when { font-size: 13px; color: var(--text-secondary); }
@@ -171,7 +167,7 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .cr-stat.good b { color: var(--success); }
 .cr-table { width: 100%; }
 .cr-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cr-table tbody tr { cursor: pointer; animation: mo-fade .3s ease both; animation-delay: calc(var(--i, 0) * 25ms); }
+.cr-table tbody tr { cursor: pointer; }
 .cr-table tfoot td { border-top: 1px solid var(--border); }
 .cr-table .status-pill { margin-left: 6px; font-size: 10.5px; }
 
@@ -184,7 +180,7 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .pr-none { font-size: 12.5px; color: var(--text-tertiary); line-height: 1.5; padding: 10px 4px; }
 .pr-card { display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; text-align: left; padding: 10px 12px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--panel); box-shadow: none; color: var(--text); font: inherit; cursor: pointer;
-  transition: border-color .15s, background .15s, transform .15s; animation: mo-fade .3s ease both; animation-delay: calc(var(--i, 0) * 30ms); }
+  transition: border-color .15s, background .15s, transform .15s; }
 .pr-card:hover:not(:disabled) { border-color: var(--border-strong); background: var(--panel); }
 .pr-card.on { border-color: var(--border-strong); background: var(--row-selected); }
 .pr-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -228,7 +224,7 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .pr-block-head h3 { margin: 0 6px 0 0; font-size: 14px; }
 .pr-empty { padding: 18px 10px; text-align: center; font-size: 13px; color: var(--text-tertiary); }
 .pr-table { width: 100%; }
-.pr-table tbody tr { animation: mo-fade .3s ease both; animation-delay: calc(var(--i, 0) * 25ms); }
+.pr-table tbody tr { }
 .pr-tick { width: 26px; }
 .pr-kind { font-size: 10px; font-weight: 650; padding: 0 6px; border-radius: 999px; margin-left: 4px; color: var(--text-secondary); background: color-mix(in srgb, var(--text) 7%, transparent); }
 .pr-kind.k-client { color: var(--accent-text); background: var(--accent-soft); }
@@ -275,4 +271,3 @@ button.mo-row:hover:not(:disabled) { background: var(--viz-wash); border-color: 
 .pr-pick-count { margin-right: auto; }
 
 @media (max-width: 1000px) { .pr-layout { grid-template-columns: 1fr; } .pr-list { position: static; } }
-@media (prefers-reduced-motion: reduce) { .pr-card, .pr-table tbody tr, .cr-table tbody tr, .cr-head { animation: none; } }

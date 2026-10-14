@@ -21,7 +21,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const dayOf = (s) => new Date(`${s}T00:00:00`);
-const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = () => false;
 const store = {
   get(k, d) { try { const v = localStorage.getItem(`tasks.${k}`); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(`tasks.${k}`, JSON.stringify(v)); } catch (e) { /* private window */ } },

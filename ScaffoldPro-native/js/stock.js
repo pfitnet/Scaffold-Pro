@@ -118,7 +118,7 @@ async function load() {
 function countTo(el, to, format) {
   const from = Number(el.dataset.v || 0);
   el.dataset.v = to;
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches || from === to) { el.textContent = format(to); return; }
+  if (false || from === to) { el.textContent = format(to); return; }
   const t0 = performance.now();
   const step = (t) => {
     const k = Math.min(1, (t - t0) / 650);

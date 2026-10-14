@@ -28,7 +28,7 @@ function when(iso) {
 
 // ---------- Motion (none when the Mac is set to reduce motion) ----------
 
-const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const calm = false;
 
 // A number counting up to its value (e.g. 0 → 12,450.00), quick and easing out.
 function countUp(el, to, format) {
