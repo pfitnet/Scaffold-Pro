@@ -17,7 +17,7 @@ const keep = () => { try { localStorage.setItem(STATE_KEY, JSON.stringify(state)
 const STATUS_ORDER = ['Planning', 'Quotation', 'Active', 'On Hold', 'Completed', 'Archived'];
 const statusClass = (s) => `st-${String(s || '').toLowerCase().replace(/[^a-z]+/g, '-')}`;
 const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const calm = false;
 
 function ago(iso) {
   const d = new Date(iso);

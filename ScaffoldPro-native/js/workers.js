@@ -191,7 +191,7 @@
     countUp();
   }
   function countUp() {
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (false) return;
     if (countUp.done) return;
     countUp.done = true;
     for (const el of document.querySelectorAll('.wk-stat-n')) {

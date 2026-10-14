@@ -5373,3 +5373,29 @@ Increase Contrast. No Swift changed.
   actions, where a word doesn't fit.
 - `icons.js` now loads straight after `dialogs.js` on every page.
 - Checked: the pages in a browser (light and dark).
+
+## Batch 244 — Motion everywhere; no fade-in when a page opens (redesign R1c)
+
+- **Reduce Motion is no longer followed** (the user's choice). The same
+  goes for Reduce Transparency and Increase Contrast. The app animates
+  the same way whatever the Mac's Accessibility settings say. Every
+  `prefers-reduced-motion` / `prefers-reduced-transparency` /
+  `prefers-contrast` rule and every script check for them is gone.
+- **Curves:**
+  - `--spring` has a gentle overshoot again;
+  - `--spring-momentum` is stronger, for drags;
+  - new `--ease-out`, `--ease-in-out` and `--ease-drawer`;
+  - duration tokens `--dur-press` … `--dur-sheet`.
+- **No animation when a page first opens.** Things no longer rise or
+  fade in as a page opens: the page is already shown finished
+  (Batch 226). This covers Calendar, Tasks, Stock, Workers, Marketing,
+  the Manual, Settings, the Dashboard and the project page. Animations
+  you start yourself stay: filters, new rows, tabs, toasts, sheets.
+- **No more glow under the pointer** on cards.
+- **Counting-up numbers** play the first time you open a page in a
+  session; after that they just show.
+- **The segmented switch's sliding pill** takes its colour from the
+  theme, so it follows Light / Dark.
+- **The launch screen and the ScaffoldPro Web loading screen** are now
+  dark steel with the orange accent. The logo's yellow brace is kept.
+- Checked: all pages load with no errors in a browser with sample data.

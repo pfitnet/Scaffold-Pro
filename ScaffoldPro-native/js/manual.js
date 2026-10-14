@@ -13,7 +13,7 @@
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const CHAPTERS = window.MANUAL_CONTENT || [];
   const SHOTS = window.MANUAL_SHOTS || {};
-  const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const still = () => false;
 
   // ---- icons (24 × 24, drawn with a line) ----
   const P = {

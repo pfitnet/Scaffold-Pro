@@ -30,7 +30,7 @@
 
 /* ---- a section ---- */
 .st-main { min-width: 0; }
-.st-pane { animation: st-in .3s var(--ease, ease) both; }
+.st-pane { }
 @keyframes st-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .st-pane-head { margin: 4px 0 18px; }
 .st-pane-head h2 { margin: 0; font-size: 21px; letter-spacing: -.015em; }
@@ -160,10 +160,6 @@
   .st-nav-item { width: auto; }
   .st-row { grid-template-columns: 1fr 34px; }
   .st-row .st-value { grid-column: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .st-pane, .st-row.editing .st-editor, .st-nav-item.on::before { animation: none; }
-  .st-switch span::after, .st-toast { transition: none; }
 }
 
 /* The sections' groups in the list. */

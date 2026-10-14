@@ -18,25 +18,25 @@
   const css = `
     #web-loading { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 18px; color: #e9eef8; font: 500 14px "Geist", -apple-system, "Segoe UI", system-ui, sans-serif;
-      background: radial-gradient(120% 90% at 50% 0%, #21407e 0%, #102451 48%, #081330 100%);
+      background: radial-gradient(120% 90% at 50% 0%, #2a2f35 0%, #181b1f 48%, #0e1012 100%);
       opacity: 0; animation: wl-in .25s ease ${first ? '0s' : '.35s'} forwards; transition: opacity .3s ease; }
     #web-loading.done { opacity: 0 !important; animation: none; pointer-events: none; }
     #web-loading svg { width: 84px; height: 84px; }
     #web-loading .wl-name { font-size: 22px; font-weight: 700; letter-spacing: .01em; }
-    #web-loading .wl-name span { color: #f6c445; }
+    #web-loading .wl-name span { color: #e7773e; }
     #web-loading .wl-note { color: rgba(233, 238, 248, .7); font-size: 13px; }
     #web-loading .wl-bar { width: 160px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden; }
-    #web-loading .wl-bar::after { content: ''; display: block; width: 40%; height: 100%; border-radius: 3px; background: #f6c445;
+    #web-loading .wl-bar::after { content: ''; display: block; width: 40%; height: 100%; border-radius: 3px; background: #e7773e;
       animation: wl-sweep 1.1s ease-in-out infinite; }
     @keyframes wl-in { to { opacity: 1; } }
     @keyframes wl-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-    @media (prefers-reduced-motion: reduce) { #web-loading, #web-loading .wl-bar::after { animation-duration: .01s; } }`;
+    `;
   const logo = `<svg viewBox="0 0 128 128" aria-hidden="true">
       <rect x="4" y="4" width="120" height="120" rx="28" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.10)"/>
       <g fill="#e9eef8"><rect x="22" y="102" width="16" height="4" rx="1.5"/><rect x="56" y="102" width="16" height="4" rx="1.5"/><rect x="90" y="102" width="16" height="4" rx="1.5"/></g>
       <g fill="none" stroke-linecap="round"><path d="M30 101V22M64 101V22M98 101V22" stroke="#e9eef8" stroke-width="5"/>
-      <path d="M30 88H98M30 60H98M30 32H98" stroke="#c9d4ea" stroke-width="4"/><path d="M30 88L98 32" stroke="#f6c445" stroke-width="5.5"/></g>
-      <g fill="#102451" stroke="#fff" stroke-width="2.2">${[88, 60, 32].map((y) => [30, 64, 98].map((x) => `<circle cx="${x}" cy="${y}" r="4.2"/>`).join('')).join('')}</g>
+      <path d="M30 88H98M30 60H98M30 32H98" stroke="#c9d4ea" stroke-width="4"/><path d="M30 88L98 32" stroke="#f4b400" stroke-width="5.5"/></g>
+      <g fill="#181b1f" stroke="#fff" stroke-width="2.2">${[88, 60, 32].map((y) => [30, 64, 98].map((x) => `<circle cx="${x}" cy="${y}" r="4.2"/>`).join('')).join('')}</g>
     </svg>`;
 
   const style = document.createElement('style');

@@ -45,7 +45,7 @@
   border: 1px solid color-mix(in srgb, var(--tk-a) 18%, var(--border));
   background: linear-gradient(135deg, color-mix(in srgb, var(--tk-a) 10%, var(--panel)), color-mix(in srgb, var(--tk-b) 8%, var(--panel)));
   box-shadow: var(--tk-shadow);
-  animation: tkRise .5s var(--tk-ease) both;
+
 }
 .tk-hero-glow { position: absolute; inset: -40%; pointer-events: none; opacity: .55;
   background:
@@ -84,7 +84,7 @@
   position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 22px; padding: 8px 10px 8px 14px;
   border-radius: 14px; background: var(--tk-card); border: 1px solid var(--tk-line); box-shadow: var(--tk-shadow);
   transition: border-color .2s, box-shadow .25s var(--tk-ease), transform .25s var(--tk-ease);
-  animation: tkRise .5s var(--tk-ease) .06s both;
+
 }
 .tk-quick:focus-within { border-color: color-mix(in srgb, var(--tk-a) 55%, var(--border));
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--tk-a) 14%, transparent), var(--tk-shadow-lift); transform: translateY(-1px); }
@@ -163,7 +163,7 @@
 .tk-card:focus-visible { border-color: var(--tk-a); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tk-a) 20%, transparent); }
 .tk-card:active { transform: translateY(0) scale(.995); }
 .tk-card.late { background: linear-gradient(90deg, color-mix(in srgb, var(--tk-late) 6%, var(--tk-card)), var(--tk-card) 40%); }
-.tk-list.animate .tk-card { animation: tkRise .45s var(--tk-ease) both; animation-delay: calc(80ms + var(--i) * 40ms); }
+.tk-list.animate .tk-card { }
 .tk-card.flash { animation: tkFlash 1.6s var(--tk-ease); }
 @keyframes tkFlash { 0%, 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tk-b) 45%, transparent), var(--tk-shadow-lift); border-color: var(--tk-b); } 100% { box-shadow: var(--tk-shadow); } }
 
@@ -231,7 +231,7 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 .tk-filter-chip button:hover { background: color-mix(in srgb, var(--tk-a) 18%, transparent); }
 
 /* ---------- Empty ---------- */
-.tk-empty { text-align: center; padding: 40px 20px 30px; animation: tkRise .5s var(--tk-ease) both; }
+.tk-empty { text-align: center; padding: 40px 20px 30px; }
 .tk-empty h2 { margin: 6px 0 4px; font-size: 18px; }
 .tk-empty p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .tk-empty-art { width: 170px; height: 128px; }
@@ -247,7 +247,7 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 
 /* ---------- Side column ---------- */
 .tk-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
-.tk-panel { padding: 14px 14px 12px; border-radius: 16px; background: var(--tk-card); border: 1px solid var(--tk-line); box-shadow: var(--tk-shadow); animation: tkRise .5s var(--tk-ease) .12s both; }
+.tk-panel { padding: 14px 14px 12px; border-radius: 16px; background: var(--tk-card); border: 1px solid var(--tk-line); box-shadow: var(--tk-shadow); }
 .tk-panel h3 { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary); }
 .tk-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .tk-day { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 5px; border: 0; border-radius: 10px; background: none; box-shadow: none; cursor: pointer; transition: background .15s, transform .15s var(--tk-spring); }
@@ -293,11 +293,6 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 @keyframes tkPop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
 @keyframes tkAurora { 0% { transform: translate(0, 0) rotate(0); } 100% { transform: translate(4%, -3%) rotate(8deg); } }
 
-@media (prefers-reduced-motion: reduce) {
-  .tk-page *, .tk-page *::before, .tk-page *::after { animation: none !important; transition: none !important; }
-  .tk-empty-art .tick { stroke-dashoffset: 0; }
-  .tk-empty-art .spark { opacity: .6; }
-}
 
 /* A task with nothing under its title (no due date, project or notes):
    its title, tick and avatar centred in the card. */

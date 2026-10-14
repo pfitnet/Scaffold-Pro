@@ -26,7 +26,7 @@
     if (['value', 'count'].includes(saved.measure)) state.measure = saved.measure;
   } catch (e) { /* defaults */ }
   const remember = () => { try { localStorage.setItem('marketing.overview', JSON.stringify({ range: state.range, measure: state.measure })); } catch (e) { /* ignore */ } };
-  const calm = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const calm = () => false;
 
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
