@@ -548,18 +548,21 @@ final class WebServer {
     func loginPage() -> String {
         let names = (db?.teamPage().people.map { $0.name } ?? []).map { "<option value=\"\(htmlEscape($0))\"></option>" }.joined()
         return """
-        <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Sign in — ScaffoldPro</title><link rel="stylesheet" href="/css/styles.css">
+        <!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <title>Sign in · ScaffoldPro</title><link rel="stylesheet" href="/css/styles.css">
         <style>
-          body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
-          .login { width: 360px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px 24px; box-shadow: var(--shadow-sheet); }
-          .login h1 { font-size: 20px; margin: 10px 0 4px; } .login p { color: var(--text-secondary); margin: 0 0 18px; font-size: 13px; }
-          .login .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; } .login input { width: 100%; height: 36px; }
-          .login button { width: 100%; height: 38px; font-size: 14px; } .mark { width: 44px; height: 44px; border-radius: 11px; background: #1B3556; display: flex; align-items: center; justify-content: center; color: #F4B400; font-weight: 800; font-size: 20px; }
+          html, body { height: auto; overflow: auto; }
+          body { display: flex; align-items: center; justify-content: center; min-height: 100dvh; margin: 0; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); background: var(--content); }
+          .login { width: 380px; max-width: 100%; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-xl); padding: 28px 26px 24px;
+            box-shadow: var(--shadow-sheet), 0 0 0 5px color-mix(in srgb, var(--panel-2) 70%, transparent); }
+          .login h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; margin: 14px 0 4px; } .login p { color: var(--text-secondary); margin: 0 0 20px; font-size: 13.5px; line-height: 1.5; }
+          .login .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; } .login label { font-size: 12.5px; font-weight: 560; color: var(--text-secondary); }
+          .login input { width: 100%; height: 40px; font-size: 16px; } .login button { width: 100%; height: 42px; font-size: 15px; }
+          .mark { width: 48px; height: 48px; display: block; }
           .err { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; }
         </style></head><body>
-        <form class="login" id="f"><div class="mark">S</div><h1>ScaffoldPro</h1><p>Sign in to work with the team. Everything you do is saved to the shared folder, just like on the Macs.</p>
-          <div class="field"><label for="n">Your name</label><input id="n" list="people" autocomplete="username" required placeholder="As on the Team page"><datalist id="people">\(names)</datalist></div>
+        <form class="login" id="f"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"> <rect x="0" y="0" width="64" height="64" rx="14" fill="#1B3556"/> <g fill="#E4E8EC"> <rect x="15" y="11" width="5" height="42"/><rect x="29.5" y="11" width="5" height="42"/><rect x="44" y="11" width="5" height="42"/> <rect x="15" y="16" width="34" height="4"/><rect x="15" y="30" width="34" height="4"/><rect x="15" y="44" width="34" height="4"/> </g> <line x1="17.5" y1="46" x2="46.5" y2="18" stroke="#F4B400" stroke-width="6" stroke-linecap="round"/> </svg><h1>ScaffoldPro</h1><p>Sign in to work with the team. Everything you do is saved to the shared folder, as on the Macs.</p>
+          <div class="field"><label for="n">Your name</label><input id="n" type="text" list="people" autocomplete="username" required placeholder="As on the Team page"><datalist id="people">\(names)</datalist></div>
           <div class="field"><label for="p">Office password</label><input id="p" type="password" autocomplete="current-password" required></div>
           <div class="err" id="e"></div><button class="primary" type="submit">Sign In</button></form>
         <script>

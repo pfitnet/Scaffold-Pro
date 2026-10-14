@@ -68,13 +68,13 @@
     if (!$('google-sheets') || !window.api.sheets) return;
     // In a browser: it's set up and runs on the office Mac.
     if (window.__scaffoldProWeb) {
-      $('google-sheets').querySelector('.section-body').innerHTML = '<p class="small-note">The Google Sheet is connected and kept up to date from the office Mac — set it up there, in Settings › Google Sheets.</p>';
+      $('google-sheets').querySelector('.gs-body').innerHTML = '<p class="small-note">The Google Sheet is connected and kept up to date from the office Mac. Set it up there, in Settings › Google Sheets.</p>';
       return;
     }
-    for (const [btn, note] of [['gs-copy', 'gs-copied'], ['gs-copy2', 'gs-copied2']]) {
+    for (const btn of ['gs-copy', 'gs-copy2']) {
       $(btn).addEventListener('click', async () => {
         const r = await window.api.sheets.copyScript();
-        $(note).textContent = r && r.ok ? 'Copied — paste it into Apps Script.' : ((r && r.error) || 'It couldn’t be copied.');
+        window.appToast(r && r.ok ? 'Copied. Paste it into Apps Script.' : ((r && r.error) || 'It couldn’t be copied.'), { kind: r && r.ok ? undefined : 'danger' });
       });
     }
     $('gs-connect').addEventListener('click', connect);

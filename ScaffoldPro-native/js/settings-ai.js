@@ -47,11 +47,10 @@
 
   async function save(removeKey) {
     const key = $('ai-key').value.trim();
-    if (!removeKey && !key) { $('ai-saved').textContent = 'Paste the key first.'; return; }
+    if (!removeKey && !key) { window.appToast('Paste the key first.', { kind: 'danger' }); return; }
     status = await window.api.ai.configure({ provider: chosen(), model: $('ai-model').value.trim(), key: removeKey ? '' : key, removeKey: !!removeKey });
     $('ai-key').value = '';
-    $('ai-saved').textContent = removeKey ? 'Key removed.' : '';
-    setTimeout(() => { $('ai-saved').textContent = ''; }, 3000);
+    window.appToast(removeKey ? 'Key removed.' : 'Saved');
     draw();
   }
 

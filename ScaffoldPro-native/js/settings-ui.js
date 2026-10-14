@@ -71,15 +71,7 @@
   window.addEventListener('hashchange', () => { if (location.hash.slice(1) !== current) select(location.hash.slice(1)); });
 
   // ---- saving ----
-  const toastEl = $('#st-toast');
-  let toastTimer = null;
-  function toast(text, bad) {
-    toastEl.textContent = text;
-    toastEl.classList.toggle('bad', !!bad);
-    toastEl.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1600);
-  }
+  const toast = (text, bad) => window.appToast(text, { kind: bad ? 'danger' : undefined, timeout: 1600 });
   let saving = Promise.resolve(true);
   async function commit() {
     saving = saving.then(async () => {
