@@ -2730,3 +2730,8 @@ button:active:not(:disabled), a:active, summary:active, label:active { transitio
 /* A scaffolding sale's buy-back lump sum (js/quotation-editor.js). */
 .bb-lump { white-space: nowrap; }
 .bb-lump .bb-amount { width: 120px; text-align: right; margin-left: 6px; }
+
+/* A small two-way switch (a rental's custom item: Monthly / One-time). */
+.segmented.seg-mini { padding: 2px; gap: 1px; border-radius: 8px; vertical-align: middle; }
+.segmented.seg-mini button { padding: 2px 8px; min-height: 0; height: auto; font-size: 11px; line-height: 1.5; border-radius: 6px; text-transform: none; letter-spacing: normal; }
+td .charge-switch { display: flex; width: max-content; margin-top: 4px; }

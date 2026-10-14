@@ -567,7 +567,9 @@ extension NativeBridge {
         let inChinese = db.printsInChinese(detail.language)
         let zh = inChinese
             ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
-        let materials = detail.lineItems.filter { $0.blockId == nil && $0.section != "Delivery" }
+        // (A rental's items charged once are among the charges after the subtotal.)
+        let onceItems = detail.lineItems.filter { detail.pricingMode == "Rental" && $0.chargeOnce == true && $0.blockId == nil && $0.section != "Delivery" }
+        let materials = detail.lineItems.filter { $0.blockId == nil && $0.section != "Delivery" && !onceItems.map({ $0.id }).contains($0.id) }
         let weights = db.quotationLineWeights(materials)
         // Each at the rate charged (markup and any discount in it).
         let lines = materials.map { l -> BOQLineItem in
@@ -598,6 +600,12 @@ extension NativeBridge {
         // A scaffolding sale's buy-back offer, taken off first.
         if detail.buyBackAmount > 0 {
             charges.append(BOQCharge(code: "BO1", name: scaffoldingBuyBackWording, amount: -detail.buyBackAmount))
+        }
+        // A rental's items charged once.
+        for (i, l) in onceItems.enumerated() {
+            let name = plainMarkup(l.itemDescription).replacingOccurrences(of: "\n", with: " ")
+            charges.append(BOQCharge(code: "C\(i + 1)", name: "\(name) (one-time charge)",
+                                     amount: detail.lineTotals[l.id] ?? (detail.effectiveUnitPrices[l.id] ?? l.appliedUnitPrice) * l.quantity.rounded()))
         }
         for (i, l) in detail.lineItems.filter({ $0.blockId == nil && $0.section == "Delivery" }).enumerated() {
             // "Delivery of materials" over "@$3,300.00 / Truck / Trip" (the
@@ -692,8 +700,10 @@ extension NativeBridge {
         let inChinese = db.printsInChinese(detail.language)
         let zh = inChinese
             ? db.chineseNames(for: detail.lineItems, id: { $0.id }, itemId: { $0.priceListItemId }, description: { $0.itemDescription }) : [:]
+        // A rental's items charged once: their own section after the monthly charge.
+        let isOnce = { (l: QuotationLineItem) in isRental && l.chargeOnce == true && l.blockId == nil && l.section != "Delivery" }
         // Unit prices as charged: with the quotation's markup, if any.
-        let priced = pricedRows(detail.lineItems.filter { $0.blockId == nil }.map { (description: documentItemName($0.itemDescription, zh[$0.id], inChinese: inChinese),
+        let priced = pricedRows(detail.lineItems.filter { $0.blockId == nil && !isOnce($0) }.map { (description: documentItemName($0.itemDescription, zh[$0.id], inChinese: inChinese),
                                                          unit: $0.unit, quantity: $0.quantity,
                                                          price: detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice, isDelivery: $0.section == "Delivery",
                                                          discountType: $0.discountType, discountValue: $0.discountValue) },
@@ -713,6 +723,18 @@ extension NativeBridge {
             }
         } else if !priced.materials.isEmpty {
             rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
+        }
+        let onceLines = detail.lineItems.filter(isOnce)
+        if !onceLines.isEmpty {
+            rows.append(.section("One-time Charges"))
+            let once = pricedRows(onceLines.map { (description: documentItemName($0.itemDescription, zh[$0.id], inChinese: inChinese),
+                                                   unit: $0.unit, quantity: $0.quantity,
+                                                   price: detail.effectiveUnitPrices[$0.id] ?? $0.appliedUnitPrice, isDelivery: false,
+                                                   discountType: $0.discountType, discountValue: $0.discountValue) },
+                                  currency: currencySymbol(company), rateSuffix: { unit in unit.isEmpty || unit == "pc" ? "" : " /\(unit)" })
+            for (i, row) in once.materials.enumerated() {
+                if case .item(var cells) = row { cells[0] = "C\(i + 1)"; rows.append(.item(cells)) }
+            }
         }
         // A scaffolding sale's buy-back offer: a lump sum, taken off.
         if detail.buyBackAmount > 0 {

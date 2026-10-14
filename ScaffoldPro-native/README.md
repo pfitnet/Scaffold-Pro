@@ -5221,3 +5221,26 @@ Increase Contrast. No Swift changed.
   `quotations:updateLetterFields`; `AppDatabase.scaffoldingBuyBack`.
 - Checked: the editor in a browser (the BO1 row, saving the amount, the
   totals). Swift parsed with tree-sitter, not compiled. PDFs not seen.
+
+## Batch 236 — Custom items charged once or monthly (rental quotations)
+
+- On a rental quotation, a custom item can be charged **Monthly** (with the
+  rental, as before) or **One-time** (once, e.g. transport or a site
+  visit): a small Monthly / One-time switch under its unit, and the same
+  choice in the custom item box ("Charged") before adding it.
+- One-time items aren't in the monthly rental (nor the minimum monthly
+  charge or the hire months); they're added once. The editor's totals show
+  "One-time Charges", and the Monthly / One-time Charge split counts them
+  as one-time.
+- PDF: a "One-time Charges" section (C1, C2…, no "/Month") after the
+  monthly rental lines. BQ sheet: C1… among the charges after the subtotal.
+- Invoicing the quotation: they come under "One-time Charges" (charged
+  once, not for each month), with the other charges — left out when the
+  other charges are.
+- A one-time item isn't added to a linked BOQ.
+- New QuotationLineItem field `chargeOnce`; route
+  `quotations:setLineChargeOnce`; `quotations:addLineItem` takes
+  `chargeOnce`; `AppDatabase.isOneTimeLine`.
+- Checked: the editor in a browser (light and dark): the switch on custom
+  items only, saving it, adding a one-time item, the totals. Swift parsed
+  with tree-sitter, not compiled. PDFs not seen.

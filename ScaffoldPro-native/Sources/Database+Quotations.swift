@@ -119,6 +119,8 @@ extension AppDatabase {
         var otherTotal: Double
         /// A scaffolding sale's buy-back lump sum, taken off (0: none).
         var buyBack: Double = 0
+        /// A rental's items charged once, not each month.
+        var oneTimeItems: Double = 0
         var subtotal: Double
         var discountAmount: Double
         var taxAmount: Double
@@ -138,6 +140,11 @@ extension AppDatabase {
         line.section != "Delivery" && line.blockId == nil
     }
 
+    /// A rental quotation's item charged once, not each month.
+    func isOneTimeLine(_ line: QuotationLineItem, _ q: Quotation) -> Bool {
+        q.pricingMode == "Rental" && line.chargeOnce == true && isMaterialLine(line)
+    }
+
     func isDeliveryLine(_ line: QuotationLineItem) -> Bool {
         line.section == "Delivery" && line.blockId == nil
     }
@@ -150,7 +157,9 @@ extension AppDatabase {
         let months = hireMonths(q)
         let isRental = q.pricingMode == "Rental"
         func net(_ line: QuotationLineItem) -> Decimal { quotationLineTotal(line, q) }
-        let materials = lineItems.filter { isMaterialLine($0) }.reduce(Decimal(0)) { $0 + net($1) }
+        // A rental's items charged once are added once, not each month.
+        let oneTimeItems = lineItems.filter { isOneTimeLine($0, q) }.reduce(Decimal(0)) { $0 + net($1) }
+        let materials = lineItems.filter { isMaterialLine($0) && !isOneTimeLine($0, q) }.reduce(Decimal(0)) { $0 + net($1) }
         // A minimum monthly rental charge (when ticked) lifts a small order to it.
         let minimum = decimalOf(minimumMonthlyRental)
         let minimumApplied = isRental && q.minimumMonthlyChargeEnabled == true && materials > 0 && materials < minimum
@@ -171,7 +180,7 @@ extension AppDatabase {
         let other = once + perPeriod.values.reduce(Decimal(0), +)
         let charge = rental * Decimal(months)
         let buyBack = decimalOf(scaffoldingBuyBack(q))
-        let t = moneyTotals(subtotal: charge + delivery + other - buyBack, discountType: q.discountType, discountValue: q.discountValue,
+        let t = moneyTotals(subtotal: charge + delivery + other + oneTimeItems - buyBack, discountType: q.discountType, discountValue: q.discountValue,
                             taxRatePercent: q.taxRatePercent, pricesIncludeTax: getCompanySettings().pricesIncludeTax ?? false)
         // The split, with any discount taken off each part in proportion.
         let subtotal = decimalOf(t.subtotal)
@@ -179,7 +188,7 @@ extension AppDatabase {
         func part(_ d: Decimal) -> Double { doubleOf(roundToCents(d * factor)) }
         let split: ChargeSplit
         if isRental {
-            split = ChargeSplit(monthly: part(rental + (perPeriod["Month"] ?? 0)), oneTime: part(delivery + once),
+            split = ChargeSplit(monthly: part(rental + (perPeriod["Month"] ?? 0)), oneTime: part(delivery + once + oneTimeItems),
                                 recurring: perPeriod.filter { $0.key != "Month" && $0.value != 0 }.mapValues { part($0) })
         } else {
             // Sale: nothing monthly; it's all one-time.
@@ -187,7 +196,7 @@ extension AppDatabase {
         }
         return QuotationMoney(materialsSubtotal: doubleOf(materials), monthlyRental: doubleOf(rental), minimumApplied: minimumApplied,
                               charges: split, materialsCharge: doubleOf(charge), deliveryTotal: doubleOf(delivery),
-                              otherTotal: doubleOf(other), buyBack: doubleOf(buyBack),
+                              otherTotal: doubleOf(other), buyBack: doubleOf(buyBack), oneTimeItems: doubleOf(oneTimeItems),
                               subtotal: t.subtotal, discountAmount: t.discountAmount, taxAmount: t.taxAmount, total: t.total)
     }
 
@@ -706,8 +715,9 @@ extension AppDatabase {
         guard let q = getQuotation(id: quotationId), q.boqLinked == true, q.status == "Draft",
               let boqId = q.sourceBOQId, let boq = getBOQ(id: boqId), boq.status == "Draft" else { return }
         var qAll = quotationLineItemsStore.readAll()
+        // (An item charged once that isn't on the BOQ stays the quotation's own.)
         let qIndexes = qAll.indices.filter { qAll[$0].quotationId == quotationId && qAll[$0].blockId == nil && qAll[$0].boqDetached != true
-            && (qAll[$0].boqLineId != nil || isMaterialLine(qAll[$0])) }
+            && (qAll[$0].boqLineId != nil || (isMaterialLine(qAll[$0]) && qAll[$0].chargeOnce != true)) }
             .sorted { qAll[$0].sortOrder < qAll[$1].sortOrder }
         var bAll = boqLineItemsStore.readAll()
         let bBefore = bAll.filter { $0.boqId == boqId }
@@ -1069,6 +1079,7 @@ extension AppDatabase {
         detail.minimumMonthlyApplied = totals.minimumApplied
         detail.monthlyRental = totals.monthlyRental
         detail.buyBackAmount = totals.buyBack
+        detail.oneTimeItemsTotal = totals.oneTimeItems
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
@@ -1333,7 +1344,7 @@ extension AppDatabase {
         quotationsStore.writeAll(qs)
     }
 
-    func addQuotationLineItem(quotationId: String, sourceKey: String?, priceListItemId: String?, itemCode: String, description: String, unit: String, quantity: Double, appliedUnitPrice: Double, section: String?) -> String? {
+    func addQuotationLineItem(quotationId: String, sourceKey: String?, priceListItemId: String?, itemCode: String, description: String, unit: String, quantity: Double, appliedUnitPrice: Double, section: String?, chargeOnce: Bool = false) -> String? {
         guard let q = getQuotation(id: quotationId) else { return "Quotation not found." }
         guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
 
@@ -1347,11 +1358,12 @@ extension AppDatabase {
             listPrice = p
         }
         let nextSortOrder = (quotationLineItems(for: quotationId).map { $0.sortOrder }.max() ?? -1) + 1
-        let line = QuotationLineItem(
+        var line = QuotationLineItem(
             id: makeId("qitem"), quotationId: quotationId, sourceKey: sourceKey, priceListItemId: priceListItemId,
             itemCode: itemCode, itemDescription: description, unit: unit, quantity: quantity.rounded(),
             appliedUnitPrice: price, section: section, sortOrder: nextSortOrder, priceListUnitPrice: listPrice
         )
+        if chargeOnce && section != "Delivery" { line.chargeOnce = true }
         quotationLineItemsStore.insert(line)
         touchQuotation(quotationId)
         // A material on a quotation linked to a BOQ goes on the BOQ too.
@@ -1506,6 +1518,19 @@ extension AppDatabase {
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
         pushQuotationToBOQ(q.id)
+        return nil
+    }
+
+    /// A rental quotation's item charged once (not each month), or monthly again.
+    func setQuotationLineChargeOnce(id: String, once: Bool) -> String? {
+        var items = quotationLineItemsStore.readAll()
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return "Line item not found." }
+        guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
+        guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        guard isMaterialLine(items[index]) else { return "Only items can be charged once." }
+        items[index].chargeOnce = once ? true : nil
+        quotationLineItemsStore.writeAll(items)
+        touchQuotation(q.id)
         return nil
     }
 

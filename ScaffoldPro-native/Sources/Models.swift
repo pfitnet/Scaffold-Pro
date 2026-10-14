@@ -1982,6 +1982,9 @@ struct QuotationLineItem: Codable {
     var priceNote: String? = nil
     /// Left out of the quotation's markup %: charged at its own price.
     var noMarkup: Bool? = nil
+    /// On a rental quotation: charged once, not each month (a custom item
+    /// such as transport or a site visit).
+    var chargeOnce: Bool? = nil
 }
 
 /// How a priced row that isn't charged is printed: the words typed.
@@ -2324,6 +2327,8 @@ struct QuotationDetail: Codable {
     var monthlyRental: Double = 0
     /// A scaffolding sale's buy-back lump sum, taken off the total (0: none).
     var buyBackAmount: Double = 0
+    /// A rental's items charged once (not each month), added once.
+    var oneTimeItemsTotal: Double = 0
     var charges: ChargeSplit? = nil
     /// This quotation's own key terms; nil = the standard ones below.
     var keyTerms: String?

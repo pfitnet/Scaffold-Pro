@@ -331,7 +331,9 @@ extension AppDatabase {
         // Prices as charged on the quotation (with its markup).
         let allItems = quotationLineItems(for: quotation.id)
         // The materials: the quotation's, or what the delivery notes delivered.
-        let materials = deliveryNotes.isEmpty ? allItems.filter { isMaterialLine($0) } : deliveredLines(deliveryNotes, quotation: quotation, quotationLines: allItems)
+        // (A rental's items charged once come only with the other charges.)
+        let materials = (deliveryNotes.isEmpty ? allItems.filter { isMaterialLine($0) } : deliveredLines(deliveryNotes, quotation: quotation, quotationLines: allItems))
+            .filter { includeOtherCharges || !isOneTimeLine($0, quotation) }
         var sourceItems = (materials + allItems.filter { includeDelivery && isDeliveryLine($0) })
             .map { (line: $0, block: QuotationBlock?.none) }
         if includeOtherCharges {
@@ -351,6 +353,10 @@ extension AppDatabase {
             if let block = source.block {
                 copy.chargeGroup = nonBlank(block.title) ?? "Other Charges"
                 copy.chargePrefix = block.prefix
+            } else if isOneTimeLine(item, quotation) {
+                // Charged once, not for each month.
+                copy.chargeGroup = "One-time Charges"
+                copy.chargePrefix = "C"
             }
             return copy
         }
