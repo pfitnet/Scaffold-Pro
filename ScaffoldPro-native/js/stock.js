@@ -88,13 +88,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(`stock.${k}`, JSON.stringify(v)); } catch (e) { /* not kept */ } },
 };
 
-function toast(text) {
-  const t = $('sk-toast');
-  t.textContent = text;
-  t.classList.add('show');
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove('show'), 2200);
-}
+const toast = (text) => window.appToast(text);
 
 // ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
 window.appRefresh = () => load();
@@ -151,6 +145,7 @@ function renderStats() {
   countTo(q('hire'), hire, (v) => qty(v));
   countTo(q('rent'), rent, (v) => qty(v));
   countTo(q('kg'), kg, (v) => tonnes(v));
+  $('sk-sub').textContent = `${qty(yard)} pieces in the yard · ${qty(hire)} on hire${rent ? ` · ${qty(rent)} rented in` : ''}`;
   const all = yard + hire;
   const pct = (v) => (all ? (v / all) * 100 : 0);
   box.querySelector('.sk-split-bar .yard').style.width = `${pct(yard)}%`;
@@ -190,6 +185,7 @@ function showTab(tab) {
   store.set('tab', tab);
   for (const b of document.querySelectorAll('#sk-tabs button')) b.classList.toggle('on', b.dataset.tab === tab);
   for (const p of TABS) $(`pane-${p}`).classList.toggle('hidden', p !== tab);
+  $('sk-record-label').textContent = tab === 'rented' ? 'Rent In…' : 'Record Stock';
   moveInk();
   if (S.data) renderDue();
   if (tab !== 'stock' && S.taking) endStocktake();
@@ -833,27 +829,14 @@ function wire() {
   // Tabs
   for (const b of document.querySelectorAll('#sk-tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
   window.addEventListener('resize', moveInk);
-  // Record Stock menu
-  const menu = $('sk-record-menu');
-  menu.innerHTML = Object.entries(REC).map(([k, r]) => `<button type="button" role="menuitem" data-kind="${k}" data-no-icon>
-    <span class="k-ico" style="background:${KCOL[k]}">${svg(ICON[k], 16)}</span>
-    <span><b>${esc(r.title)}</b><small>${esc(r.hint.split(':')[0])}</small></span></button>`).join('');
-  const hideMenu = () => { menu.hidden = true; $('sk-record').setAttribute('aria-expanded', 'false'); };
-  $('sk-record').addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.hidden = !menu.hidden;
-    $('sk-record').setAttribute('aria-expanded', String(!menu.hidden));
-    if (!menu.hidden) menu.querySelector('button').focus();
+  // Record Stock: the sheet straight away, its kind chosen in the sheet.
+  // On Returns it starts as a return, on Rented as a rental.
+  document.querySelector('#sk-record .sk-rec-ico').innerHTML = window.icon('plus', { size: 15 });
+  $('sk-record').addEventListener('click', () => openRec({ returns: 'Return', rented: 'RentIn' }[S.tab] || 'Purchase'));
+  window.pageActions($('sk-record').closest('header'), {
+    primary: $('sk-record'),
+    overflow: [{ label: 'Export to Excel…', sub: 'What’s shown, as an .xlsx workbook', run: exportShown }],
   });
-  menu.addEventListener('click', (e) => { const b = e.target.closest('button[data-kind]'); if (b) { hideMenu(); openRec(b.dataset.kind); } });
-  menu.addEventListener('keydown', (e) => {
-    const items = [...menu.querySelectorAll('button')];
-    const at = items.indexOf(document.activeElement);
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
-    if (e.key === 'Escape') { hideMenu(); $('sk-record').focus(); }
-  });
-  document.addEventListener('click', (e) => { if (!menu.hidden && !e.target.closest('.sk-record')) hideMenu(); });
-  $('sk-export').addEventListener('click', exportShown);
 
   // Stock list
   $('sk-q').addEventListener('input', renderStock);

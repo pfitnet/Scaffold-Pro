@@ -9,8 +9,12 @@
 <body data-page="price-lists">
   <nav id="sidebar"></nav>
   <main id="content">
-    <h1>Costs</h1>
-    <div class="subtitle">What things cost and what we charge: materials with their weights, rental and sale prices, and manpower with each provider’s rates — used for BOQs, quotations and invoices</div>
+    <header class="page-header" id="costs-head">
+      <div>
+        <h1>Costs</h1>
+        <div class="subtitle" id="costs-fact" title="Materials with their weights, rental and sale prices, and manpower with each provider’s rates, used for BOQs, quotations and invoices">What we pay and what we charge</div>
+      </div>
+    </header>
     <div class="tabs" id="costs-tabs" role="tablist">
       <button type="button" data-tab="materials" class="active" role="tab">Materials</button>
       <button type="button" data-tab="manpower" role="tab">Manpower Rates</button>
@@ -22,23 +26,21 @@
     <div class="toolbar">
       <select id="list-select"></select>
       <input type="text" id="search-box" placeholder="Search items" />
+      <select id="category-select" title="Category"><option value="">All Categories</option></select>
       <span class="toolbar-spacer"></span>
-      <!-- Category, Import rates and Export rates (PDF or Excel) are in the ☰ list (js/price-lists.js);
-           the real controls stay here, hidden, with their own code. -->
+      <button id="rates-select-btn" data-no-icon title="Tick items (from either list) for a Unit Rates sheet on the letterhead, for a client">Unit Rates PDF…</button>
+      <!-- Import and Export are in the header's ··· (js/price-lists.js); the real buttons stay here, hidden. -->
       <span class="hidden">
-        <select id="category-select" data-native><option value="">All Categories</option></select>
-        <button id="rates-select-btn" data-no-icon title="Choose items (from either list) for a Unit Rates sheet to give a client">Unit Rates…</button>
         <button id="import-btn" title="Update prices from an Excel workbook (.xlsx)">Import from Excel…</button>
-        <button id="export-btn" title="Save this material list as an Excel workbook (.xlsx) — edit it and import it back">Export to Excel</button>
+        <button id="export-btn" title="Save this material list as an Excel workbook (.xlsx). Edit it and import it back">Export to Excel</button>
       </span>
-      <span class="ml-menu"><button type="button" class="tb-ico" id="ml-menu-btn" data-no-icon aria-label="Category, import and export"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13"/></svg><span class="am-dot" aria-hidden="true"></span></button></span>
-      <button class="primary" id="add-item-btn">+ Add Item</button>
+      <button class="primary hidden" id="add-item-btn" data-no-icon>New Item</button>
     </div>
 
     <div class="small-note" id="currency-note" style="margin:-6px 0 12px;"></div>
     <!-- Unit Rates: tick items in either list, then make the PDF -->
     <div class="rates-bar hidden" id="rates-bar">
-      <span id="rates-count">Tick the items for the Unit Rates sheet — from either list.</span>
+      <span id="rates-count">Tick the items for the Unit Rates sheet, from either list.</span>
       <span class="toolbar-spacer"></span>
       <button id="rates-all-btn" data-no-icon>Select All Shown</button>
       <button id="rates-clear-btn" data-no-icon>Clear</button>
@@ -51,10 +53,10 @@
 
   <div class="modal-backdrop hidden" id="item-modal">
     <div class="modal">
-      <h2>Add Item</h2>
+      <h2>New Item</h2>
       <div class="form-grid">
         <div class="field span-2"><label>Item Name</label><input type="text" id="n-itemName" /></div>
-        <div class="field span-2"><label>Chinese Name 中文名稱 (optional — worked out from the English name if left empty)</label><input type="text" id="n-chineseName" placeholder="e.g. 2.07m橫杆" /></div>
+        <div class="field span-2"><label>Chinese Name 中文名稱 (optional: worked out from the English name if left empty)</label><input type="text" id="n-chineseName" placeholder="e.g. 2.07m橫杆" /></div>
         <div class="field"><label>Category</label><input type="text" id="n-category" list="category-options" /></div>
         <div class="field"><label>Unit</label><input type="text" id="n-unit" placeholder="pc" /></div>
         <div class="field"><label>Weight (kg)</label><input type="number" id="n-weightKg" min="0" step="0.01" /></div>
@@ -65,7 +67,7 @@
       <div class="error-text hidden" id="n-error"></div>
       <div class="actions">
         <button id="n-cancel-btn">Cancel</button>
-        <button class="primary" id="n-save-btn">Add Item</button>
+        <button class="primary" id="n-save-btn">Create Item</button>
       </div>
     </div>
   </div>

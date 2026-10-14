@@ -206,8 +206,8 @@
     let box = header.querySelector('.page-actions');
     if (!box) { box = document.createElement('div'); box.className = 'page-actions'; header.appendChild(box); }
     box.innerHTML = '';
-    const items = (o.overflow || []).filter(Boolean);
-    if (items.length) {
+    const list = () => (typeof o.overflow === 'function' ? o.overflow() : o.overflow || []).filter(Boolean);
+    if (typeof o.overflow === 'function' || list().length) {
       const more = document.createElement('button');
       more.type = 'button';
       more.className = 'icon-btn more-btn';
@@ -219,8 +219,8 @@
       if (window.hoverMenu) {
         window.hoverMenu.attach(more, {
           openOn: 'press',
-          items: () => (typeof o.overflow === 'function' ? o.overflow() : items).filter(Boolean).map((it, i) => (it.group ? { group: it.group } : { label: it.label, sub: it.sub, value: i, disabled: it.disabled && it.disabled() })),
-          onPick: (i) => { const list = (typeof o.overflow === 'function' ? o.overflow() : items).filter(Boolean); const it = list[i]; if (it && it.run) it.run(); },
+          items: () => list().map((it, i) => (it.group ? { group: it.group } : { label: it.label, sub: it.sub, value: i, disabled: it.disabled && it.disabled() })),
+          onPick: (i) => { const it = list()[i]; if (it && it.run) it.run(); },
         });
       }
     }
