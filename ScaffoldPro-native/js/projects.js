@@ -134,6 +134,8 @@ function sorted(list) {
 // line from each document to what it was made from — bright green while
 // the two are linked (kept in step), grey dashed once unlinked.
 let overview = null;   // projectId → { boqs, quotations, deliveryNotes, invoices }
+// A document's border says how far it has gone (css/styles.css, .mk-…):
+// issued, signed by a director ("Chopped"), signed by the client.
 const OV_COLS = [['boqs', 'BOQ', 'boq-editor.html', 'dk-boq'], ['quotations', 'Quotations', 'quotation-editor.html', 'dk-quotation'],
   ['deliveryNotes', 'Delivery Notes', 'delivery-note-editor.html', 'dk-delivery'], ['invoices', 'Invoices', 'invoice-editor.html', 'dk-invoice']];
 
@@ -142,8 +144,8 @@ function bracket(p, i) {
   const notes = o.notes || {};
   const cols = OV_COLS.map(([key, title, page, colour]) => {
     const docs = o[key] || [];
-    const tile = (d, sub) => `<a class="ov-doc${sub ? ' ov-sub' : ''}${d.subProject && notes[d.subProject] ? ' has-note' : ''} ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-sub="${esc(d.subProject || '')}" data-from="${esc(JSON.stringify(d.from || []))}">
-          <span class="ov-note-mark" aria-hidden="true"></span><span class="ov-note-btn" role="button" title="Sub-project note" aria-label="Edit the sub-project note">${NOTE_PENCIL}</span><b>${esc(d.number)}</b><span class="ov-st">${sub ? 'Subsidiary · ' : ''}${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}</span></a>`;
+    const tile = (d, sub) => `<a class="ov-doc${sub ? ' ov-sub' : ''}${d.subProject && notes[d.subProject] ? ' has-note' : ''}${d.mark ? ` mk-${d.mark}` : ''} ${statusClass(d.status)}" href="${page}?id=${encodeURIComponent(d.id)}" data-doc="${esc(d.id)}" data-sub="${esc(d.subProject || '')}" data-from="${esc(JSON.stringify(d.from || []))}">
+          <span class="ov-note-mark" aria-hidden="true"></span><span class="ov-note-btn" role="button" title="Sub-project note" aria-label="Edit the sub-project note">${NOTE_PENCIL}</span><b>${esc(d.number)}</b><span class="ov-st">${sub ? 'Subsidiary · ' : ''}${esc(d.status === 'PartiallyPaid' ? 'Part paid' : d.status)}${d.mark === 'signed' ? ' · Client signed' : d.mark === 'chopped' ? ' · Chopped' : ''}</span></a>`;
     // A document made from another in the same column (a quotation's
     // subsidiaries) sits under it, indented, in one family box.
     const here = new Set(docs.map((d) => d.id));

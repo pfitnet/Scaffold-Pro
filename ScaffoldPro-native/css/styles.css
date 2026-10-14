@@ -2367,6 +2367,14 @@ a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); 
 .ov-bracket.tracing .ov-line:not(.lit) { opacity: .15; }
 .ov-bracket.tracing .ov-doc:not(.lit) { opacity: .45; }
 .ov-bracket.tracing .ov-line.lit { stroke-width: 3; }
+/* How far a document has gone: issued (its own colour, full strength),
+   signed by a director (the chop's red), signed by the client (gold). */
+.ov-doc.mk-issued { border: 1.5px solid var(--dk, var(--accent)); }
+.ov-doc.mk-chopped { border: 1.5px solid #c25444; }
+.ov-doc.mk-signed { border: 1.5px solid #c9a227; box-shadow: 0 0 0 3px color-mix(in srgb, #c9a227 16%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ov-doc.mk-chopped { border-color: #e07563; } :root:not([data-theme="light"]) .ov-doc.mk-signed { border-color: #e2bd4a; } }
+:root[data-theme="dark"] .ov-doc.mk-chopped { border-color: #e07563; }
+:root[data-theme="dark"] .ov-doc.mk-signed { border-color: #e2bd4a; }
 .ov-doc.lit { border-color: #22d36b; }
 @media (max-width: 1180px) { .ov-bracket { column-gap: 22px; grid-template-columns: minmax(150px, 1fr) repeat(4, minmax(100px, 1fr)); } }
 /* A sub-project's note (js/projects.js): a dot on its documents, and a

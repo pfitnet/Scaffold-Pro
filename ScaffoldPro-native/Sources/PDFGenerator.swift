@@ -466,10 +466,18 @@ final class PDFGenerator {
         }
     }
 
+    /// The document's number, printed top right on every page after the
+    /// first ("Our Ref.: Qt26221-002"), on the line of "LIMITED", just above
+    /// the orange rule. nil: none (letters from the letter editor).
+    var runningRef: String? = nil
+
     func beginPage() {
         context.beginPDFPage(nil)
         pageNumber += 1
         drawLetterhead()
+        if pageNumber > 1, let ref = runningRef {
+            textAtInk("Our Ref.: \(ref)", inkRight: 552.0 + dx, baseline: 74.0, font: body(10.5), color: LetterheadColor.darkGrey)
+        }
     }
 
     func endPage() {
@@ -1372,6 +1380,7 @@ final class PDFGenerator {
 
     func layOut(_ doc: LetterDocument) -> Data {
         configure(for: doc)
+        runningRef = nonBlank(doc.number)
         receiptOnNewPage = false
         sectionsThatSplit = []
         pageNumber = 0
