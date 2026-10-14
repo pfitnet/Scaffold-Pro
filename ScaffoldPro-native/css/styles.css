@@ -2910,3 +2910,9 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
 /* One main button in the bar: Export. Others (BOQ's Make Quotation) are secondary. */
 .doc-bar button.primary:not(.export-menu) { background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow-control); }
 .doc-bar button.primary:not(.export-menu):hover:not(:disabled) { background: color-mix(in srgb, var(--panel) 94%, var(--text)); color: var(--text); }
+/* No gradient text anywhere (Steel & Signal): titles and figures in solid ink. */
+.cal-hero h1, .wk-hero h1, .tk-greeting, .tk-ring-label b, .mx-cover h1 span, .pj-hero h1, .page-header h1 {
+  background: none !important; -webkit-background-clip: border-box !important; background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important; color: var(--text); }
+.cal-hero h1 .cal-year { -webkit-text-fill-color: var(--text-tertiary) !important; }
+.mx-cover h1 span { color: inherit; }

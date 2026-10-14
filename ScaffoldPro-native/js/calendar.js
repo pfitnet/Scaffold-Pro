@@ -69,7 +69,7 @@ function weekStartFor(d) {
 }
 
 // ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
-window.appRefresh = () => load();
+window.appRefresh = () => Promise.all([load(), window.scheduleList ? window.scheduleList.load() : null]);
 
 function range() {
   const start = view === 'week' ? new Date(weekStart) : gridStart(month);
@@ -430,8 +430,21 @@ function go(delta) {
   load(delta);
 }
 
+// List (the tasks, js/tasks.js) sits beside Week and Month.
+function showList(on) {
+  document.body.classList.toggle('sch-list-view', on);
+  document.getElementById('sch-list').classList.toggle('hidden', !on);
+  for (const b of document.querySelectorAll('#cal-view button')) b.classList.toggle('active', b.dataset.view === (on ? 'list' : view));
+}
 function setView(v) {
-  if (v === view) return;
+  if (v === 'list') {
+    showList(true);
+    try { localStorage.setItem('calendar.view', 'list'); } catch (e) { /* ignore */ }
+    return;
+  }
+  const wasList = document.body.classList.contains('sch-list-view');
+  showList(false);
+  if (v === view && !wasList) return;
   view = v;
   try { localStorage.setItem('calendar.view', v); } catch (e) { /* ignore */ }
   const anchor = dayOf(selected || todayKey());
@@ -590,12 +603,19 @@ document.addEventListener('keydown', (e) => {
   const t = e.target;
   if (t && (t.closest('input, textarea, select, [contenteditable="true"], .modal, .modal-backdrop, dialog') || t.isContentEditable)) return;
   if (document.querySelector('.modal-backdrop:not(.hidden), .modal.open, dialog[open]')) return;
+  const list = document.body.classList.contains('sch-list-view');
   const sel = dayOf(selected || todayKey());
+  // Arrows move the day in Week and Month; in List they're the list's own.
   const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
-  if (move) { e.preventDefault(); jumpTo(ymd(addDays(sel, move))); return; }
+  if (move && !list) { e.preventDefault(); jumpTo(ymd(addDays(sel, move))); return; }
   const k = e.key.toLowerCase();
+  // N: the quick-add bar; ⇧N: the full task form. E: a new event.
+  if (k === 'n' && !e.shiftKey && window.scheduleList) { e.preventDefault(); window.scheduleList.focusQuick(); return; }
+  if (k === 'n') { e.preventDefault(); addTask(selected); return; }
+  if (e.key === '/' && window.scheduleList) { e.preventDefault(); setView('list'); window.scheduleList.focusSearch(); return; }
   if (k === 'e') { e.preventDefault(); addTask(selected, null, null, true); return; }
-  if (k === 't') { e.preventDefault(); goToday(); } else if (k === 'w') { e.preventDefault(); setView('week'); } else if (k === 'm') { e.preventDefault(); setView('month'); } else if (k === 'n') { e.preventDefault(); addTask(selected); } else if (e.key === 'PageUp') { e.preventDefault(); go(-1); } else if (e.key === 'PageDown') { e.preventDefault(); go(1); }
+  if (k === 'l') { e.preventDefault(); setView('list'); return; }
+  if (k === 't') { e.preventDefault(); goToday(); } else if (k === 'w') { e.preventDefault(); setView('week'); } else if (k === 'm') { e.preventDefault(); setView('month'); } else if (!list && e.key === 'PageUp') { e.preventDefault(); go(-1); } else if (!list && e.key === 'PageDown') { e.preventDefault(); go(1); }
 });
 
 (async function init() {
@@ -637,5 +657,10 @@ document.addEventListener('keydown', (e) => {
     weekStart = weekStartFor(d);
   }
   await load();
+  // calendar.html?view=list (and tasks.html, which comes here) opens the
+  // list; so does a remembered List.
+  let remembered = null;
+  try { remembered = localStorage.getItem('calendar.view'); } catch (e) { remembered = null; }
+  if (q.get('view') === 'list' || q.get('task') || (!qDay && remembered === 'list')) setView('list');
   if (q.get('event')) editEvent(q.get('event'));
 })();

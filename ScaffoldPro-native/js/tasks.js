@@ -1,5 +1,9 @@
 'use strict';
 
+// Schedule › List (calendar.html). In its own scope: calendar.js shares the
+// page and owns the keys and window.appRefresh (it reloads this too).
+(function () {
+
 // The Tasks page: a greeting with today's progress, a quick-add bar that
 // understands "tomorrow 3pm @Tom #26212 !high", the tasks grouped by when
 // they're due (Overdue, Today, Tomorrow, This week, Later, No date) as
@@ -484,8 +488,6 @@ async function quickAdd() {
 
 // ---------- Loading ----------
 
-// ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
-window.appRefresh = () => load();
 
 async function load() {
   const [r, pr, pe] = await Promise.all([window.api.tasks.list(), window.api.projects.list(), window.api.tasks.people()]);
@@ -546,14 +548,12 @@ document.getElementById('tk-team').addEventListener('click', (e) => {
   if (select.value && view === 'mine') setView('team', true);
   select.dispatchEvent(new Event('change'));
 });
-// N: add a task. /: search.
-document.addEventListener('keydown', (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable], .modal-backdrop:not(.hidden)');
-  if (typing || document.querySelector('.modal-backdrop:not(.hidden), .app-dialog-backdrop:not(.leaving)')) return;
-  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); document.getElementById('tk-quick-input').focus(); }
-  if (e.key === '/') { e.preventDefault(); document.getElementById('task-search').focus(); }
-});
+// The keys (N, /) are calendar.js's: one handler for the whole page.
+window.scheduleList = {
+  load: () => load(),
+  focusQuick: () => document.getElementById('tk-quick-input').focus(),
+  focusSearch: () => document.getElementById('task-search').focus(),
+};
 window.addEventListener('resize', moveSegPill);
 
 view = ['mine', 'team', 'done'].includes(store.get('view', 'mine')) ? store.get('view', 'mine') : 'mine';
@@ -569,3 +569,4 @@ Promise.all([load(), window.api.users.page().then((p) => { me = (p && p.name) ||
     if (await window.editTask(row.task, { projects, people })) await load();
   }
 });
+})();
