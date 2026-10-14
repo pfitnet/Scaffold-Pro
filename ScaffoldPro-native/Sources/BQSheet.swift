@@ -19,7 +19,7 @@ import CryptoKit
 // size and colour is measured from that sheet (A4 landscape, 842.88 ×
 // 595.92pt, table 85.875–754.875pt across, from 53.625pt down).
 //
-//   No. | Item Name | Weight | Quantity | Unit … Rate | Total … Rate | Total Weight
+//   No. | Item Name | Weight | Quantity | Unit … Rate | Total Weight | Total … Rate
 //
 // This is the landscape BOQ. A portrait BOQ is printed on the letterhead
 // instead (no prices). BQSheet.layout can also lay out a portrait sheet
@@ -114,7 +114,7 @@ enum BQSheet {
         // Column widths as on the sheet; in portrait (no prices) Item Name
         // takes the room so the table keeps the same side margins.
         let widths: [Double] = landscape
-            ? [68.25, 174.75, 43.5, 51.75, 130.5, 128.25, 72.0]
+            ? [68.25, 174.75, 43.5, 51.75, 130.5, 72.0, 128.25]
             : [68.25, 186.54, 43.5, 51.75, 72.0]
         var edges = [left]
         for w in widths { edges.append(edges.last! + w) }
@@ -143,10 +143,10 @@ enum BQSheet {
         let zhRate = pricingMode == "Sale" ? "售價" : "租價"
         let titles = chinese
             ? (landscape
-                ? ["編號", "物料名稱", "重量", "數量", "單位\(zhRate) (\(currencyCode))", "總\(zhRate) (\(currencyCode))", "總重量"]
+                ? ["編號", "物料名稱", "重量", "數量", "單位\(zhRate) (\(currencyCode))", "總重量", "總\(zhRate) (\(currencyCode))"]
                 : ["編號", "物料名稱", "重量", "數量", "總重量"])
             : (landscape
-                ? ["No.", "Item Name", "Weight", "Quantity", "Unit \(rateWord) (\(currencyCode))", "Total \(rateWord) (\(currencyCode))", "Total Weight"]
+                ? ["No.", "Item Name", "Weight", "Quantity", "Unit \(rateWord) (\(currencyCode))", "Total Weight", "Total \(rateWord) (\(currencyCode))"]
                 : ["No.", "Item Name", "Weight", "Quantity", "Total Weight"])
         rows.append(SheetRow(kind: "header", height: 19.5, fill: blue,
                              cells: titles.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element, 13, "center", 4.875) },
@@ -160,9 +160,11 @@ enum BQSheet {
             var texts: [(String, String)] = [(String(i + 1), "center"), (name, "left"), (weight, "right"), (formatQuantity(qty), "center")]
             if landscape {
                 texts.append((formatMoney(line.appliedUnitPrice), "money"))
+                texts.append((totalWeight, "right"))
                 texts.append((formatMoney(doubleOf(lineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice))), "money"))
+            } else {
+                texts.append((totalWeight, "right"))
             }
-            texts.append((totalWeight, "right"))
             // A description over several lines (or with bullets, numbering,
             // hanging indents): its first line in the item's row, the rest
             // in rows joined under it, 14.25pt apart.
@@ -198,8 +200,11 @@ enum BQSheet {
                 rows.append(SheetRow(kind: "item", height: last ? 18 : 14.25, fill: nil, cells: more, repeats: false, joinNext: !last))
             }
         }
-        // "Total Amount :" across the columns before the totals.
+        // "Total Amount :" across the columns before the totals. In landscape
+        // the total weight comes before the total price (the last column).
         let n = widths.count
+        let (w0, w1) = landscape ? (n - 2, n - 1) : (n - 1, n)
+        let (p0, p1) = (n - 1, n)
         var totals: [SheetCell] = []
         // With rates or charges listed after it, the total is a subtotal.
         let rates = landscape ? (ratesSection?.rates.filter { !$0.name.isEmpty } ?? []) : []
@@ -207,12 +212,13 @@ enum BQSheet {
         let shownCharges = landscape ? charges.filter { nonBlank($0.name) != nil || $0.amount != 0 } : []
         if landscape {
             let label = !shownCharges.isEmpty ? "Subtotal Amount :" : hasRates ? "Subtotal :" : "Total Amount :"
-            totals.append(cell(edges[0], edges[n - 2], label, 28.99, "center", 8.625))
-            totals.append(cell(edges[n - 2], edges[n - 1], formatMoney(grandTotal), 12, "money", 15.375))
+            totals.append(cell(edges[0], edges[w0], label, 28.99, "center", 8.625))
+            totals.append(cell(edges[w0], edges[w1], kg(totalWeightKg), 12, "right", 15.375))
+            totals.append(cell(edges[p0], edges[p1], formatMoney(grandTotal), 12, "money", 15.375))
         } else {
-            totals.append(cell(edges[0], edges[n - 1], chinese ? "總重量 :" : "Total Weight :", 28.99, "center", 8.625))
+            totals.append(cell(edges[0], edges[w0], chinese ? "總重量 :" : "Total Weight :", 28.99, "center", 8.625))
+            totals.append(cell(edges[w0], edges[w1], kg(totalWeightKg), 12, "right", 15.375))
         }
-        totals.append(cell(edges[n - 1], edges[n], kg(totalWeightKg), 12, "right", 15.375))
         // No items but charges after them: no "Subtotal Amount : 0.00".
         if !(lines.isEmpty && !shownCharges.isEmpty) {
             rows.append(SheetRow(kind: "total", height: 38.25, fill: nil, cells: totals, repeats: false))
@@ -230,16 +236,16 @@ enum BQSheet {
                 let extra = Double(charge.name.components(separatedBy: "\n").count - 1) * 14.25
                 rows.append(SheetRow(kind: "charge", height: 18.75 + extra, fill: nil, cells: [
                     cell(edges[0], edges[1], nonBlank(charge.code) ?? "D\(i + 1)", 12, "left", 5.625 + extra),
-                    cell(edges[1], edges[n - 2], charge.name, 12, "left", 5.625),
-                    charge.amountText.map { cell(edges[n - 2], edges[n - 1], $0, 12, "center", 5.625) }
-                        ?? cell(edges[n - 2], edges[n - 1], formatMoney(charge.amount), 12, "money", 5.625),
-                    cell(edges[n - 1], edges[n], "N/a", 12, "center", 5.625),
+                    cell(edges[1], edges[w0], charge.name, 12, "left", 5.625),
+                    cell(edges[w0], edges[w1], "N/a", 12, "center", 5.625),
+                    charge.amountText.map { cell(edges[p0], edges[p1], $0, 12, "center", 5.625) }
+                        ?? cell(edges[p0], edges[p1], formatMoney(charge.amount), 12, "money", 5.625),
                 ], repeats: false))
             }
             rows.append(SheetRow(kind: "grandTotal", height: 45.75, fill: nil, cells: [
-                cell(edges[0], edges[n - 2], "Total Amount", 28.99, "center", 12.375),
-                cell(edges[n - 2], edges[n - 1], formatMoney(doubleOf(roundToCents(total))), 12, "money", 19.125),
-                cell(edges[n - 1], edges[n], "", 12, "right", 19.125),
+                cell(edges[0], edges[w0], "Total Amount", 28.99, "center", 12.375),
+                cell(edges[w0], edges[w1], "", 12, "right", 19.125),
+                cell(edges[p0], edges[p1], formatMoney(doubleOf(roundToCents(total))), 12, "money", 19.125),
             ], repeats: false))
         }
 
@@ -254,7 +260,7 @@ enum BQSheet {
                 let unit = rate.unit.trimmingCharacters(in: .whitespaces)
                 let texts: [(String, String)] = [
                     ("R\(i + 1)", "center"), (rate.name, "left"), ("", "right"), ("", "center"),
-                    (formatMoney(rate.rate) + (unit.isEmpty ? "" : " / \(unit)"), "money"), ("(Rate Only)", "center"), ("", "right"),
+                    (formatMoney(rate.rate) + (unit.isEmpty ? "" : " / \(unit)"), "money"), ("", "right"), ("(Rate Only)", "center"),
                 ]
                 rows.append(SheetRow(kind: "rate", height: 18, fill: nil,
                                      cells: texts.enumerated().map { cell(edges[$0.offset], edges[$0.offset + 1], $0.element.0, 12, $0.element.1, 4.875) },

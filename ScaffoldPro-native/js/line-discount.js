@@ -37,19 +37,21 @@
     '<path d="M10.6 3H16a1 1 0 0 1 1 1v5.4a1 1 0 0 1-.3.7l-6.9 6.9a1 1 0 0 1-1.4 0L3 11.6a1 1 0 0 1 0-1.4l6.9-6.9a1 1 0 0 1 .7-.3z"/>' +
     '<path d="M7.6 12.4l4.8-4.8"/><circle cx="8.2" cy="8.2" r="0.9"/><circle cx="11.8" cy="11.8" r="0.9"/></svg>';
 
-  // A line's markup button (quotations and BOQs): "+30%" while the item is
-  // marked up — press it to leave the item out (charged at its own price);
-  // "No markup" while it's left out — press it to put the markup back.
-  // Locked documents show the words only.
+  // A line's markup button (quotations and BOQs), an icon beside the
+  // Discount button and in its style: lit while the item is marked up —
+  // press it to leave the item out (charged at its own price); dim and
+  // struck through while it's left out — press it to put the markup back.
+  // Locked documents show the struck-through icon only where it's left out.
+  const MARKUP_ICON = (off) => '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3.5 14.5 8 10l3 3 5.5-5.5"/><path d="M12.5 7.5h4v4"/>' + (off ? '<path d="M3.5 3.5l13 13"/>' : '') + '</svg>';
   window.markupToggleHTML = function markupToggleHTML(percent, off, locked) {
     const pct = `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
     const word = percent > 0 ? 'markup' : 'mark-down';
-    const label = off ? `No ${word}` : pct;
-    if (locked) return off ? `<span class="markup-toggle off static">${label}</span>` : '';
     const title = off
-      ? `Not ${percent > 0 ? 'marked up' : 'marked down'}: charged at its own price. Click to apply the ${pct} ${word} again.`
-      : `Click to leave this item out of the ${pct} ${word} (charged at its own price).`;
-    return `<button type="button" class="markup-toggle${off ? ' off' : ''}" data-no-icon aria-pressed="${off ? 'true' : 'false'}" title="${title}">${label}</button>`;
+      ? `No ${word} on this item: charged at its own price. Click to apply the ${pct} ${word} again.`
+      : `${pct} ${word} applied. Click to leave this item out of it (charged at its own price).`;
+    if (locked) return off ? `<span class="markup-toggle icon-btn off static" title="No ${word} on this item">${MARKUP_ICON(true)}</span>` : '';
+    return `<button type="button" class="discount-btn markup-toggle icon-btn${off ? ' off' : ' active'}" data-no-icon aria-pressed="${off ? 'false' : 'true'}" title="${title}" aria-label="${title}">${MARKUP_ICON(off)}</button>`;
   };
 
   window.discountButtonHTML = function discountButtonHTML(label, hint) {

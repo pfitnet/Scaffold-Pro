@@ -228,8 +228,8 @@ function renderLineItems() {
           : `<input type="text" class="line-note-input" placeholder="Add a note" value="${(item.notes || '').replace(/"/g, '&quot;')}" />`}</td>
       <td>${item.unit}</td>
       <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isIssued ? 'disabled' : ''} /></td>
-      <td class="num">${money(rate)}${markupBtn}</td>
-      <td>${isIssued ? '' : window.discountButtonHTML(discountLabel, "Discount this item's rate (only the new rate is printed)")}</td>
+      <td class="num">${money(rate)}</td>
+      <td><div class="line-tools">${isIssued ? '' : window.discountButtonHTML(discountLabel, "Discount this item's rate (only the new rate is printed)")}${markupBtn}</div></td>
       <td class="num">${weight(item.weightKg)}</td>
       <td class="num">${weight(lineWeight)}</td>
       <td class="row-actions">${isIssued ? '' : `
@@ -249,7 +249,7 @@ function renderLineItems() {
     if (dup) dup.addEventListener('click', () => lineAction(() => window.api.boq.duplicateLineItem(item.id)));
     const toggle = tr.querySelector('.markup-toggle');
     if (toggle) toggle.addEventListener('click', () => lineAction(() => window.api.boq.setLineNoMarkup(item.id, !item.noMarkup)));
-    const discountBtn = tr.querySelector('.discount-btn');
+    const discountBtn = tr.querySelector('.discount-btn:not(.markup-toggle)');
     if (discountBtn) discountBtn.addEventListener('click', () => {
       window.openLineDiscount(item, currencyLabel, async (type, value) => {
         const r = await window.api.boq.updateLineDiscount(item.id, type, value);

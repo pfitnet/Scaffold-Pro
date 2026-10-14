@@ -217,7 +217,7 @@
     const leftCol = 401.25 - 5 - L.textLeft;
     const rightCol = L.textRight - (L.textLeft + leftCol);
     const left = [para(run(d.clientName, { bold: true, size: 12 }), { line: pitch })]
-      .concat(d.clientLines.map((l) => para(run(l, { size: 12 }), { line: pitch })));
+      .concat(d.clientLines.map((l) => para(run(l, /^attn/i.test(l) ? { size: 12, bold: true, underline: true } : { size: 12 }), { line: pitch })));
     // The colons move left when a long number (Qt26210-004-s1) needs the room.
     const colonAt = d.refColon || 478.5;
     const right = d.refRows.map((r) => {
