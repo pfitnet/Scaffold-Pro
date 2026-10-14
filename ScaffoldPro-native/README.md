@@ -5549,3 +5549,30 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium: Team on Mac, narrow, iPad and phone, light and dark;
   the four old and new links; the floating chat and the Assistant page. Not
   checked: WebKit on a Mac; the Swift build.
+
+## Batch 250 — Stock and Costs: one primary each, the rest under ··· (redesign R9a)
+
+- **Stock:**
+  - the header says the facts: "12,784 pieces in the yard · 7,458 on
+    hire · 300 rented in". The longer explanation is its tooltip;
+  - **Record Stock opens the sheet straight away.** The kind (Receive,
+    Return, Rent In, Send Back, Count, Write Off) is chosen in the sheet,
+    so it is no longer asked twice. On the Returns tab it starts as a
+    return; on the Rented tab the button reads "Rent In…";
+  - Export to Excel… moves into the header's ···;
+  - its messages use the app's one toast at the bottom;
+  - on a phone the header wraps and the tiles sit two to a row.
+- **Costs:**
+  - the header reads "What we pay and what we charge" (the rest is its
+    tooltip), with ··· and one primary that follows the tab: **New Item**
+    on Materials, **New Worker** on Manpower Rates;
+  - ··· holds Import from Excel…, Export to Excel… and Unit Rates PDF… (and
+    New Provider… on Manpower Rates);
+  - the ☰ menu is gone: the category is a dropdown in the toolbar, and
+    **Unit Rates PDF…** is a button there too, no longer three menus deep;
+  - the New Item sheet confirms with "Create Item".
+- **Everywhere:** the ··· button next to a page's primary is the same
+  height as it and no longer sits 8px low.
+- Checked in Chromium on Mac, narrow, iPad and phone, light and dark:
+  Record Stock on each tab, ··· on both pages, New Item and New Worker. Not
+  checked: WebKit on a Mac.

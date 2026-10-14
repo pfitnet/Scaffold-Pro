@@ -35,7 +35,7 @@
       <div class="mp-card">
         <div class="mp-head">
           <div><h2>Manpower Rates</h2><p class="small-note">Our rate is what a quotation charges (“Standard Manpower Rates” fills it in). Each provider’s column is what they charge us; the cheapest is marked, with what’s left on each.</p></div>
-          <button type="button" id="mp-add-provider" data-no-icon>+ Add Provider</button>
+          <button type="button" id="mp-add-provider" data-no-icon>New Provider…</button>
         </div>
         <div class="mp-scroll"><table class="mp-table">
           <thead><tr>
@@ -58,7 +58,7 @@
             </tr>`;
           }).join('')}</tbody>
         </table></div>
-        <button type="button" class="link-btn" id="mp-add-row" data-no-icon>+ Add Worker</button>
+        <button type="button" class="link-btn" id="mp-add-row" data-no-icon>+ New Worker</button>
         <span class="mp-saved" id="mp-saved" aria-live="polite"></span>
       </div>`;
     wire();

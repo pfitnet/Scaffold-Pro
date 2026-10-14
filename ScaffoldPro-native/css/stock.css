@@ -5,23 +5,11 @@
 .sk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
 .sk-head h1 { margin: 0; }
 .sk-sub { margin: 6px 0 0; max-width: 720px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
-.sk-head-actions { display: flex; gap: 8px; align-items: center; flex: none; }
-.sk-head-actions button { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; }
-.sk-record { position: relative; }
 .sk-spacer { flex: 1; }
 
 /* ---- press feel ---- */
 .sk button:active:not(:disabled), .sk-rec button:active:not(:disabled) { transform: scale(.97); }
 
-/* ---- the "Record Stock" menu ---- */
-.sk-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 260px; padding: 6px; border: 1px solid var(--border); border-radius: 12px;
-  background: var(--panel); box-shadow: var(--shadow-lift, 0 12px 32px rgba(0,0,0,.18)); transform-origin: top right; animation: sk-pop .16s var(--ease, ease) both; }
-.sk-menu button { display: flex; align-items: center; gap: 10px; width: 100%; height: auto; padding: 8px 10px; border: none; border-radius: 8px; background: none; box-shadow: none; text-align: left; }
-.sk-menu button:hover, .sk-menu button:focus-visible { background: color-mix(in srgb, var(--accent) 9%, transparent); outline: none; }
-.sk-menu .k-ico { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; color: #fff; }
-.sk-menu b { display: block; font-size: 13px; }
-.sk-menu small { display: block; font-size: 11.5px; color: var(--text-tertiary); }
-@keyframes sk-pop { from { opacity: 0; transform: scale(.96) translateY(-4px); } to { opacity: 1; transform: none; } }
 
 /* ---- totals ---- */
 .sk-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(230px, 1.4fr); gap: 12px; margin-bottom: 20px; }
@@ -230,11 +218,8 @@
 @keyframes sk-dock { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 
 /* ---- toast ---- */
-.sk-toast { position: fixed; right: 28px; bottom: 24px; z-index: 60; padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #fff;
   background: rgba(32, 33, 36, .92); box-shadow: 0 8px 24px rgba(0,0,0,.2); opacity: 0; transform: translateY(10px) scale(.96); pointer-events: none;
   transition: opacity .2s, transform .25s cubic-bezier(.22, 1, .36, 1); }
-.sk-toast.show { opacity: 1; transform: none; }
-.sk-dock:not(.hidden) ~ .sk-toast { bottom: 92px; }
 
 /* ---- Record Stock ---- */
 .sk-rec { width: min(920px, calc(100vw - 48px)); max-width: none; max-height: calc(100vh - 48px); display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; }
@@ -297,3 +282,10 @@
 .sk-count::-webkit-inner-spin-button, .sk-count::-webkit-outer-spin-button,
 .sk-line input::-webkit-inner-spin-button, .sk-line input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .sk-count, .sk-line input { -moz-appearance: textfield; appearance: textfield; }
+
+/* Phone: two tiles a row, the split bar across the full width. */
+@media (max-width: 767px) {
+  .sk-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sk-stats .sk-split { grid-column: 1 / -1; }
+  .sk-stat b { font-size: 21px; }
+}

@@ -46,36 +46,29 @@ function handleCell(item) {
 // categories to show. They press the page's own (hidden) controls. A dot on
 // ☰ shows a category is chosen.
 
+// The header: [···] [New Item] on Materials, [···] [New Worker] on Manpower
+// Rates. ··· holds Import, Export and the Unit Rates PDF; each presses the
+// page's own (hidden) button.
 function setupListMenu() {
-  const button = document.getElementById('ml-menu-btn');
-  const category = document.getElementById('category-select');
-  const refresh = () => {
-    button.classList.toggle('filtered', !!category.value);
-    button.title = `Import or export rates\nCategory: ${category.selectedOptions[0] ? category.selectedOptions[0].textContent : 'All Categories'}`;
-  };
-  category.addEventListener('change', refresh);
-  new MutationObserver(refresh).observe(category, { childList: true });
-  refresh();
-  window.hoverMenu.attach(button, {
-    minWidth: 240,
-    align: 'right',
-    items: () => [
-      { group: 'Rates' },
-      { label: 'Import rates…', sub: 'Update prices from an Excel workbook (.xlsx)', value: 'import' },
-      { label: 'Export rates', sub: 'As a PDF or an Excel workbook', value: 'export', items: [
-        { label: 'PDF', sub: 'Unit Rates on the letterhead — tick the items, from either list', value: 'pdf' },
-        { label: 'Excel', sub: 'This material list (.xlsx) — edit it and import it back', value: 'excel' },
-      ] },
-      { group: 'Category' },
-      ...window.hoverMenu.selectItems(category).filter((it) => it.group == null).map((it) => ({ ...it, value: `cat:${it.value}` })),
-    ],
-    onPick: (v) => {
-      if (v === 'import') document.getElementById('import-btn').click();
-      else if (v === 'pdf') document.getElementById('rates-select-btn').click();
-      else if (v === 'excel') document.getElementById('export-btn').click();
-      else if (v.startsWith('cat:')) { window.hoverMenu.pickInSelect(category, v.slice(4)); refresh(); }
-    },
+  const click = (id) => () => document.getElementById(id).click();
+  const manpower = () => !document.getElementById('costs-manpower').classList.contains('hidden');
+  const primary = document.createElement('button');
+  primary.type = 'button';
+  primary.className = 'primary';
+  primary.dataset.noIcon = '';
+  primary.innerHTML = `${window.icon('plus', { size: 15 })}<span>New Item</span>`;
+  primary.addEventListener('click', () => (manpower() ? document.getElementById('mp-add-row') : document.getElementById('add-item-btn')).click());
+  window.pageActions(document.getElementById('costs-head'), {
+    primary,
+    overflow: () => (manpower() ? [{ label: 'New Provider…', run: click('mp-add-provider') }] : [
+      { label: 'Import from Excel…', sub: 'Update prices from a workbook (.xlsx)', run: click('import-btn') },
+      { label: 'Export to Excel…', sub: 'This material list. Edit it and import it back', run: click('export-btn') },
+      { label: 'Unit Rates PDF…', sub: 'Tick items for a client, from either list', run: click('rates-select-btn') },
+    ]),
   });
+  const label = () => { primary.lastElementChild.textContent = manpower() ? 'New Worker' : 'New Item'; };
+  new MutationObserver(label).observe(document.getElementById('costs-manpower'), { attributes: true, attributeFilter: ['class'] });
+  label();
 }
 
 // ---------- Unit Rates: items picked from either list, for a client ----------
@@ -90,7 +83,7 @@ function updateRatesBar() {
   const n = ratesPicked.size;
   const lists = new Set([...ratesPicked.values()].map((i) => i.sourceKey));
   document.getElementById('rates-count').textContent = n === 0
-    ? 'Tick the items for the Unit Rates sheet — from either list (switch lists above; ticks are kept).'
+    ? 'Tick the items for the Unit Rates sheet, from either list (switch lists above; ticks are kept).'
     : `${n} item${n === 1 ? '' : 's'} chosen${lists.size > 1 ? ` (from ${[...lists].join(' and ')})` : ''}`;
   document.getElementById('rates-make-btn').disabled = n === 0;
   for (const tr of document.querySelectorAll('#table-container tr[data-id]')) {
@@ -424,6 +417,7 @@ async function init() {
   });
   setupUnitRates();
   setupListMenu();
+  window.searchField(document.getElementById('search-box'));
   showSyncStatus();
   document.getElementById('export-btn').addEventListener('click', async () => {
     const r = await window.api.priceLists.exportCSV(currentSourceKey);
