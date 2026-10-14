@@ -13,16 +13,21 @@
   const WINDOW_MS = 2500;
   let pending = null; // { el, sig, index, id, until }
 
-  // Boxes "like" this one: same tag, type and classes.
+  // Boxes "like" this one: same tag, type and classes (not the marks a box
+  // gets for what it holds, e.g. a sum's "has-formula", or the new table's
+  // boxes wouldn't match until they're marked).
+  const MARKS = new Set(['has-formula', 'override']);
   function signature(el) {
-    return `${el.tagName}|${el.type || ''}|${[...el.classList].sort().join('.')}`;
+    return `${el.tagName}|${el.type || ''}|${[...el.classList].filter((c) => !MARKS.has(c)).sort().join('.')}`;
   }
   function alike(sig) {
     return [...document.querySelectorAll(FIELD)].filter((x) => signature(x) === sig);
   }
 
   function remember(el) {
-    pending = { el: el, sig: signature(el), index: alike(signature(el)).indexOf(el), id: el.id || null, until: Date.now() + WINDOW_MS };
+    const row = el.closest('[data-id]');
+    pending = { el: el, sig: signature(el), index: alike(signature(el)).indexOf(el), id: el.id || null,
+      row: row ? row.dataset.id : null, until: Date.now() + WINDOW_MS };
   }
 
   document.addEventListener('focusin', (e) => {
@@ -47,7 +52,10 @@
     // Something else has the cursor now: leave it there.
     const active = document.activeElement;
     if (active && active !== document.body && active.isConnected) { pending = null; return; }
-    const replacement = (pending.id && document.getElementById(pending.id)) || alike(pending.sig)[pending.index];
+    // By its id, else the same box in the same row (by the row's id), else by its place.
+    const sig = pending.sig;
+    const inRow = pending.row ? alike(sig).find((x) => { const r = x.closest('[data-id]'); return r && r.dataset.id === pending.row; }) : null;
+    const replacement = (pending.id && document.getElementById(pending.id)) || inRow || alike(sig)[pending.index];
     if (!replacement || replacement.disabled || replacement.readOnly || replacement.offsetParent === null) return;
     const old = pending.el;
     let start = null;

@@ -565,8 +565,8 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
     <td>${item.unit}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${markupBtn}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
-    <td>${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}</td>
+    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+    <td><div class="line-tools">${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}${markupBtn}</div></td>
     <td class="num">${money(lineTotal)}</td>
     <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;
 
@@ -584,7 +584,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
     if (r && r.ok === false) { await appAlert(r.error); return; }
     await loadDetail();
   });
-  const discountBtn = tr.querySelector('.discount-btn');
+  const discountBtn = tr.querySelector('.discount-btn:not(.markup-toggle)');
   if (discountBtn) discountBtn.addEventListener('click', () => {
     window.openLineDiscount(Object.assign({}, item, { appliedUnitPrice: effectivePrice }), currencyLabel, async (type, value) => {
       const r = await window.api.quotations.updateLineDiscount(item.id, type, value);

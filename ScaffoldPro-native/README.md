@@ -5134,3 +5134,23 @@ Increase Contrast. No Swift changed.
 - Checked: both editors in a browser (light and dark) with a mock bridge:
   the buttons, their states and the calls sent. Swift parsed with
   tree-sitter, not compiled. The PDF wasn't seen.
+
+## Batch 232 — Enter after a sum, Attn, BQ sheet columns, markup button
+
+- Enter (or Tab) in a quantity typed as a sum (e.g. 4*2) now goes on to the
+  next item. It used to jump back to an earlier item: the box kept after
+  the table redraws was found by its look, and a box holding a sum looks
+  different. js/keep-focus.js now finds the same box in the same row.
+- "Attn: …" under the client's address prints bold and underlined on every
+  letter-style PDF (quotations, invoices, delivery notes) and its Word copy.
+- BQ sheet (landscape BOQ / quotation, and its Word copy): Total Weight now
+  comes before the total price, so the money is the last column. The
+  subtotal, the charges' "N/a", the Total Amount and "(Rate Only)" moved
+  with them.
+- The markup button on a quotation or BOQ item is now a small icon beside
+  the Discount button, in the same style: lit while the item is marked up,
+  dim and struck through when it's left out. Hover says which.
+- Checked: in a browser with a mock bridge — Enter after a sum (before:
+  back to the item above; now: the next one), the markup icon and the
+  Discount button both working (light and dark). Swift parsed with
+  tree-sitter, not compiled. PDFs and Word files not seen.

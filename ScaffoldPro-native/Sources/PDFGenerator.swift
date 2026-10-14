@@ -492,10 +492,12 @@ final class PDFGenerator {
     /// The client's name (bold) and address, as printed: each address line
     /// kept to 260pt, a long one broken after its commas where it can be
     /// ("38th Floor, Dorset House, Taikoo Place," / "979 King's Road, …").
-    func clientBlockLines(_ doc: LetterDocument) -> [(text: String, bold: Bool)] {
-        var lines = wrap(doc.clientName, body(12, bold: true), 300).map { (text: $0, bold: true) }
+    /// `attn`: the "Attn: …" line, printed bold and underlined.
+    func clientBlockLines(_ doc: LetterDocument) -> [(text: String, bold: Bool, attn: Bool)] {
+        var lines = wrap(doc.clientName, body(12, bold: true), 300).map { (text: $0, bold: true, attn: false) }
         for line in doc.clientLines {
-            lines += wrapAddress(line, body(12), 260).map { (text: $0, bold: false) }
+            let attn = line.lowercased().hasPrefix("attn")
+            lines += wrapAddress(line, body(12, bold: attn), 260).map { (text: $0, bold: false, attn: attn) }
         }
         return lines
     }
@@ -528,7 +530,7 @@ final class PDFGenerator {
 
         let left = clientBlockLines(doc)
         for (i, item) in left.enumerated() {
-            text(item.text, x: blockLeft, baseline: firstBaseline + CGFloat(i) * pitch, font: body(12, bold: item.bold))
+            text(item.text, x: blockLeft, baseline: firstBaseline + CGFloat(i) * pitch, font: body(12, bold: item.bold || item.attn), underline: item.attn)
         }
 
         // Reference block: label, colon, value right-aligned; a value too
