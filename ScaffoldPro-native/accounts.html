@@ -5,72 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Accounting · ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    .period-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-    .period-bar input[type="date"], .period-bar input[data-date] { width: 150px; }
-    .stat-grid.six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .stat-card.tone-good .value { color: var(--success, #1e8e3e); }
-    table.money td.num, table.money th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    table.money tfoot td { font-weight: 600; border-top: 2px solid var(--border); }
-    table.money tr.clickable { cursor: pointer; }
-    .neg { color: var(--danger); }
-    .liability-summary { display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 13px; }
-    .liability-summary b { font-variant-numeric: tabular-nums; }
-    .liability-payments { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
-    .liability-payments h3 { margin: 0 0 8px; font-size: 13px; }
-    .liability-payments table { margin-bottom: 10px; }
-    .payment-add { display: grid; grid-template-columns: 150px 120px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
-    .payment-add input { min-width: 0; width: 100%; }
-    .liability-balance { font-size: 13px; margin-bottom: 8px; }
-  </style>
 </head>
 <body data-page="accounts">
   <nav id="sidebar"></nav>
   <main id="content">
-    <h1>Accounting</h1>
-    <div class="subtitle">Money in from invoices, money out as expenses, and how each project and month is doing.</div>
-
-    <div class="period-bar">
-      <label class="small-note" for="period-select">Period</label>
-      <select id="period-select">
-        <option value="this-month">This month</option>
-        <option value="last-month">Last month</option>
-        <option value="this-year" selected>This year</option>
-        <option value="last-year">Last year</option>
-        <option value="all">All time</option>
-        <option value="custom">Custom…</option>
-      </select>
-      <input type="date" id="period-from" class="hidden" />
-      <input type="date" id="period-to" class="hidden" />
-      <span class="small-note" id="period-label"></span>
-    </div>
+    <header class="page-header" id="acc-head">
+      <div>
+        <h1>Accounting</h1>
+        <!-- The period is the fact line: it sets the figures and every tab. -->
+        <div class="subtitle period-bar" title="Money in from invoices, money out as expenses, and how each project and month is doing">
+          <select id="period-select" aria-label="Period">
+            <option value="this-month">This month</option>
+            <option value="last-month">Last month</option>
+            <option value="this-year" selected>This year</option>
+            <option value="last-year">Last year</option>
+            <option value="all">All time</option>
+            <option value="custom">Custom…</option>
+          </select>
+          <input type="date" id="period-from" class="hidden" aria-label="From" />
+          <input type="date" id="period-to" class="hidden" aria-label="To" />
+          <span id="period-label"></span>
+        </div>
+      </div>
+    </header>
 
     <div class="stat-grid six" id="account-stats"></div>
 
     <div class="tabs" id="account-tabs">
       <button data-tab="receivables" class="active">Receivables</button>
-      <button data-tab="payments">Payments Received</button>
+      <button data-tab="payments">Payments</button>
       <button data-tab="expenses">Expenses</button>
       <button data-tab="liabilities">Liabilities</button>
-      <button data-tab="projects">By Project</button>
-      <button data-tab="monthly">By Month</button>
+      <button data-tab="reports">Reports</button>
     </div>
 
     <div class="toolbar" id="tab-toolbar">
       <input type="text" id="search-box" placeholder="Search" />
-      <label class="small-note hidden" id="unpaid-only-label"><input type="checkbox" id="unpaid-only" checked /> Unpaid only</label>
-      <label class="small-note hidden" id="show-settled-label"><input type="checkbox" id="show-settled" /> Show paid off</label>
-      <span class="toolbar-spacer"></span>
-      <button class="primary hidden" id="add-expense-btn">+ Add Expense</button>
-      <button class="primary hidden" id="add-liability-btn">+ Add Liability</button>
-      <button id="export-btn" title="Save this tab as an Excel workbook (.xlsx)">Export to Excel</button>
+      <label class="check-chip hidden" id="unpaid-only-label"><input type="checkbox" id="unpaid-only" checked />Unpaid only</label>
+      <label class="check-chip hidden" id="show-settled-label"><input type="checkbox" id="show-settled" />Paid off</label>
+      <div class="segmented hidden" id="report-seg" role="group" aria-label="Report">
+        <button type="button" data-report="projects" class="active" data-no-icon>By Project</button>
+        <button type="button" data-report="monthly" data-no-icon>By Month</button>
+      </div>
+      <!-- The header's primary and ··· press these. -->
+      <span class="hidden">
+        <button id="add-expense-btn">New Expense</button>
+        <button id="add-liability-btn">New Liability</button>
+        <button id="export-btn">Export to Excel</button>
+      </span>
     </div>
     <div id="tab-content"></div>
   </main>
 
   <div class="modal-backdrop hidden" id="expense-modal">
     <div class="modal wide" role="dialog" aria-labelledby="ex-title">
-      <h2 id="ex-title">Add Expense</h2>
+      <h2 id="ex-title">New Expense</h2>
       <div class="form-grid">
         <div class="field"><label for="ex-date">Date</label><input type="date" id="ex-date" /></div>
         <div class="field"><label for="ex-amount">Amount</label><input type="number" id="ex-amount" min="0" step="0.01" /></div>

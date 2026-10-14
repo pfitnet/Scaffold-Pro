@@ -113,7 +113,7 @@ function tableFor(f) {
       numeric: [5, 6, 7],
       rows: list.map((i) => ({
         href: `invoice-editor.html?id=${encodeURIComponent(i.id)}`,
-        cells: [esc(i.invoiceNumber), i.invoiceDate, i.dueDate || '—', `${esc(i.projectNumber)} ${esc(i.projectName)}`, esc(i.clientName || '—'),
+        cells: [`<span class="nw mono">${esc(i.invoiceNumber)}</span>`, `<span class="nw">${window.appDay(i.invoiceDate)}</span>`, `<span class="nw">${window.appDay(i.dueDate)}</span>`, `${esc(i.projectNumber)} ${esc(i.projectName)}`, esc(i.clientName || '—'),
           money(i.total), money(i.amountPaid), money(i.balanceDue),
           `<span class="status-pill ${PILL[i.status] || ''}">${STATUS_TEXT[i.status] || i.status}</span>`],
         csv: [i.invoiceNumber, i.invoiceDate, i.dueDate || '', i.projectNumber, i.projectName, i.clientName || '', i.total, i.amountPaid, i.balanceDue, i.status],
@@ -147,7 +147,7 @@ function tableFor(f) {
       numeric: [6],
       rows: list.map((e) => ({
         expense: e.id,
-        cells: [e.date, esc(e.category), esc(e.supplier || ''), esc(e.description), esc(project(e.projectId)?.projectNumber || '—'), esc(e.reference || ''), money(e.amount)],
+        cells: [`<span class="nw">${window.appDay(e.date)}</span>`, esc(e.category), esc(e.supplier || ''), esc(e.description), esc(project(e.projectId)?.projectNumber || '—'), esc(e.reference || ''), money(e.amount)],
         csv: [e.date, e.category, e.supplier || '', e.description, project(e.projectId)?.projectNumber || '', e.reference || '', e.amount],
       })),
       foot: ['Total', '', '', '', '', '', money(list.reduce((a, e) => a + e.amount, 0))],
@@ -240,14 +240,23 @@ function render() {
   renderStats(f);
   document.getElementById('unpaid-only-label').classList.toggle('hidden', tab !== 'receivables');
   document.getElementById('show-settled-label').classList.toggle('hidden', tab !== 'liabilities');
-  document.getElementById('add-expense-btn').classList.toggle('hidden', tab !== 'expenses');
-  document.getElementById('add-liability-btn').classList.toggle('hidden', tab !== 'liabilities');
+  const reports = tab === 'projects' || tab === 'monthly';
+  document.getElementById('report-seg').classList.toggle('hidden', !reports);
+  for (const x of document.querySelectorAll('#account-tabs button')) x.classList.toggle('active', x.dataset.tab === (reports ? 'reports' : tab));
+  for (const x of document.querySelectorAll('#report-seg button')) x.classList.toggle('active', x.dataset.report === tab);
+  // The header's one primary follows the tab: New Expense, New Liability, else none.
+  const primary = document.getElementById('acc-primary');
+  if (primary) {
+    const what = { expenses: 'New Expense', liabilities: 'New Liability' }[tab];
+    primary.hidden = !what;
+    if (what) primary.lastElementChild.textContent = what;
+  }
   const t = tableFor(f);
   const content = document.getElementById('tab-content');
   if (!t.rows.length) {
     content.innerHTML = `<p class="small-note">${t.note}</p>${t.summary || ''}<div class="empty-state"><h2>${tab === 'liabilities' ? 'Nothing owed' : 'Nothing here for this period'}</h2>
-      ${tab === 'expenses' ? '<p>Use “+ Add Expense” to record money spent.</p>' : ''}
-      ${tab === 'liabilities' ? '<p>Use “+ Add Liability” to record a loan, a supplier’s bill, hire purchase or anything else the company owes.</p>' : ''}</div>`;
+      ${tab === 'expenses' ? '<p>Use New Expense to record money spent.</p>' : ''}
+      ${tab === 'liabilities' ? '<p>Use New Liability to record a loan, a supplier’s bill, hire purchase or anything else the company owes.</p>' : ''}</div>`;
     return;
   }
   const cls = (i) => (t.numeric.includes(i) ? ' class="num"' : '');
@@ -287,7 +296,7 @@ function openLiability(id) {
   const x = id ? data.liabilities.find((l) => l.liability.id === id) : null;
   editingLiability = x ? x.liability.id : null;
   const l = x ? x.liability : {};
-  document.getElementById('li-title').textContent = x ? l.name : 'Add Liability';
+  document.getElementById('li-title').textContent = x ? l.name : 'New Liability';
   document.getElementById('li-name').value = l.name || '';
   document.getElementById('li-kind').innerHTML = data.liabilityKinds.map((k) => `<option>${esc(k)}</option>`).join('');
   document.getElementById('li-kind').value = l.kind || data.liabilityKinds[0];
@@ -393,7 +402,7 @@ async function deleteLiability() {
 function openExpense(expense) {
   editingExpense = expense || null;
   const e = expense || {};
-  document.getElementById('ex-title').textContent = expense ? 'Change Expense' : 'Add Expense';
+  document.getElementById('ex-title').textContent = expense ? 'Change Expense' : 'New Expense';
   document.getElementById('ex-date').value = e.date || ymd(new Date());
   document.getElementById('ex-amount').value = e.amount ?? '';
   document.getElementById('ex-category').innerHTML = data.categories.map((c) => `<option>${esc(c)}</option>`).join('');
@@ -487,13 +496,31 @@ async function init() {
   });
   for (const id of ['period-from', 'period-to', 'unpaid-only', 'show-settled']) document.getElementById(id).addEventListener('change', render);
   document.getElementById('search-box').addEventListener('input', render);
-  for (const b of document.querySelectorAll('#account-tabs button')) {
+  // Reports holds By Project and By Month (a segmented choice, remembered).
+  let report = 'projects';
+  try { report = sessionStorage.getItem('accounts.report') || 'projects'; } catch (e) { /* ignore */ }
+  const pick = (name) => { tab = name === 'reports' ? report : name; render(); };
+  for (const b of document.querySelectorAll('#account-tabs button')) b.addEventListener('click', () => pick(b.dataset.tab));
+  for (const b of document.querySelectorAll('#report-seg button')) {
     b.addEventListener('click', () => {
-      tab = b.dataset.tab;
-      for (const x of document.querySelectorAll('#account-tabs button')) x.classList.toggle('active', x === b);
-      render();
+      report = b.dataset.report;
+      try { sessionStorage.setItem('accounts.report', report); } catch (e) { /* ignore */ }
+      pick('reports');
     });
   }
+  const primary = document.createElement('button');
+  primary.type = 'button';
+  primary.id = 'acc-primary';
+  primary.className = 'primary';
+  primary.dataset.noIcon = '';
+  primary.hidden = true;
+  primary.innerHTML = `${window.icon('plus', { size: 15 })}<span>New Expense</span>`;
+  primary.addEventListener('click', () => (tab === 'liabilities' ? openLiability(null) : openExpense(null)));
+  window.pageActions(document.getElementById('acc-head'), {
+    primary,
+    overflow: [{ label: 'Export to Excel…', sub: 'This tab, as a workbook (.xlsx)', run: exportCSV }],
+  });
+  window.searchField(document.getElementById('search-box'));
   document.getElementById('add-expense-btn').addEventListener('click', () => openExpense(null));
   document.getElementById('export-btn').addEventListener('click', exportCSV);
   document.getElementById('ex-cancel').addEventListener('click', closeExpense);
@@ -514,9 +541,11 @@ async function init() {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') saveLiability();
   });
   // Accounts › Liabilities from a link (accounts.html?tab=liabilities).
+  // Old links to By Project / By Month land on Reports with that choice.
   const wanted = new URLSearchParams(location.search).get('tab');
-  const wantedButton = wanted && document.querySelector(`#account-tabs button[data-tab="${CSS.escape(wanted)}"]`);
-  if (wantedButton) wantedButton.click();
+  if (wanted === 'projects' || wanted === 'monthly') { report = wanted; pick('reports'); }
+  else if (wanted && document.querySelector(`#account-tabs button[data-tab="${CSS.escape(wanted)}"]`)) pick(wanted);
+  else render();
 }
 
 init();
