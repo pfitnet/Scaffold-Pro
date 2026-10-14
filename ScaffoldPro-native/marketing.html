@@ -6,19 +6,6 @@
   <title>Marketing · ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/marketing.css" />
-  <style>
-    .kind-pill { font-size: 11px; }
-    .board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: start; }
-    .board-col { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px; min-height: 120px; }
-    .board-col h3 { font-size: 12px; margin: 2px 4px 8px; color: var(--text-secondary); display: flex; justify-content: space-between; }
-    .lead-card { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--content); cursor: pointer; font-size: 13px; }
-    .lead-card:hover { border-color: var(--border-strong); }
-    .lead-card .company { font-weight: 600; }
-    .lead-card .meta { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
-    .lead-card .due { color: var(--warning); }
-    .ref-check { width: 16px; }
-    @media (max-width: 1100px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  </style>
 </head>
 <body data-page="marketing">
   <nav id="sidebar"></nav>
@@ -26,10 +13,11 @@
     <div class="page-header">
       <div>
         <h1>Marketing</h1>
-        <div class="subtitle">How quotations are turning into work, who to chase, new leads, and project references for tenders.</div>
+        <div class="subtitle" id="mk-fact" title="How quotations are turning into work, who to chase, new leads, and project references for tenders">Quotations, leads and references</div>
       </div>
-      <div class="header-actions">
-        <button class="primary" id="new-lead-btn">+ New Lead</button>
+      <div class="page-actions">
+        <!-- The one primary follows the tab (js/marketing.js). -->
+        <button class="primary" id="new-lead-btn" data-no-icon><span class="mk-ico" aria-hidden="true"></span><span id="mk-primary-label">New Lead</span></button>
       </div>
     </div>
 
@@ -39,8 +27,8 @@
       <button data-tab="overview" class="active">Overview</button>
       <button data-tab="followups">Follow-ups</button>
       <button data-tab="leads">Leads</button>
-      <button data-tab="references">Project References</button>
-      <button data-tab="report">Client Report</button>
+      <button data-tab="references">References</button>
+      <button data-tab="report">Report</button>
       <button data-tab="promotions">Promotions</button>
     </div>
 
@@ -110,7 +98,7 @@
         <input type="text" id="ref-search" placeholder="Search projects, clients, sites, structures" />
         <select id="ref-status"><option value="">All projects</option><option value="Active">Active</option><option value="Completed">Completed</option></select>
         <span class="toolbar-spacer"></span>
-        <button id="ref-csv-btn" title="Save the ticked projects (or all shown) as a spreadsheet — for tenders and the company profile">Export Reference List</button>
+        <button id="ref-csv-btn" title="Save the ticked projects (or all shown) as a spreadsheet, for tenders and the company profile">Export Reference List</button>
       </div>
       <div id="mk-references"></div>
     </section>
@@ -135,7 +123,7 @@
 
     <section class="tab-panel" data-panel="promotions">
       <div class="pr-layout">
-        <aside class="pr-list"><button type="button" class="primary pr-new" id="pr-new" data-no-icon>+ New Campaign</button><div id="pr-cards"></div></aside>
+        <aside class="pr-list"><button type="button" class="pr-new" id="pr-new" data-no-icon>+ New Campaign</button><div id="pr-cards"></div></aside>
         <div class="pr-detail" id="pr-detail"></div>
       </div>
     </section>

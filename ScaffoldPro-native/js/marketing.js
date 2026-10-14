@@ -30,9 +30,22 @@ function today() {
 
 // ---- tabs ----
 
+const PRIMARY = {
+  leads: { label: 'New Lead', icon: 'plus', run: () => { showTab('leads'); openLead(null); } },
+  references: { label: 'Export Reference List', icon: 'download', run: () => document.getElementById('ref-csv-btn').click() },
+};
+let currentTab = 'overview';
+
 function showTab(name) {
   for (const b of document.querySelectorAll('#mk-tabs button')) b.classList.toggle('active', b.dataset.tab === name);
   for (const p of document.querySelectorAll('.tab-panel')) p.classList.toggle('active', p.dataset.panel === name);
+  // The header's one primary follows the tab.
+  const what = PRIMARY[name] || PRIMARY.leads;
+  document.getElementById('mk-primary-label').textContent = what.label;
+  document.querySelector('#new-lead-btn .mk-ico').innerHTML = window.icon(what.icon, { size: 15 });
+  // Report has none; Promotions' own primary is Write Letters (New Campaign heads its list).
+  document.getElementById('new-lead-btn').hidden = name === 'report' || name === 'promotions';
+  currentTab = name;
   // The Client Report and Promotions tabs load when first shown.
   document.dispatchEvent(new CustomEvent('marketing:tab', { detail: name }));
 }
@@ -44,9 +57,10 @@ function renderStats() {
   const card = (value, label, tone) => `<div class="stat-card${tone ? ` tone-${tone}` : ''}"><div class="value">${value}</div><div class="label">${label}</div></div>`;
   document.getElementById('mk-stats').innerHTML =
     card(`${summary.quotedCount}`, `Quotations sent (12 months) · ${cur} ${short(summary.quotedValue)}`) +
-    card(`${Math.round(summary.winRate * 100)}%`, `Won — ${summary.wonCount} of ${summary.quotedCount}`) +
+    card(`${Math.round(summary.winRate * 100)}%`, `Won: ${summary.wonCount} of ${summary.quotedCount}`) +
     card(`${cur} ${short(summary.averageQuote)}`, 'Average quotation') +
     card(`${summary.openLeads}`, `Open leads · ${cur} ${short(summary.pipelineValue)} estimated`);
+  document.getElementById('mk-fact').textContent = `${summary.quotedCount} quotations in 12 months · ${Math.round(summary.winRate * 100)}% won · ${summary.openLeads} open lead${summary.openLeads === 1 ? '' : 's'}`;
 }
 
 // ---- follow-ups ----
@@ -200,7 +214,7 @@ function init() {
   document.getElementById('ld-source').innerHTML = SOURCES.map((s) => `<option>${s}</option>`).join('');
   document.getElementById('ld-status').innerHTML = STATUSES.map((s) => `<option>${s}</option>`).join('');
   for (const b of document.querySelectorAll('#mk-tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
-  document.getElementById('new-lead-btn').addEventListener('click', () => { showTab('leads'); openLead(null); });
+  document.getElementById('new-lead-btn').addEventListener('click', () => (PRIMARY[currentTab] || PRIMARY.leads).run());
   document.getElementById('ld-cancel').addEventListener('click', closeLead);
   document.getElementById('ld-save').addEventListener('click', saveLead);
   document.getElementById('ld-delete').addEventListener('click', async () => {
@@ -226,7 +240,7 @@ function init() {
   document.getElementById('ref-status').addEventListener('change', renderReferences);
   document.getElementById('ref-csv-btn').addEventListener('click', exportReferences);
   const params = new URLSearchParams(location.search);
-  if (params.get('tab')) showTab(params.get('tab'));
+  showTab(params.get('tab') || 'overview');
   if (params.get('new') === '1') { showTab('leads'); openLead(null); }
   load().then(() => {
     const leadId = params.get('lead');
