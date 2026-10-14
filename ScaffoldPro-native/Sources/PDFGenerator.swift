@@ -689,8 +689,30 @@ final class PDFGenerator {
         case .note(let note):
             let lines = wrap(note, noteFont, noteWidth(doc)).count
             return 29.25 + CGFloat(max(1, lines) - 1) * notePitch
+        case .lump(_, _, let items, _):
+            // 9pt above the heading, its line, 5.75pt, the items 14.25pt
+            // apart, and 13pt under the last.
+            let lines = lumpLines(items, doc: doc).count
+            return lines == 0 ? 33.0 : 38.75 + CGFloat(lines) * cellPitch
+        case .columnTitles:
+            return headerHeight
         }
     }
+
+    /// A lump row's items as printed: "1." and the name (wrapped, the
+    /// number on its first line only), across every column but the last.
+    func lumpLines(_ items: [String], doc: LetterDocument) -> [(number: String?, text: String)] {
+        let width = doc.columns.dropFirst().dropLast().reduce(CGFloat(0)) { $0 + $1.width } - lumpTextX - 8
+        var out: [(number: String?, text: String)] = []
+        for (i, item) in items.enumerated() {
+            for (j, line) in wrap(item, body(11), max(60, width)).enumerated() { out.append((j == 0 ? "\(i + 1)." : nil, line)) }
+        }
+        return out
+    }
+    /// Where a lump row's item numbers end, and their names start, from the
+    /// description column's left rule.
+    let lumpNumberRight: CGFloat = 36.0
+    let lumpTextX: CGFloat = 43.0
 
     /// Lines of text in a row, for how short it can be made (tableSqueeze).
     func textLines(of row: LetterTableRow, in doc: LetterDocument) -> Int {
@@ -707,6 +729,9 @@ final class PDFGenerator {
         case .summary(let label, _, let emphasized): return summaryLabelLines(label, emphasized: emphasized, doc: doc).count
         case .wide(_, let text): return wideLines(text, doc: doc).count
         case .note(let note): return wrap(note, noteFont, noteWidth(doc)).count
+        // (Never made shorter: its lines are placed from its top.)
+        case .lump(_, _, let items, _): return lumpLines(items, doc: doc).count + 3
+        case .columnTitles: return 1
         }
     }
 
@@ -794,21 +819,41 @@ final class PDFGenerator {
         lineWidth(makeLine("kg", font, .black)) + 8.4
     }
 
-    func drawHeaderRow(_ columns: [LetterColumn], _ edges: [CGFloat]) {
-        let top = cursor
-        let headerHeight = drawnHeaderHeight
+    func drawHeaderRow(_ columns: [LetterColumn], _ edges: [CGFloat], merged: Bool = false) {
+        drawColumnTitles(columns, edges, top: cursor, height: drawnHeaderHeight, merged: merged)
+        cursor += drawnHeaderHeight
+    }
+
+    /// The column titles in a row. `merged`: "No", the second column's
+    /// title across every column but the last, then the last's.
+    func drawColumnTitles(_ columns: [LetterColumn], _ edges: [CGFloat], top: CGFloat, height headerHeight: CGFloat, merged: Bool) {
+        let last = edges.count - 1
         hRule(edges, top)
         hRule(edges, top + headerHeight)
-        for x in edges { vRule(x, top, headerHeight) }
         let font = body(11, bold: true)
-        for (i, column) in columns.enumerated() {
-            let lines = column.title.components(separatedBy: "\n")
+        // Each title over the span it heads: (title, left edge, right edge).
+        var spans: [(String, Int, Int)] = columns.enumerated().map { ($0.element.title, $0.offset, $0.offset + 1) }
+        if merged && columns.count > 3 {
+            spans = [(columns[0].title, 0, 1), (columns[1].title, 1, last - 1), (columns[last - 1].title, last - 1, last)]
+        }
+        vRule(edges[0], top, headerHeight)
+        for span in spans {
+            vRule(edges[span.2], top, headerHeight)
+            let lines = span.0.components(separatedBy: "\n")
             for (j, line) in lines.enumerated() {
-                text(line, x: (edges[i] + edges[i + 1] + rule) / 2,
+                text(line, x: (edges[span.1] + edges[span.2] + rule) / 2,
                      baseline: cellBaseline(top: top, height: headerHeight, lines: lines.count, line: j), font: font, align: .center)
             }
         }
-        cursor += headerHeight
+    }
+
+    /// Rows that run on without a rule between them on a table that isn't
+    /// `ruled` (items; not headings, subtotals or totals).
+    func isBodyRow(_ row: LetterTableRow) -> Bool {
+        switch row {
+        case .item, .partial, .wide, .note, .lump: return true
+        case .section, .summary, .columnTitles: return false
+        }
     }
 
     /// Draws the table, repeating the column titles at the top of every
@@ -818,22 +863,32 @@ final class PDFGenerator {
         let edges = columnEdges(doc.columns)
         let last = edges.count - 1
         tableSqueeze = doc.rows.isEmpty ? 1 : squeezeToFit(doc)
-        drawHeaderRow(doc.columns, edges)
+        // The merged heading row until the column titles come again.
+        var merged = doc.mergedHeader
+        drawHeaderRow(doc.columns, edges, merged: merged)
         if doc.rows.isEmpty {
             text("No items.", x: textLeft, baseline: cursor + 17.25, font: body(11, italic: true))
             cursor += rowHeight
             return
         }
-        for row in doc.rows {
+        // Not ruled: a rule only where a row meets a heading, subtotal or
+        // total (or the page ends).
+        var previousBody = false
+        for (index, row) in doc.rows.enumerated() {
             let h = drawnHeight(of: row, in: doc)
             if cursor + h > contentBottom {
+                if previousBody && !doc.ruled { hRule(edges, cursor) }
                 newPage()
                 cursor = continuationTableTop
-                drawHeaderRow(doc.columns, edges)
+                drawHeaderRow(doc.columns, edges, merged: merged)
+                previousBody = false
             }
             let top = cursor
-            hRule(edges, top)
-            hRule(edges, top + h)
+            let isBody = isBodyRow(row)
+            let nextIsBody = index + 1 < doc.rows.count && isBodyRow(doc.rows[index + 1])
+            if doc.ruled || !(isBody && previousBody) { hRule(edges, top) }
+            if doc.ruled || !(isBody && nextIsBody) { hRule(edges, top + h) }
+            previousBody = isBody
             switch row {
             case .item(let cells):
                 for x in edges { vRule(x, top, h) }
@@ -890,6 +945,22 @@ final class PDFGenerator {
                 for (j, line) in lines.enumerated() {
                     text(line, x: edges[0] + 6.0, baseline: first + CGFloat(j) * notePitch, font: noteFont, color: LetterheadColor.darkGrey)
                 }
+            case .lump(let number, let heading, let items, let value):
+                for x in [edges[0], edges[1], edges[last - 1], edges[last]] { vRule(x, top, h) }
+                let font = body(11)
+                text(number, x: (edges[0] + edges[1] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: font, align: .center)
+                let headingBaseline = top + 20.0
+                text(heading, x: edges[1] + 5.0, baseline: headingBaseline, font: body(11, bold: true), underline: true)
+                for (j, line) in lumpLines(items, doc: doc).enumerated() {
+                    let baseline = headingBaseline + 5.75 + CGFloat(j + 1) * cellPitch
+                    if let n = line.number { text(n, x: edges[1] + lumpNumberRight, baseline: baseline, font: font, align: .right) }
+                    text(line.text, x: edges[1] + lumpTextX, baseline: baseline, font: font)
+                }
+                drawCell([value], column: doc.columns[last - 1], left: edges[last - 1], right: edges[last], top: top, height: h,
+                         font: font, currency: doc.currencySymbol)
+            case .columnTitles:
+                drawColumnTitles(doc.columns, edges, top: top, height: h, merged: false)
+                merged = false
             }
             cursor += h
         }
@@ -1219,6 +1290,11 @@ final class PDFGenerator {
             case .partial(let cells, let tail): return WordRow(type: "partial", height: h, cells: lines(cells), text: tail)
             case .wide(let number, let wideText): return WordRow(type: "wide", height: h, cells: [[number]], text: wideLines(wideText, doc: doc).joined(separator: "\n"))
             case .note(let note): return WordRow(type: "note", height: h, text: note)
+            case .lump(let number, let heading, let items, let value):
+                // Each item line as printed: "1.\tname" (a wrapped name's next lines "\tname").
+                let lines = lumpLines(items, doc: doc).map { "\($0.number ?? "")\t\($0.text)" }
+                return WordRow(type: "lump", height: h, cells: [[number], lines], label: heading, value: value)
+            case .columnTitles: return WordRow(type: "titles", height: h)
             }
         }
         let sections: [WordSection] = doc.sections.enumerated().map { sectionIndex, section in
@@ -1253,7 +1329,8 @@ final class PDFGenerator {
             infoRows: doc.infoRows.map { WordInfoRow(label: $0.label, lines: infoValueLines($0), bold: $0.boldValue) },
             headerHeight: Double(drawnHeaderHeight),
             receiptRows: doc.receiptRows.map { [$0.0, $0.1] },
-            receiptNewPage: receiptNewPage
+            receiptNewPage: receiptNewPage,
+            mergedHeader: doc.mergedHeader, ruled: doc.ruled
         )
     }
 

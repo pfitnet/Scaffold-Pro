@@ -5172,3 +5172,32 @@ Increase Contrast. No Swift changed.
   built in Node, its XML checked and opened in LibreOffice (page 2 shows the
   reference, page 1 doesn't). Swift parsed with tree-sitter, not compiled.
   The PDF wasn't seen.
+
+## Batch 234 — Invoices: materials in one line, no lines between rows; Word preview fixed
+
+- A scaffolding job's invoice now lists its materials as one line, as on
+  the company's own invoice (H26211-001): "001 · Sale of Scaffolding
+  Materials" (or "Provision of Scaffolding Material for 2 Months", with the
+  rental period if typed), the items numbered under it, and the one
+  amount. The heading row is No | Item Description | Total Price.
+- Then "Subtotal:" and the delivery and other charges as before (D1…, A1…),
+  under their section title with the column titles again.
+- No lines between one row and the next: only around the headings, the
+  subtotal and the total. Invoices only; quotations are unchanged.
+- An invoice billing several quotations has a line for each (001, 002…).
+  A crane job's invoice still lists its equipment item by item (without
+  the lines between rows). A very long list goes on in "(continued)" rows
+  of 30 so a row never runs off a page.
+- New line under "Re:": "Thank you for choosing our services and we
+  appreciate your prompt payment with amounts detailed below".
+- Word copies: the same layout. The references at the top right (Invoice
+  No., Quotation No., Site Ref.…) are now a small table instead of tab
+  stops: the in-app Word preview ignored the tab stops and broke them.
+- New table rows `.lump` and `.columnTitles`; `LetterDocument.mergedHeader`
+  and `.ruled` (and the same on WordLayout).
+- Checked: a sample invoice Word file rendered in LibreOffice and with the
+  app's previewer (docx-preview) in Chromium, before (broken references)
+  and after. Swift parsed with tree-sitter, not compiled. The PDF wasn't
+  seen — please check one invoice PDF.
+- Not done yet: the buy-back line ("002 Buy-Back of materials") from the
+  sample; it comes with buy-back on scaffolding sale quotations.

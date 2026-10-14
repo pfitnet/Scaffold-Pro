@@ -2942,7 +2942,8 @@ struct WordColumn: Encodable { var title: String; var width: Double; var kind: S
 struct WordInfoRow: Encodable { var label: String; var lines: [String]; var bold: Bool }
 
 struct WordRow: Encodable {
-    /// "item", "section", "summary", "partial" or "note"
+    /// "item", "section", "summary", "partial", "wide", "note", "lump"
+    /// (cells: [[number], items], label: heading, value) or "titles"
     var type: String
     /// Row height on the PDF, in points.
     var height: Double
@@ -3011,6 +3012,9 @@ struct WordLayout: Encodable {
     var receiptRows: [[String]] = []
     /// The receipt lines start a new page (with "Ref.: <number>").
     var receiptNewPage = false
+    /// As LetterDocument's: the merged heading row, and no rules between rows.
+    var mergedHeader = false
+    var ruled = true
     // Filled in by the bridge:
     var projectNumber = ""
     var subfolder = ""
@@ -3061,6 +3065,13 @@ enum LetterTableRow {
     /// A note across the whole table in small grey italics, e.g. "* Please
     /// note that labour rates are subject to a price increase…".
     case note(String)
+    /// Materials in one line (an invoice): the row number, a bold underlined
+    /// heading ("Sale of Scaffolding Materials") with the items numbered
+    /// under it across every column but the last, and the amount in the last.
+    case lump(number: String, heading: String, items: [String], value: String)
+    /// The column titles again inside the table, before rows that use every
+    /// column (an invoice's "Other Charges", after its merged heading row).
+    case columnTitles
 }
 
 enum LetterParagraph {
@@ -3408,6 +3419,13 @@ struct LetterDocument {
     /// ("Received By", "Date"), ("Full Name", "Contact No."). If they go
     /// on a page of their own it starts "Ref.: <number>".
     var receiptRows: [(String, String)] = []
+    /// The heading row at the top: "No", the second column's title across
+    /// every column but the last, then the last (an invoice's materials in
+    /// one line). Pages before a `.columnTitles` row repeat it.
+    var mergedHeader = false
+    /// false: no rule between one row and the next, only around headings,
+    /// subtotals and totals (an invoice).
+    var ruled = true
 }
 
 struct LetterInfoRow {
