@@ -768,28 +768,19 @@ function formatWhen(iso) {
   return isNaN(d) ? iso : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace('Sept', 'Sep');
 }
 
-const SVG = (paths, size = 16) => `<svg viewBox="0 0 20 20" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
-const PD_ICONS = {
-  client: '<path d="M3.5 17V5.5a1 1 0 0 1 .7-1l6-2a.7.7 0 0 1 .9.7V17"/><path d="M11 7.5h4.5a1 1 0 0 1 1 1V17M2 17h16M6.5 7h1.5M6.5 10h1.5M6.5 13h1.5M13.5 11h1M13.5 13.8h1"/>',
-  site: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>',
-  person: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.8-3 3.2-4.5 6-4.5s5.2 1.5 6 4.5"/>',
-  calendar: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 2.5v4M13 2.5v4"/>',
-  flag: '<path d="M4.5 17.5V3.5"/><path d="M4.5 4h10l-2 3.5 2 3.5h-10"/>',
-  clock: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4.3l2.8 1.7"/>',
-  hash: '<path d="M8 3 6.5 17M13.5 3 12 17M3.5 7.5h14M2.5 12.5h14"/>',
-  status: '<circle cx="10" cy="10" r="7"/><path d="m7 10.2 2.2 2.2 4-4.4"/>',
-};
+const SVG = (paths, size = 16) => (window.ICON_PATHS && window.ICON_PATHS[paths]) ? window.icon(paths, { size }) : `<svg viewBox="0 0 20 20" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const PD_ICONS = { client: 'clients', site: 'sites', person: 'user', calendar: 'calendar', flag: 'flag', clock: 'clock', hash: 'hash', status: 'check' };
 // The same look and colours as the Dashboard's Quick Actions.
 const PD_ACTIONS = [
-  { action: 'new-boq', label: 'New BOQ', color: '#4F8A8F', icon: '<rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 7.5h14M3 11.5h14M8 7.5v9"/>' },
-  { action: 'new-quotation', label: 'New Quotation', color: '#8E72A8', icon: '<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="M7 11h6M7 14h4"/>' },
-  { action: 'new-delivery-note', label: 'New Delivery Note', color: '#5E8C6A', icon: '<path d="M2.5 5.5h9v8h-9z"/><path d="M11.5 8.5h3l2.5 2.5v2.5h-5.5"/><circle cx="6" cy="14.5" r="1.5"/><circle cx="14" cy="14.5" r="1.5"/>' },
-  { action: 'new-invoice', label: 'New Invoice', color: '#A66A6A', icon: '<path d="M5 2.5h10v15l-2-1.3-1.7 1.3-1.3-1.3-1.3 1.3L7 16.2l-2 1.3z"/><path d="M8 7h4M8 10h4M8 13h2.5"/>' },
-  { action: 'new-letter', label: 'New Letter', color: '#7A7F9A', icon: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>' },
-  { action: 'record-inspection', label: 'Record Inspection', color: '#B07A5E', icon: '<path d="M10 2.5 16 5v4.5c0 3.8-2.6 6.7-6 8-3.4-1.3-6-4.2-6-8V5z"/><path d="m7.3 10 2 2 3.6-4"/>' },
-  { action: 'new-task', label: 'New Task', color: '#6E8F4E', icon: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>' },
-  { action: 'upload-drawing', label: 'Upload Drawing', color: '#5B7DB1', icon: '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="m2.5 13.5 4-4 3 3 2.5-2.5 5.5 5.5"/><circle cx="13.5" cy="7.3" r="1.3"/>' },
-  { action: 'upload-document', label: 'Upload Document', color: '#9A8458', icon: '<path d="M3.5 12.5v2A1.5 1.5 0 0 0 5 16h10a1.5 1.5 0 0 0 1.5-1.5v-2"/><path d="M10 12.5V3.5"/><path d="M6.5 7 10 3.5 13.5 7"/>' },
+  { action: 'new-boq', label: 'New BOQ', color: '#4F8A8F', icon: 'table' },
+  { action: 'new-quotation', label: 'New Quotation', color: '#8E72A8', icon: 'file-text' },
+  { action: 'new-delivery-note', label: 'New Delivery Note', color: '#5E8C6A', icon: 'truck' },
+  { action: 'new-invoice', label: 'New Invoice', color: '#A66A6A', icon: 'receipt' },
+  { action: 'new-letter', label: 'New Letter', color: '#7A7F9A', icon: 'letters' },
+  { action: 'record-inspection', label: 'Record Inspection', color: '#B07A5E', icon: 'shield' },
+  { action: 'new-task', label: 'New Task', color: '#6E8F4E', icon: 'tasks' },
+  { action: 'upload-drawing', label: 'Upload Drawing', color: '#5B7DB1', icon: 'ruler' },
+  { action: 'upload-document', label: 'Upload Document', color: '#9A8458', icon: 'upload' },
 ];
 // The stages a project goes through, in order; On Hold and Archived sit outside them.
 const STAGES = ['Planning', 'Quotation', 'Active', 'Completed'];
@@ -826,7 +817,7 @@ function renderStages() {
   const at = STAGES.indexOf(p.status);
   const aside = at < 0 ? `<li class="pd-stage-aside ${statusClass(p.status)}"><i></i>${esc(p.status)}</li>` : '';
   box.innerHTML = STAGES.map((s, i) => `<li class="${i < at ? 'done' : ''}${i === at ? 'now' : ''}"><button type="button" data-no-icon class="pd-stage${i < at ? ' done' : ''}${i === at ? ' now' : ''}" data-status="${s}" ${i === at ? 'aria-current="step"' : ''} title="${i === at ? `This project is at ${s}` : `Move to ${s}`}">
-      <span class="pd-stage-dot">${i < at ? SVG('<path d="m5.5 10.5 3 3 6-7"/>', 11) : ''}</span><span>${s}</span></button></li>`).join('') + aside;
+      <span class="pd-stage-dot">${i < at ? SVG('check', 11) : ''}</span><span>${s}</span></button></li>`).join('') + aside;
 }
 
 async function setProjectStatus(status) {

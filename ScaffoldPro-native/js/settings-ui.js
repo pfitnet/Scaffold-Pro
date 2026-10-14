@@ -13,24 +13,11 @@
   const $$ = (s, root = document) => [...root.querySelectorAll(s)];
   const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const svg = (body, size = 15) => `<svg viewBox="0 0 20 20" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-  const PEN = svg('<path d="M12.8 3.7l3.5 3.5-8.8 8.8-4 .5.5-4z"/><path d="M11.2 5.3l3.5 3.5"/>', 16);
-  const ICONS = {
-    building: '<rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7.5 6.5h1.5M11 6.5h1.5M7.5 9.5h1.5M11 9.5h1.5M8.5 17v-3.5h3V17"/>',
-    doc: '<path d="M5.5 2.5h6l3.5 3.5v11.5h-9.5z"/><path d="M11.5 2.5V6H15M8 10h5M8 13h5"/>',
-    grid: '<rect x="3" y="3.5" width="14" height="13" rx="1.5"/><path d="M3 7.5h14M3 11.5h14M8 7.5v9"/>',
-    quote: '<path d="M5 2.5h10v15l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3z"/><path d="M7.5 7h5M7.5 10h5"/>',
-    invoice: '<rect x="4" y="2.5" width="12" height="15" rx="1.5"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/>',
-    people: '<circle cx="7.5" cy="7" r="2.5"/><circle cx="13.5" cy="8" r="2"/><path d="M3 16c.6-2.7 2.3-4 4.5-4s3.9 1.3 4.5 4M12.5 12.3c2 0 3.6 1.2 4.2 3.4"/>',
-    shield: '<path d="M10 2.5l6 2.3v4.7c0 3.8-2.6 6.6-6 8-3.4-1.4-6-4.2-6-8V4.8z"/><path d="M7.3 10l1.9 1.9 3.6-3.8"/>',
-    refresh: '<path d="M15.5 7.5A6 6 0 0 0 4.6 6.2M4.5 12.5a6 6 0 0 0 10.9 1.3"/><path d="M15.8 3.5v4h-4M4.2 16.5v-4h4"/>',
-    globe: '<circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2 2.2 2.8 4.5 2.8 7S12 14.8 10 17c-2-2.2-2.8-4.5-2.8-7S8 5.2 10 3z"/>',
-    sheet: '<rect x="4" y="2.5" width="12" height="15" rx="1.8"/><path d="M7 7h6M7 10.5h6M7 14h6M10 7v7"/>',
-    folder: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1v8.2a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>',
-    user: '<circle cx="10" cy="7" r="3.2"/><path d="M3.8 17c.8-3.2 3.2-5 6.2-5s5.4 1.8 6.2 5"/>',
-    tag: '<path d="M3 10V3.5h6.5L17 11l-6.5 6.5z"/><circle cx="6.8" cy="7" r="1.2"/>',
-    news: '<path d="M4.5 3.5h11v13h-11z"/><path d="M7.5 7h5M7.5 10h5M7.5 13h3"/>',
-    spark: '<path d="M10 2.5l1.6 4.4 4.4 1.6-4.4 1.6L10 14.5l-1.6-4.4L4 8.5l4.4-1.6zM15.5 13l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
-  };
+  const PEN = window.icon('edit', { size: 16 });
+  // Section icons: names in the shared set (js/icons.js).
+  const ICONS = { building: 'building', doc: 'file-text', grid: 'table', quote: 'receipt', invoice: 'file-text', people: 'team', shield: 'shield', refresh: 'sync', globe: 'globe', sheet: 'table', folder: 'folder', user: 'user', tag: 'price-lists', news: 'note', spark: 'assistant' };
+  const sectionIcon = (key) => window.icon(ICONS[key] || 'file-text', { size: 15, cls: 'st-ico-svg' });
+
   const panes = $$('.st-pane');
   const navList = $('#st-nav-list');
   const KEY = 'scaffoldpro.settings.section';
@@ -43,7 +30,7 @@
     const head = group && group !== lastGroup ? `<div class="st-nav-group">${group}</div>` : '';
     lastGroup = group;
     return `${head}<button type="button" class="st-nav-item" data-for="${p.id}" data-no-icon>
-    <span class="st-ico">${svg(ICONS[p.dataset.icon] || ICONS.doc)}</span><span>${esc(p.dataset.title)}</span></button>`;
+    <span class="st-ico">${sectionIcon(p.dataset.icon)}</span><span>${esc(p.dataset.title)}</span></button>`;
   }).join('');
   let current = null;
   function select(id, focus) {
