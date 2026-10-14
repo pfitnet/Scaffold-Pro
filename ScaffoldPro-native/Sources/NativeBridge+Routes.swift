@@ -497,6 +497,9 @@ extension NativeBridge {
                 unit: (payload["unit"] as? String) ?? "", quantity: (payload["quantity"] as? Double) ?? 1,
                 price: (payload["price"] as? Double) ?? 0, priceNote: payload["priceNote"] as? String)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:setLineChargeOnce":
+            let error = db.setQuotationLineChargeOnce(id: (payload["id"] as? String) ?? "", once: (payload["once"] as? Bool) ?? false)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:setLineNoMarkup":
             let error = db.setQuotationLineNoMarkup(id: (payload["id"] as? String) ?? "", noMarkup: (payload["noMarkup"] as? Bool) ?? false)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))

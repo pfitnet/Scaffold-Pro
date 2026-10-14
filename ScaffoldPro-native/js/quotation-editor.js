@@ -124,6 +124,7 @@ function render() {
   document.getElementById('status-select').value = d.status;
   lockStatusOptions(document.getElementById('status-select'), d.status, false);
   document.getElementById('custom-item-box').classList.toggle('hidden', d.status !== 'Draft');
+  (document.getElementById('ci-charge-field') || document.getElementById('ci-charge')).classList.toggle('hidden', d.pricingMode !== 'Rental');
   craneSetup(d);
 
   const isLocked = d.status !== 'Draft';
@@ -557,13 +558,18 @@ function lineRow(item, rowNo, isLocked, draggable) {
   const markup = Number(currentDetail.markupPercent) || 0;
   const markupBtn = markup > 0 && item.section !== 'Delivery' && !item.blockId
     ? window.markupToggleHTML(markup, item.noMarkup, isLocked) : '';
+  // A rental's custom item: charged each month, or once.
+  const onceSwitch = currentDetail.pricingMode === 'Rental' && item.section !== 'Delivery' && !item.blockId && !item.priceListItemId
+    ? `<div class="segmented seg-mini charge-switch" role="group" aria-label="Charged">${[[false, 'Monthly'], [true, 'One-time']].map(([once, label]) =>
+      `<button type="button" data-once="${once}" data-no-icon class="${!!item.chargeOnce === once ? 'active' : ''}" ${isLocked ? 'disabled' : ''}
+        title="${once ? 'Charged once, not each month' : 'Charged each month, with the rental'}">${label}</button>`).join('')}</div>` : '';
   const tr = document.createElement('tr');
   tr.dataset.id = item.id;
   tr.innerHTML = `
     <td class="drag-col">${isLocked || !draggable ? '' : window.dragHandleHTML('Drag to move this line (or focus and press ↑ / ↓)')}</td>
     <td class="num row-no">${rowNo}</td>
     <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
-    <td>${item.unit}</td>
+    <td>${item.unit}${onceSwitch}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
     <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
     <td><div class="line-tools">${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}${markupBtn}</div></td>
@@ -578,6 +584,13 @@ function lineRow(item, rowNo, isLocked, draggable) {
   if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));
   const chip = tr.querySelector('.line-link');
   if (chip) chip.addEventListener('click', () => (item.boqDetached ? relinkLine(item) : unlinkLine(item)));
+  tr.querySelectorAll('.charge-switch button').forEach((b) => b.addEventListener('click', async () => {
+    const once = b.dataset.once === 'true';
+    if (once === !!item.chargeOnce) return;
+    const r = await window.api.quotations.setLineChargeOnce(item.id, once);
+    if (r && r.ok === false) { await appAlert(r.error); return; }
+    await loadDetail();
+  }));
   const toggle = tr.querySelector('.markup-toggle');
   if (toggle) toggle.addEventListener('click', async () => {
     const r = await window.api.quotations.setLineNoMarkup(item.id, !item.noMarkup);
@@ -613,6 +626,7 @@ function renderTotals() {
     } else if (d.minimumHireEnabled && d.hireMonths > 1) {
       rows.push([`Minimum Hire of ${d.hireMonths} Month${d.hireMonths === 1 ? '' : 's'}`, money(d.materialsCharge)]);
     }
+    if (d.oneTimeItemsTotal > 0) rows.push(['One-time Charges', money(d.oneTimeItemsTotal)]);
   } else {
     rows.push(['Materials', money(d.materialsSubtotal)]);
   }
@@ -1231,7 +1245,10 @@ async function init() {
   });
 
 
-  // Custom item not on a price list (section 21).
+  // Custom item not on a price list (section 21). On a rental: Monthly or One-time.
+  document.querySelectorAll('#ci-charge button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#ci-charge button').forEach((x) => x.classList.toggle('active', x === b));
+  }));
   document.getElementById('ci-add-btn').addEventListener('click', async () => {
     const description = document.getElementById('ci-description').value.trim();
     if (!description) { document.getElementById('ci-description').focus(); return; }
@@ -1245,11 +1262,14 @@ async function init() {
       quantity: Math.max(1, Math.round(Number(document.getElementById('ci-qty').value) || 1)),
       appliedUnitPrice: Number(document.getElementById('ci-extra').value) || 0,
       section: 'Other',
+      // On a rental: charged each month, or once.
+      chargeOnce: currentDetail.pricingMode === 'Rental' && !!document.querySelector('#ci-charge button.active[data-once="true"]'),
     });
     if (!result.ok) { alert(result.error); return; }
     document.getElementById('ci-description').value = '';
     document.getElementById('ci-qty').value = 1;
     document.getElementById('ci-extra').value = '';
+    document.querySelectorAll('#ci-charge button').forEach((x) => x.classList.toggle('active', x.dataset.once === 'false'));
     await loadDetail();
   });
 

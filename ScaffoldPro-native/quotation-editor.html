@@ -322,6 +322,10 @@
               <input type="text" id="ci-unit" value="lot" title="Unit" />
               <input type="number" id="ci-qty" min="1" step="1" value="1" title="Quantity" />
               <input type="number" id="ci-extra" min="0" step="0.01" placeholder="Unit price" />
+              <div class="segmented seg-mini hidden" id="ci-charge" role="group" aria-label="Charged">
+                <button type="button" data-once="false" class="active" data-no-icon title="Charged each month, with the rental">Monthly</button>
+                <button type="button" data-once="true" data-no-icon title="Charged once, not each month">One-time</button>
+              </div>
               <button id="ci-add-btn">Add</button>
             </div>
           </details>

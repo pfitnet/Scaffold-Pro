@@ -134,7 +134,7 @@ extension NativeBridge {
         if let error = db.addQuotationLineItem(
             quotationId: quotationId, sourceKey: sourceKey, priceListItemId: priceListItemId,
             itemCode: itemCode, description: description, unit: unit, quantity: quantity,
-            appliedUnitPrice: appliedUnitPrice, section: section
+            appliedUnitPrice: appliedUnitPrice, section: section, chargeOnce: (payload["chargeOnce"] as? Bool) == true
         ) {
             respond(id: id, encodable: QuotationActionResult(ok: false, error: error))
         } else {

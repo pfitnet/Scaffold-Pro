@@ -215,6 +215,8 @@
       updateLineDiscount: (id, discountType, discountValue) => callNative('quotations:updateLineDiscount', { id: id, discountType: discountType, discountValue: discountValue }),
       // Leave an item out of the quotation's markup % (or put it back).
       setLineNoMarkup: (id, noMarkup) => callNative('quotations:setLineNoMarkup', { id: id, noMarkup: !!noMarkup }),
+      // A rental's item charged once (not each month), or monthly again.
+      setLineChargeOnce: (id, once) => callNative('quotations:setLineChargeOnce', { id: id, once: !!once }),
       // Extra sections: kind 'Priced' | 'Rates' | 'Note'.
       addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
       updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),

@@ -117,6 +117,15 @@
     labelled(document.getElementById('ci-qty'), 'Qty');
     labelled(extra, extra ? (extra.placeholder || 'Price').replace(/\s*\(.*\)/, '') : '');
     if (extra) extra.placeholder = '0.00';
+    // A rental quotation's Monthly / One-time switch (hidden otherwise).
+    const charge = document.getElementById('ci-charge');
+    if (charge) {
+      labelled(charge, 'Charged');
+      charge.classList.remove('hidden');
+      const field = charge.parentElement;
+      field.id = 'ci-charge-field';
+      field.classList.toggle('hidden', true);
+    }
     add.textContent = 'Add Item';
     add.classList.add('primary');
     fields.appendChild(add);
