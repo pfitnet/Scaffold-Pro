@@ -497,6 +497,14 @@ extension NativeBridge {
                 unit: (payload["unit"] as? String) ?? "", quantity: (payload["quantity"] as? Double) ?? 1,
                 price: (payload["price"] as? Double) ?? 0, priceNote: payload["priceNote"] as? String)
             respond(id: id, encodable: QuotationActionResult(ok: error == nil, error: error))
+        case "quotations:setColumns":
+            let error = db.setQuotationColumns(id: (payload["id"] as? String) ?? "", layout: (payload["layout"] as? [String]) ?? [],
+                                               custom: (payload["custom"] as? [[String: Any]]) ?? [])
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "quotations:setLineValue":
+            let error = db.setQuotationLineValue(lineId: (payload["id"] as? String) ?? "", column: (payload["column"] as? String) ?? "",
+                                                 value: (payload["value"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:setLineChargeOnce":
             let error = db.setQuotationLineChargeOnce(id: (payload["id"] as? String) ?? "", once: (payload["once"] as? Bool) ?? false)
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))

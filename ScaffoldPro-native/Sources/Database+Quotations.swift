@@ -1080,6 +1080,8 @@ extension AppDatabase {
         detail.monthlyRental = totals.monthlyRental
         detail.buyBackAmount = totals.buyBack
         detail.oneTimeItemsTotal = totals.oneTimeItems
+        detail.columnLayout = quotationColumnLayout(q)
+        detail.customColumns = q.customColumns ?? []
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
@@ -1518,6 +1520,62 @@ extension AppDatabase {
         quotationLineItemsStore.writeAll(items)
         touchQuotation(q.id)
         pushQuotationToBOQ(q.id)
+        return nil
+    }
+
+    // ---- The printed table's columns ----
+
+    /// The middle columns as printed: the ones kept (known kinds and the
+    /// quotation's custom columns), each once, Description, Unit Rate and
+    /// Qty always there.
+    func quotationColumnLayout(_ q: Quotation) -> [String] {
+        let custom = Set((q.customColumns ?? []).map { $0.id })
+        var out: [String] = []
+        for key in q.columnLayout ?? ["desc", "rate", "qty"] where (["desc", "rate", "qty", "unit", "weight"].contains(key) || custom.contains(key)) && !out.contains(key) {
+            out.append(key)
+        }
+        for key in ["desc", "rate", "qty"] where !out.contains(key) { out.append(key) }
+        return out
+    }
+
+    /// New columns for a quotation: their order, and the custom ones (a
+    /// title each). At most 3 besides Description, Unit Rate and Qty, so
+    /// the description keeps its room.
+    func setQuotationColumns(id: String, layout: [String], custom: [[String: Any]]) -> String? {
+        var qs = quotationsStore.readAll()
+        guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
+        guard qs[i].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        var columns: [QuotationCustomColumn] = []
+        // (A new one's id is made by the page: "col_…".)
+        for c in custom {
+            guard let title = nonBlank(c["title"] as? String), let cid = c["id"] as? String, cid.hasPrefix("col_"), cid.count <= 40 else { continue }
+            columns.append(QuotationCustomColumn(id: cid, title: String(title.prefix(30))))
+        }
+        var q = qs[i]
+        q.customColumns = columns.isEmpty ? nil : columns
+        q.columnLayout = layout
+        let checked = quotationColumnLayout(q)
+        guard checked.count <= 6 else { return "Up to 3 columns can be added (the description needs the room)." }
+        q.columnLayout = checked == ["desc", "rate", "qty"] ? nil : checked
+        q.updatedAt = nowISO()
+        qs[i] = q
+        quotationsStore.writeAll(qs)
+        return nil
+    }
+
+    /// An item's value in one of the quotation's custom columns ("" clears it).
+    func setQuotationLineValue(lineId: String, column: String, value: String) -> String? {
+        var items = quotationLineItemsStore.readAll()
+        guard let index = items.firstIndex(where: { $0.id == lineId }) else { return "Line item not found." }
+        guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
+        guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
+        guard (q.customColumns ?? []).contains(where: { $0.id == column }) else { return "That column isn't on this quotation." }
+        var values = items[index].customValues ?? [:]
+        let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        values[column] = clean.isEmpty ? nil : String(clean.prefix(60))
+        items[index].customValues = values.isEmpty ? nil : values
+        quotationLineItemsStore.writeAll(items)
+        touchQuotation(q.id)
         return nil
     }
 

@@ -217,6 +217,10 @@
       setLineNoMarkup: (id, noMarkup) => callNative('quotations:setLineNoMarkup', { id: id, noMarkup: !!noMarkup }),
       // A rental's item charged once (not each month), or monthly again.
       setLineChargeOnce: (id, once) => callNative('quotations:setLineChargeOnce', { id: id, once: !!once }),
+      // The printed table's middle columns, in order ('desc', 'rate', 'qty', 'unit', 'weight' or a custom id), and the custom ones [{ id, title }].
+      setColumns: (id, layout, custom) => callNative('quotations:setColumns', { id: id, layout: layout, custom: custom }),
+      // An item's value in a custom column ('' clears it).
+      setLineValue: (id, column, value) => callNative('quotations:setLineValue', { id: id, column: column, value: value }),
       // Extra sections: kind 'Priced' | 'Rates' | 'Note'.
       addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
       updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),
