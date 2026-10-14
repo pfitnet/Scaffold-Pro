@@ -5201,3 +5201,23 @@ Increase Contrast. No Swift changed.
   seen — please check one invoice PDF.
 - Not done yet: the buy-back line ("002 Buy-Back of materials") from the
   sample; it comes with buy-back on scaffolding sale quotations.
+
+## Batch 235 — Buy-back on scaffolding sale quotations
+
+- A scaffolding sale quotation can now have a Buy-back Offer (+ Add Section
+  › Buy-back Offer): one lump sum for the materials back, e.g. "We offer to
+  buy-back the materials stated above at the lump sum of: HK$ 8,470.22".
+  It's taken off the total.
+- The PDF prints it after the materials' subtotal: "Buy Back Offer", BO1
+  with the amount, then "Subtotal (Deducting Buy-Back Offer)". The BQ sheet
+  prints it as BO1 among the charges after the subtotal. The editor's
+  totals show "Less Buy-back Offer".
+- Invoicing the quotation carries it as "002 Buy-Back of materials" (taken
+  off, once) right after the materials line, then "Subtotal:" — as on the
+  company's invoice H26211-001.
+- A crane job's buy-back offer is as before (worded from its figures,
+  after the total, nothing taken off).
+- New Quotation field `buyBackAmount` (read in the decoder), saved through
+  `quotations:updateLetterFields`; `AppDatabase.scaffoldingBuyBack`.
+- Checked: the editor in a browser (the BO1 row, saving the amount, the
+  totals). Swift parsed with tree-sitter, not compiled. PDFs not seen.

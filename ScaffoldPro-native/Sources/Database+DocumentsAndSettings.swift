@@ -357,6 +357,17 @@ extension AppDatabase {
         // The quotation's minimum monthly rental charge carries over as a
         // line after the materials (charged for each month, like them).
         var lines = copied
+        // A scaffolding sale's buy-back offer: taken off, once ("Buy-Back of
+        // materials", printed with the materials).
+        let buyBack = scaffoldingBuyBack(quotation)
+        if includeOtherCharges && buyBack > 0 {
+            var line = InvoiceLineItem(id: makeId("iitem"), invoiceId: invoice.id, sourceKey: nil, priceListItemId: nil, itemCode: "",
+                                       itemDescription: "Buy-Back of materials", unit: "lot", quantity: 1, appliedUnitPrice: -buyBack,
+                                       section: nil, sortOrder: lines.count)
+            line.chargeGroup = InvoiceLineItem.buyBackGroup
+            line.chargePrefix = "BO"
+            lines.append(line)
+        }
         let money = quotationMoney(quotation, lineItems: deliveryNotes.isEmpty ? allItems : materials + allItems.filter { !isMaterialLine($0) })
         if money.minimumApplied {
             let adjustment = doubleOf(roundToCents(decimalOf(money.monthlyRental) - decimalOf(money.materialsSubtotal)))

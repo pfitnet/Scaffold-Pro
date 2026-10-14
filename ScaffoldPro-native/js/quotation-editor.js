@@ -616,6 +616,7 @@ function renderTotals() {
   } else {
     rows.push(['Materials', money(d.materialsSubtotal)]);
   }
+  if (d.buyBackAmount > 0) rows.push(['Less Buy-back Offer', `-${money(d.buyBackAmount)}`]);
   if (d.deliveryTotal > 0) rows.push(['Delivery Charges', money(d.deliveryTotal)]);
   for (const block of d.blocks.filter((b) => b.kind === 'Priced')) {
     const lines = d.lineItems.filter((i) => i.blockId === block.id);
@@ -684,7 +685,7 @@ function renderBlocks() {
 
     let body = '';
     if (block.kind === 'BuyBack') {
-      body = buyBackBody(d, locked);
+      body = d.jobType === 'Crane' ? buyBackBody(d, locked) : lumpBuyBackBody(d, block, locked);
     } else if (block.kind !== 'Note') {
       // Priced rows: Qty, Unit Price and its unit ("Per", optional) — printed "500.00 /set".
       const head = rates
@@ -731,7 +732,7 @@ function renderBlocks() {
 
     card.innerHTML = `
       <div class="extra-head">
-        <span class="extra-kind">${locked || d.blocks.length < 2 ? '' : window.dragHandleHTML('Drag to move this section (or focus and press ↑ / ↓)')}<span class="line-tag">${BLOCK_KINDS[block.kind] || block.kind}</span></span>
+        <span class="extra-kind">${locked || d.blocks.length < 2 ? '' : window.dragHandleHTML('Drag to move this section (or focus and press ↑ / ↓)')}<span class="line-tag">${block.kind === 'BuyBack' && d.jobType !== 'Crane' ? 'Buy-back offer · taken off the total' : BLOCK_KINDS[block.kind] || block.kind}</span></span>
         ${locked ? '' : `<span class="controls">
           <button class="block-remove">Remove</button>
         </span>`}
@@ -748,6 +749,8 @@ function renderBlocks() {
     if (period) period.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { chargePeriod: period.value || null })));
     const note = q('.block-note');
     note.addEventListener('change', () => blockCall(window.api.quotations.updateBlock(block.id, { note: note.value })));
+    const bbAmount = q('.bb-amount');
+    if (bbAmount) window.calcChange(bbAmount, (v) => saveLetterField('buyBackAmount', Math.max(0, v)));
     for (const input of card.querySelectorAll('.bb-input')) {
       input.addEventListener('change', () => {
         const v = input.value.trim();
@@ -904,6 +907,22 @@ function buyBackBody(d, locked) {
     <table class="compact bb-row"><tbody><tr><td class="num row-no">BO1</td><td>${buyBackSentences(b).map((t) => `<p>${esc(t)}</p>`).join('')}</td></tr></tbody></table>
     ${buyBackWarning(b) ? `<p class="bb-warn">${esc(buyBackWarning(b))}</p>` : ''}
     <p class="small-note">The wording is in Settings › Quotations › Crane jobs.${b.unitPrice > 0 ? ' “Per unit”: one of the dearest item, as charged.' : ''}</p>`;
+}
+
+// A scaffolding sale's buy-back offer: one lump sum for the materials
+// back, taken off the total (row BO1, then "Subtotal (Deducting Buy-Back
+// Offer)" on the PDF, the BQ sheet and the invoice).
+function lumpBuyBackBody(d, block, locked) {
+  const amount = Number(d.buyBackAmount) || '';
+  const sale = d.pricingMode === 'Sale';
+  return `
+    <div class="block-head">
+      <input type="text" class="block-title" placeholder="Title row, e.g. Buy Back Offer" value="${esc(block.title || '')}" ${locked ? 'disabled' : ''} />
+    </div>
+    <table class="compact bb-row"><tbody><tr><td class="num row-no">BO1</td>
+      <td>We offer to buy-back the materials stated above at the lump sum of:</td>
+      <td class="num bb-lump">${currencyLabel} <input type="text" inputmode="decimal" class="bb-amount calc-input" value="${amount}" placeholder="0.00" ${locked ? 'disabled' : ''} aria-label="Buy-back lump sum" /></td></tr></tbody></table>
+    <p class="small-note">${sale ? 'Taken off the total.' : 'Only a sale quotation’s buy-back is taken off the total; this one isn’t.'}</p>`;
 }
 
 async function saveLetterField(field, value) {
@@ -1278,9 +1297,14 @@ async function init() {
       { label: 'Priced Sections', sub: 'Rows added to the total, e.g. Design Fees', value: 'add-priced-btn' },
       { label: 'Standard Manpower Rates', sub: 'Rates after the total, from Settings › Standard Quotation', value: 'add-standard-rates-btn' },
       { label: 'Notes', sub: 'A note across the table, after the total', value: 'add-note-btn' },
-      // Crane jobs: one buy-back offer (row BO1), after the total.
-      ...(currentDetail && currentDetail.jobType === 'Crane' && !currentDetail.blocks.some((b) => b.kind === 'BuyBack')
-        ? [{ label: 'Buy-back Offer', sub: 'Row BO1 under “Buy Back Offer”, after the total', value: 'add-buyback-btn' }] : []),
+      // One buy-back offer (row BO1): a crane job's (after the total), or a
+      // scaffolding sale's lump sum (taken off the total).
+      ...(currentDetail && !currentDetail.blocks.some((b) => b.kind === 'BuyBack')
+        ? currentDetail.jobType === 'Crane'
+          ? [{ label: 'Buy-back Offer', sub: 'Row BO1 under “Buy Back Offer”, after the total', value: 'add-buyback-btn' }]
+          : currentDetail.pricingMode === 'Sale'
+            ? [{ label: 'Buy-back Offer', sub: 'A lump sum for the materials back, taken off the total', value: 'add-buyback-btn' }] : []
+        : []),
     ],
     onPick: (id) => document.getElementById(id).click(),
   });
