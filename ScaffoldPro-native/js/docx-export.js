@@ -207,7 +207,10 @@
         ]))) + para('', { line: 9 }) : '';
         rows.push(tr([
           cell(widths[0], para(run((r.cells[0] || [''])[0]), { line: CELL_LINE, align: 'center' })),
-          cell(sum(1, n - 1), para(run(r.label, { bold: true, underline: true }), { line: CELL_LINE, before: 4 }) + list, { span: n - 2, vAlign: 'top' }),
+          // (No items, e.g. "Buy-Back of materials": a plain line, centred.)
+          lines.length
+            ? cell(sum(1, n - 1), para(run(r.label, { bold: true, underline: true }), { line: CELL_LINE, before: 4 }) + list, { span: n - 2, vAlign: 'top' })
+            : cell(sum(1, n - 1), para(run(r.label), { line: CELL_LINE }), { span: n - 2 }),
           cell(widths[n - 1], cellParagraph([r.value], cols[n - 1], widths[n - 1], { currency: d.currencySymbol })),
         ], { height: r.height }));
       } else if (r.type === 'titles') {

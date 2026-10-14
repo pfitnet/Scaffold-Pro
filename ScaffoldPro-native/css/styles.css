@@ -2726,3 +2726,7 @@ button:active:not(:disabled), a:active, summary:active, label:active { transitio
 .as-empty h2, .cr-head h2 { letter-spacing: -0.02em; }
 .mo-big { letter-spacing: -0.025em; }
 .pr-name, .grand-total { letter-spacing: -0.015em; }
+
+/* A scaffolding sale's buy-back lump sum (js/quotation-editor.js). */
+.bb-lump { white-space: nowrap; }
+.bb-lump .bb-amount { width: 120px; text-align: right; margin-left: 6px; }

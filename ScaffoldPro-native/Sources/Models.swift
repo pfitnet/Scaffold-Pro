@@ -1349,6 +1349,7 @@ extension Quotation {
         buyBackAfterMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackAfterMonths)
         buyBackReductionPercent = try c.decodeIfPresent(Double.self, forKey: .buyBackReductionPercent)
         buyBackEndMonths = try c.decodeIfPresent(Int.self, forKey: .buyBackEndMonths)
+        buyBackAmount = try c.decodeIfPresent(Double.self, forKey: .buyBackAmount)
         hirePeriodEnabled = try c.decodeIfPresent(Bool.self, forKey: .hirePeriodEnabled)
         hirePeriodMonths = try c.decodeIfPresent(Int.self, forKey: .hirePeriodMonths)
     }
@@ -1758,6 +1759,10 @@ struct Quotation: Codable {
     var buyBackAfterMonths: Int? = nil
     var buyBackReductionPercent: Double? = nil
     var buyBackEndMonths: Int? = nil
+    /// A scaffolding sale's buy-back offer: the lump sum we'd pay for the
+    /// materials back, taken off the total (while it has a Buy Back Offer
+    /// section). nil = not set.
+    var buyBackAmount: Double? = nil
 }
 
 /// A crane quotation's buy-back offer, as printed: we buy the equipment
@@ -2317,6 +2322,8 @@ struct QuotationDetail: Codable {
     var minimumMonthlyCharge: Double = 1000
     var minimumMonthlyApplied: Bool = false
     var monthlyRental: Double = 0
+    /// A scaffolding sale's buy-back lump sum, taken off the total (0: none).
+    var buyBackAmount: Double = 0
     var charges: ChargeSplit? = nil
     /// This quotation's own key terms; nil = the standard ones below.
     var keyTerms: String?
@@ -2428,6 +2435,8 @@ struct InvoiceLineItem: Codable {
     /// A one-off charge copied from one of the quotation's priced
     /// sections: its title (e.g. "Design Fees") and row prefix ("A").
     var chargeGroup: String? = nil
+    /// The chargeGroup of a scaffolding sale's buy-back line (taken off once).
+    static let buyBackGroup = "Buy-back"
     var chargePrefix: String? = nil
     /// Materials delivered for another of the project's quotations, on the
     /// same invoice: that quotation (its number and subject), printed as a

@@ -117,6 +117,8 @@ extension AppDatabase {
         var materialsCharge: Double
         var deliveryTotal: Double
         var otherTotal: Double
+        /// A scaffolding sale's buy-back lump sum, taken off (0: none).
+        var buyBack: Double = 0
         var subtotal: Double
         var discountAmount: Double
         var taxAmount: Double
@@ -168,7 +170,8 @@ extension AppDatabase {
         }
         let other = once + perPeriod.values.reduce(Decimal(0), +)
         let charge = rental * Decimal(months)
-        let t = moneyTotals(subtotal: charge + delivery + other, discountType: q.discountType, discountValue: q.discountValue,
+        let buyBack = decimalOf(scaffoldingBuyBack(q))
+        let t = moneyTotals(subtotal: charge + delivery + other - buyBack, discountType: q.discountType, discountValue: q.discountValue,
                             taxRatePercent: q.taxRatePercent, pricesIncludeTax: getCompanySettings().pricesIncludeTax ?? false)
         // The split, with any discount taken off each part in proportion.
         let subtotal = decimalOf(t.subtotal)
@@ -180,12 +183,22 @@ extension AppDatabase {
                                 recurring: perPeriod.filter { $0.key != "Month" && $0.value != 0 }.mapValues { part($0) })
         } else {
             // Sale: nothing monthly; it's all one-time.
-            split = ChargeSplit(monthly: 0, oneTime: part(materials + delivery + other), recurring: [:])
+            split = ChargeSplit(monthly: 0, oneTime: part(materials + delivery + other - buyBack), recurring: [:])
         }
         return QuotationMoney(materialsSubtotal: doubleOf(materials), monthlyRental: doubleOf(rental), minimumApplied: minimumApplied,
                               charges: split, materialsCharge: doubleOf(charge), deliveryTotal: doubleOf(delivery),
-                              otherTotal: doubleOf(other),
+                              otherTotal: doubleOf(other), buyBack: doubleOf(buyBack),
                               subtotal: t.subtotal, discountAmount: t.discountAmount, taxAmount: t.taxAmount, total: t.total)
+    }
+
+    /// A scaffolding sale's buy-back offer: the lump sum typed, while the
+    /// quotation has a Buy Back Offer section (a crane job's offer is worded
+    /// from its figures instead, and takes nothing off). 0: none.
+    func scaffoldingBuyBack(_ q: Quotation) -> Double {
+        guard q.pricingMode == "Sale", let amount = q.buyBackAmount, amount > 0,
+              normalJobType(getProject(id: q.projectId)?.jobType) != "Crane",
+              quotationBlocks(for: q.id).contains(where: { $0.kind == "BuyBack" }) else { return 0 }
+        return doubleOf(roundToCents(decimalOf(amount)))
     }
 
     /// Settings' minimum monthly rental charge (HK$1,000 unless changed).
@@ -1055,6 +1068,7 @@ extension AppDatabase {
         detail.minimumMonthlyCharge = minimumMonthlyRental
         detail.minimumMonthlyApplied = totals.minimumApplied
         detail.monthlyRental = totals.monthlyRental
+        detail.buyBackAmount = totals.buyBack
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
@@ -1305,6 +1319,8 @@ extension AppDatabase {
         if payload.keys.contains("buyBackAfterMonths") { qs[i].buyBackAfterMonths = number("buyBackAfterMonths").map { max(0, $0.intValue) } }
         if payload.keys.contains("buyBackReductionPercent") { qs[i].buyBackReductionPercent = number("buyBackReductionPercent").map { min(100, max(0, $0.doubleValue)) } }
         if payload.keys.contains("buyBackEndMonths") { qs[i].buyBackEndMonths = number("buyBackEndMonths").map { max(0, $0.intValue) } }
+        // A scaffolding sale's buy-back lump sum.
+        if payload.keys.contains("buyBackAmount") { qs[i].buyBackAmount = number("buyBackAmount").map { doubleOf(roundToCents(decimalOf(max(0, $0.doubleValue)))) } }
         qs[i].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
         return nil

@@ -595,6 +595,10 @@ extension NativeBridge {
                                          amount: doubleOf(decimalOf(detail.materialsCharge) - decimalOf(detail.monthlyRental))))
             }
         }
+        // A scaffolding sale's buy-back offer, taken off first.
+        if detail.buyBackAmount > 0 {
+            charges.append(BOQCharge(code: "BO1", name: scaffoldingBuyBackWording, amount: -detail.buyBackAmount))
+        }
         for (i, l) in detail.lineItems.filter({ $0.blockId == nil && $0.section == "Delivery" }).enumerated() {
             // "Delivery of materials" over "@$3,300.00 / Truck / Trip" (the
             // weight band, "(2 – 6 tons)", isn't printed).
@@ -673,6 +677,9 @@ extension NativeBridge {
         }
     }
 
+    /// A scaffolding sale's buy-back offer, as worded on the company's sheet.
+    var scaffoldingBuyBackWording: String { "We offer to buy-back the materials stated above at the lump sum of:" }
+
     /// A quotation laid out on the letterhead (as Qt26193).
     func quotationLetter(_ detail: QuotationDetail, company: CompanySettings) -> LetterDocument {
         // A quotation in another currency (a crane job's, say) prints in it.
@@ -707,6 +714,14 @@ extension NativeBridge {
         } else if !priced.materials.isEmpty {
             rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
         }
+        // A scaffolding sale's buy-back offer: a lump sum, taken off.
+        if detail.buyBackAmount > 0 {
+            let title = detail.blocks.first { $0.kind == "BuyBack" }.flatMap { nonBlank($0.title) } ?? "Buy Back Offer"
+            rows.append(.section(title))
+            rows.append(.item(["BO1", scaffoldingBuyBackWording, "", "", "-\(formatMoney(detail.buyBackAmount))"]))
+            rows.append(.summary(label: "Subtotal (Deducting Buy-Back Offer):",
+                                 value: formatMoney(doubleOf(decimalOf(detail.materialsSubtotal) - decimalOf(detail.buyBackAmount))), emphasized: false))
+        }
         if !priced.delivery.isEmpty {
             rows.append(.section("Delivery Charges"))
             rows += priced.delivery
@@ -726,7 +741,8 @@ extension NativeBridge {
             rows.append(.summary(label: label, value: formatMoney(detail.taxAmount), emphasized: false))
         }
         rows.append(.summary(label: "Total Amount:", value: formatMoney(detail.total), emphasized: true))
-        for block in detail.blocks where block.kind != "Priced" {
+        // (A scaffolding job's buy-back offer is above, as a lump sum.)
+        for block in detail.blocks where block.kind != "Priced" && !(block.kind == "BuyBack" && detail.jobType != "Crane") {
             rows += blockRows(block, detail, currency: currency)
         }
 
@@ -901,6 +917,11 @@ extension NativeBridge {
                                        : .lump(number: "", heading: "\(title) (continued)", items: chunk, value: ""))
                 }
             }
+            // A buy-back offer taken off: the next line, "Buy-Back of materials".
+            for (k, line) in detail.lineItems.filter({ $0.chargeGroup == InvoiceLineItem.buyBackGroup }).enumerated() {
+                let total = netLineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice, discountType: line.discountType, discountValue: line.discountValue)
+                rows.append(.lump(number: String(format: "%03d", parts.count + k + 1), heading: line.itemDescription, items: [], value: formatMoney(doubleOf(total))))
+            }
             lumped = !parts.isEmpty
         } else {
             rows = priced.materials
@@ -930,7 +951,8 @@ extension NativeBridge {
             extra += priced.delivery
         }
         // One-off charges from the quotation's priced sections, under their titles.
-        let charges = detail.lineItems.filter { $0.chargeGroup != nil }
+        // (A scaffolding job's buy-back line is with the materials, above.)
+        let charges = detail.lineItems.filter { $0.chargeGroup != nil && !(lumped && $0.chargeGroup == InvoiceLineItem.buyBackGroup) }
         var groups: [String] = []
         for line in charges { if let g = line.chargeGroup, !groups.contains(g) { groups.append(g) } }
         for group in groups {
@@ -944,10 +966,12 @@ extension NativeBridge {
                                    formatQuantity(line.quantity), formatMoney(doubleOf(total))]))
             }
         }
-        if lumped && !extra.isEmpty {
-            rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.materialsCharge), emphasized: false))
-            extra.insert(.columnTitles, at: 1)
+        let buyBack = detail.lineItems.filter { $0.chargeGroup == InvoiceLineItem.buyBackGroup }
+            .reduce(Decimal(0)) { $0 + netLineAmount(quantity: $1.quantity, unitPrice: $1.appliedUnitPrice, discountType: $1.discountType, discountValue: $1.discountValue) }
+        if lumped && (!extra.isEmpty || buyBack != 0) {
+            rows.append(.summary(label: "Subtotal:", value: formatMoney(doubleOf(decimalOf(detail.materialsCharge) + buyBack)), emphasized: false))
         }
+        if lumped && !extra.isEmpty { extra.insert(.columnTitles, at: 1) }
         rows += extra
         // A subtotal only when something is taken off or added on.
         if detail.discountAmount > 0 || detail.taxAmount > 0 {

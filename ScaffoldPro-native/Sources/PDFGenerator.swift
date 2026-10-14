@@ -693,7 +693,7 @@ final class PDFGenerator {
             // 9pt above the heading, its line, 5.75pt, the items 14.25pt
             // apart, and 13pt under the last.
             let lines = lumpLines(items, doc: doc).count
-            return lines == 0 ? 33.0 : 38.75 + CGFloat(lines) * cellPitch
+            return lines == 0 ? 29.25 : 38.75 + CGFloat(lines) * cellPitch
         case .columnTitles:
             return headerHeight
         }
@@ -950,7 +950,12 @@ final class PDFGenerator {
                 let font = body(11)
                 text(number, x: (edges[0] + edges[1] + rule) / 2, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: font, align: .center)
                 let headingBaseline = top + 20.0
-                text(heading, x: edges[1] + 5.0, baseline: headingBaseline, font: body(11, bold: true), underline: true)
+                // No items (e.g. "Buy-Back of materials"): a plain line, centred.
+                if items.isEmpty {
+                    text(heading, x: edges[1] + 5.0, baseline: cellBaseline(top: top, height: h, lines: 1, line: 0), font: font)
+                } else {
+                    text(heading, x: edges[1] + 5.0, baseline: headingBaseline, font: body(11, bold: true), underline: true)
+                }
                 for (j, line) in lumpLines(items, doc: doc).enumerated() {
                     let baseline = headingBaseline + 5.75 + CGFloat(j + 1) * cellPitch
                     if let n = line.number { text(n, x: edges[1] + lumpNumberRight, baseline: baseline, font: font, align: .right) }
