@@ -1063,6 +1063,10 @@ extension NativeBridge {
             if payload.keys.contains("token") { GitHubToken.set(payload["token"] as? String) }
             if (payload["check"] as? Bool) == true { (NSApp.delegate as? AppDelegate)?.checkForUpdates(manual: true) }
             respond(id: id, encodable: ["automatic": AppDelegate.autoUpdate, "hasToken": GitHubToken.get() != nil])
+        case "app:changelog":
+            // Settings › What's New: the README's "## Batch N — Title" entries, newest first.
+            let text = Bundle.main.resourceURL.flatMap { try? String(contentsOf: $0.appendingPathComponent("README.md"), encoding: .utf8) } ?? ""
+            respond(id: id, encodable: changelogEntries(text))
         case "app:relaunch":
             respondNull(id: id)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { relaunchApp() }
@@ -1517,4 +1521,33 @@ extension NativeBridge {
         let quotation = db.createQuotation(projectId: projectId, projectNumber: projectNumber, sourceBOQId: sourceBOQId, pricingMode: pricingMode)
         respond(id: id, encodable: quotation)
     }
+}
+
+/// One change, as written in the README: "## Batch 236 — Title", then its
+/// lines (bullets in plain words).
+struct ChangelogEntry: Codable {
+    var batch: Int
+    var title: String
+    var text: String
+}
+
+/// The README's change entries, newest first (at most `limit`).
+func changelogEntries(_ readme: String, limit: Int = 80) -> [ChangelogEntry] {
+    var out: [ChangelogEntry] = []
+    var current: ChangelogEntry? = nil
+    for line in readme.components(separatedBy: "\n") {
+        if line.hasPrefix("## ") {
+            if let c = current { out.append(c) }
+            current = nil
+            let head = String(line.dropFirst(3))
+            guard let r = head.range(of: #"^Batch\s+(\d+)\s*[—–-]\s*"#, options: .regularExpression) else { continue }
+            let number = Int(head[r].filter { $0.isNumber }) ?? 0
+            current = ChangelogEntry(batch: number, title: String(head[r.upperBound...]).trimmingCharacters(in: .whitespaces), text: "")
+        } else if current != nil {
+            current!.text += (current!.text.isEmpty ? "" : "\n") + line
+        }
+    }
+    if let c = current { out.append(c) }
+    return Array(out.map { var e = $0; e.text = e.text.trimmingCharacters(in: .whitespacesAndNewlines); return e }
+        .sorted { $0.batch > $1.batch }.prefix(limit))
 }

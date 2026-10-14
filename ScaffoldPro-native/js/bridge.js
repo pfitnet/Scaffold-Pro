@@ -482,6 +482,8 @@
     updates: {
       get: () => callNative('app:updates', {}),
       set: (changes) => callNative('app:updates', changes),
+      // Settings › What's New: [{ batch, title, text }], newest first.
+      changelog: () => callNative('app:changelog', {}),
     },
     // Marketing: the overview / follow-ups / references, and leads.
     marketing: {

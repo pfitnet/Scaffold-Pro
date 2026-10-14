@@ -5244,3 +5244,23 @@ Increase Contrast. No Swift changed.
 - Checked: the editor in a browser (light and dark): the switch on custom
   items only, saving it, adding a one-time item, the totals. Swift parsed
   with tree-sitter, not compiled. PDFs not seen.
+
+## Batch 237 — The Assistant always answers; What's New in Settings
+
+- The Assistant no longer just times out. Each call to the AI is given up
+  after about 75 seconds (a busy free model could keep it waiting for
+  minutes); it's then asked again for a quick best attempt in one go
+  (OpenRouter's free router usually picks a quicker model).
+- When it runs out of rounds or time while still looking things up, it's
+  asked once more for its best answer with what it found, instead of
+  showing an error.
+- It's told to say plainly when it can't do something (and why, and what
+  it can do instead), and that a best attempt beats no answer.
+- Everything ends within 4½ minutes with an answer, a best try, or a plain
+  "the AI didn't answer in time" if it never replied at all.
+- Settings › What's New: every change, newest first, from this README's
+  "Batch" entries (the newest three open; click any other to read it).
+  install.sh now copies README.md into the app; route `app:changelog`.
+- Checked: What's New in a browser with this README (light and dark).
+  The Assistant changes were checked by reading only (they need the AI);
+  Swift parsed with tree-sitter, not compiled.

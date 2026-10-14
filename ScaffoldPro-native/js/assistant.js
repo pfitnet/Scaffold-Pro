@@ -829,7 +829,8 @@
       const stopped = new Promise((resolve) => {
         stopWaiting = resolve;
         // Never left waiting: the Mac gives up on the AI before this.
-        setTimeout(() => resolve({ ok: false, error: 'The AI didn’t answer in time. Try again, perhaps one thing at a time — or choose a quicker model in Settings › AI Import.' }), 240000);
+        // (The app itself always answers within 270 s: a best try, or plainly why not.)
+        setTimeout(() => resolve({ ok: false, error: 'The AI didn’t answer in time. Try again, perhaps one thing at a time — or choose a quicker model in Settings › AI Import.' }), 300000);
       });
       try {
         // Too much for its context window: the older messages are summarised first.

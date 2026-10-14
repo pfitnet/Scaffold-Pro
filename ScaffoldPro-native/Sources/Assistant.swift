@@ -105,10 +105,15 @@ extension QuotationAI {
     /// One message of a conversation: "user" or "assistant".
     struct ChatTurn { var role: String; var text: String; var files: [ChatFile] = [] }
 
+    /// What `chat` answers when the AI took longer than its limit.
+    static let tooSlow = "The AI took too long to answer."
+
     /// Sends a conversation; the AI's answer (its text), or why not (main thread).
     /// `json`: Gemini is told to answer with JSON (the assistant); false for
-    /// plain text (a summary).
-    func chat(system: String, turns: [ChatTurn], json: Bool = true, completion: @escaping (String?, String?) -> Void) {
+    /// plain text (a summary). `limit`: seconds before it's given up
+    /// (QuotationAI.tooSlow) — a slow free model can otherwise keep the
+    /// connection open for minutes.
+    func chat(system: String, turns: [ChatTurn], json: Bool = true, limit: TimeInterval = 75, completion: @escaping (String?, String?) -> Void) {
         adoptThisMacsKey()
         guard let key = sharedKey else { completion(nil, "No AI is set up yet. Add a key in Settings › AI Import."); return }
         var request: URLRequest
@@ -147,7 +152,10 @@ extension QuotationAI {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let isGemini = provider != "openrouter"
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        // Answered once: by the AI, or by the limit (both on the main thread).
+        final class Once { var done = false }
+        let once = Once()
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
             var result: (String?, String?) = (nil, nil)
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             let obj = data.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
@@ -166,8 +174,19 @@ extension QuotationAI {
             } else {
                 result = (((((obj?["choices"] as? [[String: Any]])?.first)?["message"] as? [String: Any])?["content"] as? String) ?? "", nil)
             }
-            DispatchQueue.main.async { completion(result.0, result.1) }
-        }.resume()
+            DispatchQueue.main.async {
+                guard !once.done else { return }
+                once.done = true
+                completion(result.0, result.1)
+            }
+        }
+        task.resume()
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(5, limit)) {
+            guard !once.done else { return }
+            once.done = true
+            task.cancel()
+            completion(nil, QuotationAI.tooSlow)
+        }
     }
 }
 
@@ -255,6 +274,9 @@ extension NativeBridge {
 
         Rules:
         - You can't make or change anything yourself: never say you have ("Created…", "Done"). Propose it, and say what the card will do.
+        - If you can't do what's asked (the app has no way to do it, or it's outside ScaffoldPro), say so plainly in "reply": what you \
+        can't do and why, and what you can do instead. Never leave the person without an answer; a best attempt (with what's missing \
+        said) beats nothing.
         - "Continue", "yes", "go ahead", "do it": propose (as a card) the action you and the person were discussing — with every detail \
         already settled. Never answer with an empty reply.
         - Never invent prices. Take prices from the person, from an attached file, or from findItems (Sale or Rental to match the \
@@ -389,13 +411,35 @@ extension NativeBridge {
                                                            "findClients", "listTasks", "listInvoices", "stock"]
 
     /// Asks the AI; runs its lookups and asks again — a few rounds at most,
-    /// and never past `deadline` (it says what it has instead).
+    /// and never past `deadline`. It always ends with an answer: when time
+    /// or rounds run out it asks once more for its best answer with what it
+    /// has (`lastTry`), and a call that hangs is given up and asked again for
+    /// a quick best try. Everything is over by `hardStop` (the page waits
+    /// 300 s).
     func runAssistant(turns: [QuotationAI.ChatTurn], round: Int, deadline: Date = Date().addingTimeInterval(150),
+                              hardStop: Date = Date().addingTimeInterval(270), lastTry: Bool = false, retried: Bool = false,
                               run: AssistantRun = AssistantRun(id: nil, live: false), done: @escaping ([String: Any]) -> Void) {
         if assistantStopped(run) { return }
-        assistantStep(run, round == 0 ? "Asking the AI (\(QuotationAI.shared.model))" : "Asking the AI again, with what it found")
-        QuotationAI.shared.chat(system: assistantSystem(), turns: turns) { [weak self] text, error in
+        let left = hardStop.timeIntervalSinceNow
+        guard left > 15 else {
+            done(["ok": true, "reply": "I couldn't get an answer from the AI (\(QuotationAI.shared.model)) in time. It may be busy: try again in a minute, ask for one thing at a time, or pick a quicker model in Settings › AI Import.", "proposals": [Any]()])
+            return
+        }
+        assistantStep(run, lastTry ? "Asking for its best answer with what it has" : retried ? "Taking too long — asking for a quick answer"
+            : round == 0 ? "Asking the AI (\(QuotationAI.shared.model))" : "Asking the AI again, with what it found")
+        QuotationAI.shared.chat(system: assistantSystem(), turns: turns, limit: min(75, left - 5)) { [weak self] text, error in
             guard let self = self, !self.assistantStopped(run) else { return }
+            // Hung: asked once for a quick best try (a free router often picks a quicker model).
+            if error == QuotationAI.tooSlow, !retried {
+                var next = turns
+                next.append(QuotationAI.ChatTurn(role: "user", text: "(You took too long. Answer now, in one go, without lookups: your best attempt at my request. If you can't do it, say so plainly and why.)"))
+                self.runAssistant(turns: next, round: round + 1, deadline: deadline, hardStop: hardStop, lastTry: true, retried: true, run: run, done: done)
+                return
+            }
+            if error == QuotationAI.tooSlow {
+                done(["ok": true, "reply": "The AI (\(QuotationAI.shared.model)) didn't answer in time, even when asked for a quick answer. It may be busy: try again in a minute, ask for one thing at a time, or pick a quicker model in Settings › AI Import.", "proposals": [Any]()])
+                return
+            }
             if let error = error { done(["ok": false, "error": error]); return }
             guard let json = self.assistantAnswer(text) else {
                 let raw = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -408,7 +452,7 @@ extension NativeBridge {
                     var next = turns
                     next.append(QuotationAI.ChatTurn(role: "assistant", text: raw))
                     next.append(QuotationAI.ChatTurn(role: "user", text: "That answer couldn't be read: it wasn't valid JSON. Answer again with ONLY the one JSON object {\"reply\", \"lookups\", \"proposals\", \"questions\"} — proposals go inside \"proposals\", lists are real JSON lists (not in quotes)."))
-                    self.runAssistant(turns: next, round: round + 1, deadline: deadline, run: run, done: done)
+                    self.runAssistant(turns: next, round: round + 1, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried, run: run, done: done)
                     return
                 }
                 done(["ok": true, "reply": self.replyOnly(raw) ?? "Its answer came back garbled. Please try again — or choose another model in Settings › AI Import.", "proposals": [Any]()])
@@ -429,13 +473,15 @@ extension NativeBridge {
                 self.assistantStep(run, "It answered with nothing — asking again")
                 var next = turns
                 next.append(QuotationAI.ChatTurn(role: "assistant", text: jsonText(json)))
-                next.append(QuotationAI.ChatTurn(role: "user", text: "That answer was empty. Answer my last message now: put the action we discussed in \"proposals\" (it shows as a card for me to confirm), or ask in \"questions\" if you must. Never just say \"Done\" — nothing has been made."))
-                self.runAssistant(turns: next, round: round + 1, deadline: deadline, run: run, done: done)
+                next.append(QuotationAI.ChatTurn(role: "user", text: "That answer was empty. Answer my last message now: put the action we discussed in \"proposals\" (it shows as a card for me to confirm), or ask in \"questions\" if you must. If you can't do it, say so plainly and why. Never just say \"Done\" — nothing has been made."))
+                self.runAssistant(turns: next, round: round + 1, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried, run: run, done: done)
                 return
             }
             if !lookups.isEmpty && proposals.isEmpty {
-                guard round < 4, Date() < deadline else {
-                    done(["ok": false, "error": "The AI took too long working it out. Try again, perhaps asking for one thing at a time — or choose a quicker model in Settings › AI Import."])
+                // Its best answer already asked for, and still looking things up:
+                // what it said, or plainly that it couldn't finish.
+                if lastTry {
+                    done(["ok": true, "reply": reply.isEmpty ? "I couldn't finish working that out in time. Try asking for one thing at a time (e.g. first the project, then the items)." : reply, "proposals": [Any]()])
                     return
                 }
                 let results: [[String: Any]] = lookups.prefix(8).map { l in
@@ -443,10 +489,14 @@ extension NativeBridge {
                     self.assistantStep(run, self.lookupSummary(l, result))
                     return ["lookup": l, "result": result]
                 }
+                // Out of rounds or time: one last call for its best answer with these results.
+                let last = !(round < 3 && Date() < deadline)
                 var next = turns
                 next.append(QuotationAI.ChatTurn(role: "assistant", text: jsonText(json)))
-                next.append(QuotationAI.ChatTurn(role: "user", text: "The app's results for your lookups:\n\(jsonText(results))\n\nNow answer with the JSON object (proposals if you're ready; more lookups only if you must)."))
-                self.runAssistant(turns: next, round: round + 1, deadline: deadline, run: run, done: done)
+                next.append(QuotationAI.ChatTurn(role: "user", text: last
+                    ? "The app's results for your lookups:\n\(jsonText(results))\n\nNo more lookups now: give your best answer with what you have (proposals if you can). If something is missing, propose what you can and say what's missing; if you can't do it at all, say so plainly and why."
+                    : "The app's results for your lookups:\n\(jsonText(results))\n\nNow answer with the JSON object (proposals if you're ready; more lookups only if you must)."))
+                self.runAssistant(turns: next, round: round + 1, deadline: deadline, hardStop: hardStop, lastTry: last, retried: retried, run: run, done: done)
                 return
             }
             if !proposals.isEmpty { self.assistantStep(run, "Preparing \(min(6, proposals.count)) card\(proposals.count == 1 ? "" : "s") to confirm") }
