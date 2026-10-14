@@ -5,7 +5,7 @@
 // director to sign and chop) and Announcements.
 
 const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const MAC = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="9.5" rx="1.2"/><path d="M1.5 16h17"/></svg>';
+const MAC = window.icon('desktop', { size: 15 });
 const PEN = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15.5c2-1 3.5-4 5-4s0 3 1.5 3 3-5 4.5-5 1 2.5 3 2.5"/><path d="M3 17.5h14"/></svg>';
 
 const EDIT = '<svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5a1.8 1.8 0 0 1 2.5 2.5L7 15l-3.5 1 1-3.5z"/></svg>';
@@ -32,6 +32,18 @@ function showTab(name) {
   for (const b of document.querySelectorAll('#team-tabs button')) b.classList.toggle('active', b.dataset.tab === name);
   for (const p of document.querySelectorAll('.tab-panel')) p.classList.toggle('active', p.dataset.panel === name);
   try { sessionStorage.setItem('team-tab', name); } catch (e) { /* ignore */ }
+  // The header's one primary follows the tab: only Announcements has one.
+  const ann = document.getElementById('team-announce-btn');
+  if (ann) ann.hidden = name !== 'announcements';
+}
+
+// The header's fact line: "5 people · 1 to sign".
+function factLine() {
+  const el = document.querySelector('.page-header .subtitle');
+  if (!el || !team) return;
+  const n = team.people.length;
+  const sign = signing ? signing.incoming.length : 0;
+  el.textContent = [`${n} ${n === 1 ? 'person' : 'people'}`, sign ? `${sign} to sign` : ''].filter(Boolean).join(' · ');
 }
 
 // ---- People ----
@@ -39,9 +51,9 @@ function showTab(name) {
 // People as folders: each team, the people in it (name — title), and the
 // devices each uses. Folders open and close (remembered on this Mac); drag
 // a person onto another team's folder to move them there.
-const FOLDER = '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/></svg>';
-const GLOBE = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2 2.2 2.9 4.5 2.9 7s-.9 4.8-2.9 7c-2-2.2-2.9-4.5-2.9-7S8 5.2 10 3z"/></svg>';
-const CHEVRON = '<svg class="tree-chev" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const FOLDER = window.icon('folder', { size: 17 });
+const GLOBE = window.icon('globe', { size: 15 });
+const CHEVRON = window.icon('caret-right', { size: 11, cls: 'tree-chev' });
 const NO_TEAM = '';
 
 let collapsed = new Set();
@@ -91,7 +103,7 @@ function personRow(p) {
       <span class="tree-label"><b>${esc(p.name)}</b>${p.title ? ` <span class="tree-title">— ${esc(p.title)}</span>` : ''}${p.isMe ? ' <span class="you-pill">You</span>' : ''}
         ${p.canSign || p.canSignAgreements ? `<span class="signer-pill small">${PEN} Signs &amp; chops ${p.canSign && p.canSignAgreements ? 'quotations &amp; agreements' : p.canSign ? 'quotations' : 'worker agreements'}${p.isMe && !p.hasSignature ? ' — <b>add your signature</b>' : ''}</span>` : ''}</span>
       <span class="tree-meta">${facts}${facts ? ' · ' : ''}${p.devices.length} device${p.devices.length === 1 ? '' : 's'}</span>
-      ${p.isMe ? '' : `<a class="person-chat" href="chat.html?with=${encodeURIComponent(p.name)}" title="Message ${esc(p.name)}" aria-label="Message">💬</a>`}
+      ${p.isMe ? '' : `<a class="person-chat" href="team.html?tab=chat&with=${encodeURIComponent(p.name)}" title="Message ${esc(p.name)}" aria-label="Message">${window.icon('chat', { size: 15 })}</a>`}
       <button class="person-edit" data-no-icon title="Team, title, signing" aria-label="Edit">${EDIT}</button>
     </div>
     <div class="tree-children${open ? '' : ' hidden'}">
@@ -104,7 +116,7 @@ function renderPeople() {
   const box = document.getElementById('people-grid');
   document.getElementById('count-people').textContent = team.people.length || '';
   if (!team.people.length) {
-    box.innerHTML = '<div class="empty-state"><h2>No one yet</h2><p>Enter your name on the User page; everyone sharing the data folder shows here with their Macs.</p></div>';
+    box.innerHTML = '<div class="empty-state"><h2>No one yet</h2><p>Add your name in Settings › You. Everyone sharing the data folder shows here with their Macs.</p></div>';
     return;
   }
   const list = groups();
@@ -344,6 +356,7 @@ async function load() {
   renderPeople();
   renderSignatures();
   renderAnnouncements();
+  factLine();
 }
 
 (function init() {
@@ -351,7 +364,7 @@ async function load() {
   const q = new URLSearchParams(location.search).get('tab');
   let saved = null;
   try { saved = sessionStorage.getItem('team-tab'); } catch (e) { /* ignore */ }
-  showTab(q || saved || 'people');
+  showTab(q || saved || 'chat');
   document.getElementById('pm-cancel').addEventListener('click', () => document.getElementById('person-modal').classList.add('hidden'));
   document.getElementById('pm-save').addEventListener('click', savePerson);
   document.getElementById('pm-cansign-agreements').addEventListener('change', (e) => {
@@ -373,5 +386,5 @@ async function load() {
   document.getElementById('team-announce-btn').addEventListener('click', async () => { await window.announcements.compose(); renderAnnouncements(); });
   load();
   // Requests come in from the others' Macs.
-  setInterval(async () => { signing = await window.api.signatures.page(); renderSignatures(); }, 15000);
+  setInterval(async () => { signing = await window.api.signatures.page(); renderSignatures(); factLine(); }, 15000);
 })();

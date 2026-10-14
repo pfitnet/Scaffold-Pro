@@ -143,3 +143,19 @@
 .conv-avatar { transition: transform .3s var(--spring, ease), box-shadow .3s var(--ease, ease); }
 .conv:hover:not(:disabled) .conv-avatar { transform: scale(1.06); box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .45); }
 .conv.active .conv-avatar { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* Chat inside Team (redesign R8): a framed panel the height of the window. */
+.team-chat .chat-shell { height: calc(100vh - 230px); min-height: 420px; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-card); }
+.team-chat .chat-list-head { padding: 12px 14px 10px; }
+.team-chat .chat-list { border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+/* Phone: the conversations sit above the thread in a short scrolling list. */
+@media (max-width: 767px) {
+  .msg-col, .msg-row, .bubble { min-width: 0; max-width: 100%; }
+  .quote { max-width: 100%; }
+  .chat-scroll { padding: 12px 14px 8px; }
+  .team-chat .chat-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: calc(100dvh - 200px); }
+  .msg-col { max-width: 86%; }
+  .msg-tools { position: absolute; bottom: calc(100% + 2px); right: 0; z-index: 2; }
+  .msg:not(.mine) .msg-tools { left: 0; right: auto; }
+  .team-chat .chat-list { max-height: 168px; overflow-y: auto; border-right: none; border-bottom: 1px solid var(--hairline); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
