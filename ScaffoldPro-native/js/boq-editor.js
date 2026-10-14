@@ -103,7 +103,7 @@ async function makeQuotation() {
 
 function render() {
   const d = currentDetail;
-  document.title = `${d.boqNumber} — ScaffoldPro`;
+  document.title = `${d.boqNumber} · ScaffoldPro`;
   document.getElementById('boq-header').innerHTML = `
     <h1>${d.boqNumber}</h1>
     <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.pricingMode} pricing</div>`;

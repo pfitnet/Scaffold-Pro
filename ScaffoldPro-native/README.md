@@ -5399,3 +5399,43 @@ Increase Contrast. No Swift changed.
 - **The launch screen and the ScaffoldPro Web loading screen** are now
   dark steel with the orange accent. The logo's yellow brace is kept.
 - Checked: all pages load with no errors in a browser with sample data.
+
+## Batch 245 — New sidebar, one sheet and toast look, phone and iPad layouts (redesign R2)
+
+- **The sidebar**, in three groups:
+  - **Work:** Home (the Dashboard's new name), Calendar, Tasks, Projects,
+    Chat, Team;
+  - **Operations:** Stock, Costs, Clients & Sites, Workers;
+  - **Company:** Accounting, Marketing, Admin.
+  Headings are no longer in capitals. ⌘1–7 still go to the same pages.
+- **Search and Ask** sit side by side at the top. Ask opens the
+  Assistant (⌘J) and replaces the round orange button at the bottom right.
+- **One button at the foot** with your name opens a menu: You, Settings,
+  Appearance (System / Light / Dark, Mac only), the User Manual and Edit
+  Sidebar Order.
+  - The Assistant and the User Manual are no longer sidebar items. The
+    Help menu still opens the Manual (⇧⌘?).
+  - The order is kept in a new place, so everyone starts from the new
+    groups once.
+- **The sidebar folds to icons** below 1100px (an iPad, a narrow window),
+  whatever the setting. On a phone it is a drawer behind ☰, with the page
+  name in a top bar.
+- **One look for every sheet and dialog:** a panel in a steel tray, with
+  rounder corners. It opens with a short spring and closes at once. The
+  dialogs' own built-in styles are gone.
+- **One look for toasts:** dark, at the bottom centre. This covers sync
+  notes, Undo, and Saved.
+- **New `js/ui-kit.js`** on every page: tabs, toasts, sheets, stat tiles,
+  search fields, page header actions and breadcrumbs, shared by the pages
+  as they are rebuilt.
+- **Phones:**
+  - every page has a viewport tag;
+  - grids become one column;
+  - tables scroll sideways in their own box;
+  - sheets open full screen.
+- **Touch screens:** bigger targets, row actions always shown, and no
+  zooming when typing.
+- Page titles read "Projects · ScaffoldPro". The Go menu says Home.
+- Checked: in a browser at Mac, narrow-window and phone sizes. The dialogs
+  Swift calls (`appDialog`, `appUpdatePrompt`) still answer as before.
+  Swift (one menu title) not compiled.

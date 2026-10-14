@@ -116,7 +116,7 @@ function craneSetup(d) {
 
 function render() {
   const d = currentDetail;
-  document.title = `${d.quotationNumber} — ScaffoldPro`;
+  document.title = `${d.quotationNumber} · ScaffoldPro`;
   document.getElementById('quotation-header').innerHTML = `
     <h1>${d.quotationNumber}</h1>
     <div class="subtitle">${d.projectNumber} — ${d.projectName} · ${d.clientName || 'No client'} · ${d.siteName || 'No site'} · ${d.pricingMode} pricing</div>`;

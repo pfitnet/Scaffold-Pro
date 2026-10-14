@@ -37,26 +37,26 @@ document.addEventListener('click', (e) => {
   window.appNavigate(a.href);
 }, true);
 
+// Three groups (docs/redesign/PLAN.md §3.2). ⌘1–7 stay on the same pages as
+// before (the Go menu in main.swift), whatever their place in the list.
+// Tasks and Chat keep their own items until they join Calendar and Team.
 const NAV_ITEMS = [
-  { section: 'Overview' },
-  { page: 'dashboard', label: 'Dashboard', href: 'index.html', key: '1' },
+  { section: 'Work' },
+  { page: 'dashboard', label: 'Home', href: 'index.html', key: '1', icon: 'home' },
   { page: 'calendar', label: 'Calendar', href: 'calendar.html' },
   { page: 'tasks', label: 'Tasks', href: 'tasks.html' },
-  { page: 'assistant', label: 'Assistant', href: 'assistant.html' },
-  { section: 'Team' },
+  { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'chat', label: 'Chat', href: 'chat.html' },
   { page: 'team', label: 'Team', href: 'team.html' },
   { section: 'Operations' },
+  { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },
   { page: 'price-lists', label: 'Costs', href: 'price-lists.html', key: '2' },
   { page: 'clients', label: 'Clients & Sites', href: 'clients.html', key: '3' },
-  { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
-  { page: 'stock', label: 'Stock', href: 'stock.html', key: '5' },
   { page: 'workers', label: 'Workers', href: 'workers.html' },
   { section: 'Company' },
   { page: 'accounts', label: 'Accounting', href: 'accounts.html', key: '6' },
   { page: 'marketing', label: 'Marketing', href: 'marketing.html' },
   { page: 'admin', label: 'Admin', href: 'admin.html', key: '7' },
-  { page: 'manual', label: 'User Manual', href: 'manual.html' },
 ];
 
 // The app mark (see icon/ScaffoldPro-logo.svg), in its simplified small-size
@@ -70,10 +70,11 @@ const BRAND_MARK = `<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="tru
   <line x1="17.5" y1="46" x2="46.5" y2="18" stroke="#F4B400" stroke-width="6" stroke-linecap="round"/>
 </svg>`;
 
-// The order of the tabs can be changed: the pencil by the first heading
-// (Edit), then drag the tabs (and headings) into place, or ⌥↑ / ⌥↓.
+// The order of the tabs can be changed: the user menu › Edit Sidebar Order,
+// then drag the tabs (and headings) into place, or ⌥↑ / ⌥↓.
 // Kept on this Mac; tabs added in an update join their usual group.
-const NAV_ORDER_KEY = 'sidebar.order';
+// v2: the groups changed in the redesign, so older saved orders are left behind once.
+const NAV_ORDER_KEY = 'sidebar.order.v2';
 const navKey = (item) => (item.section ? `section:${item.section}` : item.page);
 function orderedNavItems() {
   let saved = null;
@@ -93,14 +94,6 @@ function orderedNavItems() {
 function setupNavEditing(sidebar) {
   const head = sidebar.querySelector('.sidebar-section');
   if (!head) return;
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'nav-edit-btn';
-  btn.dataset.noIcon = '';
-  btn.title = 'Change the order of the tabs';
-  btn.setAttribute('aria-label', 'Change the order of the tabs');
-  btn.innerHTML = '<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.8 3.7l3.5 3.5-8.8 8.8-4 .5.5-4z"/></svg>';
-  head.appendChild(btn);
   const bar = document.createElement('div');
   bar.className = 'nav-edit-bar';
   bar.innerHTML = '<span>Drag the tabs into order</span><button type="button" data-no-icon data-act="reset">Reset</button><button type="button" class="primary" data-no-icon data-act="done">Done</button>';
@@ -120,7 +113,7 @@ function setupNavEditing(sidebar) {
     save();
     if (window.placeNavInk) window.placeNavInk();
   };
-  btn.addEventListener('click', (e) => { e.stopPropagation(); if (sidebar.classList.contains('nav-editing')) stop(); else start(); });
+  window.editSidebarOrder = () => { if (sidebar.classList.contains('nav-editing')) stop(); else { sidebar.classList.add('expanded'); start(); } };
   bar.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-act]');
     if (!b) return;
@@ -177,12 +170,18 @@ window.sidebarRail = {
   on() { try { return localStorage.getItem(RAIL_KEY) !== 'off'; } catch (e) { return true; } },
   set(on) {
     try { localStorage.setItem(RAIL_KEY, on ? 'on' : 'off'); } catch (e) { /* not kept */ }
-    document.documentElement.classList.toggle('sidebar-rail', !!on);
+    document.documentElement.classList.toggle('sidebar-rail', !!on || window.innerWidth < 1100);
     if (window.placeNavInk) window.placeNavInk();
   },
 };
 // Set before the page is first drawn, so it never shows wide and then folds.
-document.documentElement.classList.toggle('sidebar-rail', window.sidebarRail.on());
+// A narrow window (an iPad, a Mac window made small) always gets the rail;
+// a phone gets a drawer instead (css/styles.css, "Small screens").
+const NARROW = () => window.innerWidth < 1100;
+document.documentElement.classList.toggle('sidebar-rail', window.sidebarRail.on() || NARROW());
+window.addEventListener('resize', () => {
+  document.documentElement.classList.toggle('sidebar-rail', window.sidebarRail.on() || NARROW());
+});
 
 function setupRail(sidebar) {
   const OPEN_AFTER = 550; // a resting pointer, not one passing by
@@ -211,12 +210,31 @@ function renderSidebar(activePage) {
   brand.innerHTML = `${BRAND_MARK}<span>ScaffoldPro</span>`;
   sidebar.appendChild(brand);
 
+  // Search (⌘K) and Ask, the Assistant (⌘J), side by side on one track.
+  const tools = document.createElement('div');
+  tools.className = 'sidebar-tools';
   const search = document.createElement('button');
   search.className = 'sidebar-search';
   search.type = 'button';
+  search.dataset.noIcon = '';
+  search.title = 'Search everything (⌘K)';
   search.innerHTML = `${navIcon('search', 16)}<span>Search</span><kbd>⌘K</kbd>`;
   search.addEventListener('click', () => window.openGlobalSearch());
-  sidebar.appendChild(search);
+  tools.appendChild(search);
+  if (activePage !== 'assistant') {
+    const ask = document.createElement('button');
+    ask.className = 'sidebar-ask';
+    ask.type = 'button';
+    ask.dataset.noIcon = '';
+    ask.title = 'Ask the Assistant about this page, or have it do something (⌘J)';
+    ask.innerHTML = `${navIcon('assistant', 16)}<span>Ask</span>`;
+    ask.addEventListener('click', () => {
+      const launcher = document.querySelector('.as-launcher');
+      if (launcher) launcher.click(); else location.href = 'assistant.html';
+    });
+    tools.appendChild(ask);
+  }
+  sidebar.appendChild(tools);
 
 
   for (const item of orderedNavItems()) {
@@ -233,7 +251,7 @@ function renderSidebar(activePage) {
     link.dataset.nav = navKey(item);
     link.href = item.href;
     link.title = item.key ? `${item.label} (⌘${item.key})` : item.label;
-    link.innerHTML = `${navIcon(item.page)}<span>${item.label}</span>`;
+    link.innerHTML = `${navIcon(item.icon || item.page)}<span>${item.label}</span>`;
     if (item.page === activePage || (activePage === 'project-detail' && item.page === 'projects')) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
@@ -252,26 +270,73 @@ function renderSidebar(activePage) {
   const userRow = document.createElement('div');
   userRow.className = 'sidebar-user-row';
   foot.appendChild(userRow);
-  const user = document.createElement('a');
-  user.href = 'settings.html#you';
+  const user = document.createElement('button');
+  user.type = 'button';
   user.className = 'sidebar-user';
-  user.title = 'Settings — starting with You: your name, colour, theme and work (⌘,)';
-  user.innerHTML = `<span class="user-avatar">${navIcon('user', 16)}</span><span class="user-label">User</span>` +
-    '<span class="user-gear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>';
+  user.dataset.noIcon = '';
+  user.title = 'You, Settings, Appearance and the User Manual';
+  user.innerHTML = `<span class="user-avatar">${navIcon('user', 16)}</span><span class="user-label">User</span><span class="user-caret">${navIcon('caret-up', 12)}</span>`;
   if (activePage === 'user' || activePage === 'settings') { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
   userRow.appendChild(user);
   renderUserTab(user);
-  // ScaffoldPro Web: sign out of this browser.
-  if (window.__scaffoldProWeb && window.scaffoldProSignOut) {
-    const out = document.createElement('button');
-    out.type = 'button';
-    out.className = 'sidebar-signout';
-    out.textContent = 'Sign Out';
-    out.dataset.noIcon = '';
-    out.addEventListener('click', () => window.scaffoldProSignOut());
-    foot.appendChild(out);
-  }
+  setupUserMenu(user);
   renderTeamIndicator(foot);
+  setupPhoneBar(sidebar);
+}
+
+// Phones (under 768px): a top bar with ☰ and the page's name; the sidebar
+// slides in over the page as a drawer and closes on a tap outside or Esc.
+function setupPhoneBar(sidebar) {
+  if (document.querySelector('.phone-bar')) return;
+  const bar = document.createElement('header');
+  bar.className = 'phone-bar';
+  const name = (document.title || '').replace(/\s*[—·]\s*ScaffoldPro$/, '') || 'ScaffoldPro';
+  bar.innerHTML = `<button type="button" class="phone-menu" data-no-icon aria-label="Menu">${navIcon('list', 20)}</button><span class="phone-title"></span>`;
+  bar.querySelector('.phone-title').textContent = name;
+  const scrim = document.createElement('div');
+  scrim.className = 'drawer-scrim';
+  document.body.prepend(bar);
+  document.body.appendChild(scrim);
+  const root = document.documentElement;
+  const close = () => root.classList.remove('drawer-open');
+  bar.querySelector('.phone-menu').addEventListener('click', () => root.classList.toggle('drawer-open'));
+  scrim.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  sidebar.addEventListener('click', (e) => { if (e.target.closest('a[href]')) close(); });
+}
+
+// The user menu: one button at the foot of the sidebar.
+let appearanceNow = null;
+function setupUserMenu(button) {
+  if (!window.hoverMenu) return;
+  const web = !!window.__scaffoldProWeb;
+  if (!web && window.api && window.api.settings) window.api.settings.get().then((s) => { appearanceNow = (s && s.appearance) || 'System'; }).catch(() => {});
+  const go = (href) => (window.appNavigate ? window.appNavigate(href) : (location.href = href));
+  const actions = {
+    you: () => go('settings.html#you'),
+    settings: () => go('settings.html'),
+    manual: () => go('manual.html'),
+    order: () => window.editSidebarOrder && window.editSidebarOrder(),
+    signout: () => window.scaffoldProSignOut && window.scaffoldProSignOut(),
+  };
+  const setLook = async (v) => {
+    appearanceNow = v;
+    try { await window.api.settings.update({ appearance: v }); } catch (e) { /* the Mac keeps its look */ }
+  };
+  window.hoverMenu.attach(button, {
+    openOn: 'press',
+    items: () => [
+      { label: 'You', sub: 'Your name, colour and signature', value: 'you' },
+      { label: 'Settings', value: 'settings' },
+      ...(web ? [] : [{ group: 'Appearance' },
+        ...['System', 'Light', 'Dark'].map((v) => ({ label: v, value: `look:${v}`, current: (appearanceNow || 'System') === v }))]),
+      { group: 'Help' },
+      { label: 'User Manual', value: 'manual' },
+      { label: 'Edit Sidebar Order', value: 'order' },
+      ...(web && window.scaffoldProSignOut ? [{ group: 'This browser' }, { label: 'Sign Out', value: 'signout' }] : []),
+    ],
+    onPick: (v) => { if (String(v).startsWith('look:')) setLook(String(v).slice(5)); else if (actions[v]) actions[v](); },
+  });
 }
 
 // The User tab shows who's using this Mac, with their initials in their colour.
@@ -617,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function addBackButton() {
   const file = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'assistant.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'workers.html', 'admin.html', 'settings.html', 'user.html', 'launch.html'];
+  const ROOT_PAGES = ['index.html', 'calendar.html', 'tasks.html', 'assistant.html', 'chat.html', 'team.html', 'price-lists.html', 'clients.html', 'projects.html', 'stock.html', 'accounts.html', 'marketing.html', 'workers.html', 'admin.html', 'settings.html', 'user.html', 'launch.html', 'manual.html'];
   const content = document.getElementById('content');
   if (ROOT_PAGES.includes(file) || !content || content.querySelector('.page-back')) return;
   const button = document.createElement('button');

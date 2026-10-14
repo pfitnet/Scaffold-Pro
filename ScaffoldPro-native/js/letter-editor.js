@@ -45,7 +45,7 @@ async function loadDetail() {
 function render() {
   const l = detail.letter;
   const locked = l.status !== 'Draft';
-  document.title = `${l.letterNumber} — ScaffoldPro`;
+  document.title = `${l.letterNumber} · ScaffoldPro`;
   document.getElementById('letter-header').innerHTML = `<h1>${esc(l.letterNumber)}</h1>
     <div class="subtitle">${esc(l.subject || 'Letter')}${detail.projectNumber ? ` · ${esc(detail.projectNumber)} — ${esc(detail.projectName || '')}` : ''}</div>`;
   document.getElementById('our-ref').textContent = l.letterNumber;
