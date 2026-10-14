@@ -87,10 +87,11 @@
     };
     shownSites = shownSites.map((s) => [s, rank(s)]).sort((a, b) => (a[1] - b[1]) || a[0].name.localeCompare(b[0].name)).map((x) => x[0]);
 
+    $('cs-fact').textContent = `${clients.length} client${clients.length === 1 ? '' : 's'} · ${sites.length} site${sites.length === 1 ? '' : 's'}`;
     const empty = !clients.length && !sites.length;
     $('conn-board').classList.toggle('hidden', empty);
-    $('list-container').innerHTML = empty ? `<div class="empty-state"><h2>No clients or sites yet</h2><p>Add the companies you work for and the sites you work at — then a project joins them.</p>
-      <button class="primary" id="empty-new-client">+ New Client</button></div>` : '';
+    $('list-container').innerHTML = empty ? `<div class="empty-state"><h2>No clients or sites yet</h2><p>Add the companies you work for and the sites you work at. A project joins them.</p>
+      <button class="primary" id="empty-new-client">New Client</button></div>` : '';
     if (empty) { $('empty-new-client').addEventListener('click', () => clientSheet.openNew()); return; }
 
     const count = (kind, id) => {
@@ -190,8 +191,8 @@
     if (!l) return;
     const go = (p) => { location.href = `project-detail.html?number=${encodeURIComponent(p.projectNumber)}`; };
     if (l.projects.length === 1 && !e.altKey) { go(l.projects[0]); return; }
-    window.showContextMenu(e, l.projects.map((p) => ({ label: `${p.projectNumber} — ${p.name}${p.status ? ` (${p.status})` : ''}`, action: () => go(p) }))
-      .concat(['separator', { label: 'New Project for These Two…', action: () => startProject(clientId, siteId) }]));
+    window.showContextMenu(e, [{ label: 'New Project Here…', action: () => startProject(clientId, siteId) }, 'separator']
+      .concat(l.projects.map((p) => ({ label: `${p.projectNumber} · ${p.name}${p.status ? ` (${p.status})` : ''}`, action: () => go(p) }))));
   }
 
   function wireCards() {
@@ -260,20 +261,31 @@
     move(e);
   }
 
-  async function chooseKind(verb) {
-    return window.appChoose(`${verb} which list?`, [{ label: 'Sites', value: 'sites' }, { label: 'Clients', value: 'clients', primary: true }]);
-  }
-
+  // The header: [···] [New Client ▾]. The caret offers New Site; ··· has
+  // Import and Export for each list, so nothing asks "which list?".
   $('new-client-btn').addEventListener('click', () => clientSheet.openNew());
   $('new-site-btn').addEventListener('click', () => siteSheet.openNew());
-  $('import-xlsx-btn').addEventListener('click', async () => {
-    const k = await chooseKind('Import into');
-    if (k) await (k === 'sites' ? siteSheet : clientSheet).importExcel();
+  const split = document.createElement('div');
+  split.className = 'split-btn';
+  split.innerHTML = `<button type="button" class="primary" data-no-icon>${window.icon('plus', { size: 15 })}<span>New Client</span></button><button type="button" class="primary split-caret" data-no-icon aria-label="More new" title="New Site">${window.icon('caret-down', { size: 13 })}</button>`;
+  split.firstElementChild.addEventListener('click', () => clientSheet.openNew());
+  window.hoverMenu.attach(split.lastElementChild, {
+    openOn: 'press', align: 'right',
+    items: () => [{ label: 'New Client', value: 'client' }, { label: 'New Site', value: 'site' }],
+    onPick: (v) => (v === 'site' ? siteSheet : clientSheet).openNew(),
   });
-  $('export-xlsx-btn').addEventListener('click', async () => {
-    const k = await chooseKind('Export');
-    if (k) await (k === 'sites' ? siteSheet : clientSheet).exportExcel();
+  window.pageActions($('cs-head'), {
+    primary: split,
+    overflow: [
+      { group: 'Import from Excel' },
+      { label: 'Import Clients…', sub: 'Add or update clients from a workbook (.xlsx)', run: () => clientSheet.importExcel() },
+      { label: 'Import Sites…', sub: 'Add or update sites from a workbook (.xlsx)', run: () => siteSheet.importExcel() },
+      { group: 'Export to Excel' },
+      { label: 'Export Clients…', run: () => clientSheet.exportExcel() },
+      { label: 'Export Sites…', run: () => siteSheet.exportExcel() },
+    ],
   });
+  window.searchField($('search-box'));
   $('search-box').addEventListener('input', draw);
   $('show-archived').addEventListener('change', async () => { await Promise.all([clientSheet.refresh(), siteSheet.refresh()]); });
   $('conn-board').addEventListener('click', (e) => {

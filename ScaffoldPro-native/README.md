@@ -5576,3 +5576,40 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium on Mac, narrow, iPad and phone, light and dark:
   Record Stock on each tab, ··· on both pages, New Item and New Worker. Not
   checked: WebKit on a Mac.
+
+## Batch 251 — Clients & Sites and Workers join the one look (redesign R9b)
+
+- **Clients & Sites:**
+  - the header reads "8 clients · 10 sites"; how the lines work is in the ⓘ
+    tooltip beside it;
+  - one primary, **New Client**, with a caret for New Site. ··· holds Import
+    Clients…, Import Sites…, Export Clients… and Export Sites…, so nothing
+    asks "which list?" any more;
+  - **Archived** is a chip;
+  - a client's dot shows a grab hand; the menu on a line leads with
+    "New Project Here…";
+  - on a phone the clients and the sites stack in one column (the lines need
+    two columns, so they are left out there).
+- **Workers:**
+  - the pink-gradient banner, the "Site crew" label and the gradient title
+    are gone. It has the same header as every page: title, fact line, search
+    and New Worker;
+  - avatars are flat colours. The profile's band is a quiet strip in the
+    worker's colour with the faint scaffold grid. The tiles use the app's
+    ink, accent, warning and danger;
+  - the chosen tile and the chosen worker are marked in ink, not orange;
+  - the agreement "paper" sits in a steel tray;
+  - **Archived** is a chip;
+  - the New Worker sheet has the shared sheet look, closes at once, and
+    confirms with "Create Worker". It also counts as an open sheet, so ⌘Z
+    and sync redraws wait while it's open;
+  - its messages use the app's one toast, its icons come from the app's
+    set, and the wording drops the dashes.
+- **Shared:** a `.check-chip` (an on/off filter as a chip) and an `.info-tip`
+  (ⓘ with the explanation as its tooltip).
+- Not done: moving the client and site sheet out into one shared
+  `openPartySheet` for Projects' quick New Client and New Site. The two
+  forms still work as they are.
+- Checked in Chromium on Mac, narrow, iPad and phone, light and dark: the
+  ··· and caret menus, the Archived chips, the New Worker sheet (open, Esc,
+  the open-sheet guard). Not checked: WebKit on a Mac.

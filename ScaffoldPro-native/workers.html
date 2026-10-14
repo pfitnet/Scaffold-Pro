@@ -11,24 +11,20 @@
   <nav id="sidebar"></nav>
   <main id="content" class="wk-content">
     <!-- The crew at a glance -->
-    <section class="wk-hero">
-      <div class="wk-hero-glow" aria-hidden="true"></div>
-      <div class="wk-hero-text">
-        <div class="wk-kicker">Site crew</div>
+    <header class="page-header wk-head">
+      <div>
         <h1>Workers</h1>
-        <p class="wk-summary" id="wk-summary">The people on site, their employment agreements and their certificates.</p>
+        <p class="subtitle wk-summary" id="wk-summary">The people on site, their employment agreements and their certificates.</p>
       </div>
-      <div class="wk-hero-actions">
+      <div class="page-actions">
         <label class="wk-search">
-          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="5.2"/><path d="m13 13 3.5 3.5"/></svg>
+          <span class="wk-search-ico" aria-hidden="true"></span>
           <input type="search" id="wk-search" placeholder="Search name, ID, number…" autocomplete="off" spellcheck="false" />
           <kbd>/</kbd>
         </label>
-        <button type="button" class="primary wk-new" id="wk-new" data-no-icon title="Add a worker (⌘N)">
-          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 4.5v11M4.5 10h11"/></svg>New Worker
-        </button>
+        <button type="button" class="primary wk-new" id="wk-new" data-no-icon title="New worker (⌘N)"><span class="wk-new-ico" aria-hidden="true"></span>New Worker</button>
       </div>
-    </section>
+    </header>
 
     <div class="wk-stats" id="wk-stats" role="group" aria-label="Show only"></div>
 
@@ -36,7 +32,7 @@
       <aside class="wk-roster" aria-label="Workers">
         <div class="wk-roster-head">
           <span id="wk-roster-title">Everyone</span>
-          <label class="wk-archived"><input type="checkbox" id="wk-show-archived" /> Archived</label>
+          <label class="check-chip wk-archived"><input type="checkbox" id="wk-show-archived" />Archived</label>
         </div>
         <div class="wk-list" id="wk-list" role="listbox" tabindex="0" aria-label="Workers"></div>
       </aside>
@@ -45,13 +41,13 @@
   </main>
 
   <!-- A new worker -->
-  <div class="wk-sheet-backdrop hidden" id="wk-sheet">
+  <div class="modal-backdrop wk-sheet-backdrop hidden" id="wk-sheet">
     <div class="wk-sheet" role="dialog" aria-modal="true" aria-labelledby="wk-sheet-title">
       <div class="wk-sheet-main">
         <div class="wk-sheet-head">
           <span class="wk-avatar xl" id="ns-avatar">?</span>
           <div>
-            <h2 id="wk-sheet-title">New worker</h2>
+            <h2 id="wk-sheet-title">New Worker</h2>
             <p>Their employment agreement is made from these details, ready to print and sign.</p>
           </div>
         </div>
@@ -73,7 +69,7 @@
         <div class="wk-mini-paper" id="ns-paper"></div>
         <div class="wk-sheet-actions">
           <button type="button" id="ns-cancel" data-no-icon>Cancel</button>
-          <button type="button" class="primary" id="ns-save" data-no-icon>Add Worker</button>
+          <button type="button" class="primary" id="ns-save" data-no-icon>Create Worker</button>
         </div>
       </aside>
     </div>
@@ -83,7 +79,6 @@
     <option value="Scaffolder"></option><option value="Foreman"></option><option value="General Worker"></option>
     <option value="Rigger"></option><option value="Driver"></option><option value="Safety Supervisor"></option>
   </datalist>
-  <div class="wk-toast" id="wk-toast" role="status" aria-live="polite"></div>
 
   <script src="js/dialogs.js"></script>
   <script src="js/icons.js"></script>

@@ -19,25 +19,12 @@
     get(k, d) { try { const v = sessionStorage.getItem(`workers.${k}`); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { sessionStorage.setItem(`workers.${k}`, JSON.stringify(v)); } catch (e) { /* not kept */ } },
   };
-  const svg = (p, s = 16) => `<svg viewBox="0 0 20 20" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const ic = (name, size = 16) => window.icon(name, { size });
   const I = {
-    crew: svg('<circle cx="7" cy="7" r="2.6"/><circle cx="13.6" cy="7.6" r="2.1"/><path d="M2.6 16c.4-2.8 2.2-4.3 4.4-4.3s4 1.5 4.4 4.3M11.6 12.1c2.4-.4 4.6.8 5.2 3.6"/>', 18),
-    pen: svg('<path d="M13.2 3.8l3 3-8.7 8.7-3.7.7.7-3.7z"/><path d="M11.5 5.5l3 3"/>', 18),
-    inbox: svg('<path d="M3 11.5 5 4.5h10l2 7v4H3z"/><path d="M3 11.5h4l1 2h4l1-2h4"/>', 18),
-    clock: svg('<circle cx="10" cy="10" r="6.6"/><path d="M10 6.5V10l2.4 1.6"/>', 18),
-    folder: svg('<path d="M2.5 6V5a1.5 1.5 0 0 1 1.5-1.5h3.2l1.6 1.8H16A1.5 1.5 0 0 1 17.5 6.8V15a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 15z"/>'),
-    archive: svg('<rect x="2.5" y="3.5" width="15" height="4" rx="1"/><path d="M4 7.5v8A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-8M8 11h4"/>'),
-    restore: svg('<path d="M4 10a6 6 0 1 0 1.8-4.3"/><path d="M3.5 3.5v3h3"/>'),
-    check: svg('<path d="M4.5 10.5l3.5 3.5 7.5-8"/>', 14),
-    doc: svg('<path d="M5.5 2.8h6l3.5 3.5v10.9H5.5z"/><path d="M11.5 2.8v3.5H15M8 10h5M8 13h5"/>', 18),
-    upload: svg('<path d="M10 13V3.5M6 7.5l4-4 4 4M4 13.5v3h12v-3"/>', 18),
-    phone: svg('<path d="M5 3.5h2.5l1.2 3.2-1.6 1a8 8 0 0 0 3.7 3.7l1-1.6 3.2 1.2V15a1.5 1.5 0 0 1-1.6 1.5A12 12 0 0 1 3.5 5.1 1.5 1.5 0 0 1 5 3.5z"/>', 13),
-    cal: svg('<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 3v3M13 3v3"/>', 13),
-    cash: svg('<rect x="2.5" y="5" width="15" height="10" rx="1.5"/><circle cx="10" cy="10" r="2"/>', 13),
-    id: svg('<rect x="2.5" y="4.5" width="15" height="11" rx="1.5"/><circle cx="7" cy="9.5" r="1.7"/><path d="M4.6 13.2c.4-1.2 1.3-1.8 2.4-1.8s2 .6 2.4 1.8M11.5 8.5h3.5M11.5 11h2.5"/>', 13),
-    eye: svg('<path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z"/><circle cx="10" cy="10" r="2.3"/>', 15),
-    word: svg('<path d="M5.5 2.8h6l3.5 3.5v10.9H5.5z"/><path d="M7.5 9.5l1 4 1.5-3 1.5 3 1-4"/>', 15),
-    print: svg('<path d="M5.5 7.5V3.5h9v4"/><rect x="2.5" y="7.5" width="15" height="6.5" rx="1.5"/><path d="M5.5 12h9v5h-9z"/>', 15),
+    crew: ic('team', 18), pen: ic('sign', 18), inbox: ic('inbox', 18), clock: ic('clock', 18),
+    folder: ic('folder'), archive: ic('archive'), restore: ic('undo'), check: ic('check', 14),
+    doc: ic('file-text', 18), upload: ic('upload', 18), phone: ic('phone', 13), cal: ic('calendar', 13),
+    cash: ic('money', 13), id: ic('id', 13), eye: ic('eye', 15), word: ic('word', 15), print: ic('print', 15),
   };
 
   // ---- state ----
@@ -52,7 +39,7 @@
   let docs = [];
 
   // ---- small helpers ----
-  const PALETTE = [['#4b78ff', '#7a5cf5'], ['#13a37f', '#3fc7a2'], ['#e0702f', '#f2a64a'], ['#c0427a', '#e57aa8'], ['#2a8fc4', '#5cc0e8'], ['#7d5cd6', '#a98af0'], ['#b8892a', '#e0b956'], ['#3b8c4c', '#7cc187']];
+  const PALETTE = [['#5a6b7f', '#7d8ea3'], ['#13a37f', '#3fc7a2'], ['#e0702f', '#f2a64a'], ['#c0427a', '#e57aa8'], ['#2a8fc4', '#5cc0e8'], ['#7d5cd6', '#a98af0'], ['#b8892a', '#e0b956'], ['#3b8c4c', '#7cc187']];
   function hue(name) {
     let h = 0;
     for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) >>> 0;
@@ -67,13 +54,7 @@
     const [a, b] = hue(w.name || w.workerNumber);
     return `<span class="wk-avatar ${cls}" style="--a:${a};--b:${b}">${esc(initials(w))}</span>`;
   };
-  function toast(text) {
-    const t = $('wk-toast');
-    t.innerHTML = `<span class="wk-toast-dot">${I.check}</span>${esc(text)}`;
-    t.classList.add('show');
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => t.classList.remove('show'), 2400);
-  }
+  const toast = (text) => window.appToast(text);
   // HK ID card: letter(s), six digits, check digit (0–9 or A).
   function hkid(raw) {
     const s = String(raw || '').toUpperCase().replace(/[\s()]/g, '');
@@ -269,7 +250,7 @@
         : `<div class="wk-welcome">
             <div class="wk-welcome-art" aria-hidden="true"><span></span><span></span><span></span></div>
             <h2>Your site crew, in one place</h2>
-            <p>Add a worker and their <b>employment agreement</b> is written for you from the company’s template — ready to preview, sign &amp; chop, and print. Keep their certificates here too, with reminders before they expire.</p>
+            <p>Add a worker and their <b>employment agreement</b> is written for you from the company’s template, ready to preview, sign &amp; chop, and print. Keep their certificates here too, with reminders before they expire.</p>
             <button type="button" class="primary" data-act="new" data-no-icon>Add the First Worker</button>
           </div>`;
       return;
@@ -284,7 +265,7 @@
     if (!r) return null;
     const w = r.worker;
     if (!page || !page.agreement) return { text: 'This worker has no employment agreement yet.', act: 'create', label: 'Make Agreement' };
-    if ((page.missing || []).some((m) => /worker/.test(m))) return { text: 'Add their ID card number — it’s printed on the agreement.', act: 'focus-id', label: 'Add ID Number' };
+    if ((page.missing || []).some((m) => /worker/.test(m))) return { text: 'Add their ID card number. It’s printed on the agreement.', act: 'focus-id', label: 'Add ID Number' };
     if (r.stage === 1) {
       return page.canSign
         ? { text: 'The agreement is ready for the company’s signature and chop.', act: 'sign', label: 'Sign & Chop' }
@@ -292,7 +273,7 @@
     }
     if (r.stage === 2) return { text: `Print it for ${w.name.split(/[ ,]/)[0]} to sign, then add the signed copy.`, act: 'upload', label: 'Add Signed Copy' };
     if (r.expiring) return { text: `${r.expiring} document${r.expiring === 1 ? '' : 's'} expire${r.expiring === 1 ? 's' : ''} within 30 days.`, act: 'tab-documents', label: 'See Documents', tone: 'warn' };
-    return { text: 'All set — the agreement is signed by both sides.', done: true };
+    return { text: 'All set. The agreement is signed by both sides.', done: true };
   }
 
   function heroHTML() {
@@ -346,7 +327,7 @@
     box.classList.toggle('enter', !!animate);
     drawPanel();
     placeInk();
-    if (w) document.title = `${w.name} — Workers · ScaffoldPro`;
+    if (w) document.title = `${w.name} · Workers · ScaffoldPro`;
   }
   function placeInk() {
     const on = document.querySelector('.wk-tabs button.on');
@@ -393,7 +374,7 @@
         <div class="wk-form">
           ${f('phone', 'Phone', w.phone, 'type="tel"')}
           ${f('email', 'Email', w.email, 'type="email"')}
-          <label class="wk-f span-2"><span>Notes</span><textarea data-w="notes" rows="3" placeholder="Anything worth remembering — sizes, languages, who referred them…">${esc(w.notes)}</textarea></label>
+          <label class="wk-f span-2"><span>Notes</span><textarea data-w="notes" rows="3" placeholder="Anything worth remembering: sizes, languages, who referred them…">${esc(w.notes)}</textarea></label>
         </div>
       </section>
     </div>
@@ -406,7 +387,7 @@
     const v = input.value.trim();
     const r = hkid(v);
     hint.className = `wk-hint ${!v ? '' : r.ok ? 'ok' : 'bad'}`;
-    hint.innerHTML = !v ? 'Printed on the agreement' : r.ok ? `${I.check} Valid Hong Kong ID` : 'Check it — the last digit doesn’t match';
+    hint.innerHTML = !v ? 'Printed on the agreement' : r.ok ? `${I.check} Valid Hong Kong ID` : 'Check it: the last digit doesn’t match';
   }
   async function saveWorker(changes, el) {
     const w = current();
@@ -450,7 +431,7 @@
         </ol>
 
         <section class="wk-box">
-          <h3>${I.doc} Terms <span class="wk-box-note">${locked ? 'Signed — changing a term takes the signature off' : 'Saved as you change them'}</span></h3>
+          <h3>${I.doc} Terms <span class="wk-box-note">${locked ? 'Signed. Changing a term takes the signature off' : 'Saved as you change them'}</span></h3>
           <div class="wk-form four">
             ${field('agreementDate', 'Agreement date', `<input type="date" data-a="agreementDate" value="${esc(a.agreementDate)}" />`)}
             ${field('startDate', 'Starts', `<input type="date" data-a="startDate" value="${esc(a.startDate)}" />`)}
@@ -461,7 +442,7 @@
             ${field('noticeDays', 'Notice (days)', `<input type="number" min="0" max="365" data-a="noticeDays" value="${esc(a.noticeDays)}" />`)}
             <label class="wk-f span-4"><span>Signed for the company by</span><select data-a="signatory" ${locked || !signers.length ? 'disabled' : ''}>${signers.length
               ? (chosen && !signers.includes(chosen) ? [chosen, ...signers] : signers).map((n) => `<option value="${esc(n)}" ${n === chosen ? 'selected' : ''}>${esc(person(n))}</option>`).join('')
-              : '<option>No one yet — tick “Worker agreements” for them on the Team page</option>'}</select></label>
+              : '<option>No one yet. Tick “Worker agreements” for them on the Team page</option>'}</select></label>
           </div>
           ${(page.missing || []).length ? `<div class="wk-missing">Still to fill in: ${page.missing.map(esc).join('; ')}.</div>` : ''}
         </section>
@@ -476,7 +457,7 @@
                   <span class="wk-row-actions"><button type="button" class="primary" data-act="sign" ${page.hasSignature ? '' : 'disabled'} data-no-icon>Sign &amp; Chop</button></span></div>`
               : `<div class="wk-row muted"><span class="wk-row-icon pen">${I.pen}</span><span class="wk-row-text">${signers.length ? `To be signed and chopped by ${esc(signers.map(person).join(' or '))}.` : 'No one signs worker agreements yet — tick “Worker agreements” for them on the Team page.'}</span></div>`}
           ${a.signedCopyPath
-            ? `<div class="wk-row ok"><span class="wk-row-icon">${I.check}</span><span class="wk-row-text">Signed by ${esc(w.name)} — copy added ${esc(day(a.signedCopyAt))}${page.signedCopyExists ? '' : ' — <span class="wk-warn">it isn’t in the folder any more</span>'}</span>
+            ? `<div class="wk-row ok"><span class="wk-row-icon">${I.check}</span><span class="wk-row-text">Signed by ${esc(w.name)}, copy added ${esc(day(a.signedCopyAt))}${page.signedCopyExists ? '' : ' — <span class="wk-warn">it isn’t in the folder any more</span>'}</span>
                 <span class="wk-row-actions">${page.signedCopyExists ? '<button type="button" data-act="open-copy" data-no-icon>Open</button><button type="button" data-act="reveal-copy" data-no-icon>Show in Finder</button>' : ''}<button type="button" data-act="upload" data-no-icon>Replace…</button></span></div>`
             : `<div class="wk-drop" data-drop="signed"><span class="wk-row-icon">${I.upload}</span><span class="wk-row-text"><b>The copy signed by ${esc(w.name.split(/[ ,]/)[0])}</b><small>Drop the scan or photo here — or</small></span><span class="wk-row-actions"><button type="button" data-act="upload" data-no-icon>Choose File…</button></span></div>`}
         </section>
@@ -527,7 +508,7 @@
   }
   async function viewSigned(path) {
     const r = await window.docPreview.pdf(() => api().signatures.previewSigned(path), {
-      title: `${page.number} — Signed & Chopped`,
+      title: `${page.number} · Signed & Chopped`,
       note: 'Saved in the worker’s Contracts folder. Print it for the worker to sign.',
       actions: [{ key: 'open', label: 'Open in Preview' }, { key: 'done', label: 'Done', primary: true }],
     });
@@ -538,7 +519,7 @@
     reader.onload = async () => {
       const r = await api().workerAgreements.saveSignedFile(page.agreement.id, file.name, String(reader.result).split(',')[1] || '');
       if (r && r.ok === false) { await window.appAlert(r.error); return; }
-      toast('Signed copy added — the agreement is complete');
+      toast('Signed copy added. The agreement is complete');
       await refreshAgreement();
     };
     reader.readAsDataURL(file);
@@ -570,7 +551,7 @@
         </div>
         <div class="wk-doc-tools">
           ${d.fileExists ? `<button type="button" data-doc-act="open" data-no-icon>Open</button><button type="button" data-doc-act="reveal" title="Show in Finder" data-no-icon>Finder</button>` : '<button type="button" data-doc-act="relink" data-no-icon>Find…</button>'}
-          <label class="wk-doc-exp" title="Expiry date (optional) — you’re reminded 30 days before">${I.cal}<input type="date" data-doc-exp value="${esc((d.expiryDate || '').slice(0, 10))}" /></label>
+          <label class="wk-doc-exp" title="Expiry date (optional). You’re reminded 30 days before">${I.cal}<input type="date" data-doc-exp value="${esc((d.expiryDate || '').slice(0, 10))}" /></label>
           <button type="button" class="wk-icon small" data-doc-act="archive" title="Archive" aria-label="Archive" data-no-icon>${I.archive}</button>
         </div>
       </article>`;
@@ -682,7 +663,7 @@
         if (tab !== 'agreement') setTab('agreement');
         const r = await api().workerAgreements.uploadSigned(a.id);
         if (r && r.ok === false) { await window.appAlert(r.error); return; }
-        if (r && r.ok) toast('Signed copy added — the agreement is complete');
+        if (r && r.ok) toast('Signed copy added. The agreement is complete');
         await refreshAgreement();
         break;
       }
@@ -717,8 +698,9 @@
     setTimeout(() => $('ns-name').focus(), 60);
   }
   function closeSheet() {
+    // Sheets close at once (HANDOFF §3).
     $('wk-sheet').classList.remove('open');
-    setTimeout(() => $('wk-sheet').classList.add('hidden'), 180);
+    $('wk-sheet').classList.add('hidden');
   }
   function sheetDraft() {
     const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -761,11 +743,13 @@
     await load(false);
     const card = document.querySelector(`.wk-card[data-id="${CSS.escape(r.worker.id)}"]`);
     if (card) { card.scrollIntoView({ block: 'nearest' }); card.classList.add('fresh'); }
-    toast(`${r.worker.workerNumber} added — the agreement is written`);
+    toast(`${r.worker.workerNumber} added. The agreement is written`);
   }
 
   // ---- wiring ----
   function wire() {
+    document.querySelector('.wk-search-ico').innerHTML = ic('search', 15);
+    document.querySelector('.wk-new-ico').innerHTML = ic('plus', 15);
     $('wk-new').addEventListener('click', openSheet);
     $('wk-search').addEventListener('input', (e) => { query = e.target.value; drawList(); });
     $('wk-search').addEventListener('keydown', (e) => {
