@@ -36,6 +36,8 @@ function expiryLabel(dateString) {
 
 async function refreshExpiring() {
   const items = await window.api.adminDocuments.expiring(30);
+  adminAttention = items.length;
+  adminFact();
   const container = document.getElementById('expiring-list');
   if (items.length === 0) {
     container.innerHTML = '<div class="empty-state"><h2>Nothing needs attention</h2><p>No documents are expired or expiring in the next 30 days.</p></div>';
@@ -143,7 +145,16 @@ function renderDocTable(container, docs, api, emptyTitle, emptyBody, refresh) {
 
 async function refreshAdminDocs() {
   adminDocs = await window.api.adminDocuments.list();
+  adminFact();
   applyAdminDocSearch();
+}
+
+// The header's fact line: "2 company documents · 4 need attention".
+let adminAttention = 0;
+function adminFact() {
+  const n = (adminDocs || []).length;
+  document.getElementById('admin-fact').textContent = [`${n} company document${n === 1 ? '' : 's'}`,
+    adminAttention ? `${adminAttention} need${adminAttention === 1 ? 's' : ''} attention` : ''].filter(Boolean).join(' · ');
 }
 
 function applyAdminDocSearch() {
@@ -165,19 +176,37 @@ async function init() {
     ADMIN_DOC_CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('');
 
 
-  document.getElementById('upload-admin-doc-btn').addEventListener('click', async () => {
+  // Upload…: the category and expiry in a small sheet, then the files.
+  async function upload() {
     const category = document.getElementById('admin-doc-category').value;
     const expiry = document.getElementById('admin-doc-expiry').value;
     let result = null;
     try {
       result = await window.api.adminDocuments.upload(category, expiry);
     } catch (e) {
-      alert(`Not every document could be added.\n\n${e.message}`);
+      await window.appAlert(`Not every document could be added.\n\n${e.message}`);
     }
     if (result) document.getElementById('admin-doc-expiry').value = '';
     await refreshAdminDocs();
     await refreshExpiring();
-  });
+  }
+  document.getElementById('upload-admin-doc-btn').addEventListener('click', upload);
+  window.adminUpload = () => {
+    const body = document.createElement('div');
+    body.className = 'upload-ask';
+    body.innerHTML = `<div class="field"><label for="ua-category">Category</label><select id="ua-category">${ADMIN_DOC_CATEGORIES.map((c) => `<option>${c}</option>`).join('')}</select></div>
+      <div class="field"><label for="ua-expiry">Expires (optional)</label><input type="date" id="ua-expiry" /></div>
+      <p class="small-note" style="grid-column: 1 / -1; margin: 0">You can choose several files at once. They all get this category and expiry.</p>`;
+    body.querySelector('#ua-category').value = document.getElementById('admin-doc-category').value;
+    window.appSheet({
+      title: 'Upload Documents', size: 'sm', body,
+      actions: [{ label: 'Cancel' }, { label: 'Choose Files…', primary: true, run: () => {
+        document.getElementById('admin-doc-category').value = body.querySelector('#ua-category').value;
+        document.getElementById('admin-doc-expiry').value = body.querySelector('#ua-expiry').value;
+        setTimeout(upload, 0);
+      } }],
+    });
+  };
   document.getElementById('admin-doc-search').addEventListener('input', applyAdminDocSearch);
 
   // Workers have their own page now: an old link to one goes there.

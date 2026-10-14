@@ -608,6 +608,8 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .nowrap { white-space: nowrap; }
 .error-text { color: var(--danger); font-size: 12px; margin-top: 6px; }
 .hidden { display: none !important; }
+/* The hidden attribute always hides, whatever display a class gives. */
+[hidden] { display: none !important; }
 .plain-list { margin: 4px 0 12px; padding-left: 18px; }
 .plain-list li { margin: 2px 0; }
 .related-title { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin: 18px 0 6px; }
@@ -2939,3 +2941,51 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
   -webkit-text-fill-color: currentColor !important; color: var(--text); }
 .cal-hero h1 .cal-year { -webkit-text-fill-color: var(--text-tertiary) !important; }
 .mx-cover h1 span { color: inherit; }
+
+/* ---------- Money tables and Accounting (accounts.html; table.money on Admin too) ---------- */
+table.money td.num, table.money th.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+table.money .nw { white-space: nowrap; }
+table.money tfoot td { font-weight: 600; border-top: 1px solid var(--border-strong); }
+table.money tr.clickable { cursor: pointer; }
+.neg { color: var(--danger); }
+.period-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.page-header .period-bar { margin-top: 6px; }
+.period-bar select { height: 28px; }
+.period-bar input[type="date"], .period-bar input[data-date] { width: 150px; }
+.stat-grid.six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stat-card.tone-good .value { color: var(--success); }
+.liability-summary { display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 13px; }
+.liability-summary b { font-variant-numeric: tabular-nums; }
+.liability-payments { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.liability-payments h3 { margin: 0 0 8px; font-size: 13px; }
+.liability-payments table { margin-bottom: 10px; }
+.payment-add { display: grid; grid-template-columns: 150px 120px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.payment-add input { min-width: 0; width: 100%; }
+.liability-balance { font-size: 13px; margin-bottom: 8px; }
+@media (max-width: 767px) {
+  .stat-grid.six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payment-add { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- Admin (admin.html, js/admin.js, js/employees.js) ---------- */
+.admin-section { margin-top: 28px; }
+.admin-section:first-of-type { margin-top: 16px; }
+tr.selected td { background: var(--row-selected); }
+.expiry-expired { color: var(--danger); font-weight: 600; }
+.expiry-soon { color: var(--warning); font-weight: 600; }
+.date-input { width: 130px; }
+tr.clickable { cursor: pointer; }
+.emp-estimate { font-size: 12px; color: var(--text-secondary); margin: 2px 0 10px; }
+.payroll-head { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
+.payroll-head .field { display: flex; flex-direction: column; gap: 4px; }
+.payroll-head label { font-size: 12px; color: var(--text-secondary); }
+#payroll-table input[type="number"] { width: 96px; text-align: right; }
+#payroll-table input.units { width: 60px; }
+#payroll-table td:nth-child(n+4) { white-space: nowrap; }
+#payroll-table .who { display: block; white-space: nowrap; }
+#employee-list td:last-child { white-space: nowrap; }
+.payroll-scroll { max-height: 52vh; overflow-y: auto; }
+.modal.payroll { width: 820px; max-width: calc(100vw - 40px); }
+.type-pill { font-size: 11px; }
+#payroll-table tr.muted td { opacity: 0.45; }
+.upload-ask { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

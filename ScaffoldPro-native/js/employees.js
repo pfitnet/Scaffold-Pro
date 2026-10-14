@@ -339,13 +339,14 @@
           e.startDate || '', e.endDate || '', e.isArchived ? 'Yes' : ''];
       }));
     const r = await window.api.accounts.saveCSV(`Employees ${ymd(new Date())}.xlsx`, rows.map(line).join('\r\n'), { adminFolder: 'Employees' });
-    if (r && !r.ok) alert(r.error);
+    if (r && !r.ok) await window.appAlert(r.error);
   }
 
   // ---------- Page ----------
 
   function showTab(name) {
     for (const b of document.querySelectorAll('#admin-tabs button')) b.classList.toggle('active', b.dataset.tab === name);
+    if (window.adminHeader) window.adminHeader(name);
     document.getElementById('admin-tab-workers').classList.toggle('hidden', name !== 'workers');
     document.getElementById('admin-tab-employees').classList.toggle('hidden', name !== 'employees');
     try { sessionStorage.setItem('admin.tab', name); } catch (e) { /* not kept */ }
@@ -362,6 +363,28 @@
       if (settings && settings.currency) currency = settings.currency === 'HKD' ? 'HK$' : settings.currency;
     } catch (e) { /* keep HK$ */ }
     for (const b of document.querySelectorAll('#admin-tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
+    // The header: one primary that follows the tab (Upload… or New Employee);
+    // ··· has Record Pay… and Export on Employees.
+    const primary = document.createElement('button');
+    primary.type = 'button';
+    primary.className = 'primary';
+    primary.dataset.noIcon = '';
+    primary.innerHTML = `${window.icon('plus', { size: 15 })}<span>Upload…</span>`;
+    let current = 'workers';
+    primary.addEventListener('click', () => (current === 'employees' ? openEmployee(null) : window.adminUpload && window.adminUpload()));
+    window.pageActions(document.getElementById('admin-head'), {
+      primary,
+      overflow: () => (current === 'employees' ? [
+        { label: 'Record Pay…', sub: 'A month’s salaries and MPF into Accounting › Expenses', run: openPayroll },
+        { label: 'Export to Excel…', sub: 'The employee list (.xlsx)', run: exportCSV },
+      ] : [{ label: 'Upload Documents…', run: () => window.adminUpload && window.adminUpload() }]),
+    });
+    window.adminHeader = (name) => {
+      current = name;
+      primary.innerHTML = `${window.icon(name === 'employees' ? 'plus' : 'upload', { size: 15 })}<span>${name === 'employees' ? 'New Employee' : 'Upload…'}</span>`;
+    };
+    window.searchField(document.getElementById('employee-search'));
+    window.searchField(document.getElementById('admin-doc-search'), { slash: false });
     document.getElementById('employee-search').addEventListener('input', render);
     document.getElementById('show-former-employees').addEventListener('change', render);
     document.getElementById('new-employee-btn').addEventListener('click', () => openEmployee(null));

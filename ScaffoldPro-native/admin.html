@@ -5,41 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Admin · ScaffoldPro</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    .admin-section { margin-top: 28px; }
-    .admin-section:first-of-type { margin-top: 16px; }
-    .section-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .section-toolbar h2 { margin: 0; }
-    .section-toolbar .controls { display: flex; gap: 8px; align-items: center; }
-    tr.selected td { background: var(--row-selected, rgba(47, 111, 237, 0.10)); }
-    .expiry-expired { color: var(--danger); font-weight: 600; }
-    .expiry-soon { color: #b26a00; font-weight: 600; }
-    .date-input { width: 130px; }
-    .small-note { font-size: 12px; color: var(--text-secondary); }
-    @media (prefers-color-scheme: dark) { .expiry-soon { color: #f0a53a; } }
-    table.money td.num, table.money th.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    table.money tfoot td { font-weight: 600; border-top: 2px solid var(--border); }
-    tr.clickable { cursor: pointer; }
-    .emp-estimate { font-size: 12px; color: var(--text-secondary); margin: 2px 0 10px; }
-    .payroll-head { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 12px; flex-wrap: wrap; }
-    .payroll-head .field { display: flex; flex-direction: column; gap: 4px; }
-    .payroll-head label { font-size: 12px; color: var(--text-secondary); }
-    #payroll-table input[type="number"] { width: 96px; text-align: right; }
-    #payroll-table input.units { width: 60px; }
-    #payroll-table td:nth-child(n+4) { white-space: nowrap; }
-    #payroll-table .who { display: block; white-space: nowrap; }
-    #employee-list td:last-child { white-space: nowrap; }
-    .payroll-scroll { max-height: 52vh; overflow-y: auto; }
-    .modal.payroll { width: 820px; max-width: calc(100vw - 40px); }
-    .type-pill { font-size: 11px; }
-    #payroll-table tr.muted td { opacity: 0.45; }
-  </style>
 </head>
 <body data-page="admin">
   <nav id="sidebar"></nav>
   <main id="content">
-    <h1>Admin</h1>
-    <div class="subtitle">Company paperwork with its expiry reminders, and the employees on the payroll. Site workers have their own page (Workers); company details and currency live in Settings.</div>
+    <header class="page-header" id="admin-head">
+      <div>
+        <h1>Admin</h1>
+        <div class="subtitle"><span id="admin-fact">Company paperwork and the payroll</span>
+          <span class="info-tip" tabindex="0" title="Company paperwork with its expiry reminders, and the employees on the payroll. Site workers have their own page (Workers); company details and currency are in Settings." aria-label="About this page"></span></div>
+      </div>
+    </header>
 
     <div class="tabs" id="admin-tabs">
       <button data-tab="workers" class="active">Company Documents</button>
@@ -57,12 +33,13 @@
     <section class="admin-section">
       <div class="section-toolbar">
         <h2>Company Documents</h2>
-        <div class="controls">
-          <select id="admin-doc-category"></select>
-          <input type="date" id="admin-doc-expiry" class="date-input" title="Expiry date (optional)" />
-          <button class="primary" id="upload-admin-doc-btn" title="You can choose several files at once">Upload Documents…</button>
-        </div>
       </div>
+      <!-- Upload… (the header's primary) asks these in a small sheet first. -->
+      <span class="hidden">
+        <select id="admin-doc-category" data-native></select>
+        <input type="date" id="admin-doc-expiry" />
+        <button id="upload-admin-doc-btn">Upload Documents…</button>
+      </span>
       <div class="toolbar"><input type="text" id="admin-doc-search" placeholder="Search company documents" /></div>
       <div id="admin-doc-list"></div>
     </section>
@@ -73,11 +50,13 @@
       <div class="stat-grid" id="employee-stats"></div>
       <div class="toolbar">
         <input type="text" id="employee-search" placeholder="Search employees" />
-        <label class="small-note"><input type="checkbox" id="show-former-employees" /> Show former employees</label>
-        <span class="toolbar-spacer"></span>
-        <button id="export-employees-btn" title="Save the list as an Excel workbook (.xlsx)">Export to Excel</button>
-        <button id="record-pay-btn" title="Put a month's salaries and employer MPF into Accounting › Expenses">Record Pay…</button>
-        <button class="primary" id="new-employee-btn">+ New Employee</button>
+        <label class="check-chip"><input type="checkbox" id="show-former-employees" />Former</label>
+        <!-- The header's primary and ··· press these. -->
+        <span class="hidden">
+          <button id="export-employees-btn">Export to Excel</button>
+          <button id="record-pay-btn">Record Pay…</button>
+          <button id="new-employee-btn">New Employee</button>
+        </span>
       </div>
       <div id="employee-list"></div>
     </div>

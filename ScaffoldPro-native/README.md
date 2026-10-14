@@ -5613,3 +5613,39 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium on Mac, narrow, iPad and phone, light and dark: the
   ··· and caret menus, the Archived chips, the New Worker sheet (open, Esc,
   the open-sheet guard). Not checked: WebKit on a Mac.
+
+## Batch 252 — Accounting and Admin: one header, one primary, fewer tabs (redesign R10a)
+
+- **Accounting:**
+  - the period choice is the header's fact line ("This year · 1 Jan 2026 –
+    31 Dec 2026"); the explanation is its tooltip;
+  - **five tabs:** Receivables · Payments · Expenses · Liabilities ·
+    Reports. Reports holds **By Project / By Month** as a switch, and
+    remembers the last one. Old links (`?tab=projects`, `?tab=monthly`,
+    `?tab=liabilities`) still land in the right place;
+  - one primary that follows the tab: **New Expense** on Expenses, **New
+    Liability** on Liabilities, none elsewhere. Export to Excel… is under ···;
+  - "Unpaid only" and "Paid off" are chips; dates read "2 Oct 2026" and
+    don't wrap, nor do invoice numbers;
+  - its inline styles moved into the shared stylesheet. `table.money` is
+    now one shared style, used by Admin too.
+- **Admin:**
+  - the header reads "2 company documents · 4 need attention", with the
+    explanation in an ⓘ tooltip;
+  - one primary that follows the tab: **Upload…** on Company Documents,
+    **New Employee** on Employees. ··· has Record Pay… and Export to Excel…
+    on Employees;
+  - **Upload…** opens a small sheet for the category and expiry, then the
+    file chooser. The category and date no longer sit in the heading bar.
+    (Choosing the files first would need the Mac side to change; not done
+    here.)
+  - "Former" is a chip; its 29-line inline style (with a second
+    `.small-note`) moved into the shared stylesheet.
+- **Everywhere:** the `hidden` attribute now always hides, even on a button
+  a class shows as `inline-flex`. Team's Announce button had the same
+  problem; it now only shows on Announcements.
+- Not done: a shared period picker for Accounting and Marketing; the
+  Accounting dropdown is kept as it is.
+- Checked in Chromium on Mac, narrow, iPad and phone, light and dark: each
+  tab's primary and ···, the Reports switch, the old links, the upload sheet
+  calling the upload. Not checked: WebKit on a Mac.
