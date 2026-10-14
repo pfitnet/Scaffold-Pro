@@ -107,7 +107,9 @@
   function tc(width, content, o = {}) {
     let pr = `<w:tcW w:w="${TW(width)}" w:type="dxa"/>`;
     if (o.span > 1) pr += `<w:gridSpan w:val="${o.span}"/>`;
-    if (o.borders) pr += `<w:tcBorders>${o.borders}</w:tcBorders>`;
+    // `open`: no rule above (top) and/or below (bottom), for rows that run on.
+    const open = o.open ? (o.open.top ? NO_BORDER('top') : '') + (o.open.bottom ? NO_BORDER('bottom') : '') : '';
+    if (o.borders || open) pr += `<w:tcBorders>${open}${o.borders || ''}</w:tcBorders>`;
     if (o.mar) {
       const m = o.mar;
       pr += `<w:tcMar><w:top w:w="${TW(m.top || 0)}" w:type="dxa"/><w:left w:w="${TW(m.left || 0)}" w:type="dxa"/>` +
@@ -174,12 +176,42 @@
     const n = cols.length;
     const sum = (from, to) => widths.slice(from, to).reduce((a, b) => a + b, 0);
     const rows = [];
-    rows.push(tr(cols.map((c, i) => tc(widths[i], para(run(c.title, { bold: true }), { line: CELL_LINE, align: 'center' }))),
-      { height: d.headerHeight || 24.1, header: true }));
-    for (const r of d.rows) {
+    const title = (t, w, o = {}) => tc(w, para(run(t, { bold: true }), { line: CELL_LINE, align: 'center' }), o);
+    const titles = () => cols.map((c, i) => title(c.title, widths[i]));
+    // An invoice's materials in one line: "No", "Item Description" across the
+    // middle columns, "Total Price" (repeated on later pages).
+    rows.push(tr(d.mergedHeader && n > 3
+      ? [title(cols[0].title, widths[0]), title(cols[1].title, sum(1, n - 1), { span: n - 2 }), title(cols[n - 1].title, widths[n - 1])]
+      : titles(), { height: d.headerHeight || 24.1, header: true }));
+    // Not ruled (an invoice): no rule between one row and the next, only
+    // around headings, subtotals and totals.
+    const BODY = ['item', 'partial', 'wide', 'note', 'lump'];
+    const isBody = (r) => !!r && BODY.includes(r.type);
+    d.rows.forEach((r, k) => {
+      const open = d.ruled === false && isBody(r) ? { top: isBody(d.rows[k - 1]), bottom: isBody(d.rows[k + 1]) } : null;
+      const cell = (w, content, o = {}) => tc(w, content, Object.assign({ open }, o));
       if (r.type === 'item') {
-        rows.push(tr(cols.map((c, i) => tc(widths[i], cellParagraph(r.cells[i] || [], c, widths[i], { currency: d.currencySymbol }))),
+        rows.push(tr(cols.map((c, i) => cell(widths[i], cellParagraph(r.cells[i] || [], c, widths[i], { currency: d.currencySymbol }))),
           { height: r.height }));
+      } else if (r.type === 'lump') {
+        // The number, then the bold underlined heading with the items numbered
+        // under it ("1.\tname"), then the amount — as on the PDF.
+        // The list as a small borderless table (number | name), not tab
+        // stops, which docx-preview doesn't lay out.
+        const lines = (r.cells[1] || []).map((l) => l.split('\t'));
+        const listW = [36 - CELL.left, 7, sum(1, n - 1) - 43 - CELL.right];
+        const list = lines.length ? para('', { line: 5.75 }) + tbl(listW, lines.map(([num, name]) => tr([
+          tc(listW[0], para(run(num || ''), { line: CELL_LINE, align: 'right' }), { vAlign: 'top' }),
+          tc(listW[1], para(''), { vAlign: 'top' }),
+          tc(listW[2], para(run(name || ''), { line: CELL_LINE }), { vAlign: 'top' }),
+        ]))) + para('', { line: 9 }) : '';
+        rows.push(tr([
+          cell(widths[0], para(run((r.cells[0] || [''])[0]), { line: CELL_LINE, align: 'center' })),
+          cell(sum(1, n - 1), para(run(r.label, { bold: true, underline: true }), { line: CELL_LINE, before: 4 }) + list, { span: n - 2, vAlign: 'top' }),
+          cell(widths[n - 1], cellParagraph([r.value], cols[n - 1], widths[n - 1], { currency: d.currencySymbol })),
+        ], { height: r.height }));
+      } else if (r.type === 'titles') {
+        rows.push(tr(titles(), { height: r.height }));
       } else if (r.type === 'section') {
         rows.push(tr([tc(sum(0, n), para(run(r.text, { bold: true, size: 12 }), { line: CELL_LINE, align: 'center' }), { span: n })],
           { height: r.height }));
@@ -192,18 +224,18 @@
       } else if (r.type === 'partial') {
         const count = Math.min(r.cells.length, n - 1);
         const cells = [];
-        for (let i = 0; i < count; i++) cells.push(tc(widths[i], cellParagraph(r.cells[i] || [], cols[i], widths[i], { currency: d.currencySymbol })));
-        cells.push(tc(sum(count, n), para(run(r.text), { line: CELL_LINE, align: 'center' }), { span: n - count }));
+        for (let i = 0; i < count; i++) cells.push(cell(widths[i], cellParagraph(r.cells[i] || [], cols[i], widths[i], { currency: d.currencySymbol })));
+        cells.push(cell(sum(count, n), para(run(r.text), { line: CELL_LINE, align: 'center' }), { span: n - count }));
         rows.push(tr(cells, { height: r.height }));
       } else if (r.type === 'wide') {
         // A row number, then text across every other column (a buy-back offer's BO1).
-        rows.push(tr([tc(widths[0], para(run((r.cells[0] || [''])[0]), { line: CELL_LINE, align: 'center' })),
-          tc(sum(1, n), para(run(r.text), { line: CELL_LINE, align: 'left' }), { span: n - 1 })], { height: r.height }));
+        rows.push(tr([cell(widths[0], para(run((r.cells[0] || [''])[0]), { line: CELL_LINE, align: 'center' })),
+          cell(sum(1, n), para(run(r.text), { line: CELL_LINE, align: 'left' }), { span: n - 1 })], { height: r.height }));
       } else if (r.type === 'note') {
-        rows.push(tr([tc(sum(0, n), para(run(r.text, { italic: true, size: 9.5, color: DARK_GREY }), { line: 13 }),
+        rows.push(tr([cell(sum(0, n), para(run(r.text, { italic: true, size: 9.5, color: DARK_GREY }), { line: 13 }),
           { span: n, mar: { left: 6, right: 6 } })], { height: r.height }));
       }
-    }
+    });
     // The PDF's table starts 0.75pt left of the text.
     return tbl(widths, rows, { borders: true, indent: -0.75, cellMar: CELL });
   }
@@ -220,13 +252,21 @@
       .concat(d.clientLines.map((l) => para(run(l, /^attn/i.test(l) ? { size: 12, bold: true, underline: true } : { size: 12 }), { line: pitch })));
     // The colons move left when a long number (Qt26210-004-s1) needs the room.
     const colonAt = d.refColon || 478.5;
-    const right = d.refRows.map((r) => {
-      const colon = colonAt - 401.25;
-      if (r.wraps) {
-        return para(run(`${r.label}\t:\t${r.value}`), { line: pitch, tabs: [{ pos: colon }], indLeft: colonAt + 6 - 401.25, hanging: colonAt + 6 - 401.25 });
-      }
-      return para(run(`${r.label}\t:\t${r.value}`), { line: pitch, tabs: [{ pos: colon }, { val: 'right', pos: 550.5 - 401.25 }] });
-    });
+    // A small borderless table (label | : | value), not tab stops: Word's
+    // previewers (docx-preview) don't all honour tab stops, and broke it.
+    // The value ends at 550.5pt, or (too long for one line) runs on under
+    // itself, left-aligned.
+    const right = [];
+    if (d.refRows.length) {
+      const labelW = colonAt - 401.25;
+      const colonW = 6;
+      const valueW = 550.5 - colonAt - colonW;
+      right.push(tbl([labelW, colonW, valueW], d.refRows.map((r) => tr([
+        tc(labelW, para(run(r.label), { line: pitch }), { vAlign: 'top' }),
+        tc(colonW, para(run(':'), { line: pitch }), { vAlign: 'top' }),
+        tc(valueW, para(run(r.value), { line: pitch, align: r.wraps ? 'left' : 'right' }), { vAlign: 'top' }),
+      ]))), para('', { line: 1 }));
+    }
     // "BY EMAIL ONLY" goes under the references (beside the client's last
     // line when the address is longer), the title under both.
     const clientCount = String(d.clientName).split('\n').length + d.clientLines.length;

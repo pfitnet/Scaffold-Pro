@@ -866,49 +866,89 @@ extension NativeBridge {
         }
         let ownLines = detail.lineItems.filter { $0.chargeGroup == nil }
         let priced = rowsFor(ownLines.filter { $0.materialGroup == nil })
-        var rows = priced.materials
+        var rows: [LetterTableRow] = []
         // Deliveries for other quotations on the same invoice: a section each,
         // the invoice's own quotation first under its number.
         var materialGroups: [String] = []
         for line in ownLines { if let g = line.materialGroup, !materialGroups.contains(g) { materialGroups.append(g) } }
-        if !materialGroups.isEmpty {
-            if !rows.isEmpty, let q = quotation {
-                rows.insert(.section(q.quotationNumber + (nonBlank(q.subject).map { " — \($0)" } ?? "")), at: 0)
-            }
-            for group in materialGroups {
-                rows.append(.section(group))
-                rows += rowsFor(ownLines.filter { $0.materialGroup == group && $0.section != "Delivery" }).materials
-            }
-        }
-        if isRental && !priced.materials.isEmpty {
-            // As on the quotation: the monthly charge, then the months charged.
+        let ownTitle = quotation.map { $0.quotationNumber + (nonBlank($0.subject).map { " — \($0)" } ?? "") }
+        // A scaffolding job's materials in one line (one per quotation billed):
+        // "Sale of Scaffolding Materials" or "Provision of Scaffolding Material
+        // for 2 Months", the items numbered under it, and the amount. A crane
+        // job's equipment is listed item by item.
+        let crane = normalJobType(db.getProjectByNumber(detail.projectNumber)?.jobType) == "Crane"
+        var lumped = false
+        if !crane {
+            let months = isRental ? max(1, detail.rentalMonths) : 1
             let period = nonBlank(detail.rentalPeriod).map { " (\($0))" } ?? ""
-            if detail.rentalMonths > 1 {
-                rows.append(.summary(label: "Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
-                rows.append(.summary(label: "Rental for \(detail.rentalMonths) Months\(period):", value: formatMoney(detail.materialsCharge), emphasized: false))
-            } else {
-                rows.append(.summary(label: "Monthly Rental Charge\(period):", value: formatMoney(detail.materialsCharge), emphasized: false))
+            let heading = isRental ? "Provision of Scaffolding Material for \(months) Month\(months == 1 ? "" : "s")\(period)" : "Sale of Scaffolding Materials"
+            var parts: [(title: String?, lines: [InvoiceLineItem])] = [(title: ownTitle, lines: ownLines.filter { $0.materialGroup == nil && $0.section != "Delivery" })]
+            for g in materialGroups { parts.append((title: g, lines: ownLines.filter { $0.materialGroup == g && $0.section != "Delivery" })) }
+            parts = parts.filter { !$0.lines.isEmpty }
+            for (i, part) in parts.enumerated() {
+                // (The minimum monthly charge's adjustment is in the amount, not listed.)
+                let items = part.lines.filter { !$0.itemDescription.hasPrefix("Minimum monthly rental charge adjustment") }
+                    .map { plainMarkup($0.itemDescription).components(separatedBy: "\n").first ?? "" }
+                var net = Decimal(0)
+                for l in part.lines { net += netLineAmount(quantity: l.quantity, unitPrice: l.appliedUnitPrice, discountType: l.discountType, discountValue: l.discountValue) }
+                let amount = parts.count == 1 ? detail.materialsCharge : doubleOf(roundToCents(net * Decimal(months)))
+                var title = heading
+                if parts.count > 1, let t = part.title { title = "\(heading) — \(t)" }
+                // A long list goes on in rows of 30 (a row can't be split across pages).
+                let chunks = stride(from: 0, to: max(items.count, 1), by: 30).map { Array(items[$0..<min($0 + 30, items.count)]) }
+                for (c, chunk) in chunks.enumerated() {
+                    rows.append(c == 0 ? .lump(number: String(format: "%03d", i + 1), heading: title, items: chunk, value: formatMoney(amount))
+                                       : .lump(number: "", heading: "\(title) (continued)", items: chunk, value: ""))
+                }
+            }
+            lumped = !parts.isEmpty
+        } else {
+            rows = priced.materials
+            if !materialGroups.isEmpty {
+                if !rows.isEmpty, let title = ownTitle { rows.insert(.section(title), at: 0) }
+                for group in materialGroups {
+                    rows.append(.section(group))
+                    rows += rowsFor(ownLines.filter { $0.materialGroup == group && $0.section != "Delivery" }).materials
+                }
+            }
+            if isRental && !priced.materials.isEmpty {
+                // As on the quotation: the monthly charge, then the months charged.
+                let period = nonBlank(detail.rentalPeriod).map { " (\($0))" } ?? ""
+                if detail.rentalMonths > 1 {
+                    rows.append(.summary(label: "Monthly Rental Charge:", value: formatMoney(detail.materialsSubtotal), emphasized: false))
+                    rows.append(.summary(label: "Rental for \(detail.rentalMonths) Months\(period):", value: formatMoney(detail.materialsCharge), emphasized: false))
+                } else {
+                    rows.append(.summary(label: "Monthly Rental Charge\(period):", value: formatMoney(detail.materialsCharge), emphasized: false))
+                }
             }
         }
+        // Delivery and the other charges after the materials, as before;
+        // after a lump row they have the column titles again.
+        var extra: [LetterTableRow] = []
         if !priced.delivery.isEmpty {
-            rows.append(.section("Delivery Charges"))
-            rows += priced.delivery
+            extra.append(.section("Delivery Charges"))
+            extra += priced.delivery
         }
         // One-off charges from the quotation's priced sections, under their titles.
         let charges = detail.lineItems.filter { $0.chargeGroup != nil }
         var groups: [String] = []
         for line in charges { if let g = line.chargeGroup, !groups.contains(g) { groups.append(g) } }
         for group in groups {
-            rows.append(.section(group))
+            extra.append(.section(group))
             for (n, line) in charges.filter({ $0.chargeGroup == group }).enumerated() {
                 let note = lineDiscountNote(discountType: line.discountType, discountValue: line.discountValue, currencySymbol: currencySymbol(company))
                 let description = note.map { "\(line.itemDescription)\n\($0)" } ?? line.itemDescription
                 let unit = line.unit.trimmingCharacters(in: .whitespaces)
                 let total = netLineAmount(quantity: line.quantity, unitPrice: line.appliedUnitPrice, discountType: line.discountType, discountValue: line.discountValue)
-                rows.append(.item(["\(line.chargePrefix ?? "")\(n + 1)", description, "\(formatMoney(line.appliedUnitPrice))\(unit.isEmpty ? "" : " /\(unit)")",
+                extra.append(.item(["\(line.chargePrefix ?? "")\(n + 1)", description, "\(formatMoney(line.appliedUnitPrice))\(unit.isEmpty ? "" : " /\(unit)")",
                                    formatQuantity(line.quantity), formatMoney(doubleOf(total))]))
             }
         }
+        if lumped && !extra.isEmpty {
+            rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.materialsCharge), emphasized: false))
+            extra.insert(.columnTitles, at: 1)
+        }
+        rows += extra
         // A subtotal only when something is taken off or added on.
         if detail.discountAmount > 0 || detail.taxAmount > 0 {
             rows.append(.summary(label: "Subtotal:", value: formatMoney(detail.subtotal), emphasized: false))
@@ -944,9 +984,11 @@ extension NativeBridge {
             number: detail.invoiceNumber, status: detail.status, title: "INVOICE",
             clientName: client.name, clientLines: client.lines, refRows: refRows,
             deliveryMethod: nil, salutation: nil,
-            subject: "Re: \(nonBlank(quotation?.subject) ?? "\(detail.projectNumber) \(detail.projectName)")", intro: nil,
+            subject: "Re: \(nonBlank(quotation?.subject) ?? "\(detail.projectNumber) \(detail.projectName)")",
+            intro: "Thank you for choosing our services and we appreciate your prompt payment with amounts detailed below",
             currencySymbol: currencySymbol(company), columns: pricedColumns, rows: rows,
-            sections: sections, signatures: [companySignature(company)], closingLine: nil
+            sections: sections, signatures: [companySignature(company)], closingLine: nil,
+            mergedHeader: lumped, ruled: false
         )
     }
 
