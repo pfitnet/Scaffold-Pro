@@ -166,9 +166,14 @@ final class PDFGenerator {
     }
 
     /// The letterhead and footer (without the page number, which Word adds
-    /// as a field) as a transparent, page-sized PNG at 300 dpi.
-    static func letterheadPNG(paperSize: String, dpi: CGFloat = 300) -> Data? {
+    /// as a field) as a transparent, page-sized PNG at 300 dpi. With `mark`
+    /// ("DRAFT"), the word across the page as on the PDF (PDFWatermark):
+    /// the picture sits behind the text on every page, so it's a watermark.
+    static func letterheadPNG(paperSize: String, dpi: CGFloat = 300, mark: String? = nil) -> Data? {
         guard let generator = PDFGenerator(bitmapPaperSize: paperSize, scale: dpi / 72.0) else { return nil }
+        if let mark = mark {
+            PDFWatermark.draw(mark, in: CGRect(x: 0, y: 0, width: generator.pageWidth, height: generator.pageHeight), on: generator.context)
+        }
         generator.showPageNumber = false
         generator.drawLetterhead()
         generator.drawFooter()
@@ -336,13 +341,13 @@ final class PDFGenerator {
     }
 
     /// Where the references' colons go (before `dx`): at 478.5pt as on the
-    /// template, the value right-aligned to 550.5pt after it. A value that
-    /// can't be broken (a number such as Qt26210-004-s1) and is wider than
-    /// that space moves the colons left — no further than just after the
-    /// longest label — so it stays on one line.
+    /// template, the value right-aligned to 550.5pt after it. A value wider
+    /// than that space (a number such as Qt26210-004-s1, or a site such as
+    /// "Kingdom of Saudi Arabia") moves the colons left — no further than
+    /// just after the longest label — so it stays on one line if it can.
     func refColon(_ rows: [(label: String, value: String)], _ font: NSFont) -> CGFloat {
         let measure = { (s: String) -> CGFloat in NSAttributedString(string: s, attributes: [.font: font]).size().width }
-        let widest = rows.filter { !$0.value.contains(" ") && !$0.value.contains("\n") }.map { measure($0.value) }.max() ?? 0
+        let widest = rows.flatMap { $0.value.components(separatedBy: "\n") }.map { measure($0.trimmingCharacters(in: .whitespaces)) }.max() ?? 0
         guard widest > 66 else { return 478.5 }
         let labels = rows.map { measure($0.label) }.max() ?? 0
         return max(401.25 + labels + 6, 550.5 - 6 - widest)
@@ -1323,7 +1328,12 @@ final class PDFGenerator {
             number: doc.number, status: doc.status, title: doc.title,
             clientName: clientBlockLines(doc).filter { $0.bold }.map { $0.text }.joined(separator: "\n"),
             clientLines: clientBlockLines(doc).filter { !$0.bold }.map { $0.text },
-            refRows: doc.refRows.map { WordRefRow(label: $0.label, value: $0.value, wraps: wrap($0.value, font, 550.5 - refColon(doc.refRows, font) - 6).count > 1) },
+            // A value that still runs on: broken where the PDF breaks it (Word
+            // and its previewers would break it elsewhere).
+            refRows: doc.refRows.map { row in
+                let lines = wrap(row.value, font, 550.5 - refColon(doc.refRows, font) - 6)
+                return WordRefRow(label: row.label, value: lines.count > 1 ? lines.joined(separator: "\n") : row.value, wraps: lines.count > 1)
+            },
             refColon: Double(refColon(doc.refRows, font)),
             deliveryMethod: nonBlank(doc.deliveryMethod), salutation: nonBlank(doc.salutation), subject: nonBlank(doc.subject),
             intro: nonBlank(doc.intro), currencySymbol: doc.currencySymbol,

@@ -266,7 +266,7 @@ extension NativeBridge {
             return
         }
         let paper = db.getCompanySettings().paperSize ?? "A4"
-        guard let generator = PDFGenerator(paperSize: paper), let png = PDFGenerator.letterheadPNG(paperSize: paper) else {
+        guard let generator = PDFGenerator(paperSize: paper), let png = PDFGenerator.letterheadPNG(paperSize: paper, mark: letter.status == "Draft" ? "DRAFT" : letter.status == "Cancelled" ? "CANCELLED" : nil) else {
             respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letterhead for the Word document.", path: nil))
             return
         }

@@ -513,7 +513,10 @@ extension NativeBridge {
             // The page reads this, builds the .docx (js/docx-export.js) and
             // hands it back to "files:saveWord".
             var layout = generator.wordLayout(letter)
-            guard let png = PDFGenerator.letterheadPNG(paperSize: paper) else {
+            // A draft (or cancelled) one: the word across each page, as on the PDF.
+            let status = db.documentStatus(docTypeTag: docTypeTag, number: documentNumber)
+            let mark = status == "Draft" ? "DRAFT" : status == "Cancelled" ? "CANCELLED" : nil
+            guard let png = PDFGenerator.letterheadPNG(paperSize: paper, mark: mark) else {
                 respond(id: id, encodable: PDFExportResult(ok: false, error: "Could not prepare the letterhead for the Word document.", path: nil))
                 return
             }

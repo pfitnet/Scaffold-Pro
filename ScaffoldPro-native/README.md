@@ -5282,3 +5282,23 @@ Increase Contrast. No Swift changed.
 - Checked: the Columns sheet and the editor's table in a browser (light and
   dark): adding, removing, the limit, saving, typing a value. Swift parsed
   with tree-sitter, not compiled. PDFs and Word copies not seen.
+
+## Batch 239 — Word copies: a real DRAFT watermark; the preview's last wobbles
+
+- A draft's Word copy now has "DRAFT" across each page, light and
+  diagonal, behind the text, as on the PDF (a cancelled one says
+  CANCELLED). It's drawn into the page picture that holds the
+  letterhead, so Word, Pages and the in-app preview all show it. The grey
+  "DRAFT" beside the title is gone.
+- Amounts in the Word copy's table reach the right edge of their cells in
+  the preview too (the currency at the left, the figure at the right).
+  They now sit in a small borderless pair of cells instead of on tab
+  stops, which the previewer placed a little short. Weights ("kg") too.
+- References: a long value such as "Kingdom of Saudi Arabia" moves the
+  colons left (no further than the labels allow), as long numbers already
+  did, so it stays on one line where it can, on the PDF and in Word. One
+  that still has to run on breaks at the same place in Word as on the PDF.
+- Checked: Word copies built from a crane quotation, rendered with the
+  in-app previewer (docx-preview) and LibreOffice, with a stand-in
+  watermark picture. Swift parsed with tree-sitter, not compiled; the real
+  watermark picture and PDFs not seen.
