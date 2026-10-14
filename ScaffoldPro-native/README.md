@@ -5302,3 +5302,17 @@ Increase Contrast. No Swift changed.
   in-app previewer (docx-preview) and LibreOffice, with a stand-in
   watermark picture. Swift parsed with tree-sitter, not compiled; the real
   watermark picture and PDFs not seen.
+
+## Batch 240 — The sidebar folds to icons
+
+- The sidebar now shows only its icons, in a slim rail, giving the page
+  more room. Rest the pointer on it (about half a second; passing over it
+  doesn't count) and it opens out over the page with the names. It folds
+  back when the pointer leaves. The icons stay where they are; the names
+  fade in beside them. Tabbing into it with the keyboard opens it too.
+- Every icon still says what it is on hovering. The chat's unread count
+  shows as a dot while folded.
+- Settings › You › "Fold the sidebar to icons" turns it off (or on again)
+  on this Mac, straight away. It's on to start with.
+- Checked: in a browser (light and dark): folded, opening only after
+  resting, folding on leaving, the page not moving, and the switch.

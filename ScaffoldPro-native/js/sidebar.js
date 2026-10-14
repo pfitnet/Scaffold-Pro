@@ -191,6 +191,38 @@ function setupNavEditing(sidebar) {
   });
 }
 
+// The sidebar as a rail of icons (Settings › You › Sidebar, on by
+// default): it opens out over the page when the pointer rests on it, and
+// folds back when it leaves. Kept on this Mac.
+const RAIL_KEY = 'sidebar.rail';
+window.sidebarRail = {
+  on() { try { return localStorage.getItem(RAIL_KEY) !== 'off'; } catch (e) { return true; } },
+  set(on) {
+    try { localStorage.setItem(RAIL_KEY, on ? 'on' : 'off'); } catch (e) { /* not kept */ }
+    document.documentElement.classList.toggle('sidebar-rail', !!on);
+    if (window.placeNavInk) window.placeNavInk();
+  },
+};
+// Set before the page is first drawn, so it never shows wide and then folds.
+document.documentElement.classList.toggle('sidebar-rail', window.sidebarRail.on());
+
+function setupRail(sidebar) {
+  const OPEN_AFTER = 550; // a resting pointer, not one passing by
+  const CLOSE_AFTER = 300;
+  let timer = null;
+  const rail = () => document.documentElement.classList.contains('sidebar-rail');
+  const open = () => { if (rail()) sidebar.classList.add('expanded'); };
+  const close = () => { if (!sidebar.classList.contains('nav-editing')) sidebar.classList.remove('expanded'); };
+  sidebar.addEventListener('mouseenter', () => {
+    clearTimeout(timer);
+    if (rail() && !sidebar.classList.contains('expanded')) timer = setTimeout(open, OPEN_AFTER);
+  });
+  sidebar.addEventListener('mouseleave', () => { clearTimeout(timer); timer = setTimeout(close, CLOSE_AFTER); });
+  // Tabbing into it opens it at once; tabbing out folds it.
+  sidebar.addEventListener('focusin', (e) => { if (e.target.matches(':focus-visible')) { clearTimeout(timer); open(); } });
+  sidebar.addEventListener('focusout', (e) => { if (!sidebar.contains(e.relatedTarget) && !sidebar.matches(':hover')) close(); });
+}
+
 function renderSidebar(activePage) {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
@@ -233,6 +265,7 @@ function renderSidebar(activePage) {
   }
   if (window.refreshChatBadge) window.refreshChatBadge();
   setupNavEditing(sidebar);
+  setupRail(sidebar);
   // Pinned to the bottom left: the sharing status, then you — one button
   // (your name, with the gear) that opens Settings at You.
   const foot = document.createElement('div');

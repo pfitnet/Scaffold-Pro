@@ -612,12 +612,16 @@ async function init() {
     setSettingsDirty(true);
   });
   // Typing in the form (not the sharing or backup controls further down).
-  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access, #google-sheets, #ai-import')) setSettingsDirty(true); };
+  const markDirty = (e) => { if (!e.target.closest('#team-box, #cloud-backup, .backup-actions, #updates, #web-access, #google-sheets, #ai-import, #sidebar-rail')) setSettingsDirty(true); };
   document.getElementById('content').addEventListener('input', markDirty);
   document.getElementById('content').addEventListener('change', markDirty);
   for (const f of NUMBER_FIELDS) {
     document.getElementById(`${f}-input`).addEventListener('input', () => updateNumberExample(f));
   }
+  // The sidebar folded to icons: on this Mac, at once.
+  const railSwitch = document.getElementById('sidebar-rail');
+  railSwitch.checked = window.sidebarRail.on();
+  railSwitch.addEventListener('change', () => window.sidebarRail.set(railSwitch.checked));
   // Appearance applies immediately — no need to press Save.
   for (const b of document.querySelectorAll('#appearance-control button')) {
     b.addEventListener('click', async () => {
