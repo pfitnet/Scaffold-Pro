@@ -1,0 +1,22 @@
+/* BOQ editor (boq-editor.html): its own rules, moved from the page (redesign R12). */
+.boq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.qty-input, .price-input { width: 70px; padding: 3px 6px; }
+.ref-price { font-size: 11px; color: var(--text-secondary); display: block; }
+.override { color: var(--accent-text); font-weight: 600; }
+.section-header td { background: #f0f2f6; font-weight: 600; font-size: 12px; color: var(--text-secondary); }
+.grand-total { font-size: 20px; font-weight: 700; text-align: right; margin-top: 12px; }
+.boq-rates { margin-top: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.boq-rates h3 { margin: 0 0 6px; font-size: 14px; }
+.boq-rates table input { width: 100%; box-sizing: border-box; padding: 3px 6px; }
+.boq-rates .narrow { width: 70px; }
+.boq-rates .actions-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.boq-rates textarea { width: 100%; box-sizing: border-box; margin-top: 8px; }
+.sheet-extras { margin-top: 16px; padding: 14px 16px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
+.sheet-extras-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+.sheet-extras-head label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.sheet-extras textarea { width: 100%; }
+.sheet-extras .inline-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--content); line-height: 1.4; }
+.sheet-extras .inline-check input { margin-top: 1px; }
+.linked-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); font-size: 12px; color: var(--text-secondary); }
+.linked-bar .linked-doc { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; }
