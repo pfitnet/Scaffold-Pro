@@ -69,12 +69,7 @@ function setPanelCount(widget, n) {
   chip.classList.toggle('hidden', !n);
 }
 
-const STAT_ICONS = {
-  projects: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>',
-  unpaid: '<path d="M5 2.5h10v15l-2-1.3-1.7 1.3-1.3-1.3-1.3 1.3L7 16.2l-2 1.3z"/><path d="M8 7h4M8 10h4M8 13h2.5"/>',
-  overdue: '<circle cx="10" cy="10" r="7"/><path d="M10 6v4.3l2.8 1.7"/>',
-  quotes: '<path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="m7.5 12 1.8 1.8 3.4-3.6"/>',
-};
+const STAT_ICONS = { projects: 'projects', unpaid: 'receipt', overdue: 'clock', quotes: 'file-text' };
 
 // A number tile: icon, the figure (counting up), its label, an optional meter;
 // the whole tile goes where its figure comes from.
@@ -82,7 +77,7 @@ function statCard(opts) {
   const el = document.createElement(opts.go ? 'button' : 'div');
   el.className = `stat-card${opts.tone ? ` tone-${opts.tone}` : ''}${opts.go ? ' stat-link' : ''}`;
   if (opts.go) { el.type = 'button'; el.dataset.noIcon = ''; el.title = opts.title || ''; el.addEventListener('click', opts.go); }
-  el.innerHTML = `<div class="stat-top"><span class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STAT_ICONS[opts.icon] || ''}</svg></span>
+  el.innerHTML = `<div class="stat-top"><span class="stat-icon">${window.icon(STAT_ICONS[opts.icon] || 'chart', { size: 16 })}</span>
       ${opts.go ? '<span class="stat-go" aria-hidden="true"><svg viewBox="0 0 12 12" width="11" height="11"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' : ''}</div>
     <div class="value"></div><div class="label">${opts.label}</div>${opts.meter ? `<div class="stat-meter" title="${esc(opts.meter.title)}"><span style="--to:${Math.max(0, Math.min(1, opts.meter.value))}"></span></div><div class="stat-meter-label">${esc(opts.meter.label)}</div>` : ''}`;
   const value = el.querySelector('.value');

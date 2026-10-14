@@ -6,32 +6,10 @@
 //   • click-to-sort table columns (section 51)
 //   • a small right-click menu helper — window.showContextMenu(event, items)
 
-const ICONS = {
-  dashboard: '<rect x="3" y="3" width="6" height="6" rx="1.2"/><rect x="11" y="3" width="6" height="6" rx="1.2"/><rect x="3" y="11" width="6" height="6" rx="1.2"/><rect x="11" y="11" width="6" height="6" rx="1.2"/>',
-  'price-lists': '<path d="M10.6 3H16a1 1 0 0 1 1 1v5.4a1 1 0 0 1-.3.7l-6.9 6.9a1 1 0 0 1-1.4 0L3 11.6a1 1 0 0 1 0-1.4l6.9-6.9a1 1 0 0 1 .7-.3z"/><circle cx="13.5" cy="6.5" r="1.2"/>',
-  sites: '<path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0 1 11 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/>',
-  clients: '<rect x="4" y="3" width="12" height="14" rx="1.2"/><path d="M7 6.5h2M11 6.5h2M7 9.5h2M11 9.5h2M8.5 17v-3h3v3"/>',
-  projects: '<path d="M2.5 5.5a1 1 0 0 1 1-1h4l1.5 1.8h7.5a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z"/>',
-  stock: '<path d="M3 7.5 10 4l7 3.5v5L10 16l-7-3.5z"/><path d="M3 7.5 10 11l7-3.5M10 11v5"/>',
-  accounts: '<rect x="4" y="2.5" width="12" height="15" rx="1.5"/><rect x="6.5" y="5" width="7" height="3" rx=".5"/><path d="M7 11h.01M10 11h.01M13 11h.01M7 14h.01M10 14h.01M13 14h.01"/>',
-  admin: '<circle cx="7.5" cy="7" r="2.6"/><path d="M2.8 16c.4-2.8 2.3-4.3 4.7-4.3s4.3 1.5 4.7 4.3"/><circle cx="14" cy="8" r="2"/><path d="M13 11.9c2.2-.2 3.8 1 4.2 3.6"/>',
-  // A hard hat: the people on site.
-  workers: '<path d="M3 14.5h14"/><path d="M4.5 14.5V12a5.5 5.5 0 0 1 11 0v2.5"/><path d="M8.5 7V5.2a1.5 1.5 0 0 1 3 0V7"/><path d="M3.5 14.5v1.5h13v-1.5"/>',
-  calendar: '<rect x="3" y="4.5" width="14" height="12.5" rx="1.5"/><path d="M3 8.5h14M7 3v3M13 3v3"/>',
-  tasks: '<rect x="3.5" y="3.5" width="13" height="13" rx="2"/><path d="m6.8 10.2 2.2 2.2 4.3-4.6"/>',
-  marketing: '<path d="M3.5 8.5v3a1 1 0 0 0 1 1H6l5 3.5v-12L6 7.5H4.5a1 1 0 0 0-1 1z"/><path d="M14 7.5a3.5 3.5 0 0 1 0 5M6.5 12.5l1 4"/>',
-  letters: '<rect x="2.5" y="4.5" width="15" height="11" rx="1.3"/><path d="m3 5.5 7 5.2 7-5.2"/>',
-  manual: '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v12.5H5.5A1.5 1.5 0 0 0 4 17z"/><path d="M4 17a1.5 1.5 0 0 1 1.5-1.5H16V17H5.5"/><path d="M8 7h5M8 10h3.5"/>',
-  settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4"/>',
-  search: '<circle cx="8.8" cy="8.8" r="5"/><path d="M12.6 12.6 16.5 16.5"/>',
-  chat: '<path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3h0a2 2 0 0 1-2-2z"/><path d="M7 8.5h6M7 11h3.5"/>',
-  team: '<circle cx="7" cy="7.5" r="2.5"/><circle cx="13.5" cy="7.5" r="2.5"/><path d="M2.5 16c.4-2.6 2.2-4 4.5-4s4.1 1.4 4.5 4M10.5 12.7c.8-.5 1.8-.7 3-.7 2.3 0 4.1 1.4 4.5 4"/>',
-  assistant: '<path d="M10 2.8 11.5 7.5 16.2 9 11.5 10.5 10 15.2 8.5 10.5 3.8 9 8.5 7.5z"/><path d="M15.4 13.6l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z"/>',
-  user: '<circle cx="10" cy="7" r="3"/><path d="M4 17c.5-3.3 2.9-5 6-5s5.5 1.7 6 5"/>',
-};
-
-function icon(name) {
-  return `<svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+// Icons come from the one set in js/icons.js (window.icon). The sidebar is
+// drawn at DOMContentLoaded, after every script on the page has loaded.
+function navIcon(name, size) {
+  return window.icon ? window.icon(name, { size: size || 18, cls: 'nav-icon' }) : '';
 }
 
 // Leaving a page that has unsaved work (Settings): the page sets
@@ -236,7 +214,7 @@ function renderSidebar(activePage) {
   const search = document.createElement('button');
   search.className = 'sidebar-search';
   search.type = 'button';
-  search.innerHTML = `${icon('search')}<span>Search</span><kbd>⌘K</kbd>`;
+  search.innerHTML = `${navIcon('search', 16)}<span>Search</span><kbd>⌘K</kbd>`;
   search.addEventListener('click', () => window.openGlobalSearch());
   sidebar.appendChild(search);
 
@@ -255,7 +233,7 @@ function renderSidebar(activePage) {
     link.dataset.nav = navKey(item);
     link.href = item.href;
     link.title = item.key ? `${item.label} (⌘${item.key})` : item.label;
-    link.innerHTML = `${icon(item.page)}<span>${item.label}</span>`;
+    link.innerHTML = `${navIcon(item.page)}<span>${item.label}</span>`;
     if (item.page === activePage || (activePage === 'project-detail' && item.page === 'projects')) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
@@ -278,7 +256,7 @@ function renderSidebar(activePage) {
   user.href = 'settings.html#you';
   user.className = 'sidebar-user';
   user.title = 'Settings — starting with You: your name, colour, theme and work (⌘,)';
-  user.innerHTML = `<span class="user-avatar">${icon('user')}</span><span class="user-label">User</span>` +
+  user.innerHTML = `<span class="user-avatar">${navIcon('user', 16)}</span><span class="user-label">User</span>` +
     '<span class="user-gear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>';
   if (activePage === 'user' || activePage === 'settings') { user.classList.add('active'); user.setAttribute('aria-current', 'page'); }
   userRow.appendChild(user);
@@ -409,7 +387,7 @@ async function renderTeamIndicator(sidebar) {
     overlay.className = 'search-overlay hidden';
     overlay.innerHTML = `
       <div class="search-panel" role="dialog" aria-label="Search">
-        <div class="search-input-row">${icon('search')}
+        <div class="search-input-row">${navIcon('search', 18)}
           <input type="text" id="global-search-input" placeholder="Search projects, clients, sites, documents, workers, materials…" autocomplete="off" spellcheck="false" />
           <kbd>esc</kbd>
         </div>

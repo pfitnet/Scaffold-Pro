@@ -239,7 +239,7 @@ a:hover { text-decoration: underline; }
   transition: top .38s var(--spring), height .3s var(--ease), opacity .2s; }
 .nav-ink::before { content: ''; position: absolute; left: -12px; top: 26%; bottom: 26%; width: 3px; border-radius: 0 3px 3px 0; background: var(--select-ink); }
 
-.nav-icon { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
 /* The sidebar as a rail of icons (js/sidebar.js › setupRail): it opens out
    over the page when the pointer rests on it. The icons stay where they

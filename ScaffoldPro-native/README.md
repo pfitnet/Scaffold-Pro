@@ -5361,3 +5361,15 @@ Increase Contrast. No Swift changed.
   data). It is not part of the app.
 - Checked: the pages in a browser (light and dark). Not checked on a Mac;
   Swift (one colour) not compiled.
+
+## Batch 243 — One set of icons (redesign R1b)
+
+- **One set of icons everywhere:** Phosphor (MIT licence, bundled).
+  `js/icons.js` holds them all: `window.icon(name, {size})`.
+  - The sidebar, Settings, the Dashboard tiles and the project page use it.
+  - The other pages' own icons move over as each page is rebuilt.
+- **Toolbar buttons keep their words.** Buttons named "Delete", "Open",
+  "Print…" and so on become a bare icon only inside table rows and row
+  actions, where a word doesn't fit.
+- `icons.js` now loads straight after `dialogs.js` on every page.
+- Checked: the pages in a browser (light and dark).
