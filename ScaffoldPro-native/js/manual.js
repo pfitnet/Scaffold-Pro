@@ -270,6 +270,11 @@
 
   function wireSearch() {
     const boxes = $$('.mx-search input');
+    // One search on screen: the rail's only once the cover's is out of sight.
+    const big = $('.mx-search.big'), rail = $('#mx-rail .mx-search');
+    if (big && rail && window.IntersectionObserver) {
+      new IntersectionObserver(([e]) => rail.classList.toggle('away', e.isIntersecting)).observe(big);
+    }
     const texts = $$('.mx-ch').map((ch) => [ch, ch.textContent.toLowerCase()]);
     const run = (q) => {
       for (const b of boxes) if (b.value !== q) b.value = q;

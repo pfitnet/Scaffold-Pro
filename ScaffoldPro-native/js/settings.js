@@ -242,9 +242,6 @@ async function saveSettings() {
   payload.defaultBOQItems = readDefaultItems();
   payload.appearance = currentAppearance;
   await window.api.settings.update(payload);
-  const note = document.getElementById('saved-note');
-  note.classList.remove('hidden');
-  setTimeout(() => note.classList.add('hidden'), 2000);
   return true;
 }
 
@@ -464,8 +461,6 @@ let settingsDirty = false;
 // "Unsaved changes" by the Save button while there are some.
 function setSettingsDirty(value) {
   settingsDirty = value;
-  const row = document.getElementById('save-row');
-  if (row) row.classList.toggle('dirty', value);
 }
 
 function whenSeen(iso) {
@@ -601,12 +596,6 @@ async function init() {
   for (const ta of formatted) window.attachParagraphFormatting(ta);
   await loadSettings();
   for (const ta of formatted) window.refreshParagraphPreview(ta);
-  document.getElementById('save-btn').addEventListener('click', async () => {
-    // (Still unsaved when a number format needs fixing first.)
-    if (!(await saveSettings())) return;
-    setSettingsDirty(false);
-    document.getElementById('settings-changed-elsewhere').classList.add('hidden');
-  });
   document.getElementById('delivery-rates-reset').addEventListener('click', () => {
     renderDeliveryRates(null);
     setSettingsDirty(true);

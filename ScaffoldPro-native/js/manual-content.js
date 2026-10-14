@@ -23,7 +23,7 @@
 window.MANUAL_CONTENT = [
   // ------------------------------------------------------------ Getting started
   {
-    id: 'welcome', part: 'Getting started', title: 'How it fits together', color: '#6d5cff', icon: 'grid',
+    id: 'welcome', part: 'Getting started', title: 'How it fits together', color: '#c9561f', icon: 'grid',
     tag: 'Every job, from the first enquiry to the paid invoice, in one place.',
     blocks: [
       { type: 'cards', title: 'The sidebar, in four groups', cards: [
@@ -38,7 +38,7 @@ window.MANUAL_CONTENT = [
     ],
   },
   {
-    id: 'basics', title: 'Everyday controls', color: '#6d5cff', icon: 'bolt',
+    id: 'basics', title: 'Everyday controls', color: '#c9561f', icon: 'bolt',
     tag: 'The same on every page. Learn them once.',
     blocks: [
       { type: 'keys', keys: [
@@ -58,7 +58,7 @@ window.MANUAL_CONTENT = [
     ],
   },
   {
-    id: 'workflow', title: 'Start to finish', color: '#6d5cff', icon: 'route',
+    id: 'workflow', title: 'Start to finish', color: '#c9561f', icon: 'route',
     tag: 'From enquiry to money in the bank, in four moves.',
     blocks: [
       { type: 'flow', step: '1', title: 'Set up', chain: 'client|Client & Site|Who and where > project|New Project|Number, name, site > grey|Drawings|Drop them in' },
@@ -76,7 +76,7 @@ window.MANUAL_CONTENT = [
 
   // ------------------------------------------------------------ Overview
   {
-    id: 'dashboard', part: 'Overview', title: 'Dashboard', color: '#3a66f0', icon: 'home', keys: '{⌘1}',
+    id: 'dashboard', part: 'Overview', title: 'Dashboard', color: '#5a6b7f', icon: 'home', keys: '{⌘1}',
     tag: 'Your day at a glance: what’s waiting, what’s owed, what’s next.',
     blocks: [
       { type: 'shot', shot: 'dashboard', points: [
@@ -98,7 +98,7 @@ window.MANUAL_CONTENT = [
     ],
   },
   {
-    id: 'calendar', title: 'Calendar', color: '#3a66f0', icon: 'calendar',
+    id: 'calendar', title: 'Calendar', color: '#5a6b7f', icon: 'calendar',
     tag: 'Everything with a date — and your schedule: meetings, site visits, deliveries, payments due.',
     blocks: [
       { type: 'shot', shot: 'calendar', points: [
@@ -112,7 +112,7 @@ window.MANUAL_CONTENT = [
     ],
   },
   {
-    id: 'tasks', title: 'Tasks', color: '#3a66f0', icon: 'check',
+    id: 'tasks', title: 'Tasks', color: '#5a6b7f', icon: 'check',
     tag: 'The team’s to-dos, for a person, a project and a day.',
     blocks: [
       { type: 'example', title: 'Type it the way you’d say it', parts: [

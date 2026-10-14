@@ -5670,3 +5670,33 @@ Increase Contrast. No Swift changed.
 - The screenshot tool now has data for Report, so that tab can be checked.
 - Checked in Chromium on Mac, narrow, iPad and phone, light and dark: every
   tab's primary, `?tab=leads&new=1`. Not checked: WebKit on a Mac.
+
+## Batch 254 — Settings, the Manual and the web sign-in join the one look (redesign R11)
+
+- **Settings:**
+  - "Saved", "Key removed", "Copied" and the AI and Google Sheets messages
+    all use the app's one toast at the bottom. The page's own toast and
+    the little notes beside buttons are gone;
+  - the never-shown Save Settings row and its code are removed (Settings
+    saves as you go);
+  - Share with Other Macs, Backup & Restore and Web Access: their Folder and
+    Status lines now sit in cards like every other setting, and each
+    section heading has room above it;
+  - in a browser, Settings › Google Sheets says it is set up on the office
+    Mac (it was looking for a part of the page that no longer exists);
+  - the inline style (and a stray second `</style>`) moved into
+    css/settings.css.
+- **Manual:**
+  - the cover is graphite with the faint scaffold grid and an orange line
+    at its foot. No purple glow; the second line of the title is orange;
+  - chapter and part icons are flat colours; the purple and blue chapter
+    colours are now the accent and steel;
+  - one search on screen: the rail's search appears once the cover's has
+    scrolled away.
+- **Web sign-in** (ScaffoldPro Web): the same look as the app: the
+  logo, the sheet card, 16px inputs so iPhones don't zoom, and it scrolls
+  with the keyboard up. The page title is "Sign in · ScaffoldPro".
+- Removed js/user.js, which nothing loads.
+- Checked in Chromium: Settings (every pane), the Manual, and the sign-in
+  page at Mac and phone width; WebServer.swift parses with no errors. Not
+  checked: WebKit on a Mac, the Swift build, signing in for real.
