@@ -5470,3 +5470,35 @@ Increase Contrast. No Swift changed.
   - the Overview's Quick Actions panel starts hidden.
 - Checked: in a browser with sample data (light and dark). The
   `?new=1`, `?tab=` and quick-action ids still work.
+
+## Batch 247 — One layout for every document (redesign R5–R6)
+
+- **The BOQ, quotation, delivery note, invoice and letter editors share
+  one layout:**
+  - **breadcrumbs** at the top: Projects › 26219 › Qt26219-002;
+  - the **document header** as before (kind, status, number, who made it,
+    the linked documents). The current document in the chain is outlined,
+    not filled;
+  - **one bar** that stays in view as you scroll: Status, Page and Items
+    in on the left; on the right, a **Details** switch, **···** and
+    **Export** (the one main button). Print…, Locate File, Duplicate…,
+    Split… and Delete… are under ···. The buttons are still there for ⌘P
+    and the rest, so they work as before;
+  - the **document in the main column**: materials, line items, sections,
+    totals and the delivery schedule, or for a letter the page itself;
+  - **its details in an inspector on the right**: letter details, dates
+    and pricing, BOQ link, signed copies, key terms and drawings for a
+    quotation; pricing, structure and drawings for a BOQ; dates,
+    addresses and signed notes for a delivery note; dates, terms and
+    signed notes for an invoice; the letter's details and attachments for
+    a letter.
+- **Hide the inspector** with the Details switch (or ⌥⌘I in the Mac app)
+  to give the document the full width. This Mac remembers it. On a
+  narrow window it sits below the document.
+- **Add Materials** now sits above the line items. Its list can be folded
+  away (the arrow by its title) and opens by itself when you search.
+- A BOQ's **Make Quotation** is a normal button, so Export is the only
+  main button.
+- Checked: all five editors in a browser with sample data (light, dark,
+  phone). The ··· menu, the Details switch, and `#print-btn` and the
+  other hidden buttons were tried.
