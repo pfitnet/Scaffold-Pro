@@ -5924,3 +5924,10 @@ What changed:
   Help) counts as part of it: the icon sidebar stays open while the pointer
   is on that menu, and folds once the pointer has left both.
 - Checked in Chromium. Not checked: WebKit on a Mac.
+
+## Batch 269 — Letter toolbar: arrows clear of the words
+
+- The letter's formatting toolbar dropdowns (Normal text, the font, Line
+  spacing) keep room at the right for their up/down arrows, so the arrows no
+  longer sit on the words (css/letter-editor.css, .rt-select).
+- Checked in Chromium. Not checked: WebKit on a Mac.
