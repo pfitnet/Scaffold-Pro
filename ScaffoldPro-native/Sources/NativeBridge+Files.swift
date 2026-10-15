@@ -329,7 +329,12 @@ extension NativeBridge {
     }
 
     /// A delivery note laid out on the letterhead (as DN26038a).
+    /// With the paragraphs added in its preview (Sources/DocInserts.swift).
     func deliveryNoteLetter(_ detail: DeliveryNoteDetail, note: DeliveryNote, company: CompanySettings) -> LetterDocument {
+        withInserts(deliveryNoteLetterBase(detail, note: note, company: company), documentId: detail.id)
+    }
+
+    func deliveryNoteLetterBase(_ detail: DeliveryNoteDetail, note: DeliveryNote, company: CompanySettings) -> LetterDocument {
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
         let project = db.getProjectByNumber(detail.projectNumber)
         let site = project.flatMap { db.getSite(id: $0.siteId) }

@@ -776,6 +776,16 @@ module.exports = { routes: {
   // ---- editors
   'boq:get': (p) => BOQ[p.id] || null,
   'quotations:get': (p) => (QUOTE[p.id] ? QUOTE[p.id].detail : null),
+  // Paragraphs added in a document's preview (js/doc-preview.js › Edit).
+  'docEdits:get': () => ({ ok: true, anchors: [
+    { key: 'intro', label: 'Opening', text: 'We thank you for your inquiry related to the item above, the following is our quotation on the job.' },
+    { key: 'row:600mm base jack', label: 'Item 1', text: '600mm Base Jack' },
+    { key: 'row:timber sole board', label: 'Item 2', text: 'Timber Sole Board' },
+    { key: 'table-end', label: 'After the table', text: '' },
+    { key: 'para:payment : first two month', label: 'Terms and Conditions', text: 'Payment : First two month\'s rental and delivery charges in advance, thereafter monthly.' },
+    { key: 'end', label: 'End, before the signatures', text: '' },
+  ], inserts: [{ id: 'p1', anchor: 'row:timber sole board', after: true, text: 'Sole boards are supplied in 3m lengths and cut on site.' }] }),
+  'docEdits:save': { ok: true },
   'quotations:deliverySchedule': (p) => (p.id === 'doc1' ? { days: [
     { id: 'dd1', quotationId: 'doc1', day: 1, date: '2026-09-10', time: '20:00', sent: true, note: 'Base items and standards', internalNote: '9-tonne lorry x1', quantities: { doc1_l1: 48, doc1_l2: 48, doc1_l3: 72 }, createdAt: at('2026-09-05'), updatedAt: at('2026-09-10') },
     { id: 'dd2', quotationId: 'doc1', day: 2, date: '2026-09-22', time: '20:00', sent: true, note: 'Ledgers and braces', internalNote: null, quantities: { doc1_l5: 144, doc1_l6: 96, doc1_l7: 36 }, createdAt: at('2026-09-05'), updatedAt: at('2026-09-22') },

@@ -10,6 +10,12 @@
 //     (js/docx-export.js: the .docx drawn here by docx-preview; "Save" → save(false))
 //   → { ok: true, saved: true|false, path } — or { ok: false, error }.
 //
+// With `edit: { id }` (a quotation, invoice or delivery note) the header
+// has Edit: a panel beside the pages lists the document's lines, and a
+// paragraph can be added above or below any of them. Each is kept with the
+// document (window.api.docEdits; Sources/DocInserts.swift), so every PDF
+// and Word copy has it; the preview is drawn again as soon as it's saved.
+//
 // The Word copy is drawn with docx-preview (js/vendor, Apache-2.0) and
 // JSZip (js/vendor, MIT), loaded the first time they're needed.
 
@@ -19,6 +25,7 @@
   const reduceMotion = () => false;
   const ICON = {
     close: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+    pencil: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3z"/></svg>',
     minus: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 8h9"/></svg>',
     plus: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>',
     check: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>',
@@ -37,7 +44,7 @@
     return vendor;
   }
 
-  function sheet({ kind, title, fileName, actions, note }) {
+  function sheet({ kind, title, fileName, actions, note, editable }) {
     const el = document.createElement('div');
     el.className = 'dp-backdrop';
     el.innerHTML = `
@@ -45,6 +52,7 @@
         <header class="dp-head">
           <span class="dp-badge ${kind}">${kind === 'word' ? 'W' : 'PDF'}</span>
           <div class="dp-title"><b>${esc(title || fileName || 'Preview')}</b><span class="dp-sub">${esc(fileName || '')}</span></div>
+          ${editable ? `<button type="button" class="dp-edit-btn" aria-pressed="false" title="Add your own paragraphs above or below any line — kept with this document, in every PDF and Word copy">${ICON.pencil}<span>Edit</span></button>` : ''}
           <div class="dp-zoom" role="group" aria-label="Zoom">
             <button type="button" data-zoom="out" title="Smaller (⌘−)">${ICON.minus}</button>
             <button type="button" data-zoom="fit" class="dp-zoom-label" title="Fit the width (⌘0)">100%</button>
@@ -52,9 +60,12 @@
           </div>
           <button type="button" class="dp-close" title="Close without saving (Esc)" aria-label="Close">${ICON.close}</button>
         </header>
-        <div class="dp-canvas">
-          <div class="dp-loading"><span class="dp-spinner"></span><span>Preparing the ${kind === 'word' ? 'Word document' : 'PDF'}…</span></div>
-          <div class="dp-pages"></div>
+        <div class="dp-main">
+          <div class="dp-canvas">
+            <div class="dp-loading"><span class="dp-spinner"></span><span>Preparing the ${kind === 'word' ? 'Word document' : 'PDF'}…</span></div>
+            <div class="dp-pages"></div>
+          </div>
+          ${editable ? '<aside class="dp-edit" aria-label="Add paragraphs" hidden></aside>' : ''}
         </div>
         <footer class="dp-foot">
           <span class="dp-note">${esc(note || 'Nothing is saved until you click Save.')}</span>
@@ -75,9 +86,9 @@
   // With `actions` ([{ key, label | html, primary, danger }]) the footer
   // offers those instead of Save: choosing one closes the preview with
   // { ok: true, saved: false, action: key }.
-  function run({ kind, title, fileName, ready, save, discard, actions, note }) {
+  function run({ kind, title, fileName, ready, save, discard, actions, note, edit }) {
     return new Promise((resolve) => {
-      const el = sheet({ kind, title, fileName, actions, note });
+      const el = sheet({ kind, title, fileName, actions, note, editable: !!edit });
       const $ = (s) => el.querySelector(s);
       const pages = $('.dp-pages');
       let zoom = 1;
@@ -141,6 +152,10 @@
       };
       const onKey = (e) => {
         if (document.querySelector('.app-dialog-backdrop:not(.leaving)')) return;
+        // Typing a paragraph: Escape (or ⌘Return) finishes it, it doesn't close the preview.
+        if (e.target.closest && e.target.closest('.dp-edit') && (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey)))) {
+          e.preventDefault(); e.stopPropagation(); e.target.blur(); return;
+        }
         const mod = e.metaKey || e.ctrlKey;
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(saved ? { ok: true, saved: true, path: saved.path } : { ok: true, saved: false }); }
         else if (mod && e.key.toLowerCase() === 's' && !actions) { e.preventDefault(); e.stopPropagation(); doSave(); }
@@ -183,19 +198,109 @@
         for (const b of el.querySelectorAll('.dp-save, .dp-act')) b.disabled = false;
         const first = $('.dp-act.primary') || $('.dp-save');
         if (first) first.focus();
+        if (edit) setupEdit(el, edit, async () => {
+          // Drawn again with the paragraphs, keeping the place on the page.
+          const canvas = $('.dp-canvas');
+          const at = canvas.scrollTop / Math.max(1, canvas.scrollHeight);
+          canvas.classList.add('dp-updating');
+          try {
+            const n = await edit.rebuild(pages);
+            if (n) $('.dp-sub').textContent = n;
+          } catch (e) { window.appAlert(e.message || 'The preview couldn’t be drawn again.'); }
+          canvas.classList.remove('dp-updating');
+          if (fitted) fit(); else setZoom(zoom);
+          canvas.scrollTop = at * canvas.scrollHeight;
+        });
       })();
+    });
+  }
+
+  // The Edit panel: the document's lines, each with + Above / + Below, and
+  // the paragraphs added at them (a box each, saved on leaving it).
+  function setupEdit(el, edit, redraw) {
+    const button = el.querySelector('.dp-edit-btn');
+    const panel = el.querySelector('.dp-edit');
+    let state = null;
+    let saving = Promise.resolve();
+    const newId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const card = (p) => `<div class="dpe-card" data-id="${esc(p.id)}"><textarea rows="3" placeholder="Your paragraph…">${esc(p.text)}</textarea>
+      <button type="button" class="dpe-del" data-no-icon title="Remove this paragraph" aria-label="Remove">${ICON.close}</button></div>`;
+    const draw = () => {
+      if (!state.ok) {
+        panel.innerHTML = `<div class="dpe-head"><b>Add paragraphs</b></div><p class="dpe-empty">${esc(state.error || 'Paragraphs can’t be added to this document.')}</p>`;
+        return;
+      }
+      const keys = new Set(state.anchors.map((a) => a.key));
+      const at = (key, after) => state.inserts.filter((p) => p.anchor === key && p.after === after).map(card).join('');
+      const lost = state.inserts.filter((p) => !keys.has(p.anchor));
+      panel.innerHTML = `<div class="dpe-head"><b>Add paragraphs</b><span>Above or below any line. Kept with this document, in every PDF and Word copy.</span></div>
+        <div class="dpe-list">
+        ${lost.length ? `<div class="dpe-lost"><div class="dpe-label">Their line has changed: printed at the end</div>${lost.map(card).join('')}</div>` : ''}
+        ${state.anchors.map((a) => `${at(a.key, false)}
+          <div class="dpe-line${a.text ? '' : ' place'}" data-key="${esc(a.key)}">
+            <span class="dpe-label">${esc(a.label)}</span>${a.text ? `<span class="dpe-text">${esc(a.text)}</span>` : ''}
+            <span class="dpe-adds">${a.text ? '<button type="button" data-after="0" data-no-icon>+ Above</button><button type="button" data-after="1" data-no-icon>+ Below</button>'
+              : '<button type="button" data-after="1" data-no-icon>+ Add here</button>'}</span>
+          </div>${at(a.key, true)}`).join('')}
+        </div>`;
+    };
+    const persist = () => {
+      saving = saving.then(async () => {
+        const kept = state.inserts.filter((p) => p.text.trim());
+        const r = await window.api.docEdits.save(edit.id, kept);
+        if (!r || !r.ok) { window.appAlert((r && r.error) || 'The paragraphs couldn’t be saved.'); return; }
+        await redraw();
+      });
+      return saving;
+    };
+    const open = async (on) => {
+      panel.hidden = !on;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-pressed', String(on));
+      if (on && !state) {
+        panel.innerHTML = '<p class="dpe-empty">Reading the document’s lines…</p>';
+        try { state = await window.api.docEdits.get(edit.id); } catch (e) { state = { ok: false, error: e.message }; }
+        state.inserts = state.inserts || [];
+        draw();
+      }
+    };
+    button.addEventListener('click', () => open(panel.hidden));
+    panel.addEventListener('click', (e) => {
+      const add = e.target.closest('[data-after]');
+      if (add) {
+        const p = { id: newId(), anchor: add.closest('.dpe-line').dataset.key, after: add.dataset.after === '1', text: '' };
+        state.inserts.push(p);
+        draw();
+        const box = panel.querySelector(`.dpe-card[data-id="${CSS.escape(p.id)}"] textarea`);
+        if (box) { box.focus(); box.scrollIntoView({ block: 'nearest' }); }
+        return;
+      }
+      const del = e.target.closest('.dpe-del');
+      if (del) {
+        const id = del.closest('.dpe-card').dataset.id;
+        const had = state.inserts.find((p) => p.id === id);
+        state.inserts = state.inserts.filter((p) => p.id !== id);
+        draw();
+        if (had && had.text.trim()) persist();
+      }
+    });
+    panel.addEventListener('input', (e) => {
+      const c = e.target.closest('.dpe-card');
+      const p = c && state.inserts.find((x) => x.id === c.dataset.id);
+      if (p) { p.text = e.target.value; p.dirty = true; }
+    });
+    panel.addEventListener('focusout', (e) => {
+      const c = e.target.closest && e.target.closest('.dpe-card');
+      const p = c && state.inserts.find((x) => x.id === c.dataset.id);
+      if (!p || !p.dirty) return;
+      delete p.dirty;
+      persist();
     });
   }
 
   async function pdf(fetcher, opts = {}) {
     let token = null;
-    return run({
-      kind: 'pdf',
-      title: opts.title,
-      fileName: opts.fileName || '',
-      actions: opts.actions,
-      note: opts.note,
-      ready: async (box) => {
+    const draw = async (box) => {
         const r = await fetcher();
         if (!r || !r.ok) throw new Error((r && r.error) || 'The PDF couldn’t be prepared.');
         token = r.token;
@@ -207,19 +312,26 @@
         const n = r.pageCount || (r.pages || []).length;
         const shown = (r.pages || []).length;
         return `${r.fileName || ''} · ${n} page${n === 1 ? '' : 's'}${shown < n ? ` (the first ${shown} shown)` : ''}`;
-      },
+    };
+    return run({
+      kind: 'pdf',
+      title: opts.title,
+      fileName: opts.fileName || '',
+      actions: opts.actions,
+      note: opts.note,
+      ready: draw,
+      // Drawn again after an edit: the old file is let go first.
+      edit: opts.edit && { id: opts.edit.id, rebuild: async (box) => { if (token) window.api.files.discardPreview(token); token = null; return draw(box); } },
       save: () => window.api.files.savePreview(token),
       discard: () => { if (token) window.api.files.discardPreview(token); },
     });
   }
 
-  async function word({ bytes, fileName, title, save }) {
-    return run({
-      kind: 'word',
-      title,
-      fileName,
-      ready: async (box) => {
+  // `edit: { id, bytes: async () => Uint8Array }`: the .docx made again after an edit.
+  async function word({ bytes, fileName, title, save, edit }) {
+    const draw = async (box) => {
         await loadVendor();
+        box.innerHTML = '';
         // Drawn in its own shadow tree, so the app's styles (tables, colours,
         // dark mode) don't reach the document.
         const host = document.createElement('div');
@@ -238,7 +350,13 @@
         // the rest are worked out here, as Word would (near enough).
         const count = paginate(holder);
         return `${fileName || ''} · ${count} page${count === 1 ? '' : 's'} (Word may break them slightly differently)`;
-      },
+    };
+    return run({
+      kind: 'word',
+      title,
+      fileName,
+      ready: draw,
+      edit: edit && { id: edit.id, rebuild: async (box) => { bytes = await edit.bytes(); return draw(box); } },
       save: () => save(false),
     });
   }

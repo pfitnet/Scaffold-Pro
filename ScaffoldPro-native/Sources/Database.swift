@@ -46,6 +46,8 @@ final class AppDatabase {
     let liabilitiesStore: JSONStore<Liability>
     let quotationDeliveriesStore: JSONStore<QuotationDeliveryDay>
     let lettersStore: JSONStore<Letter>
+    /// Paragraphs added in documents' previews (Sources/DocInserts.swift).
+    let docInsertsStore: JSONStore<DocInserts>
     let userProfilesStore: JSONStore<UserProfile>
     let leadsStore: JSONStore<Lead>
     let inspectionsStore: JSONStore<ScaffoldInspection>
@@ -88,6 +90,7 @@ final class AppDatabase {
         liabilitiesStore = JSONStore(fileURL: dataDir.appendingPathComponent("liabilities.json"))
         quotationDeliveriesStore = JSONStore(fileURL: dataDir.appendingPathComponent("quotation_deliveries.json"))
         lettersStore = JSONStore(fileURL: dataDir.appendingPathComponent("letters.json"))
+        docInsertsStore = JSONStore(fileURL: dataDir.appendingPathComponent("doc_inserts.json"))
         userProfilesStore = JSONStore(fileURL: dataDir.appendingPathComponent("user_profiles.json"))
         leadsStore = JSONStore(fileURL: dataDir.appendingPathComponent("leads.json"))
         inspectionsStore = JSONStore(fileURL: dataDir.appendingPathComponent("scaffold_inspections.json"))

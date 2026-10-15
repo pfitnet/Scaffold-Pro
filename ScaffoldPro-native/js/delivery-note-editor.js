@@ -293,14 +293,14 @@ async function init() {
 
   document.getElementById('export-pdf-btn').addEventListener('click', async () => {
     // Shown first (js/doc-preview.js); saved into the project folder from there.
-    const result = await window.docPreview.pdf(() => window.api.deliveryNotes.exportPDF(deliveryNoteId, { preview: true }), { title: currentDetail ? currentDetail.deliveryNoteNumber : 'Delivery Note' });
+    const result = await window.docPreview.pdf(() => window.api.deliveryNotes.exportPDF(deliveryNoteId, { preview: true }), { title: currentDetail ? currentDetail.deliveryNoteNumber : 'Delivery Note', edit: { id: deliveryNoteId } });
     if (!result.ok) { alert(result.error); }
   });
 
   document.getElementById('export-word-btn').addEventListener('click', async (e) => {
     e.target.disabled = true;
     try {
-      const result = await window.exportWord(() => window.api.deliveryNotes.exportWord(deliveryNoteId));
+      const result = await window.exportWord(() => window.api.deliveryNotes.exportWord(deliveryNoteId), { editId: deliveryNoteId });
       if (!result.ok) { alert(result.error); }
     } catch (err) {
       alert(`The Word document couldn't be made.\n\n${err.message}`);
