@@ -127,9 +127,11 @@
     sheet.classList.remove('hidden');
   }
 
-  // The custom columns as printed, in their order (for the editor's table).
+  // The columns typed in on each item, in their printed order (for the
+  // editor's table): the custom ones, and Unit Weight (kg) when shown.
   function customInOrder(d) {
     const byId = new Map((d.customColumns || []).map((c) => [c.id, c]));
+    byId.set('weight', { id: 'weight', title: 'Unit Weight (kg)' });
     return (d.columnLayout || []).filter((k) => byId.has(k)).map((k) => byId.get(k));
   }
 

@@ -762,7 +762,8 @@ extension NativeBridge {
         func extras(_ l: QuotationLineItem) -> [String: String] {
             var e = l.customValues ?? [:]
             e["unit"] = l.unit
-            if let kg = weights[l.id] { e["weight"] = String(format: "%.1f", kg) }
+            // A typed weight first, else the material list's.
+            if let kg = e["weight"].flatMap({ Double($0) }) ?? weights[l.id] { e["weight"] = String(format: "%.1f", kg) }
             return e
         }
         let tableLines = detail.lineItems.filter { $0.blockId == nil && !isOnce($0) }

@@ -580,7 +580,12 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td>${item.unit}${onceSwitch}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
     <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
-    ${window.quotationColumns.customInOrder(currentDetail).map((c) => `<td><input type="text" class="cv-input" data-col="${esc(c.id)}" maxlength="60" value="${esc((item.customValues || {})[c.id] || '')}" aria-label="${esc(c.title)}" ${isLocked ? 'disabled' : ''} /></td>`).join('')}
+    ${window.quotationColumns.customInOrder(currentDetail).map((c) => {
+      // Unit Weight: the material list's weight unless one is typed (a crane's items have none).
+      const kg = c.id === 'weight' ? (currentDetail.lineWeights || {})[item.id] : null;
+      const weightAttrs = c.id === 'weight' ? ` inputmode="decimal" placeholder="${kg != null ? kg.toFixed(1) : 'kg'}"` : '';
+      return `<td><input type="text" class="cv-input" data-col="${esc(c.id)}" maxlength="60"${weightAttrs} value="${esc((item.customValues || {})[c.id] || '')}" aria-label="${esc(c.title)}" ${isLocked ? 'disabled' : ''} /></td>`;
+    }).join('')}
     <td><div class="line-tools">${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}${markupBtn}</div></td>
     <td class="num">${money(lineTotal)}</td>
     <td>${isLocked ? '' : '<button class="remove-btn">Remove</button>'}</td>`;

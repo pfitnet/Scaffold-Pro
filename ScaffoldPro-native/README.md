@@ -6159,3 +6159,9 @@ What changed:
 - The Swift wasn't compiled here. Check that the app builds, then try "Adjust
   description" with a picture on a draft quotation: it should show cards
   that change the lines.
+
+## Batch 282 — Quotations: type each item's Unit Weight
+
+- With the Unit Weight column added (Line Items ☰ › Columns…), each line now has a box for its weight in kg, as custom columns do.
+- A crane job's items aren't on the material list, so their weight was blank on the PDF with nowhere to type it. Now it's typed on each line.
+- Scaffolding items show the material list's weight in grey; type over it to print another one. Leave it empty to keep the list's weight.
