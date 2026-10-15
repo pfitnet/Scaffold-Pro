@@ -149,6 +149,14 @@ func whenDownloaded(_ path: String, timeout: TimeInterval = 60, done: @escaping 
 
 final class JSONStore<T: Codable> {
     let fileURL: URL
+    /// The records as last read, kept while the file is unchanged on disk:
+    /// same modification date, size and file number (every save swaps in a
+    /// new file, so it gets a new number). Saves from this Mac, from
+    /// another Mac (TeamSync) or Undo all change the file, so the next read
+    /// reads it again. Pages ask for the same stores many times over; this
+    /// spares decoding them each time.
+    var cached: (key: [AnyHashable], items: [T])?
+    let cacheLock = NSLock()
 
     init(fileURL: URL) {
         self.fileURL = fileURL
@@ -158,6 +166,19 @@ final class JSONStore<T: Codable> {
     }
 
     func readAll() -> [T] {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+              let date = attrs[.modificationDate] as? Date, let size = attrs[.size] as? NSNumber,
+              let number = attrs[.systemFileNumber] as? NSNumber else { return readFromDisk() }
+        let key: [AnyHashable] = [date, size, number]
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        if let c = cached, c.key == key { return c.items }
+        let items = readFromDisk()
+        cached = (key, items)
+        return items
+    }
+
+    func readFromDisk() -> [T] {
         guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else { return [] }
         do {
             return try JSONDecoder().decode([T].self, from: data)

@@ -80,14 +80,12 @@ async function load(slide) {
   const [start, end] = range();
   const now = new Date();
   const miniStart = gridStart(miniMonth);
-  [events, agenda, miniEvents] = await Promise.all([
-    window.api.calendar.events(ymd(start), ymd(end)),
-    window.api.calendar.events(ymd(now), ymd(addDays(now, 14))),
-    window.api.calendar.events(ymd(miniStart), ymd(addDays(miniStart, 41))),
-  ]);
-  events = events || [];
-  agenda = agenda || [];
-  miniEvents = miniEvents || [];
+  // One ask covering all three (the app works out every kind of date each
+  // time), then each part takes its own days. An event's date is the day
+  // it shows on, so this is what three asks would give.
+  const ranges = [[ymd(start), ymd(end)], [ymd(now), ymd(addDays(now, 14))], [ymd(miniStart), ymd(addDays(miniStart, 41))]];
+  const all = (await window.api.calendar.events(ranges.map((r) => r[0]).sort()[0], ranges.map((r) => r[1]).sort().pop())) || [];
+  [events, agenda, miniEvents] = ranges.map(([from, to]) => all.filter((e) => e.date >= from && e.date <= to));
   render(slide);
 }
 

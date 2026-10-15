@@ -5813,3 +5813,26 @@ Increase Contrast. No Swift changed.
 - Measured in Chromium with stand-in data: pages are ready 170–440 ms after
   the click; projects 187 ms from the press. Not checked: WebKit on a Mac,
   where the app's own data answers add to this.
+
+## Batch 261 — Schedule and Team open (and close) faster
+
+Why they were slow: every data request read its files from disk and decoded
+them again, on the app's main thread (the one that also starts a page
+change).
+- Schedule asked for its dates three times on opening; each time the app
+  read about 15 files and worked out every kind of date.
+- Team checks chat every 1.5 s and the conversation list every 5 s, each
+  time reading the whole chat, the team and every member's file, and the
+  team list once per person. While it was busy, a click to leave waited.
+
+What changed:
+- **The app keeps each data file's records in memory** while the file is
+  unchanged on disk (`JSONStore.readAll`, keyed on the file's modification
+  date, size and file number). Any save (this Mac, another Mac, Undo)
+  swaps in a new file, so the next read reads it again. Every page gains;
+  Team's checks become cheap.
+- **Schedule asks once** for the span covering the week/month, the next two
+  weeks and the small month, then splits it (js/calendar.js `load`).
+- Checked: the split gives the same events as three asks (node check);
+  calendar and team pages load without errors in Chromium. The Swift wasn't
+  compiled here; check that the app builds.
