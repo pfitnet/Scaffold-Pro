@@ -488,6 +488,9 @@
     docEdits: {
       get: (id) => callNative('docEdits:get', { id }),
       save: (id, inserts) => callNative('docEdits:save', { id, inserts }),
+      // Where each line and added paragraph is on the PDF's pages:
+      // → { ok, spots: [{ key | insert, page, top (pt from the page's top) }], pageWidth }.
+      spots: (id) => callNative('docEdits:spots', { id }),
     },
     // Settings › Updates: { automatic: true|false } and/or { check: true } → { automatic }.
     updates: {

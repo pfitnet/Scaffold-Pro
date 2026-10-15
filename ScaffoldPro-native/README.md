@@ -6009,3 +6009,27 @@ What changed:
   The line items' description boxes go down to 120px to make the room; every
   table still fits (measured at 1440px with Details showing).
 - Checked in Chromium. Not checked: WebKit on a Mac.
+
+## Batch 274 — Type on the page in the preview
+
+- **Edit** in a quotation's, invoice's or delivery note's preview (PDF or
+  Word) now works on the page itself, like a document editor: rest the
+  pointer between two lines and an orange line shows where a paragraph would
+  go ("Add a paragraph below / above"); click and a box opens right there in
+  the letter's font, with a toolbar — **B**, *I*, U, bulleted and numbered
+  lists (⌘B / ⌘I / ⌘U work too). Click away or ⌘Return: it's saved with the
+  document at that line and the preview is drawn again with it in place;
+  Escape leaves it as it was. Click a paragraph you added to change it, or
+  Remove it from its toolbar.
+- Formatting is kept as **bold**, *italic*, __underline__ (as items' text),
+  so the PDF and the Word copy show it; lists are lines starting "• " or "1. ".
+- **List** (next to Edit) shows all your paragraphs beside the pages — and
+  adds one after the table or at the end, or shows any whose line has gone.
+- Where the lines are: for the PDF, the app draws the document and finds
+  each line's first words on its pages (`docEdits:spots`,
+  Sources/DocInserts.swift `docSpots`); for the Word preview, the same words
+  are found in the drawn pages (js/doc-preview.js `locateInDocx`).
+- Checked in Chromium with the mocked bridge (the line shown between two
+  lines, a paragraph typed with bold and italic and saved at its line, an
+  added one opened and removed). The Swift wasn't compiled here, and the
+  Word preview's editing wasn't tried: check both in the app.
