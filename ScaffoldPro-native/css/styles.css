@@ -1008,11 +1008,17 @@ button.danger-btn:hover:not(:disabled) { border-color: var(--danger); background
 .info-tip::before { content: 'i'; }
 .info-tip:hover, .info-tip:focus-visible { color: var(--text); border-color: var(--text); outline: none; }
 .page-actions button.primary { height: 34px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; }
-.crumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-tertiary); margin: 0 0 8px; }
-.crumbs a { color: var(--text-secondary); text-decoration: none; border-radius: 5px; padding: 1px 3px; margin: 0 -3px; }
-.crumbs a:hover { color: var(--text); background: var(--row-hover); }
-.crumb-sep { display: inline-flex; opacity: .6; }
-.crumb-here { color: var(--text-secondary); font-weight: 500; }
+/* The trail back (Projects › 26223 …): readable, and each step a roomy
+   target that lights up under the pointer. The first sits flush with the page. */
+.crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 15px; color: var(--text-tertiary); margin: 0 0 12px; }
+.crumbs a { display: inline-flex; align-items: center; min-height: 34px; padding: 0 10px; border-radius: 8px; color: var(--text-secondary); font-weight: 500; text-decoration: none;
+  transition: background-color .15s, color .15s; }
+.crumbs > a:first-child { margin-left: -10px; }
+.crumbs a:hover { color: var(--text); background: var(--row-selected); text-decoration: none; }
+.crumbs a:active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.crumb-sep { display: inline-flex; opacity: .55; }
+.crumb-sep svg { width: 13px; height: 13px; }
+.crumb-here { padding: 0 6px; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 /* Search with an icon, Esc to clear and / to focus (js/ui-kit.js searchField). */
 .search-field { position: relative; display: inline-flex; align-items: center; min-width: 220px; }
 .search-field > svg { position: absolute; left: 10px; color: var(--text-tertiary); pointer-events: none; }

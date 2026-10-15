@@ -5888,3 +5888,10 @@ What changed:
   while the list is open.
 - The row of kinds keeps the shown kind's own tools (Select, Import…).
 - Checked in Chromium with the mocked bridge. Not checked: WebKit on a Mac.
+
+## Batch 265 — Bigger breadcrumbs
+
+- The trail at the top of a page (Projects › 26223 …) is larger (15px, was
+  12.5px) and each step is a roomy target, 34px tall with padding, that
+  lights up under the pointer. The page you're on is in full colour, bold.
+- Checked in Chromium. Not checked: WebKit on a Mac.
