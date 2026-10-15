@@ -80,6 +80,30 @@ extension AppDatabase {
         return rows
     }
 
+    /// Letters as display rows, with who made them and who last worked on
+    /// them (the Dashboard's recently changed documents). A letter with no
+    /// project shows its subject (or who it's to) in the project's place.
+    func letterRows() -> [DocRow] {
+        let projects = Dictionary(projectsStore.readAll().map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let clients = Dictionary(clientsStore.readAll().map { ($0.id, $0.companyName) }, uniquingKeysWith: { a, _ in a })
+        let history = activityAuthors()
+        let index = authorsIndex("letters.json", history: history)
+        return lettersStore.readAll().map { l in
+            let p = l.projectId.flatMap { projects[$0] }
+            var row = DocRow(id: l.id, kind: "Letter", number: l.letterNumber, status: l.status, projectNumber: p?.projectNumber ?? "",
+                             projectName: p?.name ?? nonBlank(l.subject) ?? nonBlank(l.recipientName) ?? "",
+                             clientName: l.clientId.flatMap { clients[$0] } ?? p.flatMap { clients[$0.clientId] } ?? nonBlank(l.recipientName),
+                             date: l.letterDate, updatedAt: l.updatedAt, amount: nil, balance: nil, dueDate: nil, isOverdue: false,
+                             url: "letter-editor.html?id=\(l.id)")
+            let a = index[l.id] ?? authors(nil, number: l.letterNumber, history: history)
+            row.createdBy = a.createdBy
+            row.lastEditedBy = a.lastEditedBy
+            row.lastEditedAt = a.lastEditedAt
+            row.mine = a.mine
+            return row
+        }
+    }
+
     // ---- Who made / last worked on what ----
 
     /// This Mac's user: by the Mac (when recorded), else by name. Records
@@ -274,7 +298,8 @@ extension AppDatabase {
             // in the team's activity).
             recentDeliveryNotes: Array(rows.filter { $0.kind == "Delivery Note" && $0.mine }
                 .sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(30)),
-            recentDocuments: Array(rows.filter { $0.mine }.sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(30)),
+            // Every kind of document, letters too.
+            recentDocuments: Array((rows + letterRows()).filter { $0.mine }.sorted { ($0.lastEditedAt ?? $0.updatedAt) > ($1.lastEditedAt ?? $1.updatedAt) }.prefix(30)),
             recentActivity: Array(listActivity(projectId: nil, limit: 200).filter { $0.mine }.prefix(30))
         )
         summary.teamActivity = Array(listActivity(projectId: nil, limit: 200).filter { !$0.mine }.prefix(30))

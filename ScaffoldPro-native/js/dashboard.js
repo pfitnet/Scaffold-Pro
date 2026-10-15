@@ -167,7 +167,7 @@ function table(container, rows, columns, emptyText, rowClass = '') {
 }
 
 // My recently changed documents, in a bracket per kind (Quotations,
-// BOQs, Delivery Notes, Invoices — only the kinds in the list). The 5 most
+// BOQs, Delivery Notes, Invoices, Letters — only the kinds in the list). The 5 most
 // recent are shown; "Show 3 more" adds the next 3, bracketed the same way.
 // Each kind's heading and colour (css/styles.css, .dk-…).
 const DOC_KINDS = { 'Quotation': ['Quotations', 'dk-quotation'], 'BOQ': ['BOQs', 'dk-boq'], 'Delivery Note': ['Delivery Notes', 'dk-delivery'],
