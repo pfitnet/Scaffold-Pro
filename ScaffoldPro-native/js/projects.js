@@ -169,7 +169,7 @@ function bracket(p, i) {
     <a class="ov-project" href="project-detail.html?number=${encodeURIComponent(p.projectNumber)}">
       <span class="ov-num">${esc(p.projectNumber)}</span><span class="ov-name">${esc(p.name)}</span>
       <span class="ov-site">${ICON.site}${esc(p.siteName || 'No site')}</span>
-      <span class="pj-status"><i></i>${esc(p.status)}</span></a>
+      <span class="ov-tags"><span class="pj-status"><i></i>${esc(p.status)}</span>${jobTag(p)}</span></a>
     ${cols}
     <svg class="ov-lines" aria-hidden="true"></svg></section>`;
 }
