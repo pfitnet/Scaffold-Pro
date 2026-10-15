@@ -22,7 +22,10 @@
   font-size: 22px; font-weight: 500; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .calc-result { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 22px; }
 .calc-answer { font-size: 15px; font-weight: 650; color: var(--accent-text); font-variant-numeric: tabular-nums; }
-.calc-copy { height: 22px; padding: 0 8px; font-size: 11px; border-radius: 6px; visibility: hidden; }
+.calc-copy { width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; box-shadow: none;
+  border-radius: 6px; color: var(--accent-text); visibility: hidden; }
+.calc-copy:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-text); border: 0; }
+.calc-copy svg { width: 14px; height: 14px; }
 .calc-float.has-answer .calc-copy { visibility: visible; }
 
 .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 12px; }
@@ -48,4 +51,4 @@
 
 /* The sidebar's button: its name only where the sidebar has room for it (the open rail). */
 html:not(.sidebar-rail) .sidebar-calc > span { display: none; }
-.sidebar-calc .nav-icon { color: var(--text-secondary); }
+.sidebar-calc .nav-icon { color: var(--accent); }

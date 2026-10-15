@@ -51,6 +51,7 @@
       ['1', '1'], ['2', '2'], ['3', '3'], ['+', '+', 'op'],
       ['( )', 'paren', 'fn'], ['0', '0'], ['.', '.'], ['=', 'equals', 'eq'],
     ];
+    const copyIcon = window.icon ? window.icon('duplicate', { size: 14 }) : 'Copy';
     panel.innerHTML = `
       <div class="calc-bar" title="Drag to move it">
         <span class="calc-title">${window.icon ? window.icon('accounts', { size: 15 }) : ''}<span>Calculator</span></span>
@@ -60,7 +61,7 @@
       <div class="calc-screen">
         <input class="calc-expr" type="text" inputmode="decimal" spellcheck="false" autocomplete="off" placeholder="0" aria-label="Sum" />
         <div class="calc-result" aria-live="polite"><span class="calc-answer"></span>
-          <button type="button" class="calc-copy" data-no-icon title="Copy the answer">Copy</button></div>
+          <button type="button" class="calc-copy" data-no-icon title="Copy the answer" aria-label="Copy the answer">${copyIcon}</button></div>
       </div>
       <div class="calc-keys">${keys.map(([label, key, kind]) => `<button type="button" class="calc-key${kind ? ` ${kind}` : ''}" data-key="${esc(key)}" data-no-icon>${label}</button>`).join('')}</div>
       <div class="calc-tape-head"><span>Tape</span><button type="button" class="calc-tape-clear" data-no-icon>Clear</button></div>
@@ -204,8 +205,10 @@
       const text = show(last).replace(/,/g, '');
       if (window.copyText) window.copyText(text); else if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
       const b = $('.calc-copy');
-      b.textContent = 'Copied';
-      setTimeout(() => { b.textContent = 'Copy'; }, 1100);
+      if (!window.icon) return;
+      b.innerHTML = window.icon('check', { size: 14 });
+      clearTimeout(copy.t);
+      copy.t = setTimeout(() => { b.innerHTML = window.icon('duplicate', { size: 14 }); }, 1100);
     };
     $('.calc-copy').addEventListener('click', copy);
     $('.calc-close').addEventListener('click', close);

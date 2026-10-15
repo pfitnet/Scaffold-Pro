@@ -97,7 +97,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **278**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **279**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
@@ -142,6 +142,11 @@ Keep the reply short and plain. Say clearly what was tested and what wasn't
   `window.softReload()` (js/bridge.js), never `location.reload()`: the Mac
   app holds a snapshot of the window over it (`ui:holdFrame`) until the
   reloaded page has drawn (`ui:releaseFrame`). Moving between pages (Batch 226): `decidePolicyFor` in Sources/Assistant.swift holds a snapshot of the page being left, and js/bridge.js sends `ui:releaseFrame` only once the new page is built (no data call under 400 ms old still out, and no change to the page for 40 ms, ignoring count-ups and anything changed over and over; at most 1.2 s), so a half-built page is never seen. Behind it the web view doesn't draw its own background and the window's content view (`PageBackdropView`) is the pages' --content colour; js/motion.js starts its rise in and the sidebar marker slide on `app:shown` (sent by js/bridge.js as the picture lifts; not after a reload). Check this in every fix.
+- **Icons over words on buttons (standing rule):** any button that an SVG
+  icon can stand for without losing its meaning uses the icon (from
+  `window.icon`, js/icons.js), with the words kept as its `title` hover label
+  and `aria-label`. Keep words only where an icon would be unclear. The
+  calculator icon is orange (`--accent`) by default.
 - **Settings-style editing:** show values as text with a small pencil SVG
   to edit; switches, dropdowns and segmented buttons act immediately with no
   pencil; autosave with a small "Saved".

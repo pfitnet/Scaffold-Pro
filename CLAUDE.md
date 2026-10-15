@@ -14,6 +14,12 @@ Design and motion skills are installed in `.claude/skills/` (from
 `skills-lock.json`). Use them for UI, animation and Swift work, keeping to the
 look the user likes (HANDOFF.md section 3: calm, roomy, no flashing).
 
+## Buttons: icons over words (standing rule)
+
+Every button that an SVG icon can stand for without losing its meaning uses
+the icon (`window.icon`, js/icons.js), with the words kept as its `title`
+hover label and `aria-label`. Keep words only where an icon would be unclear.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
