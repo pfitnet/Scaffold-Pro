@@ -248,6 +248,16 @@ function renderSidebar(activePage) {
     });
     tools.appendChild(ask);
   }
+  // The calculator, in a floating window (js/calculator.js, ⌥⌘C).
+  const calc = document.createElement('button');
+  calc.className = 'sidebar-ask sidebar-calc';
+  calc.type = 'button';
+  calc.dataset.noIcon = '';
+  calc.title = 'Calculator (⌥⌘C)';
+  calc.setAttribute('aria-label', 'Calculator');
+  calc.innerHTML = `${navIcon('accounts', 16)}<span>Calculator</span>`;
+  calc.addEventListener('click', () => window.appCalculator && window.appCalculator.toggle());
+  tools.appendChild(calc);
   sidebar.appendChild(tools);
 
 
@@ -762,6 +772,18 @@ window.refreshChatBadge();
 // The Assistant's floating chat (js/assistant.js), on every page: the
 // sparkle at the bottom right, or ⌘J.
 // ---------------------------------------------------------------------
+// The calculator's floating window (js/calculator.js), on every page; it
+// reads sums with js/calc-input.js.
+(function loadCalculator() {
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'css/calculator.css';
+  document.head.appendChild(css);
+  const add = (src) => { const s = document.createElement('script'); s.src = src; s.defer = true; document.head.appendChild(s); };
+  if (!window.calcEvaluate && !document.querySelector('script[src$="js/calc-input.js"]')) add('js/calc-input.js');
+  add('js/calculator.js');
+})();
+
 (function loadAssistant() {
   if (document.querySelector('script[src$="js/assistant.js"]') || (document.body && document.body.dataset.page === 'assistant')) return;
   const css = document.createElement('link');
