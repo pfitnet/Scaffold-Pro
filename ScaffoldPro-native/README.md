@@ -5771,3 +5771,13 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium: icon positions are the same folded and open; hover
   opens at once; open after a page change; folds after leaving; the bar at
   1440, 1000 and 390 px. Not checked: WebKit on a Mac.
+
+## Batch 258 — The sidebar slides open and shut
+
+- The icon rail slides open (0.2 s) the moment the pointer is on it, and
+  slides shut the moment the pointer leaves: no wait either way. The names
+  fade in and out; the icons stay where they are.
+- Kept open from the page before, it shows open straight away on the new
+  page (no slide). Reduce Motion turns the slide off.
+- Checked in Chromium: part-way widths while opening and closing, shut
+  starts at once on leaving, icons unmoved. Not checked: WebKit on a Mac.
