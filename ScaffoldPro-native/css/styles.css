@@ -2559,6 +2559,11 @@ th:hover .mp-prov-tools { opacity: 1; }
 .mp-saved { margin-left: 12px; font-size: 12px; color: var(--success, #2f9e5b); opacity: 0; transition: opacity .3s; }
 .mp-saved.on { opacity: 1; }
 #costs-tabs { margin-bottom: 16px; }
+/* Costs › Materials: Export ▾, ··· and New Item at the right of the list's row (js/price-lists.js). */
+#costs-materials > .toolbar > .page-actions { margin-left: auto; }
+.costs-export { height: 34px; padding: 0 12px 0 14px; }
+.costs-export > svg { opacity: .7; transition: transform var(--dur-fast, .15s) var(--ease); }
+.costs-export.hm-active > svg { transform: rotate(180deg); }
 
 /* A letter's attachments (js/letter-attachments.js). */
 .annex-panel { max-width: 860px; margin: 22px auto 40px; padding: 18px 20px; border-radius: var(--radius-lg); background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow-card); }
