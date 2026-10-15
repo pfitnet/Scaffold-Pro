@@ -6190,3 +6190,17 @@ What changed:
   (2 × 3.5 kg → 7), the Columns sheet saves the formula, and the currency
   switch shows its toast. The Swift wasn't compiled here: check the app
   builds, then switch a crane quotation to USD and back to HKD.
+
+## Batch 284 — Columns: rename any column
+
+- In Columns… every column's title is now a box: Description, Unit Rate, Qty,
+  Unit and Unit Weight can be renamed as well as your own columns. Leave it
+  blank for the usual title (shown in grey).
+- The new title prints on the PDF and Word copy, shows as the editor's
+  column head, and can be used in formulas (e.g. `{Weight}`). The usual
+  names (Unit Rate, Qty, Unit Weight) still work in formulas too.
+  (`Quotation.columnTitles`, saved by `setQuotationColumns`; used by
+  `quotationColumns` in Sources/NativeBridge+Letterhead.swift.)
+- If you rename one of your own columns, change any formula that uses its
+  old name.
+- Checked in a browser with mock data. The Swift wasn't compiled here.

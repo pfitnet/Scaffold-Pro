@@ -5,7 +5,8 @@
 // custom column (its value typed on each item). Description and Qty always
 // stay; Unit Rate is there by default and can be taken off the PDF (its
 // price is still kept and typed in the editor) or put back; up to 6 in all.
-// Unit Rate and custom columns can be worked out from the others: a formula
+// Every column's title can be changed (the standard ones' too; blank = the
+// usual title). Unit Rate and custom columns can be worked out from the others: a formula
 // such as "{Rate/kg} × {Unit Weight}" (column titles in braces), answered
 // for each item and put in its box (sync, run by the editor on each load).
 //
@@ -25,26 +26,31 @@
   let layout = [];
   let custom = [];
   let formulas = {};
+  let titles = {}; // the standard columns renamed, by key
   let lastFormula = null; // the formula box a column name is put in
 
-  const titleOf = (key) => KNOWN[key] || (custom.find((c) => c.id === key) || {}).title || '';
+  const titleOf = (key) => (KNOWN[key] ? (titles[key] || '').trim() || KNOWN[key] : (custom.find((c) => c.id === key) || {}).title || '');
+
+  // The names a formula can use: the columns (as titled), and each item's weight.
+  function drawNames() {
+    const names = [...new Set([...layout, 'rate', 'qty', 'weight'].filter((k) => k !== 'desc' && k !== 'unit').map(titleOf).filter((t) => t.trim()))];
+    sheet.querySelector('#qc-names').innerHTML = `<span>In a formula:</span>${names.map((n) => `<button type="button" class="qc-name-chip" data-no-icon title="Put {${esc(n)}} in the formula">${esc(n)}</button>`).join('')}`;
+  }
 
   function draw() {
     const list = sheet.querySelector('#qc-list');
     list.innerHTML = layout.map((key) => `
       <div class="qc-row" data-id="${esc(key)}">
         ${window.dragHandleHTML('Drag to move this column (or focus and press ↑ / ↓)')}
-        ${KNOWN[key] ? `<span class="qc-name">${esc(KNOWN[key])}</span>`
-          : `<input type="text" class="qc-title" maxlength="30" value="${esc(titleOf(key))}" placeholder="Column title, e.g. Size" aria-label="Column title" />`}
+        <input type="text" class="qc-title" maxlength="30" value="${esc(KNOWN[key] ? titles[key] || '' : titleOf(key))}"
+          placeholder="${KNOWN[key] ? esc(KNOWN[key]) : 'Column title, e.g. Size'}" aria-label="Column title"${KNOWN[key] ? ` title="Type a new title for the ${esc(KNOWN[key])} column (blank: ${esc(KNOWN[key])})"` : ''} />
         ${FIXED.includes(key) ? '<span class="qc-fixed">Always shown</span>'
           : `${key === 'rate' ? '<span class="qc-fixed">Shown by default</span>' : ''}<button type="button" class="qc-remove" data-no-icon${key === 'rate' ? ' title="Take the unit rate off the PDF and Word copy (the price stays in the editor)"' : ''}>Remove</button>`}
         ${KNOWN[key] && key !== 'rate' ? '' : `<input type="text" class="qc-formula" maxlength="120" value="${esc(formulas[key] || '')}"
           placeholder="Formula (optional), e.g. {Rate/kg} × {Unit Weight}" aria-label="${esc(titleOf(key) || 'Column')} formula"
           title="Leave blank to type it on each item. A formula works it out for each item: column titles in braces, with + − × ÷ and brackets." />`}
       </div>`).join('');
-    // The names a formula can use: the columns, and each item's weight.
-    const names = [...new Set([...layout.filter((k) => k !== 'desc').map(titleOf).filter((t) => t.trim()), 'Unit Rate', 'Qty', 'Unit Weight'])];
-    sheet.querySelector('#qc-names').innerHTML = `<span>In a formula:</span>${names.map((n) => `<button type="button" class="qc-name-chip" data-no-icon title="Put {${esc(n)}} in the formula">${esc(n)}</button>`).join('')}`;
+    drawNames();
     const full = layout.length >= MAX;
     sheet.querySelector('#qc-add-rate').hidden = layout.includes('rate');
     sheet.querySelector('#qc-add-rate').disabled = full;
@@ -94,8 +100,11 @@
       if (e.target.classList.contains('qc-formula')) { formulas[e.target.closest('.qc-row').dataset.id] = e.target.value; return; }
       const input = e.target.closest('.qc-title');
       if (!input) return;
-      const c = custom.find((x) => x.id === input.closest('.qc-row').dataset.id);
+      const key = input.closest('.qc-row').dataset.id;
+      if (KNOWN[key]) titles[key] = input.value;
+      const c = custom.find((x) => x.id === key);
       if (c) c.title = input.value;
+      drawNames();
     });
     sheet.querySelector('#qc-names').addEventListener('mousedown', (e) => e.preventDefault()); // (the formula box keeps the focus)
     sheet.querySelector('#qc-names').addEventListener('click', (e) => {
@@ -119,7 +128,7 @@
       const input = list.querySelector(`[data-id="${id}"] .qc-title`);
       if (input) input.focus();
     });
-    sheet.querySelector('#qc-reset').addEventListener('click', () => { layout = DEFAULT.slice(); custom = []; formulas = {}; draw(); });
+    sheet.querySelector('#qc-reset').addEventListener('click', () => { layout = DEFAULT.slice(); custom = []; formulas = {}; titles = {}; draw(); });
     sheet.querySelector('#qc-cancel').addEventListener('click', close);
     sheet.querySelector('#qc-save').addEventListener('click', save);
     sheet.addEventListener('keydown', (e) => {
@@ -136,7 +145,9 @@
     const keep = layout.filter((k) => KNOWN[k] || named.some((c) => c.id === k));
     const kept = {};
     for (const k of keep) if ((formulas[k] || '').trim()) kept[k] = formulas[k].trim().replace(/^=\s*/, '');
-    const r = await window.api.quotations.setColumns(detail.id, keep, named.map((c) => ({ id: c.id, title: c.title.trim() })), kept);
+    const renamed = {};
+    for (const k of keep) if (KNOWN[k] && (titles[k] || '').trim() && titles[k].trim() !== KNOWN[k]) renamed[k] = titles[k].trim();
+    const r = await window.api.quotations.setColumns(detail.id, keep, named.map((c) => ({ id: c.id, title: c.title.trim() })), kept, renamed);
     if (r && r.ok === false) { err.textContent = r.error; err.classList.remove('hidden'); return; }
     close();
     await reload();
@@ -151,6 +162,7 @@
     layout = (d.columnLayout && d.columnLayout.length ? d.columnLayout : DEFAULT).slice();
     custom = (d.customColumns || []).map((c) => ({ id: c.id, title: c.title }));
     formulas = Object.assign({}, d.columnFormulas);
+    titles = Object.assign({}, d.columnTitles);
     sheet.querySelector('#qc-error').classList.add('hidden');
     draw();
     sheet.classList.remove('hidden');
@@ -160,7 +172,7 @@
   // editor's table): the custom ones, and Unit Weight (kg) when shown.
   function customInOrder(d) {
     const byId = new Map((d.customColumns || []).map((c) => [c.id, c]));
-    byId.set('weight', { id: 'weight', title: 'Unit Weight (kg)' });
+    byId.set('weight', { id: 'weight', title: (d.columnTitles || {}).weight || 'Unit Weight (kg)' });
     return (d.columnLayout || []).filter((k) => byId.has(k)).map((k) => byId.get(k));
   }
 
@@ -174,9 +186,12 @@
   // An item's value under a column title: a custom column's first, then
   // Unit Rate, Qty and Unit Weight (from the material list).
   function valueOf(name, item, d, values) {
-    const n = name.trim().toLowerCase();
+    let n = name.trim().toLowerCase();
     const c = (d.customColumns || []).find((x) => x.title.trim().toLowerCase() === n);
     if (c) return numberIn(values[c.id]);
+    // A standard column under its new title.
+    const renamed = Object.entries(d.columnTitles || {}).find(([, t]) => t.trim().toLowerCase() === n);
+    if (renamed) n = { rate: 'rate', qty: 'qty', weight: 'weight' }[renamed[0]] || n;
     if (['unit rate', 'unit price', 'rate', 'price'].includes(n)) return item.appliedUnitPrice;
     if (['qty', 'quantity'].includes(n)) return item.quantity;
     if (['unit weight', 'weight', 'unit weight (kg)'].includes(n)) return numberIn(values.weight) ?? (d.lineWeights || {})[item.id] ?? null;

@@ -703,6 +703,8 @@ extension NativeBridge {
             default: return (key: key, title: custom[key] ?? "", width: 72.0, kind: .left)
             }
         }
+        // Renamed in Columns…
+        for i in middle.indices { if let t = detail.columnTitles[middle[i].key] { middle[i].title = t } }
         let room: CGFloat = 507.0 - 29.25 - 108.75
         let others = middle.reduce(CGFloat(0)) { $0 + $1.width }
         let scale: CGFloat = others > room - 150 ? (room - 150) / others : 1
