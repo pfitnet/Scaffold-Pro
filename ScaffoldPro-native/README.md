@@ -6033,3 +6033,15 @@ What changed:
   lines, a paragraph typed with bold and italic and saved at its line, an
   added one opened and removed). The Swift wasn't compiled here, and the
   Word preview's editing wasn't tried: check both in the app.
+
+## Batch 275 — Schedule: dragging, today's date, the whole lists
+
+- **Dragging out an event in the week:** its times show once, inside the
+  block (the slot's "+ 19:00" hint is hidden while dragging), and the block
+  is at least tall enough to hold them, even for a quarter of an hour.
+- **The small month:** the chosen day (today) is in the accent with white
+  figures, as in the week's heading; it was white on near-white in Dark.
+- **The whole lists:** the column beside the calendar (Today, Up Next) and
+  beside the task list (Good morning, This week, Team load) scroll with the
+  page instead of staying pinned, so a long list can be seen to its end.
+- Checked in Chromium with the mocked bridge. Not checked: WebKit on a Mac.

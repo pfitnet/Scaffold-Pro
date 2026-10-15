@@ -518,7 +518,7 @@ function wireDragToSchedule(box) {
       col.appendChild(ghost);
       const draw = () => {
         ghost.style.top = `${(from / 60) * HOUR_PX + 1}px`;
-        ghost.style.height = `${Math.max(12, ((to - from) / 60) * HOUR_PX - 3)}px`;
+        ghost.style.height = `${Math.max(18, ((to - from) / 60) * HOUR_PX - 3)}px`;
         ghost.innerHTML = `<span>${hhmm(from)} – ${hhmm(Math.min(to, 23 * 60 + 59))}</span>`;
       };
       draw();
