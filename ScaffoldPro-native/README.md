@@ -5781,3 +5781,21 @@ Increase Contrast. No Swift changed.
   page (no slide). Reduce Motion turns the slide off.
 - Checked in Chromium: part-way widths while opening and closing, shut
   starts at once on leaving, icons unmoved. Not checked: WebKit on a Mac.
+
+## Batch 259 — Page changes: solid sidebar, motion you can see
+
+- **The icon sidebar is solid now** (same colour, no see-through blur). It
+  lies over the page as the page changes; the blur behind it made the menu
+  look washed out for a moment after a click, and cost frames.
+- **The page-change motion is back in the Mac app.** The app still holds a
+  picture of the last page until the new one is built (Batch 226), but the
+  motion now starts as that picture lifts, so it's seen:
+  - the page's blocks rise in (shorter and lighter than before: 0.4 s, 8 px);
+  - the sidebar's marker waits where the last page had it, then slides to
+    the new page's item.
+- js/bridge.js sends `app:shown` (with `reload`) as it releases the picture;
+  js/motion.js waits for it. A page reloaded in place (a sync, undo) just
+  shows, with no rise.
+- Checked in Chromium with the mocked bridge: marker held then slides on
+  `app:shown`, the page rises in, no rise after `softReload`. Not checked:
+  WebKit on a Mac.

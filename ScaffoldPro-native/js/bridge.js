@@ -720,7 +720,9 @@
   };
   function releaseWhenBuilt() {
     if (window.__scaffoldProWeb || released) return;
-    try { sessionStorage.removeItem(HOLD_KEY); } catch (e) { /* nothing held for a reload */ }
+    let reloaded = false;
+    try { reloaded = sessionStorage.getItem(HOLD_KEY) === '1'; sessionStorage.removeItem(HOLD_KEY); } catch (e) { /* nothing held for a reload */ }
+    try { reloaded = reloaded || performance.getEntriesByType('navigation')[0].type === 'reload'; } catch (e) { /* a new page */ }
     const start = Date.now();
     lastChange = start;
     const watch = new MutationObserver((records) => {
@@ -736,6 +738,9 @@
       if (!built && now - start < READY_MAX_MS) { setTimeout(check, 16); return; }
       watch.disconnect();
       released = true;
+      // The page-change motion (js/motion.js) starts now, as the picture
+      // lifts, so it's seen; a page reloaded in place just shows.
+      window.dispatchEvent(new CustomEvent('app:shown', { detail: { reload: reloaded } }));
       // Once that state is on screen (two frames), not before.
       requestAnimationFrame(() => requestAnimationFrame(() => callNative('ui:releaseFrame', {}).catch(() => {})));
     };
