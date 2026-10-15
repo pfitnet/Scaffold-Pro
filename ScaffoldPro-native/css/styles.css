@@ -2891,6 +2891,10 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
 .split-btn > button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px 0 13px; }
 .split-btn > .split-caret { border-top-left-radius: 0; border-bottom-left-radius: 0; height: 34px; padding: 0 9px; margin-left: 1px; }
 .pd-actions .page-actions { gap: 8px; }
+/* The project's one New button (js/project-detail.js): its list opens on resting on it; the caret turns while it's open. */
+.pd-actions .pd-new { height: 34px; padding: 0 12px 0 13px; }
+.pd-new > svg:last-child { opacity: .85; transition: transform var(--dur-fast, .15s) var(--ease); }
+.pd-new.hm-active > svg:last-child { transform: rotate(180deg); }
 /* Each tab's own "+ New …" and its repeated title: the header has them now
    (the buttons stay, hidden, for the code and ?new=1). */
 .tab-panel > .section-toolbar > button.primary, .tab-panel > .section-toolbar .controls > button.primary { display: none; }
