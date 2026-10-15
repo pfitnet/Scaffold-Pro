@@ -6075,3 +6075,14 @@ What changed:
   it); a rate-only row lines up without the column (`arrangedRow`).
 - Checked in Chromium (the Columns dialog). The Swift wasn't compiled here;
   check that the app builds, and a quotation's PDF with Unit Rate removed.
+
+## Batch 278 — Calculator: copy is an icon, and the calculator icon is orange
+
+- The calculator's Copy button is now a copy icon (orange, hover label
+  "Copy the answer"); it turns into a tick for a moment once copied.
+- The calculator in the sidebar shows its icon in orange, like the
+  assistant's.
+- New standing rule (CLAUDE.md, HANDOFF.md §3): any button an icon can stand
+  for without losing its meaning uses the icon, with the words as its hover
+  label.
+- Checked in Chromium. No Swift changed.
