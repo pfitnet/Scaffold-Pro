@@ -152,8 +152,9 @@
    stays in the page, hidden (css/styles.css): the sidebar's Ask clicks it. ---- */
 .as-float { position: fixed; right: 20px; bottom: 20px; z-index: var(--z-float); width: 410px; height: min(620px, calc(100vh - 110px));
   display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-xl); border: 1px solid var(--hairline); background: var(--panel);
-  box-shadow: var(--shadow-sheet); transform-origin: bottom right; animation: as-pop var(--dur-sheet) var(--spring) both; }
-.as-float.no-anim { animation: none; }
+  box-shadow: var(--shadow-sheet); transform-origin: bottom right; }
+/* Popped in only when opened (a class taken off once it's done), so moving or resizing it never plays it again. */
+.as-float.popping { animation: as-pop var(--dur-sheet) var(--spring) both; }
 @keyframes as-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
 
 
@@ -198,7 +199,7 @@
 
 /* Moving and resizing the floating chat. */
 .as-float .as-drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; }
-.as-float.dragging { animation: none; box-shadow: var(--shadow-sheet), 0 30px 70px rgba(21, 24, 28, .18); }
+.as-float.dragging { box-shadow: var(--shadow-sheet), 0 30px 70px rgba(21, 24, 28, .18); }
 .as-float.dragging .as-drag-handle, body.as-dragging, body.as-dragging * { cursor: grabbing !important; user-select: none !important; }
 /* Resizing: a thin handle along each edge, a square at each corner. */
 .as-resize { position: absolute; z-index: 4; }

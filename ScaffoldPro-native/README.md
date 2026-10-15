@@ -6086,3 +6086,13 @@ What changed:
   for without losing its meaning uses the icon, with the words as its hover
   label.
 - Checked in Chromium. No Swift changed.
+
+## Batch 279 — Floating windows no longer flash when moved
+
+- The assistant's and the calculator's floating windows played their pop-in
+  again whenever a drag or resize ended (the animation was switched off while
+  dragging, and switching it back on started it over). It now runs only when
+  the window is opened (a `popping` class, taken off once it's done), so
+  moving, resizing or a shake never replays it, and one put back after a page
+  change appears without it.
+- Checked in Chromium (no animation running after a drag). No Swift changed.
