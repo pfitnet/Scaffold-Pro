@@ -722,7 +722,8 @@ extension NativeBridge {
         case .partial(let c, let tail):
             // Its values up to the rate (No, Description, Rate), then the tail across the rest.
             let known = ["desc": c.count > 1 ? c[1] : "", "rate": c.count > 2 ? c[2] : ""]
-            let upTo = c.count > 2 ? (layout.firstIndex(of: "rate") ?? 1) : (layout.firstIndex(of: "desc") ?? 0)
+            // (Unit Rate taken off the table: up to the description.)
+            let upTo = c.count > 2 ? (layout.firstIndex(of: "rate") ?? layout.firstIndex(of: "desc") ?? 0) : (layout.firstIndex(of: "desc") ?? 0)
             return .partial([c.first ?? ""] + layout[0...upTo].map { known[$0] ?? "" }, tail: tail)
         default:
             return row

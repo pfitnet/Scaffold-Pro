@@ -6061,3 +6061,17 @@ What changed:
   from page to page. Sums are read by js/calc-input.js (`calcEvaluate`, no
   eval). Files: js/calculator.js, css/calculator.css (loaded by sidebar.js).
 - Checked in Chromium. Not checked: WebKit on a Mac.
+
+## Batch 277 — Unit Rate can be taken off the printed table
+
+- **Columns…** (Line Items' ☰ on a quotation): Unit Rate is shown by
+  default and can now be removed, so the PDF and Word copy leave it out;
+  **+ Unit Rate** puts it back (beside the description). Description and Qty
+  are still always shown; up to 6 columns in all.
+- Without it each item's price is still kept, shown and typed in the
+  editor's Line Items as before, and the totals are unchanged.
+- Swift: `quotationColumnLayout` keeps Description and Qty (Unit Rate only
+  while it's in the layout; no saved layout still means the default with
+  it); a rate-only row lines up without the column (`arrangedRow`).
+- Checked in Chromium (the Columns dialog). The Swift wasn't compiled here;
+  check that the app builds, and a quotation's PDF with Unit Rate removed.

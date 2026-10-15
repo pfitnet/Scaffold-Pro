@@ -1526,15 +1526,16 @@ extension AppDatabase {
     // ---- The printed table's columns ----
 
     /// The middle columns as printed: the ones kept (known kinds and the
-    /// quotation's custom columns), each once, Description, Unit Rate and
-    /// Qty always there.
+    /// quotation's custom columns), each once, Description and Qty always
+    /// there. Unit Rate is there by default (no layout saved) and can be
+    /// taken off the printed table; the price is still kept and typed in the editor.
     func quotationColumnLayout(_ q: Quotation) -> [String] {
         let custom = Set((q.customColumns ?? []).map { $0.id })
         var out: [String] = []
         for key in q.columnLayout ?? ["desc", "rate", "qty"] where (["desc", "rate", "qty", "unit", "weight"].contains(key) || custom.contains(key)) && !out.contains(key) {
             out.append(key)
         }
-        for key in ["desc", "rate", "qty"] where !out.contains(key) { out.append(key) }
+        for key in ["desc", "qty"] where !out.contains(key) { out.append(key) }
         return out
     }
 
@@ -1555,7 +1556,7 @@ extension AppDatabase {
         q.customColumns = columns.isEmpty ? nil : columns
         q.columnLayout = layout
         let checked = quotationColumnLayout(q)
-        guard checked.count <= 6 else { return "Up to 3 columns can be added (the description needs the room)." }
+        guard checked.count <= 6 else { return "Up to 6 columns in all (the description needs the room)." }
         q.columnLayout = checked == ["desc", "rate", "qty"] ? nil : checked
         q.updatedAt = nowISO()
         qs[i] = q
