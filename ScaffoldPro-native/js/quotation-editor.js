@@ -1233,7 +1233,7 @@ async function init() {
     if (subIds === null) return;
     const n = subIds ? subIds.length : 0;
     const result = await window.docPreview.pdf(() => window.api.quotations.exportPDF(quotationId, { preview: true, withSubsidiaries: n > 0, subsidiaryIds: subIds || [] }),
-      { title: currentDetail.quotationNumber + (n ? ` + ${n} subsidiar${n === 1 ? 'y' : 'ies'}` : ''), edit: { id: quotationId } });
+      { title: currentDetail.quotationNumber + (n ? ` + ${n} subsidiar${n === 1 ? 'y' : 'ies'}` : ''), edit: { id: quotationId, layout: () => window.api.quotations.exportWord(quotationId) } });
     if (!result.ok) { alert(result.error); }
   });
 

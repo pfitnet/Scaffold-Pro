@@ -6096,3 +6096,42 @@ What changed:
   moving, resizing or a shake never replays it, and one put back after a page
   change appears without it.
 - Checked in Chromium (no animation running after a drag). No Swift changed.
+
+## Batch 280 — Preview: change the document's wording right on the page
+
+- Edit in a quotation's, invoice's or delivery note's PDF or Word preview
+  now works like a word processor. You click any of the wording on the page
+  and type: the salutation, subject, opening, an item's description, a
+  heading, a note, or a paragraph of the terms. Bold, italic, underline,
+  bullets and numbering are in the header (⌘B ⌘I ⌘U).
+- Figures, totals and the details at the top are worked out by the app and
+  stay as they are.
+- Each change is saved when you leave the line ("Saved" in the header).
+  Escape puts the line back as it was. Done (or Escape again) draws the
+  preview again with the changes.
+- Save waits until you click Done, so the copy you save has the changes.
+- The old "add a paragraph between lines" editor and its List panel are gone.
+  Paragraphs added with it still show and can be changed like any other line.
+- How it works:
+  - A PDF is changed on its Word copy's pages: the same layout, drawn by
+    docx-preview (`window.buildDocx`, js/docx-export.js), shown in place of
+    the PDF's pages while editing.
+  - Each line is found by its words. Table cells are given their own text,
+    so the wrapped lines aren't saved as line breaks.
+  - Styles are worked out from the page relative to the line's own style,
+    so a subject that is bold all through has no marks.
+- Kept with the document as the line's new wording (`DocInsert.replace`,
+  Sources/DocInserts.swift):
+  - `withInserts` uses it for the salutation, subject, opening, table rows
+    (`rowWithText`) and paragraphs.
+  - A numbered or labelled term keeps its marker and indent
+    (`paragraphWithText`).
+  - An emptied paragraph is taken out.
+- `docEdits:spots` is removed, since it is no longer used.
+- Backspace and ⌘Z now work inside the preview's pages: js/bridge.js and
+  js/undo.js look inside the shadow tree. ⌘Z doesn't undo page actions
+  while a preview is open.
+- Checked in Chromium for both the PDF and Word previews, using a mock
+  layout. The Swift wasn't compiled here: check that the app builds, then
+  edit a quotation's description and a term in the preview and look at the
+  saved PDF.

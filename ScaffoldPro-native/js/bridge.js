@@ -484,13 +484,10 @@
     },
     // Paragraphs added in a document's preview (js/doc-preview.js › Edit;
     // Sources/DocInserts.swift): get → { ok, error, anchors: [{ key, label, text }],
-    // inserts: [{ id, anchor, after, text }] }; save(id, inserts) → { ok, error }.
+    // inserts: [{ id, anchor, after, text, replace }] }; save(id, inserts) → { ok, error }.
     docEdits: {
       get: (id) => callNative('docEdits:get', { id }),
       save: (id, inserts) => callNative('docEdits:save', { id, inserts }),
-      // Where each line and added paragraph is on the PDF's pages:
-      // → { ok, spots: [{ key | insert, page, top (pt from the page's top) }], pageWidth }.
-      spots: (id) => callNative('docEdits:spots', { id }),
     },
     // Settings › Updates: { automatic: true|false } and/or { check: true } → { automatic }.
     updates: {
@@ -670,7 +667,7 @@
   // get it.
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Backspace') return;
-    const t = e.target;
+    const t = e.composedPath ? e.composedPath()[0] : e.target; // (inside a shadow tree, e.g. the document preview's pages)
     const editable = t && (t.isContentEditable || t.tagName === 'TEXTAREA' ||
       (t.tagName === 'INPUT' && !t.readOnly && !['button', 'checkbox', 'radio', 'submit', 'reset', 'file', 'image', 'range', 'color'].includes(t.type)));
     if (!editable) e.preventDefault();

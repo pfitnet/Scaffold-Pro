@@ -1157,13 +1157,16 @@
   // opts.editId: the document whose preview can take added paragraphs
   // (js/doc-preview.js › Edit): the file is made again after each, and Save
   // saves the newest.
+  // A layout (with any documents attached to it) → the .docx's bytes.
+  function buildDocx(l) {
+    const extra = (l.attach || []).filter((x) => x && x.ok);
+    return extra.length ? buildCombinedDocx([l, ...extra]) : l.kind === 'sheet' ? buildSheetDocx(l) : buildLetterDocx(l);
+  }
+
   async function exportWord(fetchLayout, opts = {}) {
     let layout = await fetchLayout();
     if (!layout || !layout.ok) return { ok: false, error: (layout && layout.error) || 'The Word document couldn\u2019t be prepared.' };
-    const build = (l) => {
-      const extra = (l.attach || []).filter((x) => x && x.ok);
-      return extra.length ? buildCombinedDocx([l, ...extra]) : l.kind === 'sheet' ? buildSheetDocx(l) : buildLetterDocx(l);
-    };
+    const build = buildDocx;
     let bytes = build(layout);
     const save = (open) => root.api.files.saveWord({
       projectNumber: layout.projectNumber, subfolder: layout.subfolder, fileName: layout.fileName,
@@ -1184,6 +1187,7 @@
   }
 
   root.buildLetterDocx = buildLetterDocx;
+  root.buildDocx = buildDocx;
   root.buildCombinedDocx = buildCombinedDocx;
   root.buildSheetDocx = buildSheetDocx;
   root.__setSheetBaseline = (v) => { SHEET_BASELINE_AT = v; };
