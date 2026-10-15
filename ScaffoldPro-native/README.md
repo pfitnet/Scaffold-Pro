@@ -6232,3 +6232,13 @@ What changed:
   because each price must still be typed somewhere (`showRate` in
   js/quotation-editor.js).
 - Checked in a browser with mock data.
+
+## Batch 287 — Columns: Total only offers columns on the table
+
+- The Total row's "= Qty × …" list now offers only the columns on the table:
+  Unit Rate only while it's a column, Unit Weight only while it's a column,
+  and your own columns.
+- Removing the column Total was of moves Total to the first one left (the
+  note under the list says which now prices the items). With only
+  Description and Qty, Total stays on Unit Rate so prices can still be typed.
+- Checked in a browser with mock data.

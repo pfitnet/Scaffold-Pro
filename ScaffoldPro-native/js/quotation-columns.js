@@ -41,8 +41,11 @@
   // The Total row: what it's Qty × of, and its title (blank: the usual one).
   const totalTitle = () => (totalOf === 'weight' ? 'Total Weight (kg)' : totalOf ? `Total ${titleOf(totalOf) || ''}`.trim() : 'Total Price');
   function drawTotal() {
-    const choices = [['', titleOf('rate')], ['weight', titleOf('weight')], ...custom.filter((c) => c.title.trim()).map((c) => [c.id, c.title])];
-    if (!choices.some(([v]) => v === totalOf)) totalOf = '';
+    // Only columns on the table (Unit Rate when nothing else is, so prices can be typed).
+    const choices = [['', titleOf('rate')], ['weight', titleOf('weight')], ...custom.filter((c) => c.title.trim()).map((c) => [c.id, c.title])]
+      .filter(([v]) => layout.includes(v || 'rate'));
+    if (!choices.length) choices.push(['', titleOf('rate')]);
+    if (!choices.some(([v]) => v === totalOf)) totalOf = choices[0][0];
     const select = sheet.querySelector('#qc-total-of');
     select.innerHTML = choices.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
     select.value = totalOf;
