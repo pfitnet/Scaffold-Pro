@@ -2998,8 +2998,22 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
 .doc-main { container-type: inline-size; }
 .doc-main .boq-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 18px !important; }
 .doc-main .boq-grid > div:first-child .picker-results { max-height: 340px; overflow-y: auto; }
-@container (min-width: 1000px) {
-  .doc-main .boq-grid { grid-template-columns: minmax(260px, 1fr) minmax(720px, 2fr) !important; gap: 20px !important; align-items: stretch !important; }
+@container (min-width: 860px) {
+  .doc-main .boq-grid { grid-template-columns: minmax(240px, 2fr) minmax(0, 5fr) !important; gap: 18px !important; align-items: stretch !important; }
+  /* Beside the materials the line items are narrower: slimmer cell padding,
+     a smaller Monthly / Once switch, so the whole table fits. */
+  .doc-main .boq-grid > div:last-child :is(th, td) { padding-left: 6px; padding-right: 6px; }
+  .doc-main .boq-grid > div:last-child .charge-switch button { padding: 1px 6px; font-size: 10.5px; }
+  /* The materials column: its title and ☰ on one line, the search under them;
+     the list's price and Add columns slimmer so names wrap between words. */
+  .doc-main .boq-grid > div:first-child .am-head { flex-wrap: wrap; row-gap: 8px; }
+  .doc-main .boq-grid > div:first-child .am-head h2 { flex: 1; font-size: 17px; }
+  .doc-main .boq-grid > div:first-child .am-head #search-box { order: 3; flex: 1 1 100%; margin: 0; }
+  .doc-main .boq-grid > div:first-child .picker-group-table :is(th, td) { padding-left: 6px; padding-right: 6px; }
+  .doc-main .boq-grid > div:first-child .picker-group-table th.num { width: 62px; }
+  .doc-main .boq-grid > div:first-child .picker-group-table th:last-child { width: 60px; }
+  .doc-main .boq-grid > div:first-child .picker-group-table td:first-child { overflow-wrap: break-word; }
+  .doc-main .boq-grid > div:first-child .add-btn { padding: 3px 8px; font-size: 12px; }
   .doc-main .boq-grid > div:first-child { display: flex; flex-direction: column; min-width: 0; }
   .doc-main .boq-grid > div:first-child .picker-results { flex: 1 1 0; min-height: 360px; max-height: none; }
   .doc-main .boq-grid:has(> .picker-folded), body.crane-job .doc-main .boq-grid { grid-template-columns: minmax(0, 1fr) !important; }
