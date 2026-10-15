@@ -185,7 +185,8 @@ async function loadSettings() {
   document.getElementById('termsNewPage-input').value = settings.termsNewPage === 'Always' ? 'Always' : 'WhenLong';
   document.getElementById('markupRounding-input').value = settings.markupRoundUp ? 'Up' : 'Nearest';
   // Manpower rates: on Costs › Manpower Rates now.
-  document.getElementById('eurRate-input').value = (settings.exchangeRates && settings.exchangeRates.EUR) || 8.93;
+  const rates = Object.assign({ EUR: 8.93 }, settings.exchangeRates);
+  document.getElementById('exchangeRates-input').value = Object.keys(rates).sort().map((k) => `${k} ${rates[k]}`).join(', ');
   for (const k of START_KEYS) {
     document.getElementById(`start-${k}`).value = (settings.numberStarts && settings.numberStarts[k]) || '';
   }
@@ -230,8 +231,11 @@ async function saveSettings() {
   }
   // Blank: back to the standard wording.
   payload.buyBackWording = document.getElementById('buyBackWording-input').value;
-  const eur = Number(document.getElementById('eurRate-input').value);
-  if (eur > 0) payload.exchangeRates = { EUR: eur };
+  // "EUR 8.93, USD = 7.8" → { EUR: 8.93, USD: 7.8 }
+  payload.exchangeRates = {};
+  for (const [, code, rate] of document.getElementById('exchangeRates-input').value.matchAll(/([A-Za-z]{3})\s*[=:]?\s*([\d.]+)/g)) {
+    if (Number(rate) > 0) payload.exchangeRates[code.toUpperCase()] = Number(rate);
+  }
   payload.numberStarts = {};
   for (const k of START_KEYS) {
     const v = Math.round(Number(document.getElementById(`start-${k}`).value) || 0);

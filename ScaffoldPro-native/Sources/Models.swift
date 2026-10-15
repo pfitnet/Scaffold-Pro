@@ -1352,6 +1352,10 @@ extension Quotation {
         buyBackAmount = try c.decodeIfPresent(Double.self, forKey: .buyBackAmount)
         columnLayout = try c.decodeIfPresent([String].self, forKey: .columnLayout)
         customColumns = try c.decodeIfPresent([QuotationCustomColumn].self, forKey: .customColumns)
+        columnFormulas = try c.decodeIfPresent([String: String].self, forKey: .columnFormulas)
+        currencyRate = try c.decodeIfPresent(Double.self, forKey: .currencyRate)
+        baseDiscountValue = try c.decodeIfPresent(Double.self, forKey: .baseDiscountValue)
+        baseBuyBackAmount = try c.decodeIfPresent(Double.self, forKey: .baseBuyBackAmount)
         hirePeriodEnabled = try c.decodeIfPresent(Bool.self, forKey: .hirePeriodEnabled)
         hirePeriodMonths = try c.decodeIfPresent(Int.self, forKey: .hirePeriodMonths)
     }
@@ -1771,6 +1775,18 @@ struct Quotation: Codable {
     var columnLayout: [String]? = nil
     /// Columns typed in per item (their values: QuotationLineItem.customValues).
     var customColumns: [QuotationCustomColumn]? = nil
+    /// Columns worked out from others, by column key ("rate" or a custom
+    /// column's id): e.g. "{Rate/kg} × {Unit Weight}". js/quotation-columns.js
+    /// works each item's value out and saves it in its box.
+    var columnFormulas: [String: String]? = nil
+    /// In another currency (`currency`): what 1 of it was worth in the
+    /// company's currency when the prices were converted.
+    var currencyRate: Double? = nil
+    /// The amounts as typed in the company's currency, put back when the
+    /// quotation goes back to it (unless changed since): the Fixed discount
+    /// and the buy-back lump sum.
+    var baseDiscountValue: Double? = nil
+    var baseBuyBackAmount: Double? = nil
 }
 
 /// A column of a quotation's table typed in per item, e.g. "Model".
@@ -2001,6 +2017,12 @@ struct QuotationLineItem: Codable {
     var chargeOnce: Bool? = nil
     /// Its values in the quotation's custom columns, by column id.
     var customValues: [String: String]? = nil
+    /// While its quotation is in another currency: the price (and its sum)
+    /// and Amount discount as typed in the company's currency, put back
+    /// when the quotation goes back to it (unless changed since).
+    var baseUnitPrice: Double? = nil
+    var basePriceFormula: String? = nil
+    var baseDiscountValue: Double? = nil
 }
 
 /// How a priced row that isn't charged is printed: the words typed.
@@ -2349,9 +2371,14 @@ struct QuotationDetail: Codable {
     /// checked), and its custom columns.
     var columnLayout: [String] = ["desc", "rate", "qty"]
     var customColumns: [QuotationCustomColumn] = []
-    /// Each material item's weight (kg) from the material list, by line id,
-    /// when the Unit Weight column is shown (a typed one is in customValues["weight"]).
+    /// Each material item's weight (kg) from the material list, by line id
+    /// (a typed one is in customValues["weight"]), for the Unit Weight column
+    /// and formulas' "{Unit Weight}".
     var lineWeights: [String: Double] = [:]
+    /// Columns worked out from others (Quotation.columnFormulas).
+    var columnFormulas: [String: String] = [:]
+    /// What 1 of `currency` is worth in the company's currency.
+    var currencyRate: Double? = nil
     var charges: ChargeSplit? = nil
     /// This quotation's own key terms; nil = the standard ones below.
     var keyTerms: String?

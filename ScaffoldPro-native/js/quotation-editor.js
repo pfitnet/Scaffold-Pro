@@ -84,6 +84,13 @@ async function loadDetail() {
     return;
   }
   document.getElementById('quotation-body').classList.remove('hidden');
+  // Worked-out columns (Columns… › formula) put their answers in the boxes.
+  if (!loadDetail.syncing && currentDetail.status === 'Draft') {
+    loadDetail.syncing = true;
+    try {
+      if (await window.quotationColumns.sync(currentDetail)) return await loadDetail();
+    } finally { loadDetail.syncing = false; }
+  }
   render();
   window.docLanguage.show(currentDetail);
   // Linked to a BOQ (or not any more): its drawings come with it.
@@ -560,7 +567,12 @@ function lineRow(item, rowNo, isLocked, draggable) {
   const markedUp = Math.abs(effectivePrice - item.appliedUnitPrice) > 0.004;
   // Section 20: a hand-typed price shows the material-list price under it.
   const listPrice = item.priceListUnitPrice;
-  const overridden = listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
+  // (Not in another currency: the list's prices are in the company's.)
+  const overridden = !currentDetail.currency && listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
+  // Worked out from other columns (Columns… › formula): shown, not typed.
+  const formulas = currentDetail.columnFormulas || {};
+  const worked = (key) => (formulas[key] && !item.blockId && item.section !== 'Delivery' && !item.priceNote
+    ? `readonly title="Worked out: = ${esc(formulas[key])} (Columns… to change)"` : '');
   const discountLabel = window.lineDiscountLabel(item, currencyLabel);
   // With a markup %: a button to leave this item out of it (or put it back).
   const markup = Number(currentDetail.markupPercent) || 0;
@@ -579,12 +591,12 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
     <td>${item.unit}${onceSwitch}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : ''} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : worked('rate')} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
     ${window.quotationColumns.customInOrder(currentDetail).map((c) => {
       // Unit Weight: the material list's weight unless one is typed (a crane's items have none).
       const kg = c.id === 'weight' ? (currentDetail.lineWeights || {})[item.id] : null;
       const weightAttrs = c.id === 'weight' ? ` inputmode="decimal" placeholder="${kg != null ? kg.toFixed(1) : 'kg'}"` : '';
-      return `<td><input type="text" class="cv-input" data-col="${esc(c.id)}" maxlength="60"${weightAttrs} value="${esc((item.customValues || {})[c.id] || '')}" aria-label="${esc(c.title)}" ${isLocked ? 'disabled' : ''} /></td>`;
+      return `<td><input type="text" class="cv-input" data-col="${esc(c.id)}" maxlength="60"${weightAttrs} value="${esc((item.customValues || {})[c.id] || '')}" aria-label="${esc(c.title)}" ${isLocked ? 'disabled' : worked(c.id)} /></td>`;
     }).join('')}
     <td><div class="line-tools">${isLocked ? (discountLabel ? `<span class="line-discount-note">${discountLabel}</span>` : '') : window.discountButtonHTML(discountLabel)}${markupBtn}</div></td>
     <td class="num">${money(lineTotal)}</td>
@@ -1211,8 +1223,13 @@ async function init() {
   const settings = await window.api.settings.get();
   baseCurrency = settings.currency || 'HKD';
   currencyLabel = currencySign(baseCurrency);
-  document.getElementById('currency-select').addEventListener('change', (e) => {
-    saveLetterField('currency', e.target.value === baseCurrency ? null : e.target.value);
+  // Another currency: every price is converted and put in its box (and put
+  // back as typed when it goes back to the company's currency).
+  document.getElementById('currency-select').addEventListener('change', async (e) => {
+    await saveLetterField('currency', e.target.value === baseCurrency ? null : e.target.value);
+    const d = currentDetail;
+    if (d && d.currency && d.currencyRate) window.appToast(`Prices converted at 1 ${d.currency} = ${currencySign(baseCurrency)} ${d.currencyRate}`);
+    else if (d && !d.currency) window.appToast(`Prices back in ${baseCurrency}`);
   });
 
   await loadDetail();
