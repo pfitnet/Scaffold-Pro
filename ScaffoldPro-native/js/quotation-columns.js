@@ -73,7 +73,7 @@
     sheet.querySelector('#qc-add-weight').disabled = full || layout.includes('weight');
     sheet.querySelector('#qc-add-custom').disabled = full;
     sheet.querySelector('#qc-note').textContent = full ? 'Up to 6 columns in all — the description needs the room.'
-      : totalOf ? `Each item is priced by its ${titleOf(totalOf)}: Total = Qty × ${titleOf(totalOf)}.`
+      : totalOf ? `Each item is priced by its ${titleOf(totalOf)}: Total = Qty × ${titleOf(totalOf)}.${layout.includes('rate') ? ` ${titleOf('rate')} shows that price too.` : ''}`
       : layout.includes('rate') ? '' : 'Unit Rate is off the printed table; each item’s price is still kept, and typed in the editor.';
   }
 
@@ -155,14 +155,8 @@
     sheet.querySelector('#qc-cancel').addEventListener('click', close);
     sheet.querySelector('#qc-save').addEventListener('click', save);
     sheet.querySelector('#qc-total-title').addEventListener('input', (e) => { titles.total = e.target.value; });
-    // Another column priced: Unit Rate would only repeat it, so it's taken
-    // off (and put back when Total is of Unit Rate again).
-    sheet.querySelector('#qc-total-of').addEventListener('change', (e) => {
-      totalOf = e.target.value;
-      if (totalOf) layout = layout.filter((k) => k !== 'rate');
-      else if (!layout.includes('rate')) layout.splice(Math.min(layout.indexOf('desc') + 1, layout.length), 0, 'rate');
-      draw();
-    });
+    // (The columns stay as they are: Unit Rate is kept or removed by hand.)
+    sheet.querySelector('#qc-total-of').addEventListener('change', (e) => { totalOf = e.target.value; draw(); });
     sheet.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') close();
       if (e.key === 'Enter' && e.target.classList.contains('qc-title')) save();

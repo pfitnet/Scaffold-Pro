@@ -6221,3 +6221,14 @@ What changed:
   titles the column.)
 - Checked in a browser with mock data (Total of Unit Weight prices each line
   at its weight, a typed weight first). The Swift wasn't compiled here.
+
+## Batch 286 — Columns: Unit Rate stays when Total changes; removed means gone
+
+- Picking what Total is a total of no longer takes Unit Rate off (or puts it
+  back). Unit Rate is kept or removed by hand, like any other column. While
+  another column prices the items, the note says Unit Rate shows that price too.
+- The editor's Unit Price column now follows Columns…: removed there, it's
+  gone from the line items too. It stays only while Total is of Unit Rate,
+  because each price must still be typed somewhere (`showRate` in
+  js/quotation-editor.js).
+- Checked in a browser with mock data.
