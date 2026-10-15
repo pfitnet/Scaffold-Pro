@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/bridge.js": {
-    "mtime": 1792058860.6395895,
-    "seen": 1792058962.9357722,
-    "ast_hash": "62d9f6692a032c10df10191ecbbd8068",
+    "mtime": 1792076093.8539798,
+    "seen": 1792076149.330172,
+    "ast_hash": "59040511a958fe51a9252d332d502d1b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/dashboard.js": {
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1792060023.812725,
-    "seen": 1792060031.9939108,
-    "ast_hash": "33cc8b39c63aaf831b0f4f5c8d9249ed",
+    "mtime": 1792076132.6766,
+    "seen": 1792076149.3304307,
+    "ast_hash": "e8277ff3b187728bc214a296bd817b1e",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -948,9 +948,9 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1792060023.817911,
-    "seen": 1792060031.9939053,
-    "ast_hash": "40a00f5535542f7feb613fa3d02d51e2",
+    "mtime": 1792076132.6880143,
+    "seen": 1792076149.3304229,
+    "ast_hash": "65ccb59b2db6a8d79101a288f765d603",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-content.js": {
@@ -1080,9 +1080,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/NativeBridge.swift": {
-    "mtime": 1792055261.162492,
-    "seen": 1792057747.645072,
-    "ast_hash": "4f58d4542b5219bfd77e2e8615cff74f",
+    "mtime": 1792076093.8523202,
+    "seen": 1792076149.3301115,
+    "ast_hash": "42b7556a801d93d307ca0b2a728c57de",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/PDFGenerator.swift": {
@@ -1104,9 +1104,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/Storage.swift": {
-    "mtime": 1792055261.166492,
-    "seen": 1792057747.6450782,
-    "ast_hash": "b3d4c4bf8aa777241a606e269e73469c",
+    "mtime": 1792076122.532872,
+    "seen": 1792076149.3301227,
+    "ast_hash": "d9759a0028669294e38a3667a45569bd",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/TeamSharing.swift": {
@@ -1158,9 +1158,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/quotation-columns.js": {
-    "mtime": 1792060004.5188403,
-    "seen": 1792060031.9938347,
-    "ast_hash": "53ad6c2e2876ff6bfad2ebbf438273c4",
+    "mtime": 1792076093.8549762,
+    "seen": 1792076149.3303235,
+    "ast_hash": "e100c0f51e3579f79cb5055fbbd9451b",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/ui-kit.js": {

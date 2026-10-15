@@ -298,6 +298,9 @@ final class UndoJournal {
     struct Step {
         var action: String
         var label: String
+        /// Part of the step before it (a value worked out from what was just
+        /// changed): ⌘Z undoes the two together.
+        var join = false
         var stores: [String] = []
         var changes: [String: Change] = [:]
     }
@@ -345,8 +348,8 @@ final class UndoJournal {
     /// Whether a save to this file is being noted (an action is running).
     func wants(_ url: URL) -> Bool { current != nil && !UndoJournal.untracked.contains(url.lastPathComponent) }
 
-    func begin(_ action: String) {
-        current = UndoJournal.journaled(action) ? Step(action: action, label: UndoJournal.label(action)) : nil
+    func begin(_ action: String, join: Bool = false) {
+        current = UndoJournal.journaled(action) ? Step(action: action, label: UndoJournal.label(action), join: join) : nil
     }
 
     func record(_ url: URL, old: Data?, new: Data) {
@@ -375,6 +378,28 @@ final class UndoJournal {
         // Kept only when something really changed (and stayed changed).
         let changed = step.changes.values.contains { c in c.ids.contains { c.before[$0] != c.after[$0] } }
         guard changed else { return }
+        // A worked-out value: into the step it follows, if that's in the same
+        // area (not after an undo, when that step is on the redo list).
+        let area = { (a: String) in a.split(separator: ":").first.map(String.init) ?? a }
+        if step.join, redoSteps.isEmpty, let previous = undoSteps.last, area(previous.action) == area(step.action), var last = undoSteps.popLast() {
+            for key in step.stores {
+                guard let change = step.changes[key] else { continue }
+                var into = last.changes[key] ?? Change(url: change.url)
+                if last.changes[key] == nil { last.stores.append(key) }
+                for id in change.ids {
+                    if !into.ids.contains(id) {
+                        into.ids.append(id)
+                        into.before[id] = change.before[id]
+                        into.beforeAt[id] = change.beforeAt[id]
+                    }
+                    into.after[id] = change.after[id]
+                    into.afterAt[id] = change.afterAt[id]
+                }
+                last.changes[key] = into
+            }
+            undoSteps.append(last)
+            return
+        }
         undoSteps.append(step)
         if undoSteps.count > limit { undoSteps.removeFirst(undoSteps.count - limit) }
         redoSteps.removeAll()

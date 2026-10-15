@@ -220,7 +220,7 @@
       // The printed table's middle columns, in order ('desc', 'rate', 'qty', 'unit', 'weight' or a custom id), and the custom ones [{ id, title }].
       setColumns: (id, layout, custom, formulas, titles, totalOf) => callNative('quotations:setColumns', { id: id, layout: layout, custom: custom, formulas: formulas || {}, titles: titles || {}, totalOf: totalOf || null }),
       // An item's value in a custom column ('' clears it).
-      setLineValue: (id, column, value) => callNative('quotations:setLineValue', { id: id, column: column, value: value }),
+      setLineValue: (id, column, value, joinUndo) => callNative('quotations:setLineValue', { id: id, column: column, value: value, joinUndo: !!joinUndo }),
       // Extra sections: kind 'Priced' | 'Rates' | 'Note'.
       addBlock: (quotationId, kind) => callNative('quotations:addBlock', { quotationId: quotationId, kind: kind }),
       updateBlock: (id, changes) => callNative('quotations:updateBlock', Object.assign({ id: id }, changes)),

@@ -1,24 +1,24 @@
 # Graph Report - Scaffold-Pro  (2026-10-15)
 
 ## Corpus Check
-- 137 files · ~619,876 words
+- 137 files · ~620,205 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 52 file(s) not represented in the graph (top: .css 17, .whl 16, .ttf 6)
 
 ## Summary
-- 3837 nodes · 12492 edges · 147 communities (115 shown, 32 thin omitted)
+- 3837 nodes · 12494 edges · 148 communities (116 shown, 32 thin omitted)
 - Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 1989 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `68d89941`
+- Built from commit: `8e35b72b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - PDFGenerator
 - AppDatabase
-- GoogleSheetsSync
+- QuotationAI
 - TeamSync
 - String
 - marketing.js
@@ -91,7 +91,7 @@
 - item-picker.js
 - dialogs.js
 - String
-- 5. Recent work (Batches 147–216, newest last)
+- .runAssistant
 - project-work.js
 - tasks.js
 - TeamLink
@@ -111,7 +111,7 @@
 - notify.js
 - evaluate
 - undo.js
-- BackupManager
+- .loginPage
 - settings-ui.js
 - jszip.min.js
 - formattedParagraphs
@@ -119,7 +119,7 @@
 - manual.js
 - open
 - Backup and Restore (atomic, local automatic)
-- .assistantCheck
+- 5. Recent work (Batches 147–216, newest last)
 - doc-preview.js
 - mount
 - quotation-import.js
@@ -130,7 +130,7 @@
 - marketing-report.js
 - doc-select.js
 - settings-ai.js
-- QuotationAI
+- GoogleSheetsSync
 - AppDelegate
 - CloudBackupManager
 - c
@@ -151,6 +151,7 @@
 - item
 - changelog.js
 - MKT_QUOTES
+- .draw
 
 ## God Nodes (most connected - your core abstractions)
 1. `AppDatabase` - 529 edges
@@ -193,7 +194,7 @@
 - **Data safety: local backup, iCloud backup, team sharing** — scaffoldpro_native_readme_backup_restore, scaffoldpro_native_readme_icloud_backup, scaffoldpro_native_readme_team_sharing [INFERRED 0.85]
 - **Project to documents workflow (project detail launches BOQ, quotation, invoice, delivery note)** — scaffoldpro_native_project_detail, scaffoldpro_native_boq_editor, scaffoldpro_native_quotation_editor, scaffoldpro_native_invoice_editor, scaffoldpro_native_delivery_note_editor [INFERRED 0.85]
 
-## Communities (147 total, 32 thin omitted)
+## Communities (148 total, 32 thin omitted)
 
 ### Community 0 - "PDFGenerator"
 Cohesion: 0.07
@@ -203,9 +204,9 @@ Nodes (20): .total, hasInlineMarks(), LetterColumn, LetterDocument, LetterInfoRo
 Cohesion: 0.04
 Nodes (14): AppDatabase, .markupRoundsUp, .priceListsAreSeeded, ProjectStats, .minimumMonthlyRental, .chatFilesFolder, .signaturesFolder, DeliveryNote (+6 more)
 
-### Community 2 - "GoogleSheetsSync"
+### Community 2 - "QuotationAI"
 Cohesion: 0.13
-Nodes (6): GoogleSheetsStatus, GoogleSheetsSync, .isLinked, ImportedQuotationLine, QuotationImportDraft, QuotationImportReader
+Nodes (12): CloudBackupStatus, GoogleSheetsStatus, ImportedQuotationLine, QuotationAI, .company, .model, .provider, .ready (+4 more)
 
 ### Community 3 - "TeamSync"
 Cohesion: 0.07
@@ -344,8 +345,8 @@ Cohesion: 0.09
 Nodes (14): ParsedPriceRow, PartyColumn, PartyImportPreview, PartyImportResult, PartySheet, PriceImportPreview, PriceImportResult, PriceSheetInterpreter (+6 more)
 
 ### Community 42 - "String"
-Cohesion: 0.07
-Nodes (22): safeFileName(), Change, currentYearSuffix(), FileStorage, .administrationRoot, .appRoot, .legacyBackupsRoot, .projectsRoot (+14 more)
+Cohesion: 0.05
+Nodes (20): BackupManager, BackupError, BackupManifest, BackupSummary, safeFileName(), Change, FileStorage, .administrationRoot (+12 more)
 
 ### Community 43 - "dashboard.js"
 Cohesion: 0.08
@@ -353,7 +354,7 @@ Nodes (50): 2.1 Colour tokens, 2.3 Shape, depth, spacing, 2.4 Icons: one family,
 
 ### Community 44 - "String"
 Cohesion: 0.07
-Nodes (45): Cocoa, CoreGraphics, CoreText, CryptoKit, Network, PDFKit, BQSheet, BQSheetRenderer (+37 more)
+Nodes (51): Cocoa, CoreGraphics, CoreText, CryptoKit, Network, PDFKit, BQSheet, BQSheetRenderer (+43 more)
 
 ### Community 45 - "letter-editor.js"
 Cohesion: 0.37
@@ -455,9 +456,9 @@ Nodes (5): edges(), esc(), groupBox(), render(), watchEdges()
 Cohesion: 0.53
 Nodes (4): build(), ensureStyles(), show(), split()
 
-### Community 78 - "5. Recent work (Batches 147–216, newest last)"
-Cohesion: 0.24
-Nodes (6): 5. Recent work (Batches 147–216, newest last), AssistantRun, ChatFile, ChatTurn, jsonObject(), jsonText()
+### Community 78 - ".runAssistant"
+Cohesion: 0.30
+Nodes (3): AssistantRun, ChatFile, ChatTurn
 
 ### Community 79 - "project-work.js"
 Cohesion: 0.24
@@ -492,8 +493,8 @@ Cohesion: 0.06
 Nodes (5): OverviewDoc, OverviewLink, ProjectContents, ProjectOverview, BOQLineItem
 
 ### Community 90 - "WebServer"
-Cohesion: 0.14
-Nodes (9): HTTPRequest, PDFWatermark, WebServer, .enabled, .hasPassword, .port, .sessions, WebSession (+1 more)
+Cohesion: 0.18
+Nodes (8): HTTPRequest, WebServer, .enabled, .hasPassword, .port, .sessions, WebSession, WebStatus
 
 ### Community 91 - "delivery-rates.js"
 Cohesion: 0.67
@@ -531,9 +532,9 @@ Nodes (6): evaluate(), factor(), number(), product(), sum(), showBubble()
 Cohesion: 0.57
 Nodes (6): afterReload(), appUndo(), placeOf(), showChanges(), snapshot(), toast()
 
-### Community 100 - "BackupManager"
-Cohesion: 0.22
-Nodes (4): BackupManager, BackupError, BackupManifest, BackupSummary
+### Community 100 - ".loginPage"
+Cohesion: 0.25
+Nodes (6): 3.1 Merges, 3.2 Sidebar (rebuilt in `js/sidebar.js`), 3.3 Page anatomy (every page), 3.4 Small screens (Mac window, iPad, phone), 3. Information architecture and navigation, addBackButton()
 
 ### Community 101 - "settings-ui.js"
 Cohesion: 0.19
@@ -558,6 +559,10 @@ Nodes (8): open(), drawDays(), drawLine(), drawMode(), picked(), setMoving(), to
 ### Community 107 - "Backup and Restore (atomic, local automatic)"
 Cohesion: 0.33
 Nodes (6): Backup and Restore (atomic, local automatic), Automatic iCloud backup to William's Work, Quotation Key Terms with hanging-indent formatting, Settings (company info, numbering, standard quotation), Share with Other Macs (iCloud change logs), Workers and administrative documents
+
+### Community 108 - "5. Recent work (Batches 147–216, newest last)"
+Cohesion: 0.15
+Nodes (5): 5. Recent work (Batches 147–216, newest last), jsonObject(), jsonText(), item, normalJobType()
 
 ### Community 109 - "doc-preview.js"
 Cohesion: 0.29
@@ -595,25 +600,25 @@ Nodes (3): draw(), load(), start()
 Cohesion: 0.83
 Nodes (3): draw(), load(), save()
 
-### Community 122 - "QuotationAI"
+### Community 122 - "GoogleSheetsSync"
 Cohesion: 0.21
-Nodes (8): Key, QuotationAI, .company, .model, .provider, .ready, .sharedKey, Status
+Nodes (3): GoogleSheetsSync, .isLinked, Key
 
 ### Community 123 - "AppDelegate"
 Cohesion: 0.13
 Nodes (3): 6. Open items and things waiting on the user, AppDelegate, .autoUpdate
 
 ### Community 124 - "CloudBackupManager"
-Cohesion: 0.12
-Nodes (9): CloudBackupManager, .defaultFolder, .enabled, .folder, .iCloudDrive, .usingDefault, Key, CloudBackupStatus (+1 more)
+Cohesion: 0.13
+Nodes (8): CloudBackupManager, .defaultFolder, .enabled, .folder, .iCloudDrive, .usingDefault, Key, .materialFolder
 
 ### Community 127 - "install.sh"
 Cohesion: 0.24
 Nodes (14): base_flags(), compile(), fingerprint(), has_identity(), make_identity(), output_file_map(), pick_sdk(), SDKROOT (+6 more)
 
 ### Community 128 - "ScaffoldPro: one design, every page (redesign plan)"
-Cohesion: 0.12
-Nodes (16): 3.1 Merges, 3.2 Sidebar (rebuilt in `js/sidebar.js`), 3.3 Page anatomy (every page), 3.4 Small screens (Mac window, iPad, phone), 3. Information architecture and navigation, 6.1 The screenshot harness (built in R0, kept in the repo), 6.3 Final consistency audit (R12): all must come back empty, or be explained in the README, 6.4 What can't be checked here (+8 more)
+Cohesion: 0.18
+Nodes (10): 6.1 The screenshot harness (built in R0, kept in the repo), 6.3 Final consistency audit (R12): all must come back empty, or be explained in the README, 6.4 What can't be checked here, 6. Verification, 7. Out of scope (say so if asked), Before you start (read this first), Context, Decisions already made with the user (+2 more)
 
 ### Community 130 - "String"
 Cohesion: 0.07
@@ -663,7 +668,7 @@ Nodes (8): boqLine(), item(), matLine(), mv(), priceItem(), SCAFOM_ITEMS, SP_ITE
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `5. Recent work (Batches 147–216, newest last)` connect `5. Recent work (Batches 147–216, newest last)` to `PDFGenerator`, `AppDatabase`, `GoogleSheetsSync`, `String`, `Models.swift`, `docx-export.js`, `quotation-editor.js`, `at`, `.handle`, `String`, `nonBlank`, `String`, `String`, `String`, `String`, `Encodable`, `workers.js`, `NativeBridge`, `LetterTableRow`, `String`, `WebServer`, `.assistantCheck`, `doc-preview.js`, `mount`, `Assistant.swift`, `Double`, `QuotationAI`, `AppDelegate`?**
+- **Why does `5. Recent work (Batches 147–216, newest last)` connect `5. Recent work (Batches 147–216, newest last)` to `PDFGenerator`, `AppDatabase`, `QuotationAI`, `String`, `Models.swift`, `docx-export.js`, `quotation-editor.js`, `at`, `.handle`, `String`, `nonBlank`, `String`, `String`, `String`, `String`, `Encodable`, `workers.js`, `NativeBridge`, `LetterTableRow`, `.runAssistant`, `String`, `WebServer`, `doc-preview.js`, `mount`, `Assistant.swift`, `Double`, `AppDelegate`?**
   _High betweenness centrality (0.266) - this node is a cross-community bridge._
 - **Are the 9 inferred relationships involving `AppDatabase` (e.g. with `1. What ScaffoldPro is` and `5. Recent work (Batches 147–216, newest last)`) actually correct?**
   _`AppDatabase` has 9 INFERRED edges - model-reasoned connections that need verification._
@@ -671,7 +676,7 @@ _Questions this graph is uniquely positioned to answer:_
   _93 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `PDFGenerator` be split into smaller, more focused modules?**
   _Cohesion score 0.0712143928035982 - nodes in this community are weakly interconnected._
-- **Why does `AppDatabase` connect `AppDatabase` to `GoogleSheetsSync`, `TeamSync`, `String`, `String`, `CompanySettings`, `Models.swift`, `.handle`, `String`, `nonBlank`, `String`, `String`, `String`, `Encodable`, `NativeBridge`, `LetterTableRow`, `5. Recent work (Batches 147–216, newest last)`, `String`, `WebServer`, `BackupManager`, `.assistantCheck`, `Double`, `1. What ScaffoldPro is`, `QuotationAI`, `AppDelegate`, `CloudBackupManager`?**
+- **Why does `AppDatabase` connect `AppDatabase` to `QuotationAI`, `TeamSync`, `String`, `String`, `CompanySettings`, `Models.swift`, `.handle`, `String`, `nonBlank`, `String`, `String`, `String`, `Encodable`, `NativeBridge`, `LetterTableRow`, `String`, `WebServer`, `5. Recent work (Batches 147–216, newest last)`, `Double`, `1. What ScaffoldPro is`, `GoogleSheetsSync`, `AppDelegate`, `CloudBackupManager`?**
   _High betweenness centrality (0.193) - this node is a cross-community bridge._
 - **Are the 3 inferred relationships involving `NativeBridge` (e.g. with `1. What ScaffoldPro is` and `5. Recent work (Batches 147–216, newest last)`) actually correct?**
   _`NativeBridge` has 3 INFERRED edges - model-reasoned connections that need verification._
