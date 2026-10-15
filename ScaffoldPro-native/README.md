@@ -5917,3 +5917,10 @@ What changed:
   + New Letter, + Record Inspection, + New Task. The header's New still
   lists everything.
 - Checked in Chromium with the mocked bridge. Not checked: WebKit on a Mac.
+
+## Batch 268 — The sidebar stays open over its menu
+
+- A menu opened from the sidebar (your name's: You, Settings, Appearance,
+  Help) counts as part of it: the icon sidebar stays open while the pointer
+  is on that menu, and folds once the pointer has left both.
+- Checked in Chromium. Not checked: WebKit on a Mac.

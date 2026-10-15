@@ -202,7 +202,13 @@ function setupRail(sidebar) {
   window.addEventListener('pagehide', () => {
     try { if (sidebar.classList.contains('expanded') && sidebar.matches(':hover')) sessionStorage.setItem(KEEP_OPEN, '1'); } catch (e) { /* not kept */ }
   });
-  sidebar.addEventListener('mouseleave', close);
+  // A list opened from the sidebar (your name's menu) counts as part of it:
+  // it folds only once the pointer has left both.
+  const inItsMenu = (el) => !!(el && el.closest && el.closest('.hm-menu') && sidebar.querySelector('.hm-active'));
+  sidebar.addEventListener('mouseleave', (e) => { if (!inItsMenu(e.relatedTarget)) close(); });
+  document.addEventListener('mouseover', (e) => {
+    if (sidebar.classList.contains('expanded') && !sidebar.contains(e.target) && !inItsMenu(e.target)) close();
+  });
   // Tabbing into it opens it at once; tabbing out folds it.
   sidebar.addEventListener('focusin', (e) => { if (e.target.matches(':focus-visible')) open(); });
   sidebar.addEventListener('focusout', (e) => { if (!sidebar.contains(e.relatedTarget) && !sidebar.matches(':hover')) close(); });
