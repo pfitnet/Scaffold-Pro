@@ -6045,3 +6045,19 @@ What changed:
   beside the task list (Good morning, This week, Team load) scroll with the
   page instead of staying pinned, so a long list can be seen to its end.
 - Checked in Chromium with the mocked bridge. Not checked: WebKit on a Mac.
+
+## Batch 276 — A floating calculator
+
+- **Calculator** in a small floating window on every page, like the
+  Assistant's chat: the calculator under Search and Ask in the sidebar, or
+  ⌥⌘C (again to close; Escape closes it when the sum is empty).
+- Type a sum straight in — 2.07*4+1.5*12, 1,250 x 3, (12+8)/4, 15%, 200+10%
+  (= 220) — or use the keys; the answer shows as you type. Return works it
+  out: the sum goes onto the tape and its answer stays, so an operator
+  carries on from it and a number starts a new sum. Click a line on the tape
+  to use its answer again; Copy (or ⌘C) puts the answer on the clipboard.
+- Drag it by its top bar (double-click the bar to put it back in the
+  corner); its place and the tape are kept on this Mac, and it stays open
+  from page to page. Sums are read by js/calc-input.js (`calcEvaluate`, no
+  eval). Files: js/calculator.js, css/calculator.css (loaded by sidebar.js).
+- Checked in Chromium. Not checked: WebKit on a Mac.
