@@ -269,6 +269,19 @@ function renderSidebar(activePage) {
   }
   if (window.refreshChatBadge) window.refreshChatBadge();
   setupNavEditing(sidebar);
+  // A page opens as the button goes down, as in a Mac sidebar: the press
+  // itself is time saved. Not while the tabs are being put in order (drag),
+  // nor for ⌘/⇧-clicks or the page already open; Return still clicks.
+  let going = false;
+  sidebar.addEventListener('mousedown', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a || going || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (sidebar.classList.contains('nav-editing') || a.classList.contains('active')) return;
+    going = true;
+    location.href = a.href;
+  });
+  sidebar.addEventListener('click', (e) => { if (going && e.target.closest('a[href]')) e.preventDefault(); });
+  window.addEventListener('pageshow', () => { going = false; });
   setupRail(sidebar);
   // Pinned to the bottom left: the sharing status, then you — one button
   // (your name, with the gear) that opens Settings at You.

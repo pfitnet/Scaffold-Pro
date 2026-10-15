@@ -280,13 +280,13 @@ html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: ab
 #content > * { max-width: var(--page-max); }
 /* The page rises in as it opens, a block at a time; it fades as you
    leave by a link (js/motion.js). */
-html.page-enter #content > * { animation: page-rise .4s var(--ease) both; }
-html.page-enter #content > *:nth-child(2) { animation-delay: .03s; }
-html.page-enter #content > *:nth-child(3) { animation-delay: .06s; }
-html.page-enter #content > *:nth-child(4) { animation-delay: .09s; }
-html.page-enter #content > *:nth-child(5) { animation-delay: .12s; }
-html.page-enter #content > *:nth-child(n+6) { animation-delay: .15s; }
-@keyframes page-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* Quick and light: the new page is there at once (never starts invisible),
+   and settles in a quarter of a second. */
+html.page-enter #content > * { animation: page-rise .26s var(--ease) both; }
+html.page-enter #content > *:nth-child(2) { animation-delay: .02s; }
+html.page-enter #content > *:nth-child(3) { animation-delay: .04s; }
+html.page-enter #content > *:nth-child(n+4) { animation-delay: .06s; }
+@keyframes page-rise { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 html.page-leave #content { opacity: 0; transform: translateY(6px) scale(.995); transition: opacity .12s ease, transform .12s ease; }
 
 h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.22; margin: 0 0 4px; color: var(--text); }

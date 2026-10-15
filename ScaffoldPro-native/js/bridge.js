@@ -695,7 +695,7 @@
   // move from page to page, and window.softReload) until this page is built:
   // it has had its data from the app and drawn it, and nothing has changed
   // on it for a moment. Then it's shown in one step, never half-built.
-  const READY_QUIET_MS = 60; // nothing changed on the page for this long
+  const READY_QUIET_MS = 40; // nothing changed on the page for this long
   const READY_MAX_MS = 1200; // a slow page is shown anyway
   const BACKGROUND_MS = 400; // a call out this long is background work (a sync, the AI), not the page's data
   let lastChange = 0;

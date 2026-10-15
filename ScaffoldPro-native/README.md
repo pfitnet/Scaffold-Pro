@@ -5799,3 +5799,17 @@ Increase Contrast. No Swift changed.
 - Checked in Chromium with the mocked bridge: marker held then slides on
   `app:shown`, the page rises in, no rise after `softReload`. Not checked:
   WebKit on a Mac.
+
+## Batch 260 — Pages open sooner
+
+- **The sidebar opens a page as the mouse button goes down**, as a Mac
+  sidebar does, not when it comes back up: the press itself (about a tenth
+  of a second) is time saved, and the app's picture of the old page is taken
+  during it. Not while the tabs are being put in order, nor for ⌘/⇧-clicks;
+  Return still opens the focused tab.
+- **The new page shows sooner:** the app waits 40 ms of quiet (was 60) before
+  showing it, and its rise in is quicker and lighter (0.26 s, starting at
+  40 % rather than invisible), so the page is there at once.
+- Measured in Chromium with stand-in data: pages are ready 170–440 ms after
+  the click; projects 187 ms from the press. Not checked: WebKit on a Mac,
+  where the app's own data answers add to this.
