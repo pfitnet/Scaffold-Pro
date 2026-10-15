@@ -45,7 +45,8 @@
 
 /* ---------- Layout ---------- */
 .cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.cal-side { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 12px; }
+/* Scrolls with the page (not pinned): a long Today or Up Next list can always be seen to its end. */
+.cal-side { display: flex; flex-direction: column; gap: 12px; }
 .cal-side .panel { margin: 0; }
 .cal-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 11.5px; color: var(--text-tertiary); }
 .cal-keys kbd { font: 600 10.5px/1 var(--font-ui, "Geist", -apple-system, sans-serif); display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; margin-right: 3px;
@@ -165,6 +166,10 @@
   background: color-mix(in srgb, var(--accent) 16%, transparent); border: 1.5px dashed color-mix(in srgb, var(--accent) 65%, transparent);
   padding: 4px 8px; font-size: 11px; font-weight: 700; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 .week-ghost.dragging { box-shadow: 0 1px 2px rgba(21, 24, 28, 0.08); }
+/* Its times always inside it, on one line; the slot's "+ 19:00" hint is hidden while dragging. */
+.week-ghost { display: flex; align-items: flex-start; overflow: hidden; line-height: 14px; padding: 2px 8px; white-space: nowrap; }
+.week-col:has(.week-ghost) .slot:hover::after { content: none; }
+.week-col:has(.week-ghost) .slot:hover { background-color: transparent; }
 .week-col { touch-action: none; user-select: none; }
 
 /* Now: faint across the week, strong (with the time) on today. */
@@ -188,8 +193,9 @@
 .mini-day.other { color: var(--text-tertiary); opacity: .55; }
 .mini-day.in-view { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .mini-day.today > span:first-child { color: var(--accent-text); font-weight: 800; }
-.mini-day.selected { background: var(--select-ink) !important; color: var(--panel); border-radius: 8px; }
-.mini-day.selected > span:first-child { color: #fff; }
+/* The chosen day: the accent with white figures (as today in the week's heading), readable in light and dark. */
+.mini-day.selected { background: var(--accent-fill, var(--accent)) !important; color: var(--on-accent, #fff); border-radius: 8px; }
+.mini-day.selected > span:first-child { color: var(--on-accent, #fff); }
 .mini-day.selected .mini-dots i { background: rgba(255, 255, 255, .85); }
 .mini-dots { display: flex; gap: 2px; height: 5px; }
 .mini-dots i { width: 4px; height: 4px; }
