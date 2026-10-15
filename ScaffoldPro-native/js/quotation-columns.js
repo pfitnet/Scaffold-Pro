@@ -2,14 +2,16 @@
 
 // "Columns…" (Line Items' ☰): the printed table's columns between No. and
 // Total Price — drag to reorder, remove, or add Unit, Unit Weight or a
-// custom column (its value typed on each item). Description, Unit Rate and
-// Qty always stay; up to 3 more.
+// custom column (its value typed on each item). Description and Qty always
+// stay; Unit Rate is there by default and can be taken off the PDF (its
+// price is still kept and typed in the editor) or put back; up to 6 in all.
 //
 //   window.quotationColumns.open(currentDetail, loadDetail);
 
 (function () {
   const KNOWN = { desc: 'Description', rate: 'Unit Rate', qty: 'Qty', unit: 'Unit', weight: 'Unit Weight' };
-  const FIXED = ['desc', 'rate', 'qty'];
+  const FIXED = ['desc', 'qty'];
+  const DEFAULT = ['desc', 'rate', 'qty'];
   const MAX = 6;
   const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -28,13 +30,17 @@
         ${window.dragHandleHTML('Drag to move this column (or focus and press ↑ / ↓)')}
         ${KNOWN[key] ? `<span class="qc-name">${esc(KNOWN[key])}</span>`
           : `<input type="text" class="qc-title" maxlength="30" value="${esc(titleOf(key))}" placeholder="Column title, e.g. Size" aria-label="Column title" />`}
-        ${FIXED.includes(key) ? '<span class="qc-fixed">Always shown</span>' : '<button type="button" class="qc-remove" data-no-icon>Remove</button>'}
+        ${FIXED.includes(key) ? '<span class="qc-fixed">Always shown</span>'
+          : `${key === 'rate' ? '<span class="qc-fixed">Shown by default</span>' : ''}<button type="button" class="qc-remove" data-no-icon${key === 'rate' ? ' title="Take the unit rate off the PDF and Word copy (the price stays in the editor)"' : ''}>Remove</button>`}
       </div>`).join('');
     const full = layout.length >= MAX;
+    sheet.querySelector('#qc-add-rate').hidden = layout.includes('rate');
+    sheet.querySelector('#qc-add-rate').disabled = full;
     sheet.querySelector('#qc-add-unit').disabled = full || layout.includes('unit');
     sheet.querySelector('#qc-add-weight').disabled = full || layout.includes('weight');
     sheet.querySelector('#qc-add-custom').disabled = full;
-    sheet.querySelector('#qc-note').textContent = full ? 'Up to 3 columns can be added — the description needs the room.' : '';
+    sheet.querySelector('#qc-note').textContent = full ? 'Up to 6 columns in all — the description needs the room.'
+      : layout.includes('rate') ? '' : 'Unit Rate is off the printed table; each item’s price is still kept, and typed in the editor.';
   }
 
   function build() {
@@ -46,6 +52,7 @@
         <p class="small-note">The printed table’s columns, between No. and Total Price. Drag to reorder.</p>
         <div class="qc-list" id="qc-list"></div>
         <div class="qc-add">
+          <button type="button" id="qc-add-rate" data-no-icon title="Show each item’s unit rate on the PDF again">+ Unit Rate</button>
           <button type="button" id="qc-add-unit" data-no-icon>+ Unit</button>
           <button type="button" id="qc-add-weight" data-no-icon title="Each item’s weight from the material list, in kg">+ Unit Weight</button>
           <button type="button" id="qc-add-custom" data-no-icon title="A column of your own — type its value on each item">+ Custom…</button>
@@ -76,6 +83,7 @@
       if (c) c.title = input.value;
     });
     const add = (key) => { layout.push(key); draw(); };
+    sheet.querySelector('#qc-add-rate').addEventListener('click', () => { layout.splice(Math.min(layout.indexOf('desc') + 1, layout.length), 0, 'rate'); draw(); });
     sheet.querySelector('#qc-add-unit').addEventListener('click', () => add('unit'));
     sheet.querySelector('#qc-add-weight').addEventListener('click', () => add('weight'));
     sheet.querySelector('#qc-add-custom').addEventListener('click', () => {
@@ -85,7 +93,7 @@
       const input = list.querySelector(`[data-id="${id}"] .qc-title`);
       if (input) input.focus();
     });
-    sheet.querySelector('#qc-reset').addEventListener('click', () => { layout = FIXED.slice(); custom = []; draw(); });
+    sheet.querySelector('#qc-reset').addEventListener('click', () => { layout = DEFAULT.slice(); custom = []; draw(); });
     sheet.querySelector('#qc-cancel').addEventListener('click', close);
     sheet.querySelector('#qc-save').addEventListener('click', save);
     sheet.addEventListener('keydown', (e) => {
@@ -112,7 +120,7 @@
     if (!sheet) build();
     detail = d;
     reload = after;
-    layout = (d.columnLayout && d.columnLayout.length ? d.columnLayout : FIXED).slice();
+    layout = (d.columnLayout && d.columnLayout.length ? d.columnLayout : DEFAULT).slice();
     custom = (d.customColumns || []).map((c) => ({ id: c.id, title: c.title }));
     sheet.querySelector('#qc-error').classList.add('hidden');
     draw();
