@@ -5996,3 +5996,16 @@ What changed:
 - Checked in Chromium with the mocked bridge (lines listed, a paragraph added
   and saved with its line, the preview drawn again). The Swift wasn't
   compiled here; check that the app builds.
+
+## Batch 273 — Projects overview colours back; a roomier materials column
+
+- **Projects › Overview:** each project's bracket shows its status colour
+  again (the stripe at its left and its status pill: Planning purple,
+  Quotation amber, Active green…) — a later rule had painted them all grey —
+  and a crane job shows its Crane tag beside its status.
+- **Add Materials beside Line Items:** the materials column is wider (276px
+  at least, was 240) and each material takes two lines: its name (and
+  Chinese name) across the full width, then its price and Add at the right.
+  The line items' description boxes go down to 120px to make the room; every
+  table still fits (measured at 1440px with Details showing).
+- Checked in Chromium. Not checked: WebKit on a Mac.
