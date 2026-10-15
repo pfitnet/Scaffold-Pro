@@ -160,8 +160,9 @@ function setupNavEditing(sidebar) {
 }
 
 // The sidebar as a rail of icons (Settings › You › Sidebar, on by
-// default): it opens out over the page when the pointer rests on it, and
-// folds back when it leaves. Kept on this Mac.
+// default): it opens out over the page as soon as the pointer is on it, and
+// folds back only when the pointer leaves it — moving to another page keeps
+// it open. Kept on this Mac.
 const RAIL_KEY = 'sidebar.rail';
 window.sidebarRail = {
   on() { try { return localStorage.getItem(RAIL_KEY) !== 'off'; } catch (e) { return true; } },
@@ -181,15 +182,25 @@ window.addEventListener('resize', () => {
 });
 
 function setupRail(sidebar) {
-  const OPEN_AFTER = 550; // a resting pointer, not one passing by
   const CLOSE_AFTER = 300;
   let timer = null;
   const rail = () => document.documentElement.classList.contains('sidebar-rail');
   const open = () => { if (rail()) sidebar.classList.add('expanded'); };
   const close = () => { if (!sidebar.classList.contains('nav-editing')) sidebar.classList.remove('expanded'); };
-  sidebar.addEventListener('mouseenter', () => {
-    clearTimeout(timer);
-    if (rail() && !sidebar.classList.contains('expanded')) timer = setTimeout(open, OPEN_AFTER);
+  sidebar.addEventListener('mouseenter', () => { clearTimeout(timer); open(); });
+  // Open on the page before, with the pointer on it: start open here too.
+  // No mouseleave comes until the pointer has entered, so the first move
+  // off the sidebar folds it.
+  const KEEP_OPEN = 'sidebar.open';
+  try {
+    if (sessionStorage.getItem(KEEP_OPEN) === '1') {
+      sessionStorage.removeItem(KEEP_OPEN);
+      open();
+      document.addEventListener('mousemove', (e) => { if (!sidebar.contains(e.target)) close(); }, { once: true });
+    }
+  } catch (e) { /* not kept */ }
+  window.addEventListener('pagehide', () => {
+    try { if (sidebar.classList.contains('expanded') && sidebar.matches(':hover')) sessionStorage.setItem(KEEP_OPEN, '1'); } catch (e) { /* not kept */ }
   });
   sidebar.addEventListener('mouseleave', () => { clearTimeout(timer); timer = setTimeout(close, CLOSE_AFTER); });
   // Tabbing into it opens it at once; tabbing out folds it.
