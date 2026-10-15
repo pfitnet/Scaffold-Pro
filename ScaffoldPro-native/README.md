@@ -5950,3 +5950,23 @@ What changed:
 - Fixed with it: hidden fields (Currency, Tax Rate) no longer show in Details.
 - Checked in Chromium with the mocked bridge (heights measured per editor).
   Not checked: WebKit on a Mac.
+
+## Batch 271 — Add Materials beside Line Items with Details open; the Assistant answers small talk
+
+- **Add Materials sits beside Line Items** on a laptop with Details showing
+  (the main column from 860px, was 1000px). Beside the materials the line
+  items table is slimmer (cell padding, a smaller Monthly / Once switch) so
+  it fits; the materials column puts its search under its title and keeps
+  the list's names wrapping between words. Narrower still: one above the
+  other.
+- **The Assistant answers conversation like any AI chat.** A short message
+  that isn't asking for work ("testing", "hi", "thanks", a general question —
+  no document or project number, none of the words a request uses) goes
+  straight to the model as a plain chat: short instructions, no picture of
+  the screen, no lookups (Assistant.swift `isSmallTalk`, `answerSmallTalk`;
+  asked again once if it fails).
+- **When the AI's provider fails** ("Provider returned error" — a free
+  router often picks a model that can't take a picture), the Assistant asks
+  once more without the picture of the screen.
+- Checked in Chromium (layout measured at 1440 and 1280px). The Swift wasn't
+  compiled here; check that the app builds.

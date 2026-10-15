@@ -321,6 +321,17 @@ extension NativeBridge {
         }
         let attachments = (payload["attachments"] as? [[String: Any]]) ?? []
         let run = AssistantRun(id: nonBlank(payload["runId"] as? String), live: !id.hasPrefix("web-"))
+        // Just talking ("testing", "hi", "thanks", a general question): answered
+        // like any chat with an AI — no lookups, no picture of the screen.
+        if attachments.isEmpty, let newest = turns.last?.text, isSmallTalk(newest) {
+            answerSmallTalk(turns, run: run) { [weak self] reply in
+                guard let self = self, !self.assistantStopped(run) else { return }
+                var out = reply
+                out["files"] = [Any]()
+                self.callback(id: id, ok: true, resultJson: jsonText(out), error: nil)
+            }
+            return
+        }
         // The floating chat: what the person is looking at, with the newest message
         // — its text, and a picture of the screen taken now.
         let context = payload["context"] as? [String: Any]
@@ -380,6 +391,54 @@ extension NativeBridge {
         }
     }
 
+    /// A message that is conversation, not a request for work in the app:
+    /// short, with no document or project number and none of the words a
+    /// request for work uses. (Anything else gets the full assistant, which
+    /// can still answer in plain words.)
+    func isSmallTalk(_ raw: String) -> Bool {
+        let text = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.count <= 160 else { return false }
+        if text.range(of: "[0-9]{3,}", options: .regularExpression) != nil { return false }
+        let words = text.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        let work = ["quot", "boq", "bq", "invoice", "delivery", "dn", "project", "client", "site", "stock", "task", "make", "create",
+                    "add", "change", "update", "edit", "delete", "remove", "price", "rate", "item", "letter", "draft", "issue", "sign",
+                    "send", "find", "show", "open", "list", "total", "schedule", "calendar", "worker", "material", "scaffold", "crane",
+                    "order", "pay", "owe", "due", "export", "pdf", "word", "excel", "import", "screen", "page"]
+        if words.contains(where: { w in work.contains { w.hasPrefix($0) } }) { return false }
+        return !["how many", "this one", "over here"].contains { text.contains($0) }
+    }
+
+    func smallTalkSystem() -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB")
+        f.dateFormat = "EEEE d MMMM yyyy"
+        return """
+        You are the assistant inside ScaffoldPro, the office app of Proficiency (HK) Limited, a Hong Kong scaffolding and crane \
+        company. Today is \(f.string(from: Date())). You are talking to \(nonBlank(TeamSync.memberName) ?? "a member of the team"). \
+        This message is conversation, not a request for work in the app: answer it naturally and helpfully, as a capable AI \
+        assistant would, in plain British English, briefly. Plain text only — no JSON, no code blocks unless asked. If they want \
+        something done in the app (quotations, BOQs, projects, delivery notes, invoices, stock, tasks…), say you can do it and ask \
+        what they'd like.
+        """
+    }
+
+    /// Conversation: one plain call (asked again once if it fails or comes back empty).
+    func answerSmallTalk(_ turns: [QuotationAI.ChatTurn], run: AssistantRun, retried: Bool = false, done: @escaping ([String: Any]) -> Void) {
+        assistantStep(run, retried ? "Asking again" : "Asking the AI (\(QuotationAI.shared.model))")
+        let plain = turns.suffix(20).map { QuotationAI.ChatTurn(role: $0.role, text: $0.text) }
+        QuotationAI.shared.chat(system: smallTalkSystem(), turns: plain, json: false, limit: 45) { [weak self] text, error in
+            guard let self = self, !self.assistantStopped(run) else { return }
+            let reply = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if error == nil, !reply.isEmpty { done(["ok": true, "reply": reply, "proposals": [Any]()]); return }
+            if !retried { self.answerSmallTalk(turns, run: run, retried: true, done: done); return }
+            if error == QuotationAI.tooSlow || error == nil {
+                done(["ok": true, "reply": "The AI (\(QuotationAI.shared.model)) didn't answer in time. It may be busy: try again in a minute, or pick a quicker model in Settings › AI Import.", "proposals": [Any]()])
+            } else {
+                done(["ok": false, "error": error ?? ""])
+            }
+        }
+    }
+
     /// The older part of a conversation condensed (the page's context
     /// window): what was asked, decided, made and still to do — numbers kept.
     func handleAssistantSummarise(id: String, payload: [String: Any]) {
@@ -418,7 +477,7 @@ extension NativeBridge {
     /// 300 s).
     func runAssistant(turns: [QuotationAI.ChatTurn], round: Int, deadline: Date = Date().addingTimeInterval(150),
                               hardStop: Date = Date().addingTimeInterval(270), lastTry: Bool = false, retried: Bool = false,
-                              run: AssistantRun = AssistantRun(id: nil, live: false), done: @escaping ([String: Any]) -> Void) {
+                              providerRetried: Bool = false, run: AssistantRun = AssistantRun(id: nil, live: false), done: @escaping ([String: Any]) -> Void) {
         if assistantStopped(run) { return }
         let left = hardStop.timeIntervalSinceNow
         guard left > 15 else {
@@ -440,7 +499,19 @@ extension NativeBridge {
                 done(["ok": true, "reply": "The AI (\(QuotationAI.shared.model)) didn't answer in time, even when asked for a quick answer. It may be busy: try again in a minute, ask for one thing at a time, or pick a quicker model in Settings › AI Import.", "proposals": [Any]()])
                 return
             }
-            if let error = error { done(["ok": false, "error": error]); return }
+            if let error = error {
+                // The model failed (a free router often picks one that can't take a
+                // picture): asked once more — without the picture of the screen.
+                if !providerRetried, error.hasPrefix("The AI couldn") {
+                    let hadFiles = turns.contains { !$0.files.isEmpty }
+                    self.assistantStep(run, hadFiles ? "It couldn't take the picture — asking again without it" : "Its provider failed — asking again")
+                    let plain = turns.map { QuotationAI.ChatTurn(role: $0.role, text: $0.text) }
+                    self.runAssistant(turns: plain, round: round, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried,
+                                      providerRetried: true, run: run, done: done)
+                    return
+                }
+                done(["ok": false, "error": error]); return
+            }
             guard let json = self.assistantAnswer(text) else {
                 let raw = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 // Plain words: its answer. Something like JSON or code that
