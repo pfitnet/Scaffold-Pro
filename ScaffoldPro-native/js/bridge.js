@@ -218,7 +218,7 @@
       // A rental's item charged once (not each month), or monthly again.
       setLineChargeOnce: (id, once) => callNative('quotations:setLineChargeOnce', { id: id, once: !!once }),
       // The printed table's middle columns, in order ('desc', 'rate', 'qty', 'unit', 'weight' or a custom id), and the custom ones [{ id, title }].
-      setColumns: (id, layout, custom, formulas) => callNative('quotations:setColumns', { id: id, layout: layout, custom: custom, formulas: formulas || {} }),
+      setColumns: (id, layout, custom, formulas, titles) => callNative('quotations:setColumns', { id: id, layout: layout, custom: custom, formulas: formulas || {}, titles: titles || {} }),
       // An item's value in a custom column ('' clears it).
       setLineValue: (id, column, value) => callNative('quotations:setLineValue', { id: id, column: column, value: value }),
       // Extra sections: kind 'Priced' | 'Rates' | 'Note'.

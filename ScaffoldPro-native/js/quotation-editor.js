@@ -446,6 +446,8 @@ function setupSignedBar() {
 }
 
 // The editor's heads for the quotation's custom columns (Line Items' ☰ › Columns…).
+// A standard column's head: its own title if renamed (Columns…).
+const headOf = (key, usual) => esc((currentDetail.columnTitles || {})[key] || usual);
 function customHeads() {
   return window.quotationColumns.customInOrder(currentDetail).map((c) => `<th>${esc(c.title)}</th>`).join('');
 }
@@ -472,7 +474,7 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
@@ -511,7 +513,7 @@ function renderDelivery() {
       <span class="extra-kind"><span class="line-tag">Delivery charges · added to the total</span></span>
       ${isLocked ? '' : '<span class="controls"><button type="button" class="delivery-add">+ Add Delivery</button></span>'}
     </div>
-    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>Description</th><th>Unit</th><th class="num">Qty</th><th class="num">Unit Price</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead><tbody></tbody></table>`;
+    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead><tbody></tbody></table>`;
   const tbody = card.querySelector('tbody');
   lines.forEach((item, n) => tbody.appendChild(lineRow(item, `D${n + 1}`, isLocked, false)));
   const add = card.querySelector('.delivery-add');

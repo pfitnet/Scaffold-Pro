@@ -500,7 +500,8 @@ extension NativeBridge {
         case "quotations:setColumns":
             let error = db.setQuotationColumns(id: (payload["id"] as? String) ?? "", layout: (payload["layout"] as? [String]) ?? [],
                                                custom: (payload["custom"] as? [[String: Any]]) ?? [],
-                                               formulas: (payload["formulas"] as? [String: Any]) ?? [:])
+                                               formulas: (payload["formulas"] as? [String: Any]) ?? [:],
+                                               titles: (payload["titles"] as? [String: Any]) ?? [:])
             respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "quotations:setLineValue":
             let error = db.setQuotationLineValue(lineId: (payload["id"] as? String) ?? "", column: (payload["column"] as? String) ?? "",
