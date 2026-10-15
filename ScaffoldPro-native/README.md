@@ -5865,3 +5865,14 @@ What changed:
   project; a document in it still opens the document.
 - Checked in Chromium with the mocked bridge (screenshots, widths, clicks).
   Not checked: WebKit on a Mac.
+
+## Batch 263 — Letters in My Recently Changed Documents
+
+- The Dashboard's **My Recently Changed Documents** now lists letters too
+  (in their own Letters bracket, in the letter colour), with who made them
+  and when they were last worked on, beside BOQs, quotations, delivery notes
+  and invoices. A letter with no project shows its subject (or who it's to).
+- Swift: `letterRows()` (Database+Records.swift) makes letters into display
+  rows; only the Dashboard summary adds them, so search, the calendar and
+  the project and client pages are unchanged.
+- The Swift wasn't compiled here; check that the app builds.
