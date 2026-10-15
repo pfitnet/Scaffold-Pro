@@ -772,7 +772,6 @@ function showTab(name) {
   for (const p of document.querySelectorAll('.tab-panel')) p.classList.toggle('active', p.dataset.panel === name);
   try {
     sessionStorage.setItem(`project-tab-${currentProject.projectNumber}`, name);
-    sessionStorage.setItem(`project-group-${group}`, name);
   } catch (e) { /* ignore */ }
   if (window.renderProjectActions) window.renderProjectActions();
 }
@@ -800,18 +799,23 @@ function placeSubTools(tab, show) {
 
 function setupTabs() {
   for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
-  for (const b of document.querySelectorAll('#tabs-main button')) b.addEventListener('click', () => {
-    const g = b.dataset.group;
-    let last = null;
-    try { last = sessionStorage.getItem(`project-group-${g}`); } catch (e) { last = null; }
-    const visible = TAB_GROUPS[g].filter((t) => { const el = document.querySelector(`#tabs [data-tab="${t}"]`); return el && !el.classList.contains('hidden') || TAB_GROUPS[g].length === 1; });
-    showTab(last && visible.includes(last) ? last : visible[0] || TAB_GROUPS[g][0]);
-  });
+  // A group always opens at its leftmost kind: BOQ for a scaffolding job,
+  // Quotation for a crane job (it has no BOQ).
+  const firstOf = (g) => TAB_GROUPS[g].find((t) => {
+    if (t === 'boq' && currentProject && currentProject.jobType === 'Crane') return false;
+    const el = document.querySelector(`#tabs [data-tab="${t}"]`);
+    return TAB_GROUPS[g].length === 1 || (el && !el.classList.contains('hidden'));
+  }) || TAB_GROUPS[g][0];
+  for (const b of document.querySelectorAll('#tabs-main button')) b.addEventListener('click', () => showTab(firstOf(b.dataset.group)));
+  // A link may name a kind (?tab=quotations); coming back to the project
+  // opens the group it was on, at its leftmost kind.
   const params = new URLSearchParams(location.search);
   let initial = params.get('tab');
   if (!initial && (location.hash === '#drawings' || location.hash === '#documents')) initial = 'files';
   if (!initial) {
-    try { initial = sessionStorage.getItem(`project-tab-${currentProject.projectNumber}`); } catch (e) { initial = null; }
+    let kept = null;
+    try { kept = sessionStorage.getItem(`project-tab-${currentProject.projectNumber}`); } catch (e) { kept = null; }
+    if (kept) initial = firstOf(groupOf(kept));
   }
   showTab(initial || 'overview');
 }

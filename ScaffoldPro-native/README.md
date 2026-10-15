@@ -5905,3 +5905,15 @@ What changed:
   ··· holds Import from Excel….
 - Manpower Rates keeps its own New Provider and New Worker in its card.
 - Checked in Chromium. Not checked: WebKit on a Mac.
+
+## Batch 267 — Documents opens at the first kind; each kind's own New
+
+- **Project › Documents (and Site) always opens at its leftmost kind:** BOQ
+  for a scaffolding job, Quotation for a crane job (no BOQ). Coming back to
+  a project opens the group it was on, at that first kind. A link that
+  names a kind (?tab=quotations) still opens that kind.
+- **The shown kind's own New** sits next to Import… on the row of kinds:
+  + New BOQ, + New Quotation, + New Delivery Note, + New Invoice,
+  + New Letter, + Record Inspection, + New Task. The header's New still
+  lists everything.
+- Checked in Chromium with the mocked bridge. Not checked: WebKit on a Mac.
