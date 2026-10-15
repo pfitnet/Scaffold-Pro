@@ -1648,8 +1648,12 @@ extension AppDatabase {
             if let t = nonBlank(value as? String) { named[key] = String(t.prefix(30)) }
         }
         q.columnTitles = named.isEmpty ? nil : named
-        // Total = Qty × Unit Weight or one of its custom columns (nil: Unit Rate).
-        q.totalOf = totalOf.flatMap { key in key == "weight" || columns.contains(where: { $0.id == key }) ? key : nil }
+        // Total = Qty × up to two columns (nil: Unit Rate alone).
+        var factors: [String] = []
+        for part in (totalOf ?? "").split(separator: "*").map(String.init) where !factors.contains(part) && factors.count < 2 {
+            if part == "rate" || part == "weight" || columns.contains(where: { $0.id == part }) { factors.append(part) }
+        }
+        q.totalOf = factors.isEmpty || factors == ["rate"] ? nil : factors.joined(separator: "*")
         q.updatedAt = nowISO()
         qs[i] = q
         quotationsStore.writeAll(qs)
@@ -1663,10 +1667,12 @@ extension AppDatabase {
         guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
         guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
         // "weight": the Unit Weight typed over the material list's (a crane's items have none).
-        guard column == "weight" || (q.customColumns ?? []).contains(where: { $0.id == column }) else { return "That column isn't on this quotation." }
+        // "rate": the Unit Rate typed per item while Total multiplies it by another column.
+        guard column == "weight" || column == "rate" || (q.customColumns ?? []).contains(where: { $0.id == column }) else { return "That column isn't on this quotation." }
         var values = items[index].customValues ?? [:]
         let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if column == "weight" && !clean.isEmpty && (Double(clean) ?? -1) < 0 { return "Type the weight in kg, e.g. 1250." }
+        if column == "rate" && !clean.isEmpty && (Double(clean.replacingOccurrences(of: ",", with: "")) ?? -1) < 0 { return "Type the rate as a number, e.g. 12.5." }
         values[column] = clean.isEmpty ? nil : String(clean.prefix(60))
         items[index].customValues = values.isEmpty ? nil : values
         quotationLineItemsStore.writeAll(items)

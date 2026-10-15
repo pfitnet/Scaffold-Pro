@@ -27,7 +27,10 @@
   let custom = [];
   let formulas = {};
   let titles = {}; // the standard columns renamed, by key ("total" too)
-  let totalOf = ''; // what Total is Qty × of: '' = Unit Rate, 'weight' or a custom column's id
+  let totalOf = ''; // what Total is Qty × of: '' = Unit Rate; else up to two columns joined by '*' ('weight*rate')
+  const factorsOf = (t) => (t ? t.split('*') : ['rate']);
+  // Unit Rate typed per item: Total multiplies it by another column (so no formula for it).
+  const typedRate = () => factorsOf(totalOf).length > 1 && factorsOf(totalOf).includes('rate');
   let lastFormula = null; // the formula box a column name is put in
 
   const titleOf = (key) => (KNOWN[key] ? (titles[key] || '').trim() || KNOWN[key] : (custom.find((c) => c.id === key) || {}).title || '');
@@ -39,16 +42,24 @@
   }
 
   // The Total row: what it's Qty × of, and its title (blank: the usual one).
-  const totalTitle = () => (totalOf === 'weight' ? 'Total Weight (kg)' : totalOf ? `Total ${titleOf(totalOf) || ''}`.trim() : 'Total Price');
+  const totalTitle = () => (totalOf === 'weight' ? 'Total Weight (kg)' : totalOf && !totalOf.includes('*') ? `Total ${titleOf(totalOf) || ''}`.trim() : 'Total Price');
   function drawTotal() {
     // Only columns on the table (Unit Rate when nothing else is, so prices can be typed).
-    const choices = [['', titleOf('rate')], ['weight', titleOf('weight')], ...custom.filter((c) => c.title.trim()).map((c) => [c.id, c.title])]
-      .filter(([v]) => layout.includes(v || 'rate'));
-    if (!choices.length) choices.push(['', titleOf('rate')]);
-    if (!choices.some(([v]) => v === totalOf)) totalOf = choices[0][0];
+    const choices = [['rate', titleOf('rate')], ['weight', titleOf('weight')], ...custom.filter((c) => c.title.trim()).map((c) => [c.id, c.title])]
+      .filter(([v]) => layout.includes(v));
+    if (!choices.length) choices.push(['rate', titleOf('rate')]);
+    const has = (k) => choices.some(([v]) => v === k);
+    let [a, b = ''] = factorsOf(totalOf);
+    if (!has(a)) a = choices[0][0];
+    if (!has(b) || b === a) b = '';
+    totalOf = b ? `${a}*${b}` : a === 'rate' ? '' : a;
+    const options = (list) => list.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
     const select = sheet.querySelector('#qc-total-of');
-    select.innerHTML = choices.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
-    select.value = totalOf;
+    select.innerHTML = options(choices);
+    select.value = a;
+    const by = sheet.querySelector('#qc-total-by');
+    by.innerHTML = options([['', '—'], ...choices.filter(([v]) => v !== a)]);
+    by.value = b;
     const input = sheet.querySelector('#qc-total-title');
     input.value = titles.total || '';
     input.placeholder = totalTitle();
@@ -63,7 +74,7 @@
           placeholder="${KNOWN[key] ? esc(KNOWN[key]) : 'Column title, e.g. Size'}" aria-label="Column title"${KNOWN[key] ? ` title="Type a new title for the ${esc(KNOWN[key])} column (blank: ${esc(KNOWN[key])})"` : ''} />
         ${FIXED.includes(key) ? '<span class="qc-fixed">Always shown</span>'
           : `${key === 'rate' ? '<span class="qc-fixed">Shown by default</span>' : ''}<button type="button" class="qc-remove" data-no-icon${key === 'rate' ? ' title="Take the unit rate off the PDF and Word copy (the price stays in the editor)"' : ''}>Remove</button>`}
-        ${KNOWN[key] && key !== 'rate' ? '' : `<input type="text" class="qc-formula" maxlength="120" value="${esc(formulas[key] || '')}"
+        ${(KNOWN[key] && key !== 'rate') || (key === 'rate' && typedRate()) ? '' : `<input type="text" class="qc-formula" maxlength="120" value="${esc(formulas[key] || '')}"
           placeholder="Formula (optional), e.g. {Rate/kg} × {Unit Weight}" aria-label="${esc(titleOf(key) || 'Column')} formula"
           title="Leave blank to type it on each item. A formula works it out for each item: column titles in braces, with + − × ÷ and brackets." />`}
       </div>`).join('');
@@ -76,7 +87,8 @@
     sheet.querySelector('#qc-add-weight').disabled = full || layout.includes('weight');
     sheet.querySelector('#qc-add-custom').disabled = full;
     sheet.querySelector('#qc-note').textContent = full ? 'Up to 6 columns in all — the description needs the room.'
-      : totalOf ? `Each item is priced by its ${titleOf(totalOf)}: Total = Qty × ${titleOf(totalOf)}.${layout.includes('rate') ? ` ${titleOf('rate')} shows that price too.` : ''}`
+      : totalOf ? `Total = Qty × ${factorsOf(totalOf).map(titleOf).join(' × ')}.${factorsOf(totalOf).length > 1 && factorsOf(totalOf).includes('rate')
+        ? ` ${titleOf('rate')} is typed on each item.` : layout.includes('rate') ? ` ${titleOf('rate')} shows each item’s price.` : ''}`
       : layout.includes('rate') ? '' : 'Unit Rate is off the printed table; each item’s price is still kept, and typed in the editor.';
   }
 
@@ -94,6 +106,9 @@
           <span class="qc-fixed">= Qty ×</span>
           <select id="qc-total-of" aria-label="What the total is of"
             title="The column that prices each item: its Total (and the quotation's) is Qty × it"></select>
+          <span class="qc-fixed">×</span>
+          <select id="qc-total-by" aria-label="Times another column"
+            title="Optional: a second column to multiply by, e.g. Unit Weight × Rate/kg"></select>
         </div>
         <div class="qc-add">
           <button type="button" id="qc-add-rate" data-no-icon title="Show each item’s unit rate on the PDF again">+ Unit Rate</button>
@@ -159,7 +174,14 @@
     sheet.querySelector('#qc-save').addEventListener('click', save);
     sheet.querySelector('#qc-total-title').addEventListener('input', (e) => { titles.total = e.target.value; });
     // (The columns stay as they are: Unit Rate is kept or removed by hand.)
-    sheet.querySelector('#qc-total-of').addEventListener('change', (e) => { totalOf = e.target.value; draw(); });
+    const pickTotal = () => {
+      const a = sheet.querySelector('#qc-total-of').value;
+      const b = sheet.querySelector('#qc-total-by').value;
+      totalOf = b && b !== a ? `${a}*${b}` : a === 'rate' ? '' : a;
+      draw();
+    };
+    sheet.querySelector('#qc-total-of').addEventListener('change', pickTotal);
+    sheet.querySelector('#qc-total-by').addEventListener('change', pickTotal);
     sheet.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') close();
       if (e.key === 'Enter' && e.target.classList.contains('qc-title')) save();
@@ -258,8 +280,11 @@
         if (!r || r.ok !== false) changed = true;
       }
       // Total of another column: that column is the price; else Unit Rate's formula.
-      const v = d.totalOf === 'weight' ? numberIn(values.weight) ?? (d.lineWeights || {})[item.id] ?? null
-        : d.totalOf ? numberIn(values[d.totalOf]) : f.rate ? answer(f.rate, item, d, values) : null;
+      // Total of other columns: their product is the price; else Unit Rate's formula.
+      const factor = (k) => (k === 'weight' ? numberIn(values.weight) ?? (d.lineWeights || {})[item.id] ?? null : numberIn(values[k]));
+      const parts = d.totalOf ? d.totalOf.split('*').map(factor) : null;
+      const v = parts ? (parts.some((x) => x === null || x === undefined) ? null : parts.reduce((x, y) => x * y, 1))
+        : f.rate ? answer(f.rate, item, d, values) : null;
       if (v === null) continue;
       const price = Math.round(Math.max(0, v) * 100) / 100;
       if (Math.abs(price - item.appliedUnitPrice) < 0.005 && !item.priceFormula) continue;

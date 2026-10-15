@@ -577,9 +577,13 @@ function lineRow(item, rowNo, isLocked, draggable) {
   // Worked out from other columns (Columns… › formula): shown, not typed.
   const formulas = currentDetail.columnFormulas || {};
   // (Total of another column: that column is the price.)
-  const totalOf = currentDetail.totalOf && (currentDetail.totalOf === 'weight' ? 'Unit Weight'
-    : (window.quotationColumns.customInOrder(currentDetail).find((c) => c.id === currentDetail.totalOf) || {}).title);
-  const formulaOf = (key) => (key === 'rate' && totalOf ? `{${totalOf}}` : formulas[key]);
+  const factors = currentDetail.totalOf ? currentDetail.totalOf.split('*') : [];
+  // (With another column, Unit Rate is typed per item; otherwise it's their product.)
+  const typedRate = factors.length > 1 && factors.includes('rate');
+  const factorTitle = (k) => (k === 'rate' ? (currentDetail.columnTitles || {}).rate || 'Unit Rate'
+    : (window.quotationColumns.customInOrder(currentDetail).find((c) => c.id === k) || {}).title || 'Unit Weight');
+  const totalOf = factors.length && !typedRate ? factors.map((k) => `{${factorTitle(k)}}`).join(' × ') : '';
+  const formulaOf = (key) => (key === 'rate' && totalOf ? totalOf : formulas[key]);
   const worked = (key) => (formulaOf(key) && !item.blockId && item.section !== 'Delivery' && !item.priceNote
     ? `readonly title="Worked out: = ${esc(formulaOf(key))} (Columns… to change)"` : '');
   const discountLabel = window.lineDiscountLabel(item, currencyLabel);
@@ -600,7 +604,8 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
     <td>${item.unit}${onceSwitch}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-    ${showRate() ? `<td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : worked('rate')} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>` : ''}
+    ${showRate() && typedRate ? `<td class="num"><input type="text" inputmode="decimal" class="cv-input" data-col="rate" maxlength="60" placeholder="0.00" value="${esc((item.customValues || {}).rate || '')}" aria-label="${esc(factorTitle('rate'))}" ${isLocked ? 'disabled' : ''} /></td>` : ''}
+    ${showRate() && !typedRate ? `<td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : worked('rate')} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>` : ''}
     ${window.quotationColumns.customInOrder(currentDetail).map((c) => {
       // Unit Weight: the material list's weight unless one is typed (a crane's items have none).
       const kg = c.id === 'weight' ? (currentDetail.lineWeights || {})[item.id] : null;
@@ -619,6 +624,8 @@ function lineRow(item, rowNo, isLocked, draggable) {
     const r = await window.api.quotations.setLineValue(item.id, input.dataset.col, input.value);
     if (r && r.ok === false) { await appAlert(r.error); return; }
     item.customValues = Object.assign({}, item.customValues, { [input.dataset.col]: input.value.trim() });
+    // Worked-out boxes and prices that use it: worked out again.
+    if (Object.keys(currentDetail.columnFormulas || {}).length || currentDetail.totalOf) await loadDetail();
   }));
   const removeBtn = tr.querySelector('.remove-btn');
   if (removeBtn) removeBtn.addEventListener('click', () => removeLine(item.id));

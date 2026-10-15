@@ -6242,3 +6242,20 @@ What changed:
   note under the list says which now prices the items). With only
   Description and Qty, Total stays on Unit Rate so prices can still be typed.
 - Checked in a browser with mock data.
+
+## Batch 288 — Columns: Total can multiply two columns (Qty × Unit Weight × Rate/kg)
+
+- The Total row now reads "= Qty × [column] × [column]". The second one is
+  optional ("—"). For example, Qty × Unit Weight × Rate/kg.
+- When Unit Rate is one of two columns, it's typed on each item again, e.g.
+  as a rate per kg (kept in `customValues["rate"]`, printed as typed). Each
+  item's price is then the two columns multiplied, and its Total and the
+  quotation's amounts follow. Before, Unit Rate only showed the price
+  worked out, so it couldn't be typed in.
+- Typing in any value box (your columns, Unit Weight, Rate/kg) now works the
+  prices out again straight away, not on the next load.
+- (`Quotation.totalOf` holds up to two keys joined by "*", e.g.
+  "weight*rate"; `extras` / `arrangedRow` in
+  Sources/NativeBridge+Letterhead.swift print the typed rate.)
+- Checked in a browser with mock data: 1,343 kg × 2.5 gives a price of
+  3,357.50. The Swift wasn't compiled here.
