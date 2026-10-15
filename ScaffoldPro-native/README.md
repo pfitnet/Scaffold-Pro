@@ -6135,3 +6135,27 @@ What changed:
   layout. The Swift wasn't compiled here: check that the app builds, then
   edit a quotation's description and a term in the preview and look at the
   saved PDF.
+
+## Batch 281 — Assistant: changes the document instead of writing one out
+
+- What went wrong: asked to "Adjust description" on a quotation with a
+  picture of a table, the assistant wrote a whole quotation out as text.
+  It mixed in freight rates from earlier in the chat and changed nothing.
+- New rules for the AI:
+  - Work on the newest message. Earlier messages and their files are only
+    background.
+  - Never write a quotation, BOQ, letter or table out in the reply.
+    "Adjust / fix / update the description(s)" means getQuotation, then
+    editQuotationItems with each line's new wording taken from the picture
+    or file.
+  - Use only the person's words, their files, what's on screen and lookups.
+- In code: an answer that writes a document out is not shown. The AI is told
+  that this changes nothing and is asked again for lookups and cards, at
+  most a few times. Such an answer is one with table rows, headings, or
+  "Here is the quotation…" (`writesOutDocument`, `askToPropose` in
+  Sources/Assistant.swift).
+- Files from earlier messages are now labelled as earlier, so they aren't
+  taken as part of the new request.
+- The Swift wasn't compiled here. Check that the app builds, then try "Adjust
+  description" with a picture on a draft quotation: it should show cards
+  that change the lines.

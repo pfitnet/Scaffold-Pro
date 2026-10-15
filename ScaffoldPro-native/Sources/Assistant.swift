@@ -228,7 +228,7 @@ extension NativeBridge {
         can have a note, shown when the pointer rests on any of its documents in Projects › Overview.
 
         ALWAYS answer with ONLY one JSON object, no other text — never tool-call syntax or function calls:
-        {"reply": "what you say to the person (plain text; short; use - for lists)",
+        {"reply": "what you say to the person (plain text; short; use - for lists; no headings or tables)",
          "lookups": [ ... things to look up first ... ],
          "proposals": [ ... actions for the person to confirm ... ],
          "questions": [ ... choices for the person to make, shown as buttons ... ]}
@@ -273,6 +273,12 @@ extension NativeBridge {
         {"type": "open", "page": "project" | "quotation", "number": "26219 or Qt26219-001"}
 
         Rules:
+        - Work on the newest message. Earlier messages and their files are background: don't carry their prices, files or topics \
+        into a new request unless the person refers back to them.
+        - Never write a quotation, BOQ, letter or table out in "reply": nothing in the app changes that way. The app's documents are \
+        changed only by proposals. "Adjust", "fix" or "update the description(s)" on a quotation (with a picture or file) means: \
+        getQuotation, then editQuotationItems with each line's new description, worded from the picture or file.
+        - Use only the person's words, their files, what's on screen and your lookups: never outside or made-up details.
         - You can't make or change anything yourself: never say you have ("Created…", "Done"). Propose it, and say what the card will do.
         - If you can't do what's asked (the app has no way to do it, or it's outside ScaffoldPro), say so plainly in "reply": what you \
         can't do and why, and what you can do instead. Never leave the person without an answer; a best attempt (with what's missing \
@@ -310,7 +316,7 @@ extension NativeBridge {
             var text = (m["text"] as? String) ?? ""
             // Files sent earlier: their text, as read then.
             for f in (m["files"] as? [[String: Any]]) ?? [] {
-                if let t = nonBlank(f["text"] as? String) { text += "\n\n[Attached file “\((f["name"] as? String) ?? "file")”, as read:]\n\(t)" }
+                if let t = nonBlank(f["text"] as? String) { text += "\n\n[File attached to this earlier message, “\((f["name"] as? String) ?? "file")”, as read then:]\n\(t)" }
             }
             turns.append(QuotationAI.ChatTurn(role: (m["role"] as? String) == "assistant" ? "assistant" : "user", text: text))
         }
@@ -517,7 +523,10 @@ extension NativeBridge {
                 // Plain words: its answer. Something like JSON or code that
                 // couldn't be read: never shown — asked for once more.
                 let looksLikeCode = raw.contains("{\"") || raw.contains("\"reply\"") || raw.contains("<|") || raw.hasPrefix("{") || raw.hasPrefix("[")
-                if !looksLikeCode { done(["ok": true, "reply": raw, "proposals": [Any]()]); return }
+                if !looksLikeCode {
+                    if self.writesOutDocument(raw), round < 4, Date() < deadline { self.askToPropose(turns, raw, round: round, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried, run: run, done: done); return }
+                    done(["ok": true, "reply": raw, "proposals": [Any]()]); return
+                }
                 if round < 4, Date() < deadline {
                     self.assistantStep(run, "Its answer came back garbled — asking again")
                     var next = turns
@@ -546,6 +555,11 @@ extension NativeBridge {
                 next.append(QuotationAI.ChatTurn(role: "assistant", text: jsonText(json)))
                 next.append(QuotationAI.ChatTurn(role: "user", text: "That answer was empty. Answer my last message now: put the action we discussed in \"proposals\" (it shows as a card for me to confirm), or ask in \"questions\" if you must. If you can't do it, say so plainly and why. Never just say \"Done\" — nothing has been made."))
                 self.runAssistant(turns: next, round: round + 1, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried, run: run, done: done)
+                return
+            }
+            // A document written out in words instead of changed: asked again for cards.
+            if lookups.isEmpty && proposals.isEmpty && !asked && self.writesOutDocument(reply), round < 4, Date() < deadline {
+                self.askToPropose(turns, jsonText(json), round: round, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried, run: run, done: done)
                 return
             }
             if !lookups.isEmpty && proposals.isEmpty {
@@ -580,6 +594,24 @@ extension NativeBridge {
             }
             done(["ok": true, "reply": reply, "proposals": proposals.prefix(6).map { self.assistantCheck($0) }, "questions": questions])
         }
+    }
+
+    /// An answer that writes a document out (a table, headings, "Here is the
+    /// quotation") rather than proposing the change.
+    func writesOutDocument(_ reply: String) -> Bool {
+        let lines = reply.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        return lines.filter { $0.hasPrefix("|") }.count >= 2 || lines.contains { $0.hasPrefix("#") }
+            || reply.range(of: #"here (is|are) (the|your|a) (draft |revised |updated )?(quotation|boq|bq|invoice|delivery note|letter)"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    /// Told that writing it out changes nothing, and asked again for lookups and cards.
+    func askToPropose(_ turns: [QuotationAI.ChatTurn], _ answer: String, round: Int, deadline: Date, hardStop: Date, lastTry: Bool, retried: Bool,
+                      run: AssistantRun, done: @escaping ([String: Any]) -> Void) {
+        assistantStep(run, "It wrote the document out — asking for the change instead")
+        var next = turns
+        next.append(QuotationAI.ChatTurn(role: "assistant", text: answer))
+        next.append(QuotationAI.ChatTurn(role: "user", text: "Don't write a quotation, table or document out in \"reply\": nothing in the app changes that way. Answer my last message again with the JSON object: look up what's on screen (getQuotation…) and propose the change as a card (editQuotationItems to change descriptions, quantities or prices; addQuotationItems to add lines). Use only my last message, its attached picture or file, and what's on screen — not earlier topics."))
+        runAssistant(turns: next, round: round + 1, deadline: deadline, hardStop: hardStop, lastTry: lastTry, retried: retried, run: run, done: done)
     }
 
     /// One run of the assistant: its id (from the page) and whether its
