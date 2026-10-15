@@ -474,7 +474,7 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead>
+    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">${headOf('total', 'Total')}</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
@@ -513,7 +513,7 @@ function renderDelivery() {
       <span class="extra-kind"><span class="line-tag">Delivery charges · added to the total</span></span>
       ${isLocked ? '' : '<span class="controls"><button type="button" class="delivery-add">+ Add Delivery</button></span>'}
     </div>
-    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">Total</th><th></th></tr></thead><tbody></tbody></table>`;
+    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">${headOf('total', 'Total')}</th><th></th></tr></thead><tbody></tbody></table>`;
   const tbody = card.querySelector('tbody');
   lines.forEach((item, n) => tbody.appendChild(lineRow(item, `D${n + 1}`, isLocked, false)));
   const add = card.querySelector('.delivery-add');
@@ -573,8 +573,12 @@ function lineRow(item, rowNo, isLocked, draggable) {
   const overridden = !currentDetail.currency && listPrice !== null && listPrice !== undefined && Math.abs(listPrice - item.appliedUnitPrice) > 0.004;
   // Worked out from other columns (Columns… › formula): shown, not typed.
   const formulas = currentDetail.columnFormulas || {};
-  const worked = (key) => (formulas[key] && !item.blockId && item.section !== 'Delivery' && !item.priceNote
-    ? `readonly title="Worked out: = ${esc(formulas[key])} (Columns… to change)"` : '');
+  // (Total of another column: that column is the price.)
+  const totalOf = currentDetail.totalOf && (currentDetail.totalOf === 'weight' ? 'Unit Weight'
+    : (window.quotationColumns.customInOrder(currentDetail).find((c) => c.id === currentDetail.totalOf) || {}).title);
+  const formulaOf = (key) => (key === 'rate' && totalOf ? `{${totalOf}}` : formulas[key]);
+  const worked = (key) => (formulaOf(key) && !item.blockId && item.section !== 'Delivery' && !item.priceNote
+    ? `readonly title="Worked out: = ${esc(formulaOf(key))} (Columns… to change)"` : '');
   const discountLabel = window.lineDiscountLabel(item, currencyLabel);
   // With a markup %: a button to leave this item out of it (or put it back).
   const markup = Number(currentDetail.markupPercent) || 0;

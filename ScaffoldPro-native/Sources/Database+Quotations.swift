@@ -1084,6 +1084,7 @@ extension AppDatabase {
         detail.customColumns = q.customColumns ?? []
         detail.columnFormulas = q.columnFormulas ?? [:]
         detail.columnTitles = q.columnTitles ?? [:]
+        detail.totalOf = q.totalOf
         detail.lineWeights = quotationLineWeights(detail.lineItems)
         detail.currencyRate = q.currency == nil ? nil : (q.currencyRate ?? q.currency.flatMap { exchangeRate($0) })
         detail.charges = totals.charges
@@ -1619,7 +1620,7 @@ extension AppDatabase {
     /// New columns for a quotation: their order, and the custom ones (a
     /// title each). At most 3 besides Description, Unit Rate and Qty, so
     /// the description keeps its room.
-    func setQuotationColumns(id: String, layout: [String], custom: [[String: Any]], formulas: [String: Any] = [:], titles: [String: Any] = [:]) -> String? {
+    func setQuotationColumns(id: String, layout: [String], custom: [[String: Any]], formulas: [String: Any] = [:], titles: [String: Any] = [:], totalOf: String? = nil) -> String? {
         var qs = quotationsStore.readAll()
         guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
         guard qs[i].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
@@ -1643,10 +1644,12 @@ extension AppDatabase {
         q.columnFormulas = kept.isEmpty ? nil : kept
         // The standard columns renamed (only ones shown).
         var named: [String: String] = [:]
-        for (key, value) in titles where ["desc", "rate", "qty", "unit", "weight"].contains(key) && checked.contains(key) {
+        for (key, value) in titles where (["desc", "rate", "qty", "unit", "weight"].contains(key) && checked.contains(key)) || key == "total" {
             if let t = nonBlank(value as? String) { named[key] = String(t.prefix(30)) }
         }
         q.columnTitles = named.isEmpty ? nil : named
+        // Total = Qty × Unit Weight or one of its custom columns (nil: Unit Rate).
+        q.totalOf = totalOf.flatMap { key in key == "weight" || columns.contains(where: { $0.id == key }) ? key : nil }
         q.updatedAt = nowISO()
         qs[i] = q
         quotationsStore.writeAll(qs)
