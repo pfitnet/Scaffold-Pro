@@ -193,7 +193,9 @@
   // the right that can be hidden (the button in the bar, or ⌥⌘I in the app).
   // Nodes are moved, never rebuilt, so every id and listener stays.
   const SHELL = {
-    quotation: { body: 'quotation-body', side: ['.q-top-grid', '.q-terms-row'] },
+    // The terms are part of the document: they stay in the main column, under
+    // the items; their drawings go to the inspector.
+    quotation: { body: 'quotation-body', side: ['.q-top-grid', '.q-terms-row .linked-drawings-panel'] },
     boq: { body: 'boq-body', side: ['.details-bar', '#linked-bar', '.linked-drawings-panel', '#sheet-extras'] },
     deliveryNote: { body: 'dn-body', side: ['#dn-signed-bar', '#quotation-import', '.header-fields'] },
     invoice: { body: 'invoice-body', side: ['#inv-signed-notes', '.header-fields'] },
@@ -289,6 +291,17 @@
     const rest = [...body.children].filter((el) => el !== bar && !sideNodes.includes(el));
     for (const el of rest) main.appendChild(el);
     for (const el of sideNodes) side.appendChild(el);
+    // Details stays in view beside the document while it fits the window;
+    // taller than that, it scrolls with the page (no scrollbar of its own).
+    // (Measured against the window, not by switching back and forth.)
+    const fit = () => {
+      const css = (el, name) => parseFloat(getComputedStyle(el).getPropertyValue(name)) || 0;
+      const room = window.innerHeight - css(document.documentElement, '--titlebar-safe') - css(body, '--doc-bar-h') - 32;
+      const tall = side.scrollHeight > room + 1;
+      if (side.classList.contains('tall') !== tall) side.classList.toggle('tall', tall);
+    };
+    if (window.ResizeObserver) { const ro = new ResizeObserver(fit); ro.observe(side); for (const el of sideNodes) ro.observe(el); }
+    window.addEventListener('resize', fit);
     const wrap = document.createElement('div');
     wrap.className = 'doc-columns';
     wrap.append(main, side);
