@@ -446,6 +446,9 @@ function setupSignedBar() {
 }
 
 // The editor's heads for the quotation's custom columns (Line Items' ☰ › Columns…).
+// Unit Price in the editor: shown while it's a column (Columns…), and
+// always while Total is of it, so each price can still be typed.
+const showRate = () => (currentDetail.columnLayout || ['rate']).includes('rate') || !currentDetail.totalOf;
 // A standard column's head: its own title if renamed (Columns…).
 const headOf = (key, usual) => esc((currentDetail.columnTitles || {})[key] || usual);
 function customHeads() {
@@ -474,7 +477,7 @@ function renderLineItems() {
 
   const table = document.createElement('table');
   table.innerHTML = `
-    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">${headOf('total', 'Total')}</th><th></th></tr></thead>
+    <thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th>${showRate() ? `<th class="num">${headOf('rate', 'Unit Price')}</th>` : ''}${customHeads()}<th>Discount</th><th class="num">${headOf('total', 'Total')}</th><th></th></tr></thead>
     <tbody></tbody>`;
   const tbody = table.querySelector('tbody');
 
@@ -513,7 +516,7 @@ function renderDelivery() {
       <span class="extra-kind"><span class="line-tag">Delivery charges · added to the total</span></span>
       ${isLocked ? '' : '<span class="controls"><button type="button" class="delivery-add">+ Add Delivery</button></span>'}
     </div>
-    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th><th class="num">${headOf('rate', 'Unit Price')}</th>${customHeads()}<th>Discount</th><th class="num">${headOf('total', 'Total')}</th><th></th></tr></thead><tbody></tbody></table>`;
+    <table class="compact"><thead><tr><th class="drag-col"></th><th class="num row-no">No.</th><th>${headOf('desc', 'Description')}</th><th>${headOf('unit', 'Unit')}</th><th class="num">${headOf('qty', 'Qty')}</th>${showRate() ? `<th class="num">${headOf('rate', 'Unit Price')}</th>` : ''}${customHeads()}<th>Discount</th><th class="num">${headOf('total', 'Total')}</th><th></th></tr></thead><tbody></tbody></table>`;
   const tbody = card.querySelector('tbody');
   lines.forEach((item, n) => tbody.appendChild(lineRow(item, `D${n + 1}`, isLocked, false)));
   const add = card.querySelector('.delivery-add');
@@ -597,7 +600,7 @@ function lineRow(item, rowNo, isLocked, draggable) {
     <td class="line-desc">${window.descriptionHTML ? window.descriptionHTML(item.itemDescription) : item.itemDescription}${window.customItemEditButton ? window.customItemEditButton(item, isLocked) : ''}${linkChip(item, isLocked)}</td>
     <td>${item.unit}${onceSwitch}</td>
     <td class="num"><input type="text" inputmode="decimal" class="qty-input calc-input" ${window.calcAttr(item.quantityFormula)} value="${Math.round(item.quantity)}" ${isLocked ? 'disabled' : ''} /></td>
-    <td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : worked('rate')} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>
+    ${showRate() ? `<td class="num"><input type="text" inputmode="decimal" class="price-input calc-input${overridden ? ' override' : ''}" ${window.calcAttr(item.priceFormula)} value="${item.appliedUnitPrice}" ${isLocked ? 'disabled' : worked('rate')} />${markedUp ? `<span class="markup-price" title="Price after the quotation markup, as printed">Quoted ${money(effectivePrice)}</span>` : ''}${overridden ? `<span class="ref-price">List ${money(listPrice)}</span>` : ''}</td>` : ''}
     ${window.quotationColumns.customInOrder(currentDetail).map((c) => {
       // Unit Weight: the material list's weight unless one is typed (a crane's items have none).
       const kg = c.id === 'weight' ? (currentDetail.lineWeights || {})[item.id] : null;
