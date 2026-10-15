@@ -5895,3 +5895,13 @@ What changed:
   12.5px) and each step is a roomy target, 34px tall with padding, that
   lights up under the pointer. The page you're on is in full colour, bold.
 - Checked in Chromium. Not checked: WebKit on a Mac.
+
+## Batch 266 — Costs: one row of tools, one Export
+
+- **Costs › Materials:** the ··· and New Item buttons moved down from the
+  header to the list's own row (list, search, category), at its right.
+- The two "Unit Rates PDF…" buttons are now one **Export ▾** on that row: it
+  lists Unit Rates PDF… and Excel workbook… (on resting the pointer on it).
+  ··· holds Import from Excel….
+- Manpower Rates keeps its own New Provider and New Worker in its card.
+- Checked in Chromium. Not checked: WebKit on a Mac.

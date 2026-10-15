@@ -46,29 +46,39 @@ function handleCell(item) {
 // categories to show. They press the page's own (hidden) controls. A dot on
 // ☰ shows a category is chosen.
 
-// The header: [···] [New Item] on Materials, [···] [New Worker] on Manpower
-// Rates. ··· holds Import, Export and the Unit Rates PDF; each presses the
-// page's own (hidden) button.
+// Materials' row, after the list, search and category: [Export ▾] [···]
+// [New Item]. Export lists the Unit Rates PDF and the Excel workbook; ···
+// holds Import. Each presses the page's own (hidden) button. Manpower Rates
+// has its own New Provider and New Worker in its card.
 function setupListMenu() {
   const click = (id) => () => document.getElementById(id).click();
-  const manpower = () => !document.getElementById('costs-manpower').classList.contains('hidden');
+  const row = document.querySelector('#costs-materials > .toolbar');
   const primary = document.createElement('button');
   primary.type = 'button';
   primary.className = 'primary';
   primary.dataset.noIcon = '';
   primary.innerHTML = `${window.icon('plus', { size: 15 })}<span>New Item</span>`;
-  primary.addEventListener('click', () => (manpower() ? document.getElementById('mp-add-row') : document.getElementById('add-item-btn')).click());
-  window.pageActions(document.getElementById('costs-head'), {
+  primary.addEventListener('click', click('add-item-btn'));
+  const box = window.pageActions(row, {
     primary,
-    overflow: () => (manpower() ? [{ label: 'New Provider…', run: click('mp-add-provider') }] : [
-      { label: 'Import from Excel…', sub: 'Update prices from a workbook (.xlsx)', run: click('import-btn') },
-      { label: 'Export to Excel…', sub: 'This material list. Edit it and import it back', run: click('export-btn') },
-      { label: 'Unit Rates PDF…', sub: 'Tick items for a client, from either list', run: click('rates-select-btn') },
-    ]),
+    overflow: [{ label: 'Import from Excel…', icon: 'import', sub: 'Update prices from a workbook (.xlsx)', run: click('import-btn') }],
   });
-  const label = () => { primary.lastElementChild.textContent = manpower() ? 'New Worker' : 'New Item'; };
-  new MutationObserver(label).observe(document.getElementById('costs-manpower'), { attributes: true, attributeFilter: ['class'] });
-  label();
+  const exp = document.createElement('button');
+  exp.type = 'button';
+  exp.className = 'has-menu costs-export';
+  exp.id = 'costs-export-btn';
+  exp.dataset.noIcon = '';
+  exp.innerHTML = `<span>Export</span>${window.icon('caret-down', { size: 12 })}`;
+  box.prepend(exp);
+  window.hoverMenu.attach(exp, {
+    align: 'right',
+    minWidth: 210,
+    items: () => [
+      { label: 'Unit Rates PDF…', icon: 'pdf', hint: 'Tick items for a client, from either list, for a sheet on the letterhead', value: 'rates-select-btn' },
+      { label: 'Excel workbook…', icon: 'excel', hint: 'This material list. Edit it and import it back', value: 'export-btn' },
+    ],
+    onPick: (id) => document.getElementById(id).click(),
+  });
 }
 
 // ---------- Unit Rates: items picked from either list, for a client ----------
@@ -79,6 +89,8 @@ const ratesPicked = new Map(); // id → { sourceKey, itemCode, itemName }
 function updateRatesBar() {
   document.getElementById('rates-bar').classList.toggle('hidden', !ratesSelecting);
   document.getElementById('rates-select-btn').classList.toggle('hidden', ratesSelecting);
+  const exp = document.getElementById('costs-export-btn');
+  if (exp) exp.classList.toggle('hidden', ratesSelecting);
   document.getElementById('table-container').classList.toggle('selecting', ratesSelecting);
   const n = ratesPicked.size;
   const lists = new Set([...ratesPicked.values()].map((i) => i.sourceKey));
