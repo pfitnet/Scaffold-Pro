@@ -2349,6 +2349,9 @@ struct QuotationDetail: Codable {
     /// checked), and its custom columns.
     var columnLayout: [String] = ["desc", "rate", "qty"]
     var customColumns: [QuotationCustomColumn] = []
+    /// Each material item's weight (kg) from the material list, by line id,
+    /// when the Unit Weight column is shown (a typed one is in customValues["weight"]).
+    var lineWeights: [String: Double] = [:]
     var charges: ChargeSplit? = nil
     /// This quotation's own key terms; nil = the standard ones below.
     var keyTerms: String?

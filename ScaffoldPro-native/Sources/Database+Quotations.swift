@@ -1082,6 +1082,7 @@ extension AppDatabase {
         detail.oneTimeItemsTotal = totals.oneTimeItems
         detail.columnLayout = quotationColumnLayout(q)
         detail.customColumns = q.customColumns ?? []
+        if detail.columnLayout.contains("weight") { detail.lineWeights = quotationLineWeights(items) }
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
@@ -1570,9 +1571,11 @@ extension AppDatabase {
         guard let index = items.firstIndex(where: { $0.id == lineId }) else { return "Line item not found." }
         guard let q = getQuotation(id: items[index].quotationId) else { return "Quotation not found." }
         guard q.status == "Draft" else { return "This quotation is issued and can no longer be edited." }
-        guard (q.customColumns ?? []).contains(where: { $0.id == column }) else { return "That column isn't on this quotation." }
+        // "weight": the Unit Weight typed over the material list's (a crane's items have none).
+        guard column == "weight" || (q.customColumns ?? []).contains(where: { $0.id == column }) else { return "That column isn't on this quotation." }
         var values = items[index].customValues ?? [:]
         let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if column == "weight" && !clean.isEmpty && (Double(clean) ?? -1) < 0 { return "Type the weight in kg, e.g. 1250." }
         values[column] = clean.isEmpty ? nil : String(clean.prefix(60))
         items[index].customValues = values.isEmpty ? nil : values
         quotationLineItemsStore.writeAll(items)
