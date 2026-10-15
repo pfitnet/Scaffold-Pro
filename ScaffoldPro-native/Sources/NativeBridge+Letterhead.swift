@@ -724,7 +724,7 @@ extension NativeBridge {
     func arrangedRow(_ row: LetterTableRow, layout: [String], extra: [String: String]) -> LetterTableRow {
         switch row {
         case .item(let c) where c.count >= 5:
-            let known = ["desc": c[1], "rate": c[2], "qty": c[3]]
+            let known = ["desc": c[1], "rate": extra["rate"] ?? c[2], "qty": c[3]]
             return .item([c[0]] + layout.map { known[$0] ?? extra[$0] ?? "" } + [c[4]])
         case .partial(let c, let tail):
             // Its values up to the rate (No, Description, Rate), then the tail across the rest.
@@ -766,8 +766,12 @@ extension NativeBridge {
         // Weight, custom ones), by its place in `rows`.
         var rowExtras: [Int: [String: String]] = [:]
         let weights = db.quotationLineWeights(detail.lineItems)
+        // Unit Rate typed per item (Total = Qty × it × another column): printed as typed.
+        let factors = (detail.totalOf ?? "").split(separator: "*").map(String.init)
+        let typedRate = factors.count > 1 && factors.contains("rate")
         func extras(_ l: QuotationLineItem) -> [String: String] {
             var e = l.customValues ?? [:]
+            if typedRate { e["rate"] = e["rate"].map { Double($0.replacingOccurrences(of: ",", with: "")).map { formatMoney($0) } ?? $0 } ?? "" } else { e["rate"] = nil }
             e["unit"] = l.unit
             // A typed weight first, else the material list's.
             if let kg = e["weight"].flatMap({ Double($0) }) ?? weights[l.id] { e["weight"] = String(format: "%.1f", kg) }
@@ -854,7 +858,7 @@ extension NativeBridge {
 
         // The columns chosen for this quotation (added ones, their order).
         let layout = detail.columnLayout
-        if layout != ["desc", "rate", "qty"] {
+        if layout != ["desc", "rate", "qty"] || typedRate {
             rows = rows.enumerated().map { arrangedRow($0.element, layout: layout, extra: rowExtras[$0.offset] ?? [:]) }
         }
 

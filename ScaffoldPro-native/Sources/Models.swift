@@ -1784,9 +1784,12 @@ struct Quotation: Codable {
     /// The standard columns' own titles, by key ("desc", "rate", "qty",
     /// "unit", "weight"), when renamed in Columns…; nil = the usual ones.
     var columnTitles: [String: String]? = nil
-    /// What the Total column is Qty × of: nil = Unit Rate; "weight" or a
-    /// custom column's id, whose value then becomes each item's price (put
-    /// in by js/quotation-columns.js). "weight" prints without the currency.
+    /// What the Total column is Qty × of: nil = Unit Rate; else up to two
+    /// columns joined by "*" ("weight", "rate" or a custom column's id, e.g.
+    /// "weight*rate"), whose product becomes each item's price (put in by
+    /// js/quotation-columns.js). With "rate" among two, Unit Rate is typed
+    /// per item (customValues["rate"]) and printed as typed. "weight" alone
+    /// prints without the currency.
     var totalOf: String? = nil
     /// In another currency (`currency`): what 1 of it was worth in the
     /// company's currency when the prices were converted.
