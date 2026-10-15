@@ -5836,3 +5836,32 @@ What changed:
 - Checked: the split gives the same events as three asks (node check);
   calendar and team pages load without errors in Chromium. The Swift wasn't
   compiled here; check that the app builds.
+
+## Batch 262 — Menus open on hover; editor bar, Add Materials and the project page tidied
+
+- **Every button that opens a menu opens on hover** (resting the pointer on
+  it): the editors' ···, the page headers' ···, New ▾ on the project page,
+  Clients' New ▾, the Dashboard's New and the sidebar's user menu. A click
+  keeps it open; Return or ↓ steps into it. Dropdown fields (Status and the
+  like) still open on a click.
+- **Menus redesigned:** one calm line per choice with its icon (Print,
+  Locate File, Duplicate, Split, Revert, Delete), the same height
+  throughout; what a choice does shows on resting on it; Delete stands apart
+  in red. No tick column where nothing is ticked, and no orange ring.
+- **Editor bar:** the ··· button lines up with the others (it had picked up
+  the Dashboard's "Show more" style). The bar is solid; once pinned at the
+  top it covers the title strip above it and shows a line under it, so
+  nothing scrolls through. It pins right under the title strip (it used to
+  sit 42px lower). Details and the letter's formatting toolbar pin under it.
+  Details scrolls up and down only, never sideways.
+- **Add Materials beside Line Items** when the main column has room for the
+  whole line items table (hide Details on a laptop for that); the materials
+  list is then as tall as the line items. Otherwise one above the other.
+- **Letter › Attachments:** its note runs the full width of Details.
+- **Project page:** the kinds bar is compact again, counts as small badges;
+  the shown kind's tools (Select, Import…) and the New button sit at the
+  right of the same row.
+- **Projects (overview):** a click anywhere on a project's bracket opens the
+  project; a document in it still opens the document.
+- Checked in Chromium with the mocked bridge (screenshots, widths, clicks).
+  Not checked: WebKit on a Mac.

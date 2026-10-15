@@ -270,7 +270,7 @@
   split.innerHTML = `<button type="button" class="primary" data-no-icon>${window.icon('plus', { size: 15 })}<span>New Client</span></button><button type="button" class="primary split-caret" data-no-icon aria-label="More new" title="New Site">${window.icon('caret-down', { size: 13 })}</button>`;
   split.firstElementChild.addEventListener('click', () => clientSheet.openNew());
   window.hoverMenu.attach(split.lastElementChild, {
-    openOn: 'press', align: 'right',
+    align: 'right',
     items: () => [{ label: 'New Client', value: 'client' }, { label: 'New Site', value: 'site' }],
     onPick: (v) => (v === 'site' ? siteSheet : clientSheet).openNew(),
   });

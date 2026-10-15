@@ -517,7 +517,6 @@ document.getElementById('announce-btn').addEventListener('click', () => window.a
   make.innerHTML = `${window.icon('plus', 15)}<span>New</span>${window.icon('caret-down', 12)}`;
   box.querySelector('.page-actions').appendChild(make);
   window.hoverMenu.attach(make, {
-    openOn: 'press',
     items: () => QUICK_ACTIONS.map((a, i) => ({ label: a.label, value: i })),
     onPick: (i) => QUICK_ACTIONS[Number(i)].go(),
   });

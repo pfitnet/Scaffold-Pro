@@ -219,7 +219,7 @@
       right.className = 'doc-bar-actions';
       const more = document.createElement('button');
       more.type = 'button';
-      more.className = 'icon-btn more-btn';
+      more.className = 'icon-btn doc-more';
       more.dataset.noIcon = '';
       more.title = 'More';
       more.setAttribute('aria-label', 'More');
@@ -236,12 +236,31 @@
       right.append(toggle, more);
       if (exportBtn) right.appendChild(exportBtn);
       bar.appendChild(right);
+      // Pinned at the top once the page scrolls: then it covers the title
+      // strip above it and shows a line under it (css .doc-bar.stuck).
+      const scroller = document.getElementById('content');
+      const stuck = () => {
+        const strip = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--titlebar-safe')) || 0;
+        bar.classList.toggle('stuck', !!scroller && scroller.scrollTop > 0 &&
+          bar.getBoundingClientRect().top - scroller.getBoundingClientRect().top <= strip + 0.5);
+      };
+      if (scroller) scroller.addEventListener('scroll', stuck, { passive: true });
+      // Its real height (it can wrap), for what pins under it (the inspector, the letter's toolbar).
+      if (window.ResizeObserver) new ResizeObserver(() => body.style.setProperty('--doc-bar-h', `${bar.offsetHeight}px`)).observe(bar);
       const label = (b) => (b.dataset.iconLabel || b.textContent || b.getAttribute('aria-label') || b.title || '').trim().replace(/\s+/g, ' ');
       if (window.hoverMenu) {
+        // One line each with its icon; what it does shows on resting on it.
+        // Delete stands apart, in red.
+        const ICON = { 'print-btn': 'print', 'locate-file-btn': 'locate', 'duplicate-doc-btn': 'duplicate', 'split-btn': 'split',
+          'revert-split-btn': 'undo', 'delete-doc-btn': 'trash', 'delete-btn': 'trash' };
         window.hoverMenu.attach(more, {
-          openOn: 'press',
+          align: 'right',
+          minWidth: 200,
           items: () => moved.filter((b) => !b.hidden && !b.classList.contains('hidden') && b.style.display !== 'none')
-            .map((b) => ({ label: label(b) || b.id, sub: b.title && b.title !== label(b) ? b.title : '', value: b.id, disabled: b.disabled })),
+            .map((b) => {
+              const danger = ICON[b.id] === 'trash';
+              return { label: label(b) || b.id, hint: b.title && b.title !== label(b) ? b.title : '', icon: ICON[b.id], danger, sep: danger, value: b.id, disabled: b.disabled };
+            }),
           onPick: (id) => { const b = document.getElementById(id); if (b && !b.disabled) b.click(); },
         });
       }

@@ -274,6 +274,9 @@ html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: ab
   overflow-y: auto;
   --page-gutter: max(44px, calc((100vw - var(--sidebar-width) - var(--page-max)) / 2));
   padding: 42px var(--page-gutter) 56px;
+  /* Things pinned while #content scrolls sit inside its top padding: this
+     takes it back off, so they pin right under the title strip. */
+  --pin-shift: 42px;
   min-width: 0;
   scroll-behavior: smooth;
 }
@@ -1783,6 +1786,22 @@ table.delivery-rates input { width: 110px; text-align: right; }
 /* A button that opens a list: a small chevron after its label. */
 .has-menu { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .hm-chevron { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); opacity: .7; }
+/* Menus (redesign): one calm line per choice, an icon before it where it has
+   one, the same height throughout; the keyboard's place shown by the row's
+   tint alone (no ring); a destructive choice apart, in red. */
+.hm-menu { padding: 6px; border-radius: 12px; }
+.hm-item { align-items: center; gap: 10px; min-height: 32px; padding: 5px 12px 5px 8px; }
+.hm-item:has(.hm-sub) { align-items: flex-start; }
+.hm-item:focus-visible { box-shadow: none; }
+.hm-plain .hm-check { display: none; }
+.hm-plain .hm-item { padding-left: 10px; }
+.hm-plain .hm-heading { padding-left: 10px; }
+.hm-ico { flex: 0 0 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.hm-item:hover .hm-ico, .hm-item:focus-visible .hm-ico { color: var(--text); }
+.hm-item.hm-danger, .hm-item.hm-danger .hm-ico { color: var(--danger); }
+.hm-item.hm-danger:hover, .hm-item.hm-danger:focus-visible { background: var(--danger-soft); color: var(--danger); }
+.hm-sep { height: 1px; margin: 5px 4px; background: var(--hairline); }
+.hm-sep:first-child { display: none; }
 
 /* A document's number with who made it and who last worked on it at the right of the same row (js/doc-authors.js). */
 .doc-titlebar { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; align-items: start; }
@@ -2402,6 +2421,10 @@ a.pj-card .pj-num { font-size: 19px; letter-spacing: .02em; color: var(--text); 
   align-items: stretch; padding: 14px 18px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
   box-shadow: var(--shadow-card); }
 .ov-bracket::before { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--st); }
+/* The whole bracket opens the project (js/projects.js): it lifts a little under the pointer. */
+.ov-bracket { transition: border-color .15s, box-shadow .2s var(--ease); }
+.ov-bracket:hover { border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
+.ov-bracket:active:not(:has(a:active)) { box-shadow: var(--shadow-card); }
 .ov-project { display: flex; flex-direction: column; justify-content: center; gap: 3px; color: var(--text); text-decoration: none; min-width: 0; }
 .ov-project:hover { text-decoration: none; }
 .ov-num { font: 800 20px/1.1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .02em; }
@@ -2536,6 +2559,11 @@ th:hover .mp-prov-tools { opacity: 1; }
 .annex-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
 .annex-head h2 { margin: 0 0 2px; font-size: 16px; }
 .annex-head .small-note { margin: 0; max-width: 520px; }
+/* In the Details panel: title, then its note across the full width, then the numbering. */
+.inspector .annex-head { flex-direction: column; gap: 10px; }
+.inspector .annex-head .small-note { max-width: none; }
+.inspector .annex-prefix { width: 100%; }
+.inspector .annex-prefix input { flex: 1; width: auto; min-width: 0; }
 .annex-prefix { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 .annex-prefix input { width: 120px; --control-h: 28px; font-weight: 600; }
 .annex-row { display: grid; grid-template-columns: auto 132px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px; border: 1px solid var(--hairline); border-radius: 12px; margin-bottom: 8px; animation: page-rise .3s var(--ease) both; }
@@ -2815,7 +2843,7 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
   body[data-page] .drawer-scrim { display: block; position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1); background: rgba(17, 19, 22, 0.32);
     opacity: 0; pointer-events: none; transition: opacity 240ms var(--ease-out); }
   html.drawer-open .drawer-scrim { opacity: 1; pointer-events: auto; }
-  html.sidebar-rail #content, #content { margin-left: 0; padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); overflow: visible; }
+  html.sidebar-rail #content, #content { margin-left: 0; padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); overflow: visible; --pin-shift: 0px; }
   #content > * { max-width: none; }
   h1 { font-size: 22px; }
   /* Headers and toolbars wrap; the primary action stays visible. */
@@ -2880,11 +2908,24 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
 #new-boq-btn, #new-quotation-btn, #new-invoice-btn, #new-delivery-note-btn, #new-letter-btn, #record-inspection-btn, #new-task-btn { display: none !important; }
 .tabs-sub .dk-dot { margin-right: 6px; }
 .tabs-sub button { display: inline-flex; align-items: center; }
-/* The kinds share the full width: each its dot and name, its count at the right. */
-#tabs.tabs-sub { display: flex; margin: 14px 0 18px; overflow-x: auto; scrollbar-width: none; }
-#tabs.tabs-sub::-webkit-scrollbar { display: none; }
-#tabs.tabs-sub > button { flex: 1 0 0; min-width: max-content; height: 34px; padding: 0 14px; white-space: nowrap; }
-#tabs.tabs-sub .tab-count { margin-left: auto; padding-left: 10px; font-size: 12px; }
+/* One row under the tabs: the kinds at the left, the shown kind's tools
+   (Select, Import…) at the right, both 34px tall (js/project-detail.js › placeSubTools). */
+.pd-subrow { display: flex; align-items: center; gap: 16px; margin: 14px 0 18px; min-width: 0; }
+.pd-subrow #tabs.tabs-sub { margin: 0; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.pd-subrow #tabs.tabs-sub::-webkit-scrollbar { display: none; }
+#tabs.tabs-sub > button { height: 30px; padding: 0 12px; white-space: nowrap; gap: 0; }
+/* A kind's count: a small badge beside its name. */
+#tabs.tabs-sub .tab-count { margin-left: 7px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text) 8%, transparent); }
+#tabs.tabs-sub .tab-count:empty { display: none; }
+#tabs.tabs-sub button.active .tab-count { color: var(--text); background: color-mix(in srgb, var(--text) 12%, transparent); }
+.pd-subrow-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pd-subrow-tools > .section-toolbar { margin: 0; min-height: 0; gap: 8px; }
+.pd-subrow-tools > .section-toolbar > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.pd-subrow-tools > .section-toolbar > button.primary, .pd-subrow-tools > .section-toolbar .controls > button.primary { display: none; }
+.pd-subrow-tools button { height: 34px; }
+@media (max-width: 767px) { .pd-subrow { flex-wrap: wrap; gap: 10px; } .pd-subrow-tools { margin-left: 0; } }
 td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); font-size: 12.5px; }
 
 .pj-view button { display: inline-flex; align-items: center; gap: 6px; width: auto !important; padding: 0 10px !important; }
@@ -2892,14 +2933,18 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
 
 /* ---------- The document workspace (redesign R5–R6; js/doc-authors.js) ---------- */
 .doc-shell > .doc-bar {
-  position: sticky; top: var(--titlebar-safe); z-index: var(--z-sticky);
+  position: sticky; top: var(--pin); z-index: var(--z-sticky);
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  margin: 0 calc(-1 * 12px) 16px; padding: 8px 12px; border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--content) 86%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
-  border: 1px solid transparent;
+  margin: 0 calc(-1 * 12px) 16px; padding: 8px 12px; min-height: var(--doc-bar-h); box-sizing: border-box;
+  /* Solid, across its full width: what scrolls under it never shows through. */
+  background: var(--content); border-bottom: 1px solid transparent;
 }
-.doc-shell > .doc-bar:hover { border-color: var(--hairline); }
+.doc-shell > .doc-bar.stuck { border-bottom-color: var(--hairline); }
+/* The letter's formatting toolbar pins just under the document bar, never under or over it. */
+.doc-shell .rt-toolbar { top: calc(var(--pin) + var(--doc-bar-h)); }
+.doc-shell { --doc-bar-h: 52px; --pin: calc(var(--titlebar-safe) - var(--pin-shift, 0px)); }
+/* The window's title strip above it is covered too, so nothing scrolls past there. */
+.doc-shell > .doc-bar.stuck::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--titlebar-safe); background: var(--content); pointer-events: none; }
 .doc-bar .doc-in-menu { display: none !important; }
 .doc-bar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .doc-bar-actions .icon-btn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -2909,7 +2954,9 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
 .doc-shell.inspector-off .doc-columns { grid-template-columns: minmax(0, 1fr); }
 .doc-shell.inspector-off .inspector { display: none; }
 .doc-main { min-width: 0; }
-.inspector { position: sticky; top: calc(var(--titlebar-safe) + 20px); max-height: calc(100vh - var(--titlebar-safe) - 40px); overflow-y: auto;
+/* Held just under the document bar, never sliding beneath it. */
+/* It scrolls up and down on its own, never sideways. */
+.inspector { position: sticky; top: calc(var(--pin) + var(--doc-bar-h) + 16px); max-height: calc(100vh - var(--titlebar-safe) - var(--doc-bar-h) - 32px); overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 12px; padding: 2px 2px 20px; }
 .inspector-title { font-size: 12px; font-weight: 560; color: var(--text-tertiary); padding: 0 4px; }
 /* What the inspector holds: one column of its own cards. */
@@ -2923,8 +2970,20 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
   margin: 0 !important; padding: 14px 16px; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius-lg); }
 .inspector .signed-bar.hidden, .inspector .linked-bar.hidden, .inspector .dn-signed-list.hidden { display: none; }
 /* The items: Add Materials above the lines, both full width of the main column. */
+/* Add Materials beside the line items, so what's added stays in view, as
+   soon as the main column has room for the whole line items table (720px)
+   beside it: the materials list is then as tall as the line items (at least
+   360px) and scrolls inside that. With less room (a laptop with Details
+   showing), folded, or a crane job: one above the other. */
+.doc-main { container-type: inline-size; }
 .doc-main .boq-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 18px !important; }
 .doc-main .boq-grid > div:first-child .picker-results { max-height: 340px; overflow-y: auto; }
+@container (min-width: 1000px) {
+  .doc-main .boq-grid { grid-template-columns: minmax(260px, 1fr) minmax(720px, 2fr) !important; gap: 20px !important; align-items: stretch !important; }
+  .doc-main .boq-grid > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+  .doc-main .boq-grid > div:first-child .picker-results { flex: 1 1 0; min-height: 360px; max-height: none; }
+  .doc-main .boq-grid:has(> .picker-folded), body.crane-job .doc-main .boq-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
 @media (max-width: 1279px) {
   .doc-columns { grid-template-columns: minmax(0, 1fr); }
   .inspector { position: static; max-height: none; overflow: visible; }
