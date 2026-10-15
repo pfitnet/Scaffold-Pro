@@ -730,7 +730,12 @@ extension NativeBridge {
     }
 
     /// A quotation laid out on the letterhead (as Qt26193).
+    /// With the paragraphs added in its preview (Sources/DocInserts.swift).
     func quotationLetter(_ detail: QuotationDetail, company: CompanySettings) -> LetterDocument {
+        withInserts(quotationLetterBase(detail, company: company), documentId: detail.id)
+    }
+
+    func quotationLetterBase(_ detail: QuotationDetail, company: CompanySettings) -> LetterDocument {
         // A quotation in another currency (a crane job's, say) prints in it.
         var company = company
         if let code = nonBlank(detail.currency) { company.currency = code }
@@ -956,6 +961,10 @@ extension NativeBridge {
 
     /// An invoice laid out on the letterhead.
     func invoiceLetter(_ detail: InvoiceDetail, company: CompanySettings) -> LetterDocument {
+        withInserts(invoiceLetterBase(detail, company: company), documentId: detail.id)
+    }
+
+    func invoiceLetterBase(_ detail: InvoiceDetail, company: CompanySettings) -> LetterDocument {
         let client = clientBlock(projectNumber: detail.projectNumber, fallbackName: detail.clientName)
         let isRental = detail.pricingMode == "Rental"
         let quotation = detail.sourceQuotationId.flatMap { db.getQuotation(id: $0) }

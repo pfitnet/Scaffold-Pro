@@ -5970,3 +5970,29 @@ What changed:
   once more without the picture of the screen.
 - Checked in Chromium (layout measured at 1440 and 1280px). The Swift wasn't
   compiled here; check that the app builds.
+
+## Batch 272 — Add paragraphs in the preview
+
+- **Edit in the preview** of a quotation (on the letterhead), an invoice or a
+  delivery note, PDF or Word: the Edit button opens a panel beside the pages
+  listing the document's lines in order — the opening, each item row, after
+  the table, each terms paragraph, the end. Rest the pointer on a line for
+  **+ Above** / **+ Below**, type the paragraph, and click away (or ⌘Return):
+  it's saved and the preview is drawn again with it in place. × removes one.
+- **Kept with the document, and where:** each paragraph is saved with its
+  line (doc_inserts.json, shared with the other Macs like every store), so
+  every later PDF and Word copy has it. A line's key is its own text, so the
+  paragraph stays with it when other lines are added, moved or removed; if
+  its line is gone it's printed at the end (before the signatures) and
+  listed under "Their line has changed": never lost. Inside the table a
+  paragraph is a row across the columns; elsewhere an ordinary paragraph.
+- How: Sources/DocInserts.swift (`letterAnchors`, `withInserts`, routes
+  `docEdits:get` / `docEdits:save`); `quotationLetter`, `invoiceLetter` and
+  `deliveryNoteLetter` now add the paragraphs to `…LetterBase`.
+  js/doc-preview.js `setupEdit`; js/docx-export.js makes the Word file again
+  after each edit (Save saves the newest).
+- Not covered: the landscape BQ sheet (drawn separately) — its preview says
+  so. Changing the existing wording is still done in the editor.
+- Checked in Chromium with the mocked bridge (lines listed, a paragraph added
+  and saved with its line, the preview drawn again). The Swift wasn't
+  compiled here; check that the app builds.

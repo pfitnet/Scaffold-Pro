@@ -1233,7 +1233,7 @@ async function init() {
     if (subIds === null) return;
     const n = subIds ? subIds.length : 0;
     const result = await window.docPreview.pdf(() => window.api.quotations.exportPDF(quotationId, { preview: true, withSubsidiaries: n > 0, subsidiaryIds: subIds || [] }),
-      { title: currentDetail.quotationNumber + (n ? ` + ${n} subsidiar${n === 1 ? 'y' : 'ies'}` : '') });
+      { title: currentDetail.quotationNumber + (n ? ` + ${n} subsidiar${n === 1 ? 'y' : 'ies'}` : ''), edit: { id: quotationId } });
     if (!result.ok) { alert(result.error); }
   });
 
@@ -1249,7 +1249,7 @@ async function init() {
           layout.attach = await Promise.all(subIds.map((sid) => window.api.quotations.exportWord(sid)));
         }
         return layout;
-      });
+      }, { editId: quotationId });
       if (!result.ok) { alert(result.error); }
     } catch (err) {
       alert(`The Word document couldn't be made.\n\n${err.message}`);

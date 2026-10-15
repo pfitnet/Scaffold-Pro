@@ -878,6 +878,10 @@ extension NativeBridge {
         case "tasks:get":
             let task = db.tasksStore.readAll().first { $0.id == ((payload["id"] as? String) ?? "") }
             respond(id: id, encodable: task.map { [$0] } ?? [])
+        case "docEdits:get":
+            handleDocEditsGet(id: id, payload: payload)
+        case "docEdits:save":
+            handleDocEditsSave(id: id, payload: payload)
         case "calendar:events":
             respond(id: id, encodable: db.calendarEvents(from: (payload["from"] as? String) ?? "", to: (payload["to"] as? String) ?? ""))
         case "marketing:summary":

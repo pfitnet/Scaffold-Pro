@@ -73,6 +73,7 @@ business:
 | Team (with Chat as its first tab) | `team.html`, `js/team.js`, `js/chat.js`, `css/chat.css`; `chat.html` redirects to `team.html?tab=chat` |
 | The design system (redesign R0–R12) | `docs/redesign/PLAN.md`. Tokens, type (Geist), components, toasts, sheets and the phone shell: `css/styles.css`. Icons: `js/icons.js` (Phosphor registry: `window.icon(name)`, `<i data-icon>` in markup). Shared parts: `js/ui-kit.js` (`appTabs`, `appToast`, `appSheet`, `statTile`, `searchField`, `pageActions`, `crumbs`). Editors' shell: `js/doc-authors.js` (`.doc-bar`, ··· menu, inspector) |
 | Screenshots without a Mac | `node tools/ui-shots/shoot.js --out <dir> [--page p] [--vp mac,narrow,ipad,phone\|all] [--scheme light\|dark]` with mock data in `tools/ui-shots/data.js` |
+| Paragraphs added in a preview | `Sources/DocInserts.swift` (`letterAnchors`, `withInserts`, `docEdits:*`), `js/doc-preview.js` `setupEdit` |
 | Quotation import / duplicate | `js/quotation-import.js`, `js/settings-ai.js`; Swift `QuotationImportReader`, `QuotationAI`, `createImportedQuotation`, `duplicateQuotation` |
 | Knowledge graph | `graphify-out/` (see `CLAUDE.md`: `graphify query "…"`, run `graphify update .` after code changes) |
 | Design and motion skills | `.claude/skills/` (from `Leonxlnx/taste-skill` and `emilkowalski/skills`, tracked in `skills-lock.json`). Use them for UI and animation work, e.g. `emil-design-eng`, `review-animations`, `animate`, `apple-design`, `minimalist-ui`, `redesign-existing-projects`, `write-swift`. Update with `npx skills update -p -y` |
@@ -96,7 +97,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **272**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **273**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```

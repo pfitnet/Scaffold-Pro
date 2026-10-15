@@ -482,6 +482,13 @@
     calendar: {
       events: (from, to) => callNative('calendar:events', { from: from, to: to }),
     },
+    // Paragraphs added in a document's preview (js/doc-preview.js › Edit;
+    // Sources/DocInserts.swift): get → { ok, error, anchors: [{ key, label, text }],
+    // inserts: [{ id, anchor, after, text }] }; save(id, inserts) → { ok, error }.
+    docEdits: {
+      get: (id) => callNative('docEdits:get', { id }),
+      save: (id, inserts) => callNative('docEdits:save', { id, inserts }),
+    },
     // Settings › Updates: { automatic: true|false } and/or { check: true } → { automatic }.
     updates: {
       get: () => callNative('app:updates', {}),

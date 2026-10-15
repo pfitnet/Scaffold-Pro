@@ -1154,17 +1154,32 @@
   // Builds the .docx (with `layout.attach`: more documents after it, e.g. a
   // quotation's subsidiaries), shows it in the preview (js/doc-preview.js),
   // and saves it into the project folder when that's confirmed.
-  async function exportWord(fetchLayout) {
-    const layout = await fetchLayout();
+  // opts.editId: the document whose preview can take added paragraphs
+  // (js/doc-preview.js › Edit): the file is made again after each, and Save
+  // saves the newest.
+  async function exportWord(fetchLayout, opts = {}) {
+    let layout = await fetchLayout();
     if (!layout || !layout.ok) return { ok: false, error: (layout && layout.error) || 'The Word document couldn\u2019t be prepared.' };
-    const extra = (layout.attach || []).filter((l) => l && l.ok);
-    const bytes = extra.length ? buildCombinedDocx([layout, ...extra])
-      : layout.kind === 'sheet' ? buildSheetDocx(layout) : buildLetterDocx(layout);
+    const build = (l) => {
+      const extra = (l.attach || []).filter((x) => x && x.ok);
+      return extra.length ? buildCombinedDocx([l, ...extra]) : l.kind === 'sheet' ? buildSheetDocx(l) : buildLetterDocx(l);
+    };
+    let bytes = build(layout);
     const save = (open) => root.api.files.saveWord({
       projectNumber: layout.projectNumber, subfolder: layout.subfolder, fileName: layout.fileName,
       reference: layout.number, data: toBase64(bytes), open: open !== false, workerId: layout.workerId || null,
     });
-    if (root.docPreview && root.docPreview.word) return root.docPreview.word({ bytes, fileName: layout.fileName, title: `${layout.title || 'Document'} ${layout.number || ''}`.trim(), save });
+    const edit = opts.editId ? {
+      id: opts.editId,
+      bytes: async () => {
+        const next = await fetchLayout();
+        if (!next || !next.ok) throw new Error((next && next.error) || 'The Word document couldn\u2019t be made again.');
+        layout = next;
+        bytes = build(next);
+        return bytes;
+      },
+    } : null;
+    if (root.docPreview && root.docPreview.word) return root.docPreview.word({ bytes, fileName: layout.fileName, title: `${layout.title || 'Document'} ${layout.number || ''}`.trim(), save, edit });
     return save(true);
   }
 
