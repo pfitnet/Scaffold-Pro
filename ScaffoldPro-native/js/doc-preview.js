@@ -10,11 +10,12 @@
 //     (js/docx-export.js: the .docx drawn here by docx-preview; "Save" → save(false))
 //   → { ok: true, saved: true|false, path } — or { ok: false, error }.
 //
-// With `edit: { id }` (a quotation, invoice or delivery note) the header
-// has Edit: a panel beside the pages lists the document's lines, and a
-// paragraph can be added above or below any of them. Each is kept with the
-// document (window.api.docEdits; Sources/DocInserts.swift), so every PDF
-// and Word copy has it; the preview is drawn again as soon as it's saved.
+// With `edit` (a quotation, invoice or delivery note: for a PDF
+// `{ id, layout }`, layout() giving its Word layout; for Word, from
+// js/docx-export.js) the header has Edit: the document's wording is changed
+// right on the page, as in a word processor (setupEdit, below). Each change
+// is kept with the document (window.api.docEdits; Sources/DocInserts.swift),
+// so every PDF and Word copy has it.
 //
 // The Word copy is drawn with docx-preview (js/vendor, Apache-2.0) and
 // JSZip (js/vendor, MIT), loaded the first time they're needed.
@@ -28,6 +29,8 @@
     pencil: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3z"/></svg>',
     minus: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 8h9"/></svg>',
     plus: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>',
+    bullets: '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="4" cy="5" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="15" r="1.2" fill="currentColor" stroke="none"/><path d="M8 5h9M8 10h9M8 15h9"/></svg>',
+    numbers: '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5h9M8 10h9M8 15h9"/><path d="M3 3.6l1.2-.6v4" stroke-width="1.2"/><path d="M2.8 9c.3-.6 1.9-.8 1.9.3 0 .9-1.9 1.6-1.9 2.4h2" stroke-width="1.2"/><path d="M2.9 13.5h1.8l-1 1.2c.9 0 1.2.4 1.2.9 0 .9-1.5 1-2.1.4" stroke-width="1.2"/></svg>',
     check: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>',
   };
 
@@ -52,7 +55,16 @@
         <header class="dp-head">
           <span class="dp-badge ${kind}">${kind === 'word' ? 'W' : 'PDF'}</span>
           <div class="dp-title"><b>${esc(title || fileName || 'Preview')}</b><span class="dp-sub">${esc(fileName || '')}</span></div>
-          ${editable ? `<button type="button" class="dp-list-btn" hidden title="All your paragraphs, beside the pages">List</button><button type="button" class="dp-edit-btn" aria-pressed="false" title="Click between lines on the page to add your own paragraph there — kept with this document, in every PDF and Word copy">${ICON.pencil}<span>Edit</span></button>` : ''}
+          ${editable ? `<span class="dp-saved" aria-live="polite"></span>
+          <div class="dp-format" role="toolbar" aria-label="Formatting" hidden>
+            <button type="button" data-cmd="bold" title="Bold (⌘B)" aria-label="Bold"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="Italic (⌘I)" aria-label="Italic"><i>I</i></button>
+            <button type="button" data-cmd="underline" title="Underline (⌘U)" aria-label="Underline"><u>U</u></button>
+            <span class="sep"></span>
+            <button type="button" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list">${ICON.bullets}</button>
+            <button type="button" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">${ICON.numbers}</button>
+          </div>
+          <button type="button" class="dp-edit-btn" aria-pressed="false" title="Change the wording on the page — kept with this document, in every PDF and Word copy">${ICON.pencil}<span>Edit</span></button>` : ''}
           <div class="dp-zoom" role="group" aria-label="Zoom">
             <button type="button" data-zoom="out" title="Smaller (⌘−)">${ICON.minus}</button>
             <button type="button" data-zoom="fit" class="dp-zoom-label" title="Fit the width (⌘0)">100%</button>
@@ -65,7 +77,6 @@
             <div class="dp-loading"><span class="dp-spinner"></span><span>Preparing the ${kind === 'word' ? 'Word document' : 'PDF'}…</span></div>
             <div class="dp-pages"></div>
           </div>
-          ${editable ? '<aside class="dp-edit" aria-label="Add paragraphs" hidden></aside>' : ''}
         </div>
         <footer class="dp-foot">
           <span class="dp-note">${esc(note || 'Nothing is saved until you click Save.')}</span>
@@ -109,6 +120,9 @@
       };
       const close = (result) => {
         if (busy) return;
+        // Changing the wording: finished (and kept) first.
+        if (editor && editor.editing) { editor.finish().then(() => { if (!editor.editing) close(result); }); return; }
+        if (editor) editor.dispose();
         document.removeEventListener('keydown', onKey, true);
         window.removeEventListener('resize', onResize);
         el.classList.remove('open');
@@ -152,11 +166,14 @@
       };
       const onKey = (e) => {
         if (document.querySelector('.app-dialog-backdrop:not(.leaving)')) return;
-        // Typing a paragraph: Escape (or ⌘Return) finishes it, it doesn't close the preview.
-        if (e.target.closest && e.target.closest('.dp-edit') && (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey)))) {
-          e.preventDefault(); e.stopPropagation(); e.target.blur(); return;
-        }
+        // Typing on the page: its own keys (Escape puts the line back, it doesn't close the preview).
+        if (editor && editor.key(e)) return;
         const mod = e.metaKey || e.ctrlKey;
+        if (editor && editor.editing) {
+          // Escape finishes changing; ⌘S waits until then (Save keeps the copy drawn with the changes).
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editor.finish(); return; }
+          if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); return; }
+        }
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(saved ? { ok: true, saved: true, path: saved.path } : { ok: true, saved: false }); }
         else if (mod && e.key.toLowerCase() === 's' && !actions) { e.preventDefault(); e.stopPropagation(); doSave(); }
         else if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); fitted = false; setZoom(zoom + 0.1); }
@@ -164,7 +181,7 @@
         else if (mod && e.key === '0') { e.preventDefault(); fit(); }
       };
       let editor = null;
-      const onResize = () => { if (fitted) fit(); if (editor) editor.relayout(); };
+      const onResize = () => { if (fitted) fit(); };
       document.addEventListener('keydown', onKey, true);
       window.addEventListener('resize', onResize);
       $('.dp-close').addEventListener('click', () => close(saved ? { ok: true, saved: true, path: saved.path } : { ok: true, saved: false }));
@@ -199,353 +216,314 @@
         for (const b of el.querySelectorAll('.dp-save, .dp-act')) b.disabled = false;
         const first = $('.dp-act.primary') || $('.dp-save');
         if (first) first.focus();
-        if (edit) editor = setupEdit(el, edit, async () => {
-          // Drawn again with the paragraphs, keeping the place on the page.
-          const canvas = $('.dp-canvas');
-          const at = canvas.scrollTop / Math.max(1, canvas.scrollHeight);
-          canvas.classList.add('dp-updating');
-          try {
-            const n = await edit.rebuild(pages);
-            if (n) $('.dp-sub').textContent = n;
-          } catch (e) { window.appAlert(e.message || 'The preview couldn’t be drawn again.'); }
-          canvas.classList.remove('dp-updating');
+        // While changing the wording, Save (and the other actions) wait for Done.
+        const noteText = $('.dp-note') && $('.dp-note').textContent;
+        if (edit) editor = setupEdit(el, edit, (editing) => {
+          for (const b of el.querySelectorAll('.dp-save, .dp-act')) b.disabled = editing;
+          if ($('.dp-note')) $('.dp-note').textContent = editing ? 'Click any wording to change it. Kept with this document, in every PDF and Word copy.' : noteText;
           if (fitted) fit(); else setZoom(zoom);
-          canvas.scrollTop = at * canvas.scrollHeight;
         });
       })();
     });
   }
 
-  // ---------- Editing on the page (Edit) ----------
-  // Resting the pointer between two lines shows where a paragraph would go;
-  // a click opens a box right there on the page, with a small toolbar (bold,
-  // italic, underline, bulleted and numbered lists). A paragraph you added
-  // is changed by clicking it. Each is kept with the document, at its line
-  // (window.api.docEdits; Sources/DocInserts.swift): saved on leaving the
-  // box (or ⌘Return; Escape leaves it as it was), then the preview is drawn
-  // again with it in place. List shows them all beside the pages (and adds
-  // after the table or at the end; any whose line has gone are there too).
+  // ---------- Editing the document itself (Edit) ----------
+  // Edit shows the document as pages you type on (laid out as the Word copy,
+  // which matches the PDF): click any of its wording — the salutation, the
+  // subject, the opening, an item's description, a heading, a note, a
+  // paragraph of the terms — and change it there, with bold, italic,
+  // underline and lists in the header (⌘B ⌘I ⌘U). Figures, totals and the
+  // details at the top are worked out by the app and stay as they are.
+  // Each change is kept with the document as that line's new wording
+  // (window.api.docEdits, `replace`; Sources/DocInserts.swift), saved as you
+  // leave it, so every PDF and Word copy has it. Done draws the preview again.
   const EDIT_CSS = `
-    .dpe-layer { position: absolute; inset: 0; z-index: 3; cursor: text; }
-    .dpe-caret { position: absolute; left: 7%; right: 7%; height: 0; border-top: 2px solid #e8783a; pointer-events: none; }
-    .dpe-caret::before { content: '+'; position: absolute; left: -22px; top: -11px; width: 18px; height: 18px; border-radius: 50%; background: #e8783a; color: #fff;
-      font: 600 14px/18px -apple-system, system-ui, sans-serif; text-align: center; }
-    .dpe-caret span { position: absolute; right: 0; top: -22px; padding: 1px 7px; border-radius: 6px; background: #e8783a; color: #fff; font: 500 11px/18px -apple-system, system-ui, sans-serif; white-space: nowrap; }
-    .dpe-mine { position: absolute; left: 7%; right: 7%; border-radius: 4px; background: rgba(232, 120, 58, .08); box-shadow: inset 0 0 0 1px rgba(232, 120, 58, .45); pointer-events: none; }
-    .dpe-box { position: absolute; left: 8%; right: 8%; z-index: 4; }
-    .dpe-tools { position: absolute; bottom: 100%; left: 0; margin-bottom: 6px; display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: #1f2126; box-shadow: 0 6px 20px rgba(0, 0, 0, .28); }
-    .dpe-tools button { min-width: 28px; height: 26px; padding: 0 7px; border: 0; border-radius: 6px; background: none; color: #e9eaee; font: 600 13px -apple-system, system-ui, sans-serif; cursor: default; }
-    .dpe-tools button:hover { background: rgba(255, 255, 255, .12); }
-    .dpe-tools .sep { width: 1px; margin: 4px 3px; background: rgba(255, 255, 255, .18); }
-    .dpe-tools .del { color: #ff8b80; }
-    .dpe-ed { min-height: 1.6em; padding: 4px 6px; border-radius: 4px; outline: 2px solid #e8783a; background: #fff; color: #000;
-      font-family: 'EB Garamond', Georgia, serif; font-size: 14.67px; line-height: 1.38; text-align: justify; }
-    .dpe-ed:empty::before { content: 'Type your paragraph…'; color: #999; }
-    .dpe-ed ul, .dpe-ed ol { margin: 0; padding-left: 1.4em; }`;
+    .dpe-unit { outline: none; border-radius: 2px; cursor: text; transition: box-shadow .15s ease, background-color .15s ease; }
+    p.dpe-unit:hover { background-color: rgba(232, 120, 58, .06); box-shadow: 0 0 0 3px rgba(232, 120, 58, .06); }
+    p.dpe-unit:focus { background-color: rgba(232, 120, 58, .07); box-shadow: 0 0 0 3px rgba(232, 120, 58, .07), 0 0 0 4px rgba(232, 120, 58, .45); }
+    td.dpe-unit:hover { background-color: rgba(232, 120, 58, .06); }
+    td.dpe-unit:focus { background-color: rgba(232, 120, 58, .07); box-shadow: inset 0 0 0 1.5px rgba(232, 120, 58, .6); }
+    .dpe-on section.docx { cursor: default; }
+    .dpe-unit ul, .dpe-unit ol { margin: 0; padding-left: 1.4em; }`;
   function editStyles(root) {
-    const where = root || document.head;
-    if (where.querySelector(':scope > style.dpe-css')) return;
+    if (root.querySelector(':scope > style.dpe-css')) return;
     const st = document.createElement('style');
     st.className = 'dpe-css';
     st.textContent = EDIT_CSS;
-    where.appendChild(st);
+    root.appendChild(st);
   }
 
-  // Stored text (**bold**, *italic*, __underline__, a line each) ⇄ the box.
-  function fromMarkup(text) {
-    return String(text || '').split('\n').map((line) => {
-      const h = esc(line).replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, '<b>$1</b>').replace(/__(?=\S)(.+?)(?<=\S)__/g, '<u>$1</u>')
-        .replace(/(^|[^*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])/g, '$1<i>$2</i>');
-      return `<div>${h || '<br>'}</div>`;
-    }).join('');
-  }
+  // Stored text (**bold**, *italic*, __underline__, a line each) ⇄ the page.
+  const inlineHTML = (line) => esc(line).replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, '<b>$1</b>').replace(/__(?=\S)(.+?)(?<=\S)__/g, '<u>$1</u>')
+    .replace(/(^|[^*\w])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![*\w])/g, '$1<i>$2</i>');
+  const fromMarkup = (text) => String(text || '').split('\n').map(inlineHTML).join('<br>');
+  // The page → stored text. Styles are read as drawn and marked where they
+  // differ from the line's own (a subject that's bold and underlined all
+  // through has no marks): the app's marks switch a style on or off.
   function toMarkup(root) {
-    const lines = [];
-    let line = '';
-    const flush = () => { lines.push(line.replace(/\s+$/, '')); line = ''; };
+    const flags = (el) => {
+      const cs = getComputedStyle(el);
+      let u = false;
+      for (let e = el; e && e !== root.parentNode; e = e.parentElement) if (/underline/.test(getComputedStyle(e).textDecorationLine || '')) { u = true; break; }
+      return { b: (parseInt(cs.fontWeight, 10) || 400) >= 600, i: cs.fontStyle === 'italic', u };
+    };
+    const lines = [[]];
+    const last = () => lines[lines.length - 1];
+    const hasText = () => last().some((r) => r.t.trim());
     const walk = (node) => {
       for (const n of node.childNodes) {
-        if (n.nodeType === 3) { line += n.nodeValue.replace(/\s+/g, ' '); continue; }
+        // (Tabs are kept: "Model<Tab>: ZT14JC" lines its colon up.)
+        if (n.nodeType === 3) { if (n.nodeValue) last().push({ t: n.nodeValue.replace(/[^\S\t]+/g, ' '), f: flags(n.parentElement) }); continue; }
         if (n.nodeType !== 1) continue;
         const tag = n.tagName;
-        if (tag === 'BR') { flush(); continue; }
-        if (tag === 'UL' || tag === 'OL') {
-          if (line.trim()) flush();
-          [...n.children].forEach((li, i) => { line = tag === 'UL' ? '• ' : `${i + 1}. `; walk(li); flush(); });
-          continue;
-        }
-        const weight = n.style && n.style.fontWeight;
-        const mark = tag === 'B' || tag === 'STRONG' || /bold|[6-9]00/.test(weight || '') ? '**'
-          : tag === 'I' || tag === 'EM' || (n.style && n.style.fontStyle === 'italic') ? '*'
-            : tag === 'U' || (n.style && /underline/.test(n.style.textDecoration || '')) ? '__' : '';
-        const block = /^(DIV|P|LI|H\d)$/.test(tag);
-        if (block && line.trim()) flush();
-        if (mark) {
-          const before = line;
-          line = '';
-          walk(n);
-          const inner = line;
-          const body = inner.trim();
-          line = before + (body ? `${inner.match(/^\s*/)[0]}${mark}${body}${mark}${inner.match(/\s*$/)[0]}` : inner);
-        } else walk(n);
-        if (block) flush();
+        if (tag === 'BR') { lines.push([]); continue; }
+        const block = /^(DIV|P|LI|H\d|UL|OL)$/.test(tag);
+        if (block && hasText()) lines.push([]);
+        if (tag === 'LI') last().push({ t: n.parentElement.tagName === 'OL' ? `${[...n.parentElement.children].indexOf(n) + 1}. ` : '• ', f: null });
+        walk(n);
+        if (block && hasText()) lines.push([]);
       }
     };
     walk(root);
-    if (line.trim()) flush();
-    return lines.filter((l, i, all) => l || (i > 0 && all[i - 1])).join('\n').trim();
+    // The line's own style: what most of its letters have.
+    const all = lines.flat().filter((r) => r.f);
+    const total = all.reduce((n, r) => n + r.t.trim().length, 0);
+    const most = (k) => all.reduce((n, r) => n + (r.f[k] ? r.t.trim().length : 0), 0) * 2 > total;
+    const base = { b: most('b'), i: most('i'), u: most('u') };
+    const marks = (f) => (f ? [f.b !== base.b && '**', f.u !== base.u && '__', f.i !== base.i && '*'].filter(Boolean) : []);
+    const text = lines.map((runs) => {
+      let out = '';
+      let open = null;
+      let buf = '';
+      const emit = () => {
+        const m = open || [];
+        const body = buf.trim();
+        if (!m.length || !body) out += buf;
+        else out += `${buf.match(/^\s*/)[0]}${m.join('')}${body}${[...m].reverse().join('')}${buf.match(/\s*$/)[0]}`;
+        buf = '';
+      };
+      for (const r of runs) {
+        const m = marks(r.f);
+        if (open && m.join() !== open.join()) emit();
+        open = m;
+        buf += r.t;
+      }
+      emit();
+      return out.replace(/^ +| +$/g, '');
+    });
+    return text.filter((l, i, every) => l || (i > 0 && every[i - 1])).join('\n').trim();
   }
-  const plainText = (t) => String(t || '').replace(/\*\*|__|\*/g, '').replace(/^\s*(•|\d+\.)\s+/, '');
+  // Style marks from the app ( bold,  italic,  underline) → markup.
+  const unmark = (t) => String(t || '').replace(//g, '**').replace(//g, '*').replace(//g, '__');
+  // Letters and figures only, to find a line among the pages whatever its spacing, wrapping or tabs.
+  const bare = (t) => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 
-  // The lines and added paragraphs in the order they're drawn (as Sources/DocInserts.swift docBlocks).
+  // The document's wording in the order it's drawn (as Sources/DocInserts.swift
+  // withInserts draws it): each line as it now reads, and paragraphs added beside one
+  // (by an earlier version of Edit), which are changed the same way.
   function blocksOf(state) {
     const out = [];
     const placed = new Set();
     const added = (key, after) => {
-      for (const p of state.inserts) if (p.anchor === key && p.after === after && p.text.trim()) { placed.add(p.id); out.push({ insert: p.id, text: p.text }); }
+      for (const p of state.inserts) if (!p.replace && p.anchor === key && p.after === after && p.text.trim()) { placed.add(p.id); out.push({ insert: p.id, row: key.startsWith('row:'), text: p.text }); }
     };
     for (const a of state.anchors) {
       added(a.key, false);
-      if (a.text) out.push({ key: a.key, text: a.text });
+      const own = state.inserts.find((p) => p.replace && p.anchor === a.key);
+      const text = own ? own.text : unmark(a.text);
+      if (a.text && text.trim()) out.push({ key: a.key, row: a.key.startsWith('row:'), text });
       added(a.key, true);
     }
-    for (const p of state.inserts) if (!placed.has(p.id) && p.text.trim()) out.push({ insert: p.id, text: p.text });
+    for (const p of state.inserts) if (!p.replace && !placed.has(p.id) && p.text.trim()) out.push({ insert: p.id, text: p.text });
     return out;
   }
 
-  // The Word preview: each block found in the drawn pages by its first words.
-  function locateInDocx(holder, blocks) {
-    let full = '';
-    const map = [];
-    const walker = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-      for (const ch of n.nodeValue.toLowerCase()) {
-        const c = /\s/.test(ch) ? ' ' : ch;
-        if (c === ' ' && full.endsWith(' ')) continue;
-        full += c;
-        map.push(n);
-      }
-    }
-    const out = [];
-    let from = 0;
-    for (const b of blocks) {
-      const words = plainText(b.text).toLowerCase().split(/\s+/).filter(Boolean).slice(0, 4).join(' ');
-      const at = words ? full.indexOf(words, from) : -1;
-      if (at < 0) continue;
-      from = at + words.length;
-      const line = map[at].parentElement.closest('p, tr') || map[at].parentElement;
-      const host = line.closest('section.docx');
-      if (!host) continue;
-      const hr = host.getBoundingClientRect();
-      out.push({ key: b.key, insert: b.insert, host, top: (line.getBoundingClientRect().top - hr.top) * host.offsetHeight / Math.max(1, hr.height) });
-    }
-    return out;
-  }
-
-  function setupEdit(el, edit, redraw) {
+  function setupEdit(el, edit, after) {
     const button = el.querySelector('.dp-edit-btn');
-    const listBtn = el.querySelector('.dp-list-btn');
-    const panel = el.querySelector('.dp-edit');
+    const bar = el.querySelector('.dp-format');
+    const savedNote = el.querySelector('.dp-saved');
+    const canvas = el.querySelector('.dp-canvas');
+    const pages = el.querySelector('.dp-pages');
     let state = null;
+    let units = [];
     let editing = false;
+    let switching = false;
+    let changed = false;
     let saving = Promise.resolve();
-    const newId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    editStyles();
+    let savedTimer = 0;
+    const newId = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const deep = () => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a; };
+    const current = () => { const a = deep(); return a && units.find((u) => u.el === a); };
 
-    // ---- the List panel ----
-    const card = (p) => `<div class="dpe-card" data-id="${esc(p.id)}"><textarea rows="3" placeholder="Your paragraph…">${esc(p.text)}</textarea>
-      <button type="button" class="dpe-del" data-no-icon title="Remove this paragraph" aria-label="Remove">${ICON.close}</button></div>`;
-    const drawList = () => {
-      if (panel.hidden) return;
-      if (!state.ok) { panel.innerHTML = `<div class="dpe-head"><b>Your paragraphs</b></div><p class="dpe-empty">${esc(state.error || 'Paragraphs can’t be added to this document.')}</p>`; return; }
-      const keys = new Set(state.anchors.map((a) => a.key));
-      const at = (key, after) => state.inserts.filter((p) => p.anchor === key && p.after === after).map(card).join('');
-      const lost = state.inserts.filter((p) => !keys.has(p.anchor));
-      panel.innerHTML = `<div class="dpe-head"><b>Your paragraphs</b><span>Click between lines on the page to add one there. Kept with this document, in every PDF and Word copy.</span></div>
-        <div class="dpe-list">
-        ${lost.length ? `<div class="dpe-lost"><div class="dpe-label">Their line has changed: printed at the end</div>${lost.map(card).join('')}</div>` : ''}
-        ${state.anchors.map((a) => `${at(a.key, false)}
-          <div class="dpe-line${a.text ? '' : ' place'}" data-key="${esc(a.key)}">
-            <span class="dpe-label">${esc(a.label)}</span>${a.text ? `<span class="dpe-text">${esc(plainText(a.text))}</span>` : ''}
-            <span class="dpe-adds">${a.text ? '<button type="button" data-after="0" data-no-icon>+ Above</button><button type="button" data-after="1" data-no-icon>+ Below</button>'
-              : '<button type="button" data-after="1" data-no-icon>+ Add here</button>'}</span>
-          </div>${at(a.key, true)}`).join('')}
-        </div>`;
-    };
-
-    // ---- on the page ----
-    const layers = () => [...el.querySelectorAll('.dp-page'), ...[...el.querySelectorAll('.dp-docx-host')].flatMap((h) => (h.shadowRoot ? [...h.shadowRoot.querySelectorAll('section.docx')] : []))];
-    const clearLayers = () => { for (const host of layers()) for (const x of host.querySelectorAll(':scope > .dpe-layer, :scope > .dpe-box')) x.remove(); };
-    const drawLayers = async () => {
-      clearLayers();
-      if (!editing || !state || !state.ok) return;
-      let spots = [];
-      try { spots = await edit.locate(blocksOf(state)); } catch (e) { spots = []; }
-      const byHost = new Map();
-      for (const s of spots) { if (!byHost.has(s.host)) byHost.set(s.host, []); byHost.get(s.host).push(s); }
-      for (const [host, list] of byHost) {
-        const root = host.getRootNode();
-        if (root !== document) editStyles(root);
-        list.sort((a, b) => a.top - b.top);
-        const layer = document.createElement('div');
-        layer.className = 'dpe-layer';
-        layer.innerHTML = '<div class="dpe-caret" hidden><span></span></div><div class="dpe-mine" hidden></div>';
-        host.appendChild(layer);
-        const caret = layer.querySelector('.dpe-caret');
-        const mine = layer.querySelector('.dpe-mine');
-        let target = null;
-        const yOf = (e) => { const r = host.getBoundingClientRect(); return (e.clientY - r.top) * host.offsetHeight / Math.max(1, r.height); };
-        layer.addEventListener('mousemove', (e) => {
-          const y = yOf(e);
-          let i = -1;
-          for (let k = 0; k < list.length; k++) if (list[k].top <= y + 6) i = k;
-          caret.hidden = true; mine.hidden = true; target = null;
-          if (i < 0) return;
-          const cur = list[i];
-          const bottom = list[i + 1] ? list[i + 1].top : cur.top + 36;
-          if (cur.insert) {
-            target = { edit: cur.insert, y: cur.top - 4 };
-            mine.style.top = `${cur.top - 5}px`;
-            mine.style.height = `${Math.max(20, bottom - cur.top)}px`;
-            mine.hidden = false;
-            return;
-          }
-          const after = y > (cur.top + bottom) / 2;
-          target = { anchor: cur.key, after, y: (after ? bottom : cur.top) - 4 };
-          caret.style.top = `${target.y}px`;
-          caret.querySelector('span').textContent = after ? 'Add a paragraph below' : 'Add a paragraph above';
-          caret.hidden = false;
-        });
-        layer.addEventListener('mouseleave', () => { caret.hidden = true; mine.hidden = true; });
-        layer.addEventListener('click', () => { if (target) openBox(host, target); });
+    // Each line found on the pages by its words; it's editable only if the
+    // place found holds just that line.
+    const makeUnits = (holder) => {
+      let full = '';
+      const map = [];
+      const walker = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (n.parentElement.closest('header, footer, .dp-band')) continue;
+        for (const ch of bare(n.nodeValue)) { full += ch; map.push(n); }
       }
+      const out = [];
+      let from = 0;
+      for (const b of blocksOf(state)) {
+        const want = bare(b.text);
+        const at = want ? full.indexOf(want.slice(0, 40), from) : -1;
+        if (at < 0) continue;
+        from = at + Math.min(want.length, 40);
+        const node = map[at].parentElement;
+        let box = b.row ? node.closest('td') : node.closest('p');
+        if (box && box.tagName === 'TD' && box.querySelector('table')) box = node.closest('p'); // a lump sum's heading, above its list
+        if (!box || out.some((u) => u.el === box || u.el.contains(box) || box.contains(u.el))) continue;
+        if (bare(box.textContent) !== want) continue;
+        from = at + want.length;
+        if (box.tagName === 'TD') {
+          // A table cell is drawn as wrapped lines: it's given its own text
+          // (wrapped by the page), in the cell's font.
+          const p = box.querySelector('p');
+          const run = box.querySelector('span');
+          const fresh = p ? p.cloneNode(false) : document.createElement('p');
+          if (run) {
+            const cs = getComputedStyle(run);
+            for (const k of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'textDecoration', 'color']) fresh.style[k] = cs[k];
+          }
+          fresh.innerHTML = fromMarkup(b.text);
+          box.replaceChildren(fresh);
+        }
+        box.classList.add('dpe-unit');
+        box.contentEditable = 'true';
+        box.spellcheck = true;
+        out.push({ el: box, key: b.key, insert: b.insert, html: box.innerHTML, original: toMarkup(box) });
+      }
+      return out;
     };
 
+    const showSaved = (text) => {
+      savedNote.textContent = text;
+      savedNote.classList.add('show');
+      clearTimeout(savedTimer);
+      savedTimer = setTimeout(() => savedNote.classList.remove('show'), 1600);
+    };
     const persist = () => {
       saving = saving.then(async () => {
-        const kept = state.inserts.filter((p) => p.text.trim()).map(({ id, anchor, after, text }) => ({ id, anchor, after, text }));
-        const r = await window.api.docEdits.save(edit.id, kept);
-        if (!r || !r.ok) { window.appAlert((r && r.error) || 'The paragraph couldn’t be saved.'); return; }
-        state.inserts = kept;
-        drawList();
-        await redraw();
-        await drawLayers();
+        const list = state.inserts.map(({ id, anchor, after: below, text, replace }) => (replace ? { id, anchor, after: false, text, replace: true } : { id, anchor, after: below, text }));
+        let r;
+        try { r = await window.api.docEdits.save(edit.id, list); } catch (e) { r = { ok: false, error: e.message }; }
+        if (!r || !r.ok) { window.appAlert((r && r.error) || 'Your change couldn’t be saved.'); return; }
+        showSaved('Saved');
       });
       return saving;
     };
+    // A line left: its new wording kept (the line as it was: the change let go).
+    const commit = (u) => {
+      const md = toMarkup(u.el);
+      if (md === u.original) return;
+      u.original = md;
+      changed = true;
+      if (u.insert) {
+        const p = state.inserts.find((x) => x.id === u.insert);
+        if (p) p.text = md;
+        if (!md) state.inserts = state.inserts.filter((x) => x.id !== u.insert);
+      } else {
+        const anchor = state.anchors.find((a) => a.key === u.key);
+        const own = state.inserts.find((x) => x.replace && x.anchor === u.key);
+        if (anchor && md === unmark(anchor.text).trim()) state.inserts = state.inserts.filter((x) => x !== own);
+        else if (own) own.text = md;
+        else state.inserts.push({ id: newId(), anchor: u.key, after: false, replace: true, text: md });
+      }
+      persist();
+    };
+    const revert = (u) => { u.el.innerHTML = u.html; u.el.blur(); };
 
-    // The box on the page, where the paragraph goes (or the one clicked).
-    const openBox = (host, target) => {
-      for (const x of el.querySelectorAll('.dpe-box')) x.remove();
-      const existing = target.edit ? state.inserts.find((p) => p.id === target.edit) : null;
-      const box = document.createElement('div');
-      box.className = 'dpe-box';
-      box.style.top = `${target.y}px`;
-      box.innerHTML = `<div class="dpe-tools" role="toolbar" aria-label="Formatting">
-          <button type="button" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button><button type="button" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button><button type="button" data-cmd="underline" title="Underline (⌘U)"><u>U</u></button>
-          <span class="sep"></span><button type="button" data-cmd="insertUnorderedList" title="Bulleted list">•</button><button type="button" data-cmd="insertOrderedList" title="Numbered list">1.</button>
-          ${existing ? '<span class="sep"></span><button type="button" class="del" data-cmd="remove" title="Remove this paragraph">Remove</button>' : ''}
-        </div><div class="dpe-ed" contenteditable="true" spellcheck="true"></div>`;
-      host.appendChild(box);
-      const ed = box.querySelector('.dpe-ed');
-      ed.innerHTML = existing ? fromMarkup(existing.text) : '';
-      let done = false;
-      const finish = (keep, remove) => {
-        if (done) return;
-        done = true;
-        const md = remove ? '' : toMarkup(ed);
-        box.remove();
-        if (!keep) return;
-        if (existing) {
-          if (md === existing.text) return;
-          if (!md) state.inserts = state.inserts.filter((p) => p !== existing); else existing.text = md;
-        } else {
-          if (!md) return;
-          state.inserts.push({ id: newId(), anchor: target.anchor, after: target.after, text: md });
-        }
-        persist();
-      };
-      box.addEventListener('mousedown', (e) => { if (e.target.closest('.dpe-tools')) e.preventDefault(); });
-      box.querySelector('.dpe-tools').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-cmd]');
-        if (!b) return;
-        if (b.dataset.cmd === 'remove') { finish(true, true); return; }
-        ed.focus();
-        document.execCommand(b.dataset.cmd, false, null);
-      });
-      ed.addEventListener('keydown', (e) => {
-        const style = { b: 'bold', i: 'italic', u: 'underline' }[(e.metaKey || e.ctrlKey) && !e.altKey ? e.key.toLowerCase() : ''];
-        if (style) { e.preventDefault(); e.stopPropagation(); document.execCommand(style, false, null); return; }
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
-        else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); finish(true); }
-      });
-      ed.addEventListener('focusout', (e) => { if (!box.contains(e.relatedTarget)) setTimeout(() => { if (!box.contains(document.activeElement && document.activeElement.shadowRoot ? document.activeElement.shadowRoot.activeElement : document.activeElement)) finish(true); }, 0); });
-      requestAnimationFrame(() => {
-        ed.focus();
-        const sel = (host.getRootNode().getSelection ? host.getRootNode() : window).getSelection();
-        if (sel) { sel.selectAllChildren(ed); sel.collapseToEnd(); }
-      });
+    const onFocusOut = (e) => {
+      const u = units.find((x) => x.el === e.target);
+      if (u) commit(u);
+    };
+    const syncBar = () => {
+      if (!editing) return;
+      const inUnit = !!current();
+      for (const b of bar.querySelectorAll('[data-cmd]')) {
+        b.disabled = !inUnit;
+        let on = false;
+        try { on = inUnit && document.queryCommandState(b.dataset.cmd); } catch (err) { on = false; }
+        b.classList.toggle('on', on);
+      }
     };
 
-    const load = async () => {
-      if (state) return;
-      try { state = await window.api.docEdits.get(edit.id); } catch (e) { state = { ok: false, error: e.message }; }
-      state = state || { ok: false };
-      state.anchors = state.anchors || [];
-      state.inserts = state.inserts || [];
-    };
     const setEditing = async (on) => {
-      editing = on;
-      el.classList.toggle('dp-editing', on);
-      button.classList.toggle('on', on);
-      button.setAttribute('aria-pressed', String(on));
-      listBtn.hidden = !on;
-      if (!on) { panel.hidden = true; listBtn.classList.remove('on'); clearLayers(); return; }
-      await load();
-      if (!state.ok) { panel.hidden = false; listBtn.classList.add('on'); drawList(); return; }
-      await drawLayers();
+      if (switching || on === editing) return;
+      switching = true;
+      canvas.classList.add('dp-updating');
+      const at = canvas.scrollTop / Math.max(1, canvas.scrollHeight);
+      try {
+        if (on) {
+          let s;
+          try { s = await window.api.docEdits.get(edit.id); } catch (e) { s = { ok: false, error: e.message }; }
+          if (!s || !s.ok) { window.appAlert((s && s.error) || 'This document can’t be changed here.'); return; }
+          state = { anchors: s.anchors || [], inserts: (s.inserts || []).map((p) => Object.assign({}, p)) };
+          const holder = await edit.enter(pages);
+          const root = holder.getRootNode();
+          editStyles(root === document ? document.head : root);
+          holder.classList.add('dpe-on');
+          holder.addEventListener('focusout', onFocusOut);
+          holder.title = 'Figures, totals and the details at the top are worked out by the app: change them in the editor.';
+          units = makeUnits(holder);
+          for (const u of units) u.el.title = 'Click to change the wording';
+          editing = true;
+          changed = false;
+        } else {
+          const u = current();
+          if (u) { commit(u); u.el.blur(); }
+          await saving;
+          editing = false;
+          units = [];
+          const note = await edit.leave(pages, changed);
+          if (note) el.querySelector('.dp-sub').textContent = note;
+        }
+        el.classList.toggle('dp-editing', editing);
+        button.classList.toggle('on', editing);
+        button.setAttribute('aria-pressed', String(editing));
+        button.innerHTML = editing ? `${ICON.check}<span>Done</span>` : `${ICON.pencil}<span>Edit</span>`;
+        button.title = editing ? 'Finish changing the wording (the preview is drawn again with it)' : 'Change the wording on the page — kept with this document, in every PDF and Word copy';
+        bar.hidden = !editing;
+        syncBar();
+        after(editing);
+      } catch (e) {
+        window.appAlert(e.message || 'The document couldn’t be shown for changing.');
+      } finally {
+        canvas.classList.remove('dp-updating');
+        switching = false;
+        canvas.scrollTop = at * canvas.scrollHeight;
+      }
     };
     button.addEventListener('click', () => setEditing(!editing));
-    listBtn.addEventListener('click', async () => {
-      await load();
-      panel.hidden = !panel.hidden;
-      listBtn.classList.toggle('on', !panel.hidden);
-      drawList();
+    bar.addEventListener('mousedown', (e) => e.preventDefault()); // the cursor stays in the text
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-cmd]');
+      if (!b || !current()) return;
+      document.execCommand(b.dataset.cmd, false, null);
+      syncBar();
     });
-    // The list: + Above / + Below / + Add here, and changing one's text there.
-    panel.addEventListener('click', (e) => {
-      const add = e.target.closest('[data-after]');
-      if (add) {
-        const p = { id: newId(), anchor: add.closest('.dpe-line').dataset.key, after: add.dataset.after === '1', text: '' };
-        state.inserts.push(p);
-        drawList();
-        const ta = panel.querySelector(`.dpe-card[data-id="${CSS.escape(p.id)}"] textarea`);
-        if (ta) { ta.focus(); ta.scrollIntoView({ block: 'nearest' }); }
-        return;
-      }
-      const del = e.target.closest('.dpe-del');
-      if (del) {
-        const id = del.closest('.dpe-card').dataset.id;
-        const had = state.inserts.find((p) => p.id === id);
-        state.inserts = state.inserts.filter((p) => p.id !== id);
-        drawList();
-        if (had && had.text.trim()) persist();
-      }
-    });
-    panel.addEventListener('input', (e) => {
-      const c = e.target.closest('.dpe-card');
-      const p = c && state.inserts.find((x) => x.id === c.dataset.id);
-      if (p) { p.text = e.target.value; p.dirty = true; }
-    });
-    panel.addEventListener('focusout', (e) => {
-      const c = e.target.closest && e.target.closest('.dpe-card');
-      const p = c && state.inserts.find((x) => x.id === c.dataset.id);
-      if (!p || !p.dirty) return;
-      delete p.dirty;
-      persist();
-    });
-    // The zoom or the window changed: the places on the pages are worked out again.
-    return { relayout: () => { if (editing) drawLayers(); } };
+    document.addEventListener('selectionchange', syncBar);
+
+    return {
+      get editing() { return editing; },
+      finish: () => setEditing(false),
+      dispose: () => document.removeEventListener('selectionchange', syncBar),
+      // Keys while typing in a line: ⌘B ⌘I ⌘U style it, Escape puts it back
+      // as it was, ⌘Return finishes it. True when the key was used here.
+      key: (e) => {
+        const u = editing && current();
+        if (!u) return false;
+        const mod = (e.metaKey || e.ctrlKey) && !e.altKey;
+        const style = { b: 'bold', i: 'italic', u: 'underline' }[mod ? e.key.toLowerCase() : ''];
+        if (style) { e.preventDefault(); e.stopPropagation(); document.execCommand(style, false, null); syncBar(); return true; }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); revert(u); return true; }
+        if (e.key === 'Enter' && mod) { e.preventDefault(); e.stopPropagation(); u.el.blur(); return true; }
+        return false;
+      },
+    };
   }
 
   async function pdf(fetcher, opts = {}) {
@@ -570,15 +548,26 @@
       actions: opts.actions,
       note: opts.note,
       ready: draw,
-      // Drawn again after an edit: the old file is let go first.
+      // Changed on the Word copy's pages (laid out as the PDF), shown in
+      // place of the PDF's; then the PDF is made again (the old file let go).
       edit: opts.edit && {
         id: opts.edit.id,
-        rebuild: async (box) => { if (token) window.api.files.discardPreview(token); token = null; return draw(box); },
-        // Where each line is on the pages (points from the top; the page is drawn 4/3 px a point).
-        locate: async () => {
-          const r = await window.api.docEdits.spots(opts.edit.id);
-          const figs = [...document.querySelectorAll('.dp-backdrop:last-of-type .dp-page')];
-          return r && r.ok ? r.spots.filter((s) => figs[s.page]).map((s) => ({ key: s.key, insert: s.insert, host: figs[s.page], top: s.top * 4 / 3 })) : [];
+        enter: async (box) => {
+          const layout = await opts.edit.layout();
+          if (!layout || !layout.ok) throw new Error((layout && layout.error) || 'The document couldn’t be prepared for changing.');
+          const wrap = document.createElement('div');
+          wrap.className = 'dp-editdoc';
+          box.appendChild(wrap);
+          const { holder } = await renderDocx(wrap, window.buildDocx(layout));
+          for (const f of box.querySelectorAll('.dp-page')) f.style.display = 'none';
+          return holder;
+        },
+        leave: async (box, changed) => {
+          for (const w of box.querySelectorAll('.dp-editdoc')) w.remove();
+          if (!changed) { for (const f of box.querySelectorAll('.dp-page')) f.style.display = ''; return null; }
+          if (token) window.api.files.discardPreview(token);
+          token = null;
+          return draw(box);
         },
       },
       save: () => window.api.files.savePreview(token),
@@ -589,25 +578,8 @@
   // `edit: { id, bytes: async () => Uint8Array }`: the .docx made again after an edit.
   async function word({ bytes, fileName, title, save, edit }) {
     const draw = async (box) => {
-        await loadVendor();
         box.innerHTML = '';
-        // Drawn in its own shadow tree, so the app's styles (tables, colours,
-        // dark mode) don't reach the document.
-        const host = document.createElement('div');
-        host.className = 'dp-docx-host';
-        box.appendChild(host);
-        const shadow = host.attachShadow({ mode: 'open' });
-        shadow.innerHTML = `<style>${DOCX_CSS}</style><div class="dp-docx-styles"></div><div class="dp-docx"></div>`;
-        const holder = shadow.querySelector('.dp-docx');
-        await window.docx.renderAsync(new Blob([bytes]), holder, shadow.querySelector('.dp-docx-styles'), {
-          className: 'docx', inWrapper: true, ignoreWidth: false, ignoreHeight: false, ignoreFonts: false,
-          breakPages: true, renderHeaders: true, renderFooters: true, renderFootnotes: true, useBase64URL: true, experimental: true,
-        });
-        letterheadBands(holder);
-        shareFonts(shadow);
-        // docx-preview only breaks pages where the document itself does;
-        // the rest are worked out here, as Word would (near enough).
-        const count = paginate(holder);
+        const { count } = await renderDocx(box, bytes);
         return `${fileName || ''} · ${count} page${count === 1 ? '' : 's'} (Word may break them slightly differently)`;
     };
     return run({
@@ -615,17 +587,45 @@
       title,
       fileName,
       ready: draw,
+      // Changed on the pages shown; then the document is made again.
       edit: edit && {
         id: edit.id,
-        rebuild: async (box) => { bytes = await edit.bytes(); return draw(box); },
-        locate: async (blocks) => {
-          const host = document.querySelector('.dp-backdrop:last-of-type .dp-docx-host');
-          const holder = host && host.shadowRoot && host.shadowRoot.querySelector('.dp-docx');
-          return holder ? locateInDocx(holder, blocks) : [];
+        enter: async (box) => box.querySelector('.dp-docx-host').shadowRoot.querySelector('.dp-docx'),
+        leave: async (box, changed) => {
+          if (!changed) {
+            const holder = box.querySelector('.dp-docx-host').shadowRoot.querySelector('.dp-docx');
+            for (const u of holder.querySelectorAll('.dpe-unit')) { u.classList.remove('dpe-unit'); u.removeAttribute('contenteditable'); u.removeAttribute('title'); }
+            holder.classList.remove('dpe-on');
+            holder.removeAttribute('title');
+            return null;
+          }
+          bytes = await edit.bytes();
+          return draw(box);
         },
       },
       save: () => save(false),
     });
+  }
+
+  // A .docx drawn into `box` by docx-preview, in its own shadow tree so the
+  // app's styles (tables, colours, dark mode) don't reach the document.
+  async function renderDocx(box, bytes) {
+    await loadVendor();
+    const host = document.createElement('div');
+    host.className = 'dp-docx-host';
+    box.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `<style>${DOCX_CSS}</style><div class="dp-docx-styles"></div><div class="dp-docx"></div>`;
+    const holder = shadow.querySelector('.dp-docx');
+    await window.docx.renderAsync(new Blob([bytes]), holder, shadow.querySelector('.dp-docx-styles'), {
+      className: 'docx', inWrapper: true, ignoreWidth: false, ignoreHeight: false, ignoreFonts: false,
+      breakPages: true, renderHeaders: true, renderFooters: true, renderFootnotes: true, useBase64URL: true, experimental: true,
+    });
+    letterheadBands(holder);
+    shareFonts(shadow);
+    // docx-preview only breaks pages where the document itself does;
+    // the rest are worked out here, as Word would (near enough).
+    return { holder, count: paginate(holder) };
   }
 
   const DOCX_CSS = `

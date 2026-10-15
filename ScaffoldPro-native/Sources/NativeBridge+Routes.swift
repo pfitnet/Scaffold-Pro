@@ -882,8 +882,6 @@ extension NativeBridge {
             handleDocEditsGet(id: id, payload: payload)
         case "docEdits:save":
             handleDocEditsSave(id: id, payload: payload)
-        case "docEdits:spots":
-            respond(id: id, encodable: docSpots(documentId: (payload["id"] as? String) ?? ""))
         case "calendar:events":
             respond(id: id, encodable: db.calendarEvents(from: (payload["from"] as? String) ?? "", to: (payload["to"] as? String) ?? ""))
         case "marketing:summary":

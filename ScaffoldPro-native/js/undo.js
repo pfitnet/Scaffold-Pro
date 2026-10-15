@@ -20,7 +20,8 @@
     (el.tagName === 'INPUT' && /^(text|search|email|url|tel|password|number|)$/i.test(el.type || '')));
   const valueOf = (el) => (el.isContentEditable ? el.innerHTML : el.value);
   // A field's value when it was last saved (or got focus): typed since → unsaved.
-  document.addEventListener('focusin', (e) => { if (isField(e.target)) e.target.__savedValue = valueOf(e.target); }, true);
+  const inner = (e) => (e.composedPath ? e.composedPath()[0] : e.target); // (inside a shadow tree, e.g. the document preview's pages)
+  document.addEventListener('focusin', (e) => { const t = inner(e); if (isField(t)) t.__savedValue = valueOf(t); }, true);
   document.addEventListener('change', (e) => { if (isField(e.target)) e.target.__savedValue = valueOf(e.target); }, true);
   const typing = (el) => isField(el) && el.__savedValue !== undefined && valueOf(el) !== el.__savedValue;
 
@@ -32,10 +33,11 @@
 
   let busy = false;
   async function appUndo(kind) {
-    const el = document.activeElement;
+    let el = document.activeElement;
+    while (el && el.shadowRoot && el.shadowRoot.activeElement) el = el.shadowRoot.activeElement;
     if (typing(el)) { document.execCommand(kind === 'redo' ? 'redo' : 'undo'); return; }
-    // Not while a dialog or sheet is asking something.
-    if (document.querySelector('.app-dialog-backdrop:not(.leaving), .modal-backdrop:not(.hidden)')) return;
+    // Not while a dialog, sheet or preview is open.
+    if (document.querySelector('.app-dialog-backdrop:not(.leaving), .modal-backdrop:not(.hidden), .dp-backdrop')) return;
     if (busy || !window.api || !window.api.history) return;
     busy = true;
     try {
