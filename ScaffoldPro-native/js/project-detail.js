@@ -751,12 +751,6 @@ const TAB_GROUPS = {
   files: ['files'], site: ['inspections', 'tasks'], history: ['history'],
 };
 const groupOf = (tab) => Object.keys(TAB_GROUPS).find((g) => TAB_GROUPS[g].includes(tab)) || 'overview';
-// The header's main button follows the tab: the "New …" for what's shown.
-const TAB_NEW = {
-  boq: ['New BOQ', 'new-boq'], quotations: ['New Quotation', 'new-quotation'], delivery: ['New Delivery Note', 'new-delivery-note'],
-  invoices: ['New Invoice', 'new-invoice'], letters: ['New Letter', 'new-letter'], files: ['Upload Drawings', 'upload-drawing'],
-  inspections: ['Record Inspection', 'record-inspection'], tasks: ['New Task', 'new-task'],
-};
 let currentTab = 'overview';
 
 function showTab(name) {
@@ -886,7 +880,6 @@ window.renderProjectActions = function renderProjectActions() {
   if (!side || !window.pageActions) return;
   let holder = side.querySelector('.pd-actions');
   if (!holder) { holder = document.createElement('div'); holder.className = 'pd-actions'; side.appendChild(holder); }
-  const [label, action] = TAB_NEW[currentTab] || ['New Quotation', 'new-quotation'];
   window.pageActions(holder, {
     overflow: [
       { label: 'Edit Details…', run: () => document.getElementById('edit-project-btn').click() },
@@ -894,19 +887,22 @@ window.renderProjectActions = function renderProjectActions() {
       { label: 'Customise Overview…', run: () => { showTab('overview'); const c = document.getElementById('pd-customise-btn'); if (c) c.click(); } },
     ],
   });
-  const split = document.createElement('div');
-  split.className = 'split-btn';
-  split.innerHTML = `<button type="button" class="primary" data-no-icon>${window.icon('plus', 15)}<span></span></button><button type="button" class="primary split-caret" data-no-icon aria-label="Make something else" title="Make something else">${window.icon('caret-down', 13)}</button>`;
-  split.querySelector('span').textContent = label;
-  split.firstElementChild.addEventListener('click', () => runQuickAction(action));
-  holder.querySelector('.page-actions').appendChild(split);
-  // On a tab with its row of kinds, the main button sits at the right of
-  // that row, after the kind's own tools; elsewhere it stays up here.
-  for (const old of document.querySelectorAll('.pd-subrow-tools > .split-btn')) if (old !== split) old.remove();
-  const tools = document.querySelector('.pd-subrow:not(.hidden) .pd-subrow-tools');
-  if (tools) tools.appendChild(split);
-  window.hoverMenu.attach(split.lastElementChild, {
-    items: () => PD_ACTIONS.filter((a) => !(currentProject && currentProject.jobType === 'Crane' && a.action === 'new-boq')).map((a) => ({ label: a.label, value: a.action })),
+  // One quick-action button, the same on every tab, here in the header:
+  // resting on it (or a click) lists everything that can be made — the
+  // documents, then the site's, then files.
+  const make = document.createElement('button');
+  make.type = 'button';
+  make.className = 'primary has-menu pd-new';
+  make.dataset.noIcon = '';
+  make.title = 'Make something new for this project';
+  make.innerHTML = `${window.icon('plus', { size: 15 })}<span>New</span>${window.icon('caret-down', { size: 12 })}`;
+  holder.querySelector('.page-actions').appendChild(make);
+  const startsGroup = new Set(['record-inspection', 'upload-drawing']);
+  window.hoverMenu.attach(make, {
+    align: 'right',
+    minWidth: 220,
+    items: () => PD_ACTIONS.filter((a) => !(currentProject && currentProject.jobType === 'Crane' && a.action === 'new-boq'))
+      .map((a) => ({ label: a.label, icon: a.icon, sep: startsGroup.has(a.action), value: a.action })),
     onPick: (v) => runQuickAction(v),
   });
 };

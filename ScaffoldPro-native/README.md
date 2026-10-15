@@ -5876,3 +5876,15 @@ What changed:
   rows; only the Dashboard summary adds them, so search, the calendar and
   the project and client pages are unchanged.
 - The Swift wasn't compiled here; check that the app builds.
+
+## Batch 264 — One New button on the project page
+
+- The project page's **New** is one quick-action button that stays in the
+  header on every tab (it no longer moves down to the row of kinds, nor
+  changes its label with the tab). Resting the pointer on it, or a click,
+  lists everything that can be made, each with its icon: the documents
+  (BOQ, Quotation, Delivery Note, Invoice, Letter), then Record Inspection
+  and New Task, then Upload Drawing and Upload Document. The caret turns
+  while the list is open.
+- The row of kinds keeps the shown kind's own tools (Select, Import…).
+- Checked in Chromium with the mocked bridge. Not checked: WebKit on a Mac.
