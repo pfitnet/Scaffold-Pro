@@ -1354,6 +1354,7 @@ extension Quotation {
         customColumns = try c.decodeIfPresent([QuotationCustomColumn].self, forKey: .customColumns)
         columnFormulas = try c.decodeIfPresent([String: String].self, forKey: .columnFormulas)
         columnTitles = try c.decodeIfPresent([String: String].self, forKey: .columnTitles)
+        totalOf = try c.decodeIfPresent(String.self, forKey: .totalOf)
         currencyRate = try c.decodeIfPresent(Double.self, forKey: .currencyRate)
         baseDiscountValue = try c.decodeIfPresent(Double.self, forKey: .baseDiscountValue)
         baseBuyBackAmount = try c.decodeIfPresent(Double.self, forKey: .baseBuyBackAmount)
@@ -1783,6 +1784,10 @@ struct Quotation: Codable {
     /// The standard columns' own titles, by key ("desc", "rate", "qty",
     /// "unit", "weight"), when renamed in Columns…; nil = the usual ones.
     var columnTitles: [String: String]? = nil
+    /// What the Total column is Qty × of: nil = Unit Rate; "weight" or a
+    /// custom column's id, whose value then becomes each item's price (put
+    /// in by js/quotation-columns.js). "weight" prints without the currency.
+    var totalOf: String? = nil
     /// In another currency (`currency`): what 1 of it was worth in the
     /// company's currency when the prices were converted.
     var currencyRate: Double? = nil
@@ -2383,6 +2388,7 @@ struct QuotationDetail: Codable {
     /// standard columns' titles when renamed (Quotation.columnTitles).
     var columnFormulas: [String: String] = [:]
     var columnTitles: [String: String] = [:]
+    var totalOf: String? = nil
     /// What 1 of `currency` is worth in the company's currency.
     var currencyRate: Double? = nil
     var charges: ChargeSplit? = nil

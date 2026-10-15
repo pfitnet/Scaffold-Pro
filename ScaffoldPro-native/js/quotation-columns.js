@@ -26,7 +26,8 @@
   let layout = [];
   let custom = [];
   let formulas = {};
-  let titles = {}; // the standard columns renamed, by key
+  let titles = {}; // the standard columns renamed, by key ("total" too)
+  let totalOf = ''; // what Total is Qty × of: '' = Unit Rate, 'weight' or a custom column's id
   let lastFormula = null; // the formula box a column name is put in
 
   const titleOf = (key) => (KNOWN[key] ? (titles[key] || '').trim() || KNOWN[key] : (custom.find((c) => c.id === key) || {}).title || '');
@@ -35,6 +36,19 @@
   function drawNames() {
     const names = [...new Set([...layout, 'rate', 'qty', 'weight'].filter((k) => k !== 'desc' && k !== 'unit').map(titleOf).filter((t) => t.trim()))];
     sheet.querySelector('#qc-names').innerHTML = `<span>In a formula:</span>${names.map((n) => `<button type="button" class="qc-name-chip" data-no-icon title="Put {${esc(n)}} in the formula">${esc(n)}</button>`).join('')}`;
+  }
+
+  // The Total row: what it's Qty × of, and its title (blank: the usual one).
+  const totalTitle = () => (totalOf === 'weight' ? 'Total Weight (kg)' : totalOf ? `Total ${titleOf(totalOf) || ''}`.trim() : 'Total Price');
+  function drawTotal() {
+    const choices = [['', titleOf('rate')], ['weight', titleOf('weight')], ...custom.filter((c) => c.title.trim()).map((c) => [c.id, c.title])];
+    if (!choices.some(([v]) => v === totalOf)) totalOf = '';
+    const select = sheet.querySelector('#qc-total-of');
+    select.innerHTML = choices.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
+    select.value = totalOf;
+    const input = sheet.querySelector('#qc-total-title');
+    input.value = titles.total || '';
+    input.placeholder = totalTitle();
   }
 
   function draw() {
@@ -51,6 +65,7 @@
           title="Leave blank to type it on each item. A formula works it out for each item: column titles in braces, with + − × ÷ and brackets." />`}
       </div>`).join('');
     drawNames();
+    drawTotal();
     const full = layout.length >= MAX;
     sheet.querySelector('#qc-add-rate').hidden = layout.includes('rate');
     sheet.querySelector('#qc-add-rate').disabled = full;
@@ -58,6 +73,7 @@
     sheet.querySelector('#qc-add-weight').disabled = full || layout.includes('weight');
     sheet.querySelector('#qc-add-custom').disabled = full;
     sheet.querySelector('#qc-note').textContent = full ? 'Up to 6 columns in all — the description needs the room.'
+      : totalOf ? `Each item is priced by its ${titleOf(totalOf)}: Total = Qty × ${titleOf(totalOf)}.`
       : layout.includes('rate') ? '' : 'Unit Rate is off the printed table; each item’s price is still kept, and typed in the editor.';
   }
 
@@ -70,6 +86,12 @@
         <p class="small-note">The printed table’s columns, between No. and Total Price. Drag to reorder.</p>
         <div class="qc-list" id="qc-list"></div>
         <div class="qc-names" id="qc-names"></div>
+        <div class="qc-row qc-total">
+          <input type="text" class="qc-title" id="qc-total-title" maxlength="30" aria-label="Total column title" />
+          <span class="qc-fixed">= Qty ×</span>
+          <select id="qc-total-of" aria-label="What the total is of"
+            title="The column that prices each item: its Total (and the quotation's) is Qty × it"></select>
+        </div>
         <div class="qc-add">
           <button type="button" id="qc-add-rate" data-no-icon title="Show each item’s unit rate on the PDF again">+ Unit Rate</button>
           <button type="button" id="qc-add-unit" data-no-icon>+ Unit</button>
@@ -105,6 +127,7 @@
       const c = custom.find((x) => x.id === key);
       if (c) c.title = input.value;
       drawNames();
+      drawTotal();
     });
     sheet.querySelector('#qc-names').addEventListener('mousedown', (e) => e.preventDefault()); // (the formula box keeps the focus)
     sheet.querySelector('#qc-names').addEventListener('click', (e) => {
@@ -128,9 +151,18 @@
       const input = list.querySelector(`[data-id="${id}"] .qc-title`);
       if (input) input.focus();
     });
-    sheet.querySelector('#qc-reset').addEventListener('click', () => { layout = DEFAULT.slice(); custom = []; formulas = {}; titles = {}; draw(); });
+    sheet.querySelector('#qc-reset').addEventListener('click', () => { layout = DEFAULT.slice(); custom = []; formulas = {}; titles = {}; totalOf = ''; draw(); });
     sheet.querySelector('#qc-cancel').addEventListener('click', close);
     sheet.querySelector('#qc-save').addEventListener('click', save);
+    sheet.querySelector('#qc-total-title').addEventListener('input', (e) => { titles.total = e.target.value; });
+    // Another column priced: Unit Rate would only repeat it, so it's taken
+    // off (and put back when Total is of Unit Rate again).
+    sheet.querySelector('#qc-total-of').addEventListener('change', (e) => {
+      totalOf = e.target.value;
+      if (totalOf) layout = layout.filter((k) => k !== 'rate');
+      else if (!layout.includes('rate')) layout.splice(Math.min(layout.indexOf('desc') + 1, layout.length), 0, 'rate');
+      draw();
+    });
     sheet.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') close();
       if (e.key === 'Enter' && e.target.classList.contains('qc-title')) save();
@@ -146,8 +178,8 @@
     const kept = {};
     for (const k of keep) if ((formulas[k] || '').trim()) kept[k] = formulas[k].trim().replace(/^=\s*/, '');
     const renamed = {};
-    for (const k of keep) if (KNOWN[k] && (titles[k] || '').trim() && titles[k].trim() !== KNOWN[k]) renamed[k] = titles[k].trim();
-    const r = await window.api.quotations.setColumns(detail.id, keep, named.map((c) => ({ id: c.id, title: c.title.trim() })), kept, renamed);
+    for (const k of [...keep, 'total']) if ((KNOWN[k] || k === 'total') && (titles[k] || '').trim() && titles[k].trim() !== KNOWN[k]) renamed[k] = titles[k].trim();
+    const r = await window.api.quotations.setColumns(detail.id, keep, named.map((c) => ({ id: c.id, title: c.title.trim() })), kept, renamed, totalOf || null);
     if (r && r.ok === false) { err.textContent = r.error; err.classList.remove('hidden'); return; }
     close();
     await reload();
@@ -163,6 +195,7 @@
     custom = (d.customColumns || []).map((c) => ({ id: c.id, title: c.title }));
     formulas = Object.assign({}, d.columnFormulas);
     titles = Object.assign({}, d.columnTitles);
+    totalOf = d.totalOf || '';
     sheet.querySelector('#qc-error').classList.add('hidden');
     draw();
     sheet.classList.remove('hidden');
@@ -212,7 +245,7 @@
   // answer that differs from the box is saved there.
   async function sync(d) {
     const f = d.columnFormulas || {};
-    if (!Object.keys(f).length) return false;
+    if (!Object.keys(f).length && !d.totalOf) return false;
     const order = customInOrder(d).map((c) => c.id).filter((id) => f[id]);
     let changed = false;
     for (const item of d.lineItems || []) {
@@ -227,7 +260,9 @@
         const r = await window.api.quotations.setLineValue(item.id, id, text);
         if (!r || r.ok !== false) changed = true;
       }
-      const v = f.rate ? answer(f.rate, item, d, values) : null;
+      // Total of another column: that column is the price; else Unit Rate's formula.
+      const v = d.totalOf === 'weight' ? numberIn(values.weight) ?? (d.lineWeights || {})[item.id] ?? null
+        : d.totalOf ? numberIn(values[d.totalOf]) : f.rate ? answer(f.rate, item, d, values) : null;
       if (v === null) continue;
       const price = Math.round(Math.max(0, v) * 100) / 100;
       if (Math.abs(price - item.appliedUnitPrice) < 0.005 && !item.priceFormula) continue;

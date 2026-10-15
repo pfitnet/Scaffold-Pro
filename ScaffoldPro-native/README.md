@@ -6204,3 +6204,20 @@ What changed:
 - If you rename one of your own columns, change any formula that uses its
   old name.
 - Checked in a browser with mock data. The Swift wasn't compiled here.
+
+## Batch 285 — Columns: choose what Total is a total of
+
+- Columns… has a Total row: "= Qty × [Unit Rate ▾]". Pick Unit Weight or one
+  of your own columns instead, and that column prices each item: its value
+  is put in the item's price, so each line's Total and the quotation's
+  Subtotal and Total Amount follow it.
+- Picking another column takes Unit Rate off the table (it would only repeat
+  that column); picking Unit Rate again puts it back.
+- The Total column is titled by its choice ("Total Weight (kg)", "Total Unit
+  Price"…) and can be renamed in the same row. A weight total prints without
+  the currency sign.
+- (`Quotation.totalOf`; the price is put in by `quotationColumns.sync`, as
+  for formulas; `quotationColumns` in Sources/NativeBridge+Letterhead.swift
+  titles the column.)
+- Checked in a browser with mock data (Total of Unit Weight prices each line
+  at its weight, a typed weight first). The Swift wasn't compiled here.

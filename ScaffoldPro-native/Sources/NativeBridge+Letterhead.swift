@@ -710,7 +710,12 @@ extension NativeBridge {
         let scale: CGFloat = others > room - 150 ? (room - 150) / others : 1
         for i in middle.indices where middle[i].key != "desc" { middle[i].width = (middle[i].width * scale * 4).rounded() / 4 }
         let desc = room - middle.reduce(CGFloat(0)) { $0 + $1.width }
-        return [pricedColumns[0]] + middle.map { LetterColumn(title: $0.title, width: $0.key == "desc" ? desc : $0.width, kind: $0.kind) } + [pricedColumns[4]]
+        // The Total column: renamed, or titled by what it's a total of.
+        let usual = pricedColumns[4]
+        let title = detail.columnTitles["total"] ?? (detail.totalOf == "weight" ? "Total Weight\n(kg)"
+            : detail.totalOf.flatMap { custom[$0] }.map { "Total \($0)" } ?? usual.title)
+        let total = LetterColumn(title: title, width: usual.width, kind: usual.kind)
+        return [pricedColumns[0]] + middle.map { LetterColumn(title: $0.title, width: $0.key == "desc" ? desc : $0.width, kind: $0.kind) } + [total]
     }
 
     /// A row of the usual five columns (No, Description, Unit Rate, Qty,
@@ -861,7 +866,8 @@ extension NativeBridge {
             deliveryMethod: nonBlank(detail.deliveryMethod), salutation: "Dear Sir / Madam,",
             subject: "Re: \(nonBlank(detail.subject) ?? "\(detail.projectName) - \(detail.pricingMode)")",
             intro: "We thank you for your inquiry related to the item above, the following is our quotation on the job.",
-            currencySymbol: currencySymbol(company), columns: quotationColumns(detail), rows: rows,
+            // (A total of weight: kg, so no currency.)
+            currencySymbol: detail.totalOf == "weight" ? "" : currencySymbol(company), columns: quotationColumns(detail), rows: rows,
             sections: remarks(detail.notes) + [LetterSection(heading: "Terms and Conditions", paragraphs: terms, keepTogether: true,
                                                                       alwaysNewPage: company.termsNewPage == "Always")],
             // The company's name right under "For and on Behalf of" (who
