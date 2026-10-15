@@ -6165,3 +6165,28 @@ What changed:
 - With the Unit Weight column added (Line Items ☰ › Columns…), each line now has a box for its weight in kg, as custom columns do.
 - A crane job's items aren't on the material list, so their weight was blank on the PDF with nowhere to type it. Now it's typed on each line.
 - Scaffolding items show the material list's weight in grey; type over it to print another one. Leave it empty to keep the list's weight.
+
+## Batch 283 — Currency converts the prices; columns worked out by a formula
+
+- Changing a quotation's currency now converts every price and puts it in its
+  box: unit prices, Amount discounts, a fixed discount and the buy-back lump
+  sum. 8 HKD becomes 1.03 USD at 7.8. Going back to HKD puts back exactly
+  what was typed (8, and its sum if it had one), unless the price was
+  changed meanwhile; then it is converted back from the new one.
+  (`convertQuotationCurrency`, `convertAmount` in
+  Sources/Database+Quotations.swift; the typed amounts are kept in
+  `baseUnitPrice`, `basePriceFormula` and `baseDiscountValue`.)
+- The rate is Settings › Pricing & Delivery › Exchange rates (now one box for
+  all of them, e.g. "EUR 8.93, USD 7.8"); without one, the usual rate is used
+  (USD 7.8, RMB 1.08, MOP 0.97…). A toast says the rate used.
+- Columns… : Unit Rate and custom columns can take a formula, e.g.
+  `{Rate/kg} × {Unit Weight}`. Column titles go in braces (tap a name under
+  the list to put it in), with + − × ÷ and brackets. Each item's answer is
+  worked out and saved in its box, which is then shown, not typed (dashed).
+  Unit Weight is the one typed on the line, else the material list's; an
+  item missing a value is left as it is. (`Quotation.columnFormulas`; `quotationColumns.sync` in
+  js/quotation-columns.js, run on each load of the editor.)
+- Checked in a browser with mock data: the formula fills the Unit Rate box
+  (2 × 3.5 kg → 7), the Columns sheet saves the formula, and the currency
+  switch shows its toast. The Swift wasn't compiled here: check the app
+  builds, then switch a crane quotation to USD and back to HKD.

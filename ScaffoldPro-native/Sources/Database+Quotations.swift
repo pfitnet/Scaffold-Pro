@@ -1082,7 +1082,9 @@ extension AppDatabase {
         detail.oneTimeItemsTotal = totals.oneTimeItems
         detail.columnLayout = quotationColumnLayout(q)
         detail.customColumns = q.customColumns ?? []
-        if detail.columnLayout.contains("weight") { detail.lineWeights = quotationLineWeights(items) }
+        detail.columnFormulas = q.columnFormulas ?? [:]
+        detail.lineWeights = quotationLineWeights(detail.lineItems)
+        detail.currencyRate = q.currency == nil ? nil : (q.currencyRate ?? q.currency.flatMap { exchangeRate($0) })
         detail.charges = totals.charges
         detail.language = q.language
         detail.jobType = normalJobType(project.jobType)
@@ -1307,7 +1309,7 @@ extension AppDatabase {
         if payload.keys.contains("siteRef") { qs[i].siteRef = text(payload, "siteRef") }
         if payload.keys.contains("deliveryMethod") { qs[i].deliveryMethod = text(payload, "deliveryMethod") }
         if payload.keys.contains("keyTerms") { qs[i].keyTerms = text(payload, "keyTerms") }
-        if payload.keys.contains("currency") { qs[i].currency = text(payload, "currency").map { $0.uppercased() } }
+        if payload.keys.contains("currency"), let error = convertQuotationCurrency(&qs[i], to: text(payload, "currency")) { return error }
         if let m = payload["minimumHireMonths"] as? Int { qs[i].minimumHireMonths = max(1, m) }
         if let enabled = payload["minimumHireEnabled"] as? Bool {
             qs[i].minimumHireEnabled = enabled
@@ -1337,6 +1339,79 @@ extension AppDatabase {
         if payload.keys.contains("buyBackAmount") { qs[i].buyBackAmount = number("buyBackAmount").map { doubleOf(roundToCents(decimalOf(max(0, $0.doubleValue)))) } }
         qs[i].updatedAt = nowISO()
         quotationsStore.writeAll(qs)
+        return nil
+    }
+
+    // ---- A quotation's currency ----
+
+    /// What 1 of `code` is worth in the company's currency: Settings' rate,
+    /// else a usual one (for a company in Hong Kong dollars); nil if unknown.
+    func exchangeRate(_ code: String) -> Double? {
+        let settings = getCompanySettings()
+        let c = code.uppercased()
+        if c == settings.currency.uppercased() { return 1 }
+        if let r = settings.exchangeRates?[c], r > 0 { return r }
+        guard settings.currency.uppercased() == "HKD" else { return nil }
+        let usual: [String: Double] = ["USD": 7.8, "CNY": 1.08, "RMB": 1.08, "MOP": 0.97, "EUR": 8.93, "GBP": 10.4,
+                                       "SGD": 6.0, "JPY": 0.052, "AUD": 5.1]
+        return usual[c]
+    }
+
+    /// One amount through a change of currency (rates: what 1 is worth in
+    /// the company's currency). Back to the amount typed in the company's
+    /// currency if it hasn't been changed since (8 HKD → 1.03 USD → 8 HKD),
+    /// else worked out from the one shown; then into the new currency, to
+    /// the cent. Also the amount to keep for coming back (nil once back),
+    /// and whether the typed one was put back.
+    func convertAmount(_ shown: Double, base: Double?, from: Double, to: Double, home: Bool) -> (amount: Double, base: Double?, restored: Bool) {
+        let cents = { (v: Double) in doubleOf(roundToCents(decimalOf(v))) }
+        var original = cents(shown * from)
+        var restored = false
+        if let b = base, abs(cents(b / from) - shown) < 0.005 { original = b; restored = true }
+        return home ? (original, nil, restored) : (cents(original / to), original, restored)
+    }
+
+    /// A quotation moved to another currency (nil = the company's): every
+    /// price, Amount discount, Fixed discount and buy-back lump sum is
+    /// converted and put in its box. Going back puts back what was typed.
+    func convertQuotationCurrency(_ q: inout Quotation, to code: String?) -> String? {
+        let home = getCompanySettings().currency.uppercased()
+        let target = code.map { $0.uppercased() }.flatMap { $0 == home ? nil : $0 }
+        let current = q.currency.flatMap { $0.uppercased() == home ? nil : $0.uppercased() }
+        guard target != current else { q.currency = target; return nil }
+        let from: Double? = current == nil ? 1 : (q.currencyRate ?? current.flatMap { exchangeRate($0) })
+        let to: Double? = target == nil ? 1 : target.flatMap { exchangeRate($0) }
+        guard let from, let to else {
+            return "There's no exchange rate for \((target ?? current) ?? "that currency") yet. Add it in Settings › Pricing & Delivery."
+        }
+        var items = quotationLineItemsStore.readAll()
+        for k in items.indices where items[k].quotationId == q.id {
+            let p = convertAmount(items[k].appliedUnitPrice, base: items[k].baseUnitPrice, from: from, to: to, home: target == nil)
+            // The sum typed for the price is kept with the typed amount.
+            let formula = current == nil ? items[k].priceFormula : (p.restored ? items[k].basePriceFormula : nil)
+            items[k].appliedUnitPrice = p.amount
+            items[k].baseUnitPrice = p.base
+            items[k].priceFormula = target == nil ? formula : nil
+            items[k].basePriceFormula = target == nil ? nil : formula
+            if items[k].discountType == "Amount", let v = items[k].discountValue {
+                let d = convertAmount(v, base: items[k].baseDiscountValue, from: from, to: to, home: target == nil)
+                items[k].discountValue = d.amount
+                items[k].baseDiscountValue = d.base
+            } else { items[k].baseDiscountValue = nil }
+        }
+        if q.discountType == "Fixed" {
+            let d = convertAmount(q.discountValue, base: q.baseDiscountValue, from: from, to: to, home: target == nil)
+            q.discountValue = d.amount
+            q.baseDiscountValue = d.base
+        } else { q.baseDiscountValue = nil }
+        if let amount = q.buyBackAmount {
+            let d = convertAmount(amount, base: q.baseBuyBackAmount, from: from, to: to, home: target == nil)
+            q.buyBackAmount = d.amount
+            q.baseBuyBackAmount = d.base
+        } else { q.baseBuyBackAmount = nil }
+        q.currency = target
+        q.currencyRate = target == nil ? nil : to
+        quotationLineItemsStore.writeAll(items)
         return nil
     }
 
@@ -1543,7 +1618,7 @@ extension AppDatabase {
     /// New columns for a quotation: their order, and the custom ones (a
     /// title each). At most 3 besides Description, Unit Rate and Qty, so
     /// the description keeps its room.
-    func setQuotationColumns(id: String, layout: [String], custom: [[String: Any]]) -> String? {
+    func setQuotationColumns(id: String, layout: [String], custom: [[String: Any]], formulas: [String: Any] = [:]) -> String? {
         var qs = quotationsStore.readAll()
         guard let i = qs.firstIndex(where: { $0.id == id }) else { return "Quotation not found." }
         guard qs[i].status == "Draft" else { return "This quotation is issued and can no longer be edited." }
@@ -1559,6 +1634,12 @@ extension AppDatabase {
         let checked = quotationColumnLayout(q)
         guard checked.count <= 6 else { return "Up to 6 columns in all (the description needs the room)." }
         q.columnLayout = checked == ["desc", "rate", "qty"] ? nil : checked
+        // Worked-out columns: Unit Rate or a custom one that's kept.
+        var kept: [String: String] = [:]
+        for (key, value) in formulas where (key == "rate" || key.hasPrefix("col_")) && checked.contains(key) {
+            if let f = nonBlank(value as? String) { kept[key] = String(f.prefix(120)) }
+        }
+        q.columnFormulas = kept.isEmpty ? nil : kept
         q.updatedAt = nowISO()
         qs[i] = q
         quotationsStore.writeAll(qs)

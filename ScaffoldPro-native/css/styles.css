@@ -1729,6 +1729,10 @@ button.mx-chip.on { background: var(--row-selected); border-color: var(--border-
 .qc-row .qc-title { flex: 1; min-width: 0; }
 .qc-row .qc-fixed { font-size: 11.5px; color: var(--text-secondary); }
 .qc-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.qc-row { flex-wrap: wrap; }
+.qc-row .qc-formula { flex-basis: 100%; margin: 0 0 4px 26px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.qc-names { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -6px 0 14px; font-size: 11.5px; color: var(--text-secondary); }
+.qc-names .qc-name-chip { padding: 2px 8px; min-height: 0; font-size: 11.5px; border-radius: 999px; }
 .cv-input { width: 88px; }
 .mx-table input[type="checkbox"] { margin: 0; }
 .undo-toast { display: flex; align-items: center; gap: 12px; pointer-events: auto; font-size: 12.5px; }
@@ -3179,3 +3183,5 @@ tr.clickable { cursor: pointer; }
 .type-pill { font-size: 11px; }
 #payroll-table tr.muted td { opacity: 0.45; }
 .upload-ask { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* A box worked out by a column formula (js/quotation-columns.js): shown, not typed. */
+input.price-input[readonly], input.cv-input[readonly] { background: transparent; border-style: dashed; cursor: default; }
