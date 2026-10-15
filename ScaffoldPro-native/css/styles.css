@@ -241,7 +241,10 @@ a:hover { text-decoration: underline; }
    open over the page the moment the pointer is on it, and shut the moment
    it leaves. The icons stay exactly where they are; the names fade in. */
 html.sidebar-rail { --sidebar-width: 60px; }
+/* Solid, not see-through: it lies over the page as it changes, and a live
+   blur there costs frames. Same colour as before. */
 html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: 60px; overflow-x: hidden;
+  background: linear-gradient(var(--sidebar), var(--sidebar)), var(--content); -webkit-backdrop-filter: none; backdrop-filter: none;
   transition: width .2s var(--ease), box-shadow .2s var(--ease); }
 html.sidebar-rail #sidebar :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span:not(.user-avatar), .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
   transition: opacity .16s var(--ease); }
@@ -277,14 +280,13 @@ html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: ab
 #content > * { max-width: var(--page-max); }
 /* The page rises in as it opens, a block at a time; it fades as you
    leave by a link (js/motion.js). */
-html.page-enter #content > * { animation: page-rise .6s var(--ease) both; }
-html.page-enter #content > *:nth-child(2) { animation-delay: .05s; }
-html.page-enter #content > *:nth-child(3) { animation-delay: .1s; }
-html.page-enter #content > *:nth-child(4) { animation-delay: .15s; }
-html.page-enter #content > *:nth-child(5) { animation-delay: .2s; }
-html.page-enter #content > *:nth-child(6) { animation-delay: .24s; }
-html.page-enter #content > *:nth-child(n+7) { animation-delay: .28s; }
-@keyframes page-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+html.page-enter #content > * { animation: page-rise .4s var(--ease) both; }
+html.page-enter #content > *:nth-child(2) { animation-delay: .03s; }
+html.page-enter #content > *:nth-child(3) { animation-delay: .06s; }
+html.page-enter #content > *:nth-child(4) { animation-delay: .09s; }
+html.page-enter #content > *:nth-child(5) { animation-delay: .12s; }
+html.page-enter #content > *:nth-child(n+6) { animation-delay: .15s; }
+@keyframes page-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 html.page-leave #content { opacity: 0; transform: translateY(6px) scale(.995); transition: opacity .12s ease, transform .12s ease; }
 
 h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.22; margin: 0 0 4px; color: var(--text); }

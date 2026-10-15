@@ -23,13 +23,26 @@
   // ---------- Page in / out ----------
   // In the Mac app the window keeps a picture of the page being left until
   // this one is built, then shows it (Sources/Assistant.swift, NativeBridge's
-  // WKNavigationDelegate; js/bridge.js says when): no fade out or rise in
-  // here. ScaffoldPro Web in a browser keeps them.
+  // WKNavigationDelegate; js/bridge.js says when, with 'app:shown'). The
+  // rise in and the sidebar marker's slide wait for that, so they're seen.
+  // ScaffoldPro Web in a browser has no picture: it rises in at once.
   const web = !!window.__scaffoldProWeb;
-  if (!reduce && web) {
+  const enter = () => {
+    if (reduce) return;
     root.classList.add('page-enter');
-    setTimeout(() => root.classList.remove('page-enter'), 1400);
-  }
+    setTimeout(() => root.classList.remove('page-enter'), 900);
+  };
+  let held = !web;
+  const shown = (e) => {
+    if (!held) return;
+    held = false;
+    if (!(e && e.detail && e.detail.reload)) enter();
+    placeNavInk(true);
+  };
+  if (web) enter();
+  window.addEventListener('app:shown', shown);
+  // Shown by the app without word from the page (a slow one): no rise, the marker just moves.
+  setTimeout(() => shown({ detail: { reload: true } }), 1600);
   document.addEventListener('click', (e) => {
     if (reduce || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target.closest && e.target.closest('a[href]');
@@ -67,9 +80,12 @@
         ink.style.height = `${active.offsetHeight}px`;
         void ink.offsetHeight;
         ink.style.transition = '';
+        ink.dataset.from = '1';
       }
       bar.classList.add('has-ink');
     }
+    // Still under the last page's picture: stay where that page had it.
+    if (held && ink.dataset.from) return true;
     if (!animate) ink.style.transition = 'none';
     ink.style.top = `${active.offsetTop}px`;
     ink.style.height = `${active.offsetHeight}px`;
