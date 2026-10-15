@@ -238,19 +238,17 @@ a:hover { text-decoration: underline; }
 .nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
 /* The sidebar as a rail of icons (js/sidebar.js › setupRail): it opens out
-   over the page when the pointer rests on it. The icons stay where they
-   are; the names fade in beside them. */
+   over the page at once when the pointer is on it. The icons stay exactly
+   where they are; the names appear beside them. */
 html.sidebar-rail { --sidebar-width: 60px; }
-html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: 60px; overflow-x: hidden;
-  transition: width .3s var(--ease), box-shadow .3s var(--ease); }
+html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: 60px; overflow-x: hidden; transition: none; }
 html.sidebar-rail #sidebar.expanded { width: 224px; box-shadow: var(--shadow-sheet); }
 html.sidebar-rail #content { margin-left: 60px; }
 html.sidebar-rail #sidebar :is(a, .sidebar-search, .sidebar-ask, .sidebar-user, .sidebar-section, .sidebar-team) { white-space: nowrap; min-width: 0; overflow: hidden; flex-shrink: 0; }
-html.sidebar-rail #sidebar :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span:not(.user-avatar), .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
-  transition: opacity .2s var(--ease); }
 html.sidebar-rail #sidebar:not(.expanded) :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span:not(.user-avatar), .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
   opacity: 0; pointer-events: none; }
-html.sidebar-rail #sidebar:not(.expanded) .sidebar-tools { flex-direction: column; background: none; box-shadow: none; padding: 0; gap: 4px; }
+/* Search and Ask stay one above the other, open or folded, so nothing below them moves. */
+html.sidebar-rail #sidebar .sidebar-tools { flex-direction: column; background: none; box-shadow: none; padding: 0; gap: 4px; }
 /* Folded: the chat's unread count as a dot on its icon. */
 html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: absolute; left: 22px; top: 3px; min-width: 8px; width: 8px; height: 8px; padding: 0; font-size: 0; }
 
@@ -764,7 +762,7 @@ table.compact .sub, td .sub { font-size: 12px; color: var(--text-secondary); mar
 .header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .eyebrow { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; font-variant-numeric: tabular-nums; }
 
-.tabs { position: relative; display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+.tabs { position: relative; display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; overflow-y: hidden; }
 .tabs button {
   background: none; border: none; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; box-shadow: none;
   padding: 8px 12px; margin-bottom: -1px; color: var(--text-secondary); font-size: 13px; font-weight: 520;
@@ -2874,6 +2872,11 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
 #new-boq-btn, #new-quotation-btn, #new-invoice-btn, #new-delivery-note-btn, #new-letter-btn, #record-inspection-btn, #new-task-btn { display: none !important; }
 .tabs-sub .dk-dot { margin-right: 6px; }
 .tabs-sub button { display: inline-flex; align-items: center; }
+/* The kinds share the full width: each its dot and name, its count at the right. */
+#tabs.tabs-sub { display: flex; margin: 14px 0 18px; overflow-x: auto; scrollbar-width: none; }
+#tabs.tabs-sub::-webkit-scrollbar { display: none; }
+#tabs.tabs-sub > button { flex: 1 0 0; min-width: max-content; height: 34px; padding: 0 14px; white-space: nowrap; }
+#tabs.tabs-sub .tab-count { margin-left: auto; padding-left: 10px; font-size: 12px; }
 td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); font-size: 12.5px; }
 
 .pj-view button { display: inline-flex; align-items: center; gap: 6px; width: auto !important; padding: 0 10px !important; }

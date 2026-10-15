@@ -5755,3 +5755,19 @@ Increase Contrast. No Swift changed.
   what was left.
 - Checked in Chromium: every shot's marks found and on the picture; the
   manual page draws with no errors. Not checked: WebKit on a Mac.
+
+## Batch 257 — The sidebar opens at once and stays open; the project's kinds bar fills its row
+
+- **The icon rail opens the moment the pointer is on it** (no wait, no
+  slide). The icons no longer jump when it opens: Search and Ask stay one
+  above the other open or folded, so every icon below keeps its place.
+- **It stays open when you move to another page** with the pointer still on
+  it, and folds only once the pointer leaves the open sidebar.
+- **Project › Documents / Site:** the bar of kinds (BOQ, Quotations,
+  Delivery Notes…) now spans the full width, each kind in an equal slot
+  with its count at the right. On a narrow screen it scrolls sideways.
+- The project's main tabs no longer show a stray grey scrollbar at the
+  right.
+- Checked in Chromium: icon positions are the same folded and open; hover
+  opens at once; open after a page change; folds after leaving; the bar at
+  1440, 1000 and 390 px. Not checked: WebKit on a Mac.
