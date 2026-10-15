@@ -2940,6 +2940,9 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
 .pd-subrow-tools > .section-toolbar > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .pd-subrow-tools > .section-toolbar > button.primary, .pd-subrow-tools > .section-toolbar .controls > button.primary { display: none; }
 .pd-subrow-tools button { height: 34px; }
+/* The shown kind's own New (New BOQ, New Quotation… Record Inspection, New Task), after Import. */
+.pd-subrow-tools :is(#new-boq-btn, #new-quotation-btn, #new-invoice-btn, #new-delivery-note-btn, #new-letter-btn, #record-inspection-btn, #new-task-btn) {
+  display: inline-flex !important; align-items: center; padding: 0 14px; }
 @media (max-width: 767px) { .pd-subrow { flex-wrap: wrap; gap: 10px; } .pd-subrow-tools { margin-left: 0; } }
 td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); font-size: 12.5px; }
 
