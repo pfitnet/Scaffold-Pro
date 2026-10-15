@@ -276,7 +276,8 @@
         const text = String(Math.round(v * 100) / 100);
         if (values[id] === text) continue;
         values[id] = text;
-        const r = await window.api.quotations.setLineValue(item.id, id, text);
+        // (Part of the change that caused it, for ⌘Z.)
+        const r = await window.api.quotations.setLineValue(item.id, id, text, true);
         if (!r || r.ok !== false) changed = true;
       }
       // Total of another column: that column is the price; else Unit Rate's formula.
@@ -288,7 +289,7 @@
       if (v === null) continue;
       const price = Math.round(Math.max(0, v) * 100) / 100;
       if (Math.abs(price - item.appliedUnitPrice) < 0.005 && !item.priceFormula) continue;
-      const r = await window.api.quotations.updateLineItem(item.id, { appliedUnitPrice: price, priceFormula: '' });
+      const r = await window.api.quotations.updateLineItem(item.id, { appliedUnitPrice: price, priceFormula: '', joinUndo: true });
       if (!r || r.ok !== false) changed = true;
     }
     return changed;

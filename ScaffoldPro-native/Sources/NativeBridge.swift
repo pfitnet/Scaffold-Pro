@@ -277,7 +277,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler {
         // What the action changes is noted, so ⌘Z can undo it (UndoJournal).
         // (Requests from browsers, ScaffoldPro Web, aren't: the undo steps
         // are this Mac's own.)
-        UndoJournal.shared.begin(action)
+        UndoJournal.shared.begin(action, join: (payload["joinUndo"] as? Bool) == true)
         handle(id: id, action: action, payload: payload)
         UndoJournal.shared.end()
     }

@@ -6259,3 +6259,18 @@ What changed:
   Sources/NativeBridge+Letterhead.swift print the typed rate.)
 - Checked in a browser with mock data: 1,343 kg × 2.5 gives a price of
   3,357.50. The Swift wasn't compiled here.
+
+## Batch 289 — ⌘Z works with worked-out columns
+
+- Typing a value that a price or a worked-out column depends on (Rate/kg,
+  Unit Weight…) made two undo steps: the value, then the price worked out
+  from it. ⌘Z undid only the price; the page then worked it out again,
+  which made a new step and cleared Redo, so undo seemed stuck.
+- The worked-out saves are now part of the step that caused them. ⌘Z undoes
+  the value and its price together, and ⇧⌘Z / ⌘Y redoes both. The same goes
+  for saving Columns… (the prices it changes come back with it).
+- (`joinUndo` in the payload → `UndoJournal.begin(_:join:)`; `end()` merges
+  such a step into the one before it, when that one is in the same area and
+  nothing is waiting to be redone. Sent by `quotationColumns.sync`.)
+- Checked in a browser that the follow-up saves are marked. The Swift wasn't
+  compiled here: try typing a Rate/kg, then ⌘Z and ⇧⌘Z.
