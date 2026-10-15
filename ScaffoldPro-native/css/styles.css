@@ -2336,6 +2336,9 @@ a.df-doc:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
 .dp-main > .dp-canvas { min-width: 0; transition: opacity .2s; }
 .dp-canvas.dp-updating { opacity: .55; pointer-events: none; }
 .dp-edit-btn { height: 30px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.dp-list-btn { height: 30px; padding: 0 11px; font-size: 12.5px; }
+.dp-list-btn.on { background: var(--row-selected); }
+.dp-editing .dp-page, .dp-editing .dp-docx-host { cursor: text; }
 .dp-edit-btn.on { background: var(--accent-soft); color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .dp-edit { flex: 0 0 340px; overflow-y: auto; border-left: 1px solid var(--border); background: var(--panel); padding: 14px 14px 24px; }
 .dp-edit[hidden] { display: none; }

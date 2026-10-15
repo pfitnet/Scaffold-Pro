@@ -1,4 +1,5 @@
 import Cocoa
+import PDFKit
 
 // =====================================================================
 // MARK: - Paragraphs added in a document's preview
@@ -128,16 +129,16 @@ extension NativeBridge {
             return found.map { $0.text }
         }
         if let intro = nonBlank(doc.intro) {
-            doc.intro = (texts("intro", after: false) + [intro] + texts("intro", after: true)).joined(separator: "\n")
+            doc.intro = (texts("intro", after: false).map { applyInlineMarkup($0) } + [intro] + texts("intro", after: true).map { applyInlineMarkup($0) }).joined(separator: "\n")
         }
         let keys = AnchorKeys()
         var rows: [LetterTableRow] = []
         for row in doc.rows {
             guard let r = anchorRowText(row), let text = nonBlank(r.text) else { rows.append(row); continue }
             let key = keys.key("row", anchorFingerprint(text))
-            rows += texts(key, after: false).map { LetterTableRow.wide(number: "", text: $0) }
+            rows += texts(key, after: false).map { LetterTableRow.wide(number: "", text: applyInlineMarkup($0)) }
             rows.append(row)
-            rows += texts(key, after: true).map { LetterTableRow.wide(number: "", text: $0) }
+            rows += texts(key, after: true).map { LetterTableRow.wide(number: "", text: applyInlineMarkup($0)) }
         }
         doc.rows = rows
         var sections: [LetterSection] = []
@@ -146,19 +147,19 @@ extension NativeBridge {
             for paragraph in section.paragraphs {
                 guard let text = nonBlank(anchorParagraphText(paragraph)) else { paragraphs.append(paragraph); continue }
                 let key = keys.key("para", anchorFingerprint(text))
-                paragraphs += texts(key, after: false).map { LetterParagraph.text($0, link: nil) }
+                paragraphs += texts(key, after: false).map { LetterParagraph.text(applyInlineMarkup($0), link: nil) }
                 paragraphs.append(paragraph)
-                paragraphs += texts(key, after: true).map { LetterParagraph.text($0, link: nil) }
+                paragraphs += texts(key, after: true).map { LetterParagraph.text(applyInlineMarkup($0), link: nil) }
             }
             section.paragraphs = paragraphs
             sections.append(section)
         }
         let afterTable = texts("table-end", after: false) + texts("table-end", after: true)
-        if !afterTable.isEmpty { sections.insert(LetterSection(heading: nil, paragraphs: afterTable.map { LetterParagraph.text($0, link: nil) }), at: 0) }
+        if !afterTable.isEmpty { sections.insert(LetterSection(heading: nil, paragraphs: afterTable.map { LetterParagraph.text(applyInlineMarkup($0), link: nil) }), at: 0) }
         // At the end — and any whose line has gone, so nothing is lost.
         var rest = texts("end", after: false) + texts("end", after: true)
         rest += inserts.filter { !placed.contains($0.id) }.map { $0.text }
-        if !rest.isEmpty { sections.append(LetterSection(heading: nil, paragraphs: rest.map { LetterParagraph.text($0, link: nil) })) }
+        if !rest.isEmpty { sections.append(LetterSection(heading: nil, paragraphs: rest.map { LetterParagraph.text(applyInlineMarkup($0), link: nil) })) }
         doc.sections = sections
         return doc
     }
@@ -196,5 +197,87 @@ extension NativeBridge {
         }
         db.setDocInserts(documentId, inserts)
         respond(id: id, encodable: SimpleResult(ok: true, error: nil))
+    }
+}
+
+// MARK: where each line and added paragraph is on the pages (on-page editing)
+
+/// A line of the document (`key`) or an added paragraph (`insert`) and where
+/// its first words are drawn: the page (from 0) and the top of that line,
+/// in points from the top of the page.
+struct DocSpot: Encodable {
+    var key: String?
+    var insert: String?
+    var page: Int
+    var top: Double
+}
+
+struct DocSpotsResult: Encodable {
+    var ok: Bool
+    var error: String?
+    var spots: [DocSpot]
+    var pageWidth: Double
+}
+
+extension NativeBridge {
+    /// The lines and added paragraphs in the order they're drawn (as `withInserts` places them).
+    func docBlocks(_ base: LetterDocument, _ inserts: [DocInsert]) -> [(key: String?, insert: String?, text: String)] {
+        var out: [(key: String?, insert: String?, text: String)] = []
+        var placed = Set<String>()
+        func added(_ anchor: String, after: Bool) {
+            for i in inserts where i.anchor == anchor && i.after == after && nonBlank(i.text) != nil {
+                placed.insert(i.id)
+                out.append((nil, i.id, i.text))
+            }
+        }
+        if let intro = nonBlank(base.intro) {
+            added("intro", after: false); out.append(("intro", nil, intro)); added("intro", after: true)
+        }
+        let keys = AnchorKeys()
+        for row in base.rows {
+            guard let r = anchorRowText(row), let text = nonBlank(r.text) else { continue }
+            let key = keys.key("row", anchorFingerprint(text))
+            added(key, after: false); out.append((key, nil, text)); added(key, after: true)
+        }
+        added("table-end", after: false); added("table-end", after: true)
+        for section in base.sections {
+            for paragraph in section.paragraphs {
+                guard let text = nonBlank(anchorParagraphText(paragraph)) else { continue }
+                let key = keys.key("para", anchorFingerprint(text))
+                added(key, after: false); out.append((key, nil, text)); added(key, after: true)
+            }
+        }
+        added("end", after: false); added("end", after: true)
+        for i in inserts where !placed.contains(i.id) && nonBlank(i.text) != nil { out.append((nil, i.id, i.text)) }
+        return out
+    }
+
+    /// Draws the document (as the preview does) and finds each line's first
+    /// words on its pages, in reading order.
+    func docSpots(documentId: String) -> DocSpotsResult {
+        let company = db.getCompanySettings()
+        guard let base = baseLetter(forDocument: documentId), let generator = PDFGenerator(paperSize: company.paperSize ?? "A4") else {
+            return DocSpotsResult(ok: false, error: "Paragraphs can be added in the preview of a quotation on the letterhead, an invoice or a delivery note.", spots: [], pageWidth: 0)
+        }
+        var letter = withInserts(base, documentId: documentId)
+        // A delivery note is squeezed onto one page as its export does.
+        if db.getDeliveryNoteDetail(id: documentId) != nil { letter = onOnePage(letter, paper: company.paperSize ?? "A4") }
+        guard let pdf = PDFDocument(data: generator.generate(letter)) else {
+            return DocSpotsResult(ok: false, error: "Paragraphs can be added in the preview of a quotation on the letterhead, an invoice or a delivery note.", spots: [], pageWidth: 0)
+        }
+        var spots: [DocSpot] = []
+        var from: PDFSelection? = nil
+        for block in docBlocks(base, db.docInserts(documentId)) {
+            // Its first few words, without styling or a list's marker.
+            let plain = plainMarkup(block.text).replacingOccurrences(of: #"^\s*(•|\d+\.)\s+"#, with: "", options: .regularExpression)
+            let words = plain.split(whereSeparator: { $0.isWhitespace }).prefix(4).joined(separator: " ")
+            guard !words.isEmpty, let found = pdf.findString(words, fromSelection: from, withOptions: [.caseInsensitive]),
+                  let page = found.pages.first else { continue }
+            from = found
+            let height = page.bounds(for: .mediaBox).height
+            spots.append(DocSpot(key: block.key, insert: block.insert, page: pdf.index(for: page), top: Double(height - found.bounds(for: page).maxY)))
+        }
+        let width = pdf.page(at: 0).map { Double($0.bounds(for: .mediaBox).width) } ?? 595.28
+        return DocSpotsResult(ok: true, error: nil, spots: spots, pageWidth: width)
     }
 }
