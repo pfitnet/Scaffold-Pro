@@ -237,11 +237,17 @@ a:hover { text-decoration: underline; }
 
 .nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
-/* The sidebar as a rail of icons (js/sidebar.js › setupRail): it opens out
-   over the page at once when the pointer is on it. The icons stay exactly
-   where they are; the names appear beside them. */
+/* The sidebar as a rail of icons (js/sidebar.js › setupRail): it slides
+   open over the page the moment the pointer is on it, and shut the moment
+   it leaves. The icons stay exactly where they are; the names fade in. */
 html.sidebar-rail { --sidebar-width: 60px; }
-html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: 60px; overflow-x: hidden; transition: none; }
+html.sidebar-rail #sidebar { position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; width: 60px; overflow-x: hidden;
+  transition: width .2s var(--ease), box-shadow .2s var(--ease); }
+html.sidebar-rail #sidebar :is(a > span:not(.user-avatar):not(.nav-badge), .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span:not(.user-avatar), .sidebar-section, .nav-edit-btn, .sidebar-team > :not(.dot), .sidebar-signout) {
+  transition: opacity .16s var(--ease); }
+/* Already open when a page loads (kept open from the page before): no slide. */
+html.sidebar-rail #sidebar.no-anim, html.sidebar-rail #sidebar.no-anim * { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { html.sidebar-rail #sidebar, html.sidebar-rail #sidebar * { transition: none !important; } }
 html.sidebar-rail #sidebar.expanded { width: 224px; box-shadow: var(--shadow-sheet); }
 html.sidebar-rail #content { margin-left: 60px; }
 html.sidebar-rail #sidebar :is(a, .sidebar-search, .sidebar-ask, .sidebar-user, .sidebar-section, .sidebar-team) { white-space: nowrap; min-width: 0; overflow: hidden; flex-shrink: 0; }

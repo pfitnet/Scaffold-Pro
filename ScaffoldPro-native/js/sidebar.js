@@ -182,12 +182,10 @@ window.addEventListener('resize', () => {
 });
 
 function setupRail(sidebar) {
-  const CLOSE_AFTER = 300;
-  let timer = null;
   const rail = () => document.documentElement.classList.contains('sidebar-rail');
   const open = () => { if (rail()) sidebar.classList.add('expanded'); };
   const close = () => { if (!sidebar.classList.contains('nav-editing')) sidebar.classList.remove('expanded'); };
-  sidebar.addEventListener('mouseenter', () => { clearTimeout(timer); open(); });
+  sidebar.addEventListener('mouseenter', open);
   // Open on the page before, with the pointer on it: start open here too.
   // No mouseleave comes until the pointer has entered, so the first move
   // off the sidebar folds it.
@@ -195,16 +193,18 @@ function setupRail(sidebar) {
   try {
     if (sessionStorage.getItem(KEEP_OPEN) === '1') {
       sessionStorage.removeItem(KEEP_OPEN);
+      sidebar.classList.add('no-anim');
       open();
+      requestAnimationFrame(() => requestAnimationFrame(() => sidebar.classList.remove('no-anim')));
       document.addEventListener('mousemove', (e) => { if (!sidebar.contains(e.target)) close(); }, { once: true });
     }
   } catch (e) { /* not kept */ }
   window.addEventListener('pagehide', () => {
     try { if (sidebar.classList.contains('expanded') && sidebar.matches(':hover')) sessionStorage.setItem(KEEP_OPEN, '1'); } catch (e) { /* not kept */ }
   });
-  sidebar.addEventListener('mouseleave', () => { clearTimeout(timer); timer = setTimeout(close, CLOSE_AFTER); });
+  sidebar.addEventListener('mouseleave', close);
   // Tabbing into it opens it at once; tabbing out folds it.
-  sidebar.addEventListener('focusin', (e) => { if (e.target.matches(':focus-visible')) { clearTimeout(timer); open(); } });
+  sidebar.addEventListener('focusin', (e) => { if (e.target.matches(':focus-visible')) open(); });
   sidebar.addEventListener('focusout', (e) => { if (!sidebar.contains(e.relatedTarget) && !sidebar.matches(':hover')) close(); });
 }
 
