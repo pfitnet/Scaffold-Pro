@@ -157,6 +157,7 @@
     }
     function open(focus = true) {
       panel.classList.remove('hidden');
+      if (focus) panel.classList.add('popping');
       placeSaved();
       store.set(OPEN_KEY, '1', true);
       if (focus) setTimeout(() => { input.focus(); input.select(); }, 0);
@@ -212,6 +213,7 @@
     };
     $('.calc-copy').addEventListener('click', copy);
     $('.calc-close').addEventListener('click', close);
+    panel.addEventListener('animationend', (e) => { if (e.target === panel) panel.classList.remove('popping', 'nudge'); });
     tapeBox.addEventListener('click', (e) => {
       const li = e.target.closest('li[data-i]');
       if (!li) return;
@@ -228,7 +230,7 @@
     update();
     window.appCalculator = { open, close, toggle };
     // Open on the page before: open here too (without taking the focus).
-    if (store.get(OPEN_KEY, true) === '1') { panel.classList.add('no-anim'); open(false); requestAnimationFrame(() => panel.classList.remove('no-anim')); }
+    if (store.get(OPEN_KEY, true) === '1') open(false);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

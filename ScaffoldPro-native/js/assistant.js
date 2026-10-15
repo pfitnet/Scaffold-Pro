@@ -1176,6 +1176,7 @@
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Assistant');
     document.body.append(launcher, panel);
+    panel.addEventListener('animationend', (e) => { if (e.target === panel) panel.classList.remove('popping'); });
     let chat = null;
     const isOpen = () => !panel.classList.contains('hidden');
     const remember = (v) => { try { sessionStorage.setItem(OPEN_KEY, v ? '1' : ''); } catch (e) { /* not kept */ } };
@@ -1317,7 +1318,7 @@
       else chat.refresh();
       panel.classList.remove('hidden');
       placeSaved();
-      panel.classList.toggle('no-anim', !animate);
+      panel.classList.toggle('popping', animate);
       launcher.classList.add('open');
       remember(true);
       setTimeout(() => chat.focus(), animate ? 120 : 0);

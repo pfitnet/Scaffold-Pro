@@ -1,9 +1,10 @@
 /* The floating calculator (js/calculator.js): ⌥⌘C or the calculator in the sidebar. */
 .calc-float { position: fixed; right: 24px; bottom: 24px; z-index: var(--z-float); width: 272px; display: flex; flex-direction: column;
   border-radius: var(--radius-xl); border: 1px solid var(--hairline); background: var(--panel); box-shadow: var(--shadow-sheet); overflow: hidden;
-  transform-origin: bottom right; animation: calc-pop var(--dur-sheet, .32s) var(--spring, ease) both; }
+  transform-origin: bottom right; }
+/* Popped in only when opened (a class taken off once it's done), so moving it never plays it again. */
+.calc-float.popping { animation: calc-pop var(--dur-sheet, .32s) var(--spring, ease) both; }
 .calc-float.hidden { display: none; }
-.calc-float.no-anim, .calc-float.dragging { animation: none; }
 .calc-float.dragging { box-shadow: var(--shadow-sheet), 0 30px 70px rgba(21, 24, 28, .18); }
 @keyframes calc-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
 .calc-float.nudge { animation: calc-nudge .3s var(--ease); }
