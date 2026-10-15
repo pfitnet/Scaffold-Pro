@@ -6274,3 +6274,18 @@ What changed:
   nothing is waiting to be redone. Sent by `quotationColumns.sync`.)
 - Checked in a browser that the follow-up saves are marked. The Swift wasn't
   compiled here: try typing a Rate/kg, then ⌘Z and ⇧⌘Z.
+
+## Batch 290 — Terms: a long label no longer breaks the colon line
+
+- In Terms and Conditions, a label longer than the usual column (e.g.
+  "Manufacturing Time") pushed its own colon to the right, so the colons no
+  longer lined up with Payment, Delivery and Insurance.
+- Now all the labels in a section share one colon column, just past the
+  longest of them (as when typed with a tab). Anything set in under them
+  (a payment's items) moves across with it. The text still keeps at least
+  120pt.
+- On the PDF, the Word copy and the landscape BQ sheet's terms box
+  (`alignLabels` in Sources/Models.swift; `alignedLabels` in
+  Sources/PDFGenerator.swift; `BQSheet.termsBox`).
+- The Swift wasn't compiled here, and the PDF wasn't seen. Check one
+  quotation's terms after updating.

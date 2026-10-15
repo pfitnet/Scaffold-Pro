@@ -536,7 +536,8 @@ enum BQSheet {
         }
         lines.append((nil, 0, heading, 0, false, 0))
         var previous: Bool? = nil // whether the paragraph before was plain text (nil: none yet)
-        for paragraph in formattedParagraphs(body.joined(separator: "\n")) {
+        let labelled = alignLabels(formattedParagraphs(body.joined(separator: "\n")), measure: { CGFloat(measure($0)) }, widest: CGFloat(width - 120))
+        for paragraph in labelled {
             var isText = false
             if case .text = paragraph { isText = true }
             // Space between paragraphs as on the portrait letter: none under the

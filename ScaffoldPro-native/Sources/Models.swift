@@ -3184,6 +3184,24 @@ enum LetterParagraph {
 /// at 128.25pt and the text at 132pt, as on Qt26193.
 let labelTextIndent: CGFloat = 89.25
 
+/// Labels in a block of terms ("Payment", "Manufacturing Time"…) share one
+/// colon column, just past the longest of them (as when typed with a tab;
+/// no further in than `widest`), and what's set in under them moves with it.
+func alignLabels(_ paragraphs: [LetterParagraph], measure: (String) -> CGFloat, widest: CGFloat) -> [LetterParagraph] {
+    var needed: CGFloat = 0
+    for p in paragraphs {
+        if case .hanging(let marker, _, let left, _, true) = p, left == 0, !marker.isEmpty { needed = max(needed, measure(marker) + 7.5) }
+    }
+    let shift = min(needed, widest) - labelTextIndent
+    guard shift > 0 else { return paragraphs }
+    return paragraphs.map { p in
+        guard case .hanging(let marker, let lines, let left, let indent, let colon) = p else { return p }
+        if left == 0 && colon { return .hanging(marker: marker, lines: lines, left: 0, indent: max(indent ?? 0, labelTextIndent + shift), colon: true) }
+        if left >= labelTextIndent { return .hanging(marker: marker, lines: lines, left: left + shift, indent: indent.map { $0 + shift }, colon: colon) }
+        return p
+    }
+}
+
 enum HangingStyle { case label, bullet, marker }
 
 let numberMarkerPattern = #"^(\(?[0-9]{1,3}[.)]|\([0-9]{1,3}\)|\(?[a-zA-Z][.)]|\([a-zA-Z]\)|\(?[ivxIVX]{1,5}[.)]|\([ivxIVX]{1,5}\))\s+"#

@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/paragraph-format.js": {
-    "mtime": 1792055261.286492,
-    "seen": 1792057747.6451874,
+    "mtime": 1792077483.8954117,
+    "seen": 1792077499.2761495,
     "ast_hash": "42505f4f9ba3db8972a6ddf280841f83",
     "semantic_hash": ""
   },
@@ -252,9 +252,9 @@
     "semantic_hash": "a6ac403c9a90b3eea09a123f286bd787"
   },
   "ScaffoldPro-native/README.md": {
-    "mtime": 1792076132.6766,
-    "seen": 1792076149.3304307,
-    "ast_hash": "e8277ff3b187728bc214a296bd817b1e",
+    "mtime": 1792077483.8994117,
+    "seen": 1792077499.276289,
+    "ast_hash": "75f27cc3e3334bec1b3d20e483196d24",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/accounts.html": {
@@ -948,9 +948,9 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1792076132.6880143,
-    "seen": 1792076149.3304229,
-    "ast_hash": "65ccb59b2db6a8d79101a288f765d603",
+    "mtime": 1792077483.9057302,
+    "seen": 1792077499.2762814,
+    "ast_hash": "30439d877119cd4c05b7c55fa219b187",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/js/manual-content.js": {
@@ -1002,9 +1002,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/BQSheet.swift": {
-    "mtime": 1792055261.1523788,
-    "seen": 1792057747.6450434,
-    "ast_hash": "56b4addae0e4920d0292ff2ca275bae3",
+    "mtime": 1792077441.5194104,
+    "seen": 1792077499.275927,
+    "ast_hash": "580319d8cee995fb518e558b48449689",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/Backup.swift": {
@@ -1050,9 +1050,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/Models.swift": {
-    "mtime": 1792059945.7687268,
-    "seen": 1792060031.9936774,
-    "ast_hash": "572f7a77eb1f0a2a1749fef7e9145988",
+    "mtime": 1792077441.5175898,
+    "seen": 1792077499.275958,
+    "ast_hash": "4724e3ca63a7b862ddd8cad42402f614",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/NativeBridge+Files.swift": {
@@ -1086,9 +1086,9 @@
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/PDFGenerator.swift": {
-    "mtime": 1792055261.162492,
-    "seen": 1792057747.6450734,
-    "ast_hash": "00ad2a41c517d5327ba4c6d2ec1d2ae1",
+    "mtime": 1792077441.515137,
+    "seen": 1792077499.2759755,
+    "ast_hash": "65250437764f2ee52e8c602bf699838f",
     "semantic_hash": ""
   },
   "ScaffoldPro-native/Sources/Spreadsheets.swift": {

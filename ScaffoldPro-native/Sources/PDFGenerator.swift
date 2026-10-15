@@ -1061,6 +1061,12 @@ final class PDFGenerator {
     }
 
     /// Where a hanging paragraph's text starts, in points from the margin.
+    /// A section's labels sharing one colon column (alignedLabels), measured as printed.
+    func alignedLabels(_ paragraphs: [LetterParagraph]) -> [LetterParagraph] {
+        let font = body(11)
+        return alignLabels(paragraphs, measure: { lineWidth(makeLine($0, font, .black)) }, widest: textRight - 120 - textLeft)
+    }
+
     func hangingTextX(marker: String, left: CGFloat, indent: CGFloat?, colon: Bool) -> CGFloat {
         let markerWidth = marker.isEmpty ? 0 : lineWidth(makeLine(marker, body(11), .black))
         var textX = indent ?? (left + max(18, markerWidth + 6))
@@ -1140,7 +1146,7 @@ final class PDFGenerator {
             let startPage = pageNumber
             defer { if section.keepTogether && pageNumber != startPage { sectionsThatSplit.insert(sectionIndex) } }
             var previousWasTerm = false
-            for (index, paragraph) in section.paragraphs.enumerated() {
+            for (index, paragraph) in alignedLabels(section.paragraphs).enumerated() {
                 switch paragraph {
                 case .text(let string, let link):
                     if index > 0 { baseline = cursor + (previousWasTerm ? 33.0 : 26.25) }
@@ -1308,7 +1314,7 @@ final class PDFGenerator {
             }
         }
         let sections: [WordSection] = doc.sections.enumerated().map { sectionIndex, section in
-            let paragraphs: [WordParagraph] = section.paragraphs.map { p in
+            let paragraphs: [WordParagraph] = alignedLabels(section.paragraphs).map { p in
                 switch p {
                 case .text(let string, let link):
                     return WordParagraph(type: "text", text: string, link: link)
