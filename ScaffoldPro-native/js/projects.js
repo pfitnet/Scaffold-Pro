@@ -431,6 +431,16 @@ function grouped(list, searching) {
   }).join('');
 }
 
+// A project's bracket opens the project from anywhere on it; its documents
+// (and their note pencils) open themselves.
+document.getElementById('list-container').addEventListener('click', (e) => {
+  const box = e.target.closest('.ov-bracket');
+  if (!box || e.defaultPrevented || e.target.closest('a, button, [role="button"], input, textarea')) return;
+  if (String(window.getSelection && window.getSelection()).trim()) return; // selecting text, not opening
+  const link = box.querySelector('.ov-project');
+  if (link) link.click();
+});
+
 document.getElementById('list-container').addEventListener('click', (e) => {
   const head = e.target.closest('.pj-group-head');
   if (!head) return;

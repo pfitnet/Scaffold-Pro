@@ -214,12 +214,12 @@
       more.dataset.noIcon = '';
       more.title = 'More';
       more.setAttribute('aria-label', 'More');
+      more.setAttribute('aria-label', 'More');
       more.innerHTML = ico('more', 18);
       box.appendChild(more);
       if (window.hoverMenu) {
         window.hoverMenu.attach(more, {
-          openOn: 'press',
-          items: () => list().map((it, i) => (it.group ? { group: it.group } : { label: it.label, sub: it.sub, value: i, disabled: it.disabled && it.disabled() })),
+          items: () => list().map((it, i) => (it.group ? { group: it.group } : { label: it.label, hint: it.sub, icon: it.icon, danger: it.danger, sep: it.sep, value: i, disabled: it.disabled && it.disabled() })),
           onPick: (i) => { const it = list()[i]; if (it && it.run) it.run(); },
         });
       }

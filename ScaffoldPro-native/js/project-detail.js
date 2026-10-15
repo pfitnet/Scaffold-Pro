@@ -770,6 +770,7 @@ function showTab(name) {
   }
   const sub = document.getElementById('tabs');
   sub.classList.toggle('hidden', TAB_GROUPS[group].length < 2);
+  placeSubTools(name, TAB_GROUPS[group].length >= 2);
   for (const b of sub.querySelectorAll('button')) {
     b.classList.toggle('active', b.dataset.tab === name);
     b.classList.toggle('out-of-group', !TAB_GROUPS[group].includes(b.dataset.tab));
@@ -780,6 +781,27 @@ function showTab(name) {
     sessionStorage.setItem(`project-group-${group}`, name);
   } catch (e) { /* ignore */ }
   if (window.renderProjectActions) window.renderProjectActions();
+}
+
+// The kinds (Quotations, Delivery Notes…) and the shown kind's own tools
+// (Select, Import…, Export Register…) share one row: kinds at the left,
+// tools at the right. The tools are moved there from their panel, and back.
+let subTools = null;
+function placeSubTools(tab, show) {
+  const sub = document.getElementById('tabs');
+  let row = sub.parentElement.classList.contains('pd-subrow') ? sub.parentElement : null;
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'pd-subrow';
+    sub.before(row);
+    row.appendChild(sub);
+    row.insertAdjacentHTML('beforeend', '<div class="pd-subrow-tools"></div>');
+  }
+  if (subTools) { subTools.panel.prepend(subTools.bar); subTools = null; }
+  row.classList.toggle('hidden', !show);
+  const panel = document.querySelector(`.tab-panel[data-panel="${tab}"]`);
+  const bar = show && panel && panel.querySelector(':scope > .section-toolbar');
+  if (bar) { row.lastElementChild.appendChild(bar); subTools = { panel, bar }; }
 }
 
 function setupTabs() {
@@ -878,8 +900,12 @@ window.renderProjectActions = function renderProjectActions() {
   split.querySelector('span').textContent = label;
   split.firstElementChild.addEventListener('click', () => runQuickAction(action));
   holder.querySelector('.page-actions').appendChild(split);
+  // On a tab with its row of kinds, the main button sits at the right of
+  // that row, after the kind's own tools; elsewhere it stays up here.
+  for (const old of document.querySelectorAll('.pd-subrow-tools > .split-btn')) if (old !== split) old.remove();
+  const tools = document.querySelector('.pd-subrow:not(.hidden) .pd-subrow-tools');
+  if (tools) tools.appendChild(split);
   window.hoverMenu.attach(split.lastElementChild, {
-    openOn: 'press',
     items: () => PD_ACTIONS.filter((a) => !(currentProject && currentProject.jobType === 'Crane' && a.action === 'new-boq')).map((a) => ({ label: a.label, value: a.action })),
     onPick: (v) => runQuickAction(v),
   });

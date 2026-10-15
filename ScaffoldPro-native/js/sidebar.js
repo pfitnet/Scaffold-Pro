@@ -345,7 +345,6 @@ function setupUserMenu(button) {
     try { await window.api.settings.update({ appearance: v }); } catch (e) { /* the Mac keeps its look */ }
   };
   window.hoverMenu.attach(button, {
-    openOn: 'press',
     items: () => [
       { label: 'You', sub: 'Your name, colour and signature', value: 'you' },
       { label: 'Settings', value: 'settings' },

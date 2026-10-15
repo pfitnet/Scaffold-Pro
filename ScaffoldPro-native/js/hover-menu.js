@@ -9,7 +9,9 @@
 // In the list ↑ ↓ move, typing jumps to a choice, Return picks, Escape closes.
 //
 //   window.hoverMenu.attach(button, {
-//     items: () => [{ label, sub, value, current, disabled, items } | { group: 'Heading' }],
+//     items: () => [{ label, sub, hint, icon, danger, sep, value, current, disabled, items } | { group: 'Heading' }],
+//       (icon: a name from js/icons.js, drawn before the label; hint: shown on
+//       resting on the item; danger: in red; sep: a line above it)
 //       (an item with its own `items` opens them beside it — to the left, or
 //       the right where there's no room — on resting on it, a click, or →/←)
 //     onPick: (value) => …,
@@ -31,8 +33,13 @@
   const CHECK = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
   let open = null; // { trigger, menu, close }
   const CHEVRON = '<svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true"><path d="M6.5 1.5 3 5l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const itemHTML = (it, i, role, aria) => `<button type="button" class="hm-item${it.current ? ' current' : ''}${it.items ? ' hm-has-sub' : ''}" role="${role}" ${aria} data-i="${i}" ${it.disabled ? 'disabled' : ''} data-no-icon tabindex="-1"${it.items ? ' aria-haspopup="menu"' : ''}>
-          ${it.items ? `<span class="hm-chev">${CHEVRON}</span>` : `<span class="hm-check">${it.current ? CHECK : ''}</span>`}
+  const lead = (it) => {
+    if (it.items) return `<span class="hm-chev">${CHEVRON}</span>`;
+    if (it.icon && window.icon) return `<span class="hm-ico">${window.icon(it.icon, { size: 15 })}</span>`;
+    return `<span class="hm-check">${it.current ? CHECK : ''}</span>`;
+  };
+  const itemHTML = (it, i, role, aria) => `${it.sep ? '<div class="hm-sep" role="separator"></div>' : ''}<button type="button" class="hm-item${it.current ? ' current' : ''}${it.items ? ' hm-has-sub' : ''}${it.danger ? ' hm-danger' : ''}" role="${role}" ${aria} data-i="${i}" ${it.disabled ? 'disabled' : ''} data-no-icon tabindex="-1"${it.items ? ' aria-haspopup="menu"' : ''}${it.hint ? ` title="${esc(it.hint)}"` : ''}>
+          ${lead(it)}
           <span class="hm-text"><span class="hm-label">${esc(it.label)}</span>${it.sub ? `<span class="hm-sub">${esc(it.sub)}</span>` : ''}</span></button>`;
 
   function attach(trigger, options) {
@@ -163,7 +170,9 @@
       const items = options.items() || [];
       if (!items.some((it) => !it.group)) return;
       menu = document.createElement('div');
-      menu.className = `hm-menu${press ? ' hm-list' : ''}`;
+      // An action list (nothing chosen, no ticks to show) has no tick column.
+      const plain = !press && !items.some((it) => it.current || it.items || it.icon);
+      menu.className = `hm-menu${press ? ' hm-list' : ''}${plain ? ' hm-plain' : ''}`;
       menu.setAttribute('role', press ? 'listbox' : 'menu');
       menu.setAttribute('data-no-icon', '');
       menu.innerHTML = (options.heading ? `<div class="hm-heading">${esc(options.heading)}</div>` : '') +
@@ -282,8 +291,10 @@
         if (isDisabled()) return;
         // A button with its own action (Export → PDF): a click does that.
         if (options.onClick) { close(false); options.onClick(); return; }
+        // Resting on it has opened it already; a click keeps it open (Return
+        // or ↓ from the keyboard steps into it).
         if (menu && menu.contains(document.activeElement)) close(true);
-        else show(true);
+        else show(false);
       });
       trigger.addEventListener('keydown', (e) => {
         const opens = options.onClick ? ['ArrowDown'] : ['ArrowDown', 'Enter', ' '];
@@ -359,9 +370,9 @@
       // { items: () => [...], pick: (value) => … }), e.g. a quotation's
       // Attach › Subsidiaries.
       items: () => [
-        { label: 'PDF', sub: 'The printed copy — the default', value: 'pdf' },
-        excel ? { label: 'Excel', sub: 'A workbook (.xlsx) to edit', value: 'other' }
-          : { label: 'Word', sub: 'A .docx laid out like the PDF', value: 'other' },
+        { label: 'PDF', icon: 'pdf', hint: 'The printed copy — the default', value: 'pdf' },
+        excel ? { label: 'Excel', icon: 'excel', hint: 'A workbook (.xlsx) to edit', value: 'other' }
+          : { label: 'Word', icon: 'word', hint: 'A .docx laid out like the PDF', value: 'other' },
         ...(button.exportExtras ? button.exportExtras.items() : []),
       ],
       onPick: (v) => {
