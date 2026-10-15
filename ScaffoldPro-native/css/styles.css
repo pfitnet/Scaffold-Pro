@@ -2685,18 +2685,20 @@ tr:hover .ci-edit-btn, .ci-edit-btn:focus-visible { opacity: 1; }
 
 /* Quotation: the key terms (wide) with the drawings beside them. */
 .q-terms-row { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); gap: 20px; align-items: start; margin-top: 24px; }
+/* In the document workspace the drawings are in Details: the terms take the width. */
+.doc-main .q-terms-row { grid-template-columns: minmax(0, 1fr); }
 .q-terms-row .q-terms { margin: 0; }
 .q-terms-row .linked-drawings-panel { margin-top: 0; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); box-shadow: var(--shadow-card); }
 @media (max-width: 1000px) { .q-terms-row { grid-template-columns: minmax(0, 1fr); } }
 /* Beside the key terms the drawings panel is narrow: each drawing is a
    small block — number, name (and where it's from), type — with its
    buttons on a line of their own underneath, so nothing runs off the edge. */
-.q-terms-row #linked-drawings table, .q-terms-row #linked-drawings tbody { display: block; width: 100%; }
-.q-terms-row #linked-drawings tr { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 8px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
-.q-terms-row #linked-drawings tr:last-child { border-bottom: none; }
-.q-terms-row #linked-drawings td { display: block; padding: 0; border: none; min-width: 0; overflow-wrap: anywhere; }
-.q-terms-row #linked-drawings td.row-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-start; white-space: normal; }
-.q-terms-row #linked-drawings td.row-actions .ld-remove { margin-left: auto; }
+:is(.q-terms-row, .inspector) #linked-drawings table, :is(.q-terms-row, .inspector) #linked-drawings tbody { display: block; width: 100%; }
+:is(.q-terms-row, .inspector) #linked-drawings tr { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 8px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+:is(.q-terms-row, .inspector) #linked-drawings tr:last-child { border-bottom: none; }
+:is(.q-terms-row, .inspector) #linked-drawings td { display: block; padding: 0; border: none; min-width: 0; overflow-wrap: anywhere; }
+:is(.q-terms-row, .inspector) #linked-drawings td.row-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; justify-content: flex-start; white-space: normal; }
+:is(.q-terms-row, .inspector) #linked-drawings td.row-actions .ld-remove { margin-left: auto; }
 
 /* An invoice billing several quotations' deliveries: a heading per quotation. */
 .inv-group-row td { padding: 14px 8px 6px !important; border-bottom: none !important; background: none !important; }
@@ -3015,6 +3017,61 @@ td:first-child > a:first-child, .doc-number { font-family: var(--font-mono); fon
 .inspector .header-fields > .field:has(input[type="text"], textarea, .terms-table, .source-note), .inspector .header-fields > .field.full { grid-column: 1 / -1 !important; }
 .inspector .field { min-width: 0; }
 .inspector input, .inspector select, .inspector textarea { min-width: 0; max-width: 100%; }
+/* Compact Details, in every editor, so it fits beside the document without
+   scrolling: each label at the left of its field on one row, 30px fields,
+   tighter cards and gaps, on/off options on one line. */
+.inspector { --control-h: 28px; gap: 8px; }
+.inspector :is(.letter-fields, .header-fields, .details-bar, .q-top-grid, .q-terms-row, .q-top-side) { gap: 8px !important; }
+.inspector .header-fields { grid-template-columns: minmax(0, 1fr) !important; }
+.inspector .header-fields > .field, .inspector .header-fields > .field.full { grid-column: auto !important; }
+.inspector :is(.header-fields, .letter-fields, .details-bar), .inspector .form-card { padding: 12px 14px !important; margin: 0 !important; }
+.inspector .form-card-title { margin-bottom: 8px; }
+.inspector .form-row { gap: 8px !important; }
+.inspector .form-row + .form-row { margin-top: 8px; }
+.inspector .field:not(.hidden), .inspector .form-card .field:not(.hidden) {
+  display: grid !important; grid-template-columns: 92px minmax(0, 1fr); column-gap: 10px; row-gap: 6px; align-items: center; min-width: 0; }
+.inspector .field > label:not(.inline-check):not(.option-check):not(.choice-card) { margin: 0; font-size: 12px; line-height: 1.25; }
+.inspector .field > :not(label) { grid-column: 2; min-width: 0; }
+.inspector .field > label + label, .inspector .field > :not(label) + label { grid-column: 1; }
+.inspector .field:has(> textarea) { align-items: start; }
+.inspector .field:has(> textarea) > label { padding-top: 7px; }
+.inspector .field input:not([type="checkbox"]):not([type="radio"]), .inspector .field select { width: 100%; font-size: 13px; }
+.inspector textarea { min-height: 0; height: auto; font-size: 13px; padding: 6px 9px; }
+.inspector .field .our-ref { font-size: 13px; }
+.inspector .field .field-hint { grid-column: 2; margin-top: -2px; }
+/* On/off options: slim rows, not bordered tiles. */
+.inspector .form-row:has(> .option-tile) { gap: 2px !important; }
+.inspector .option-tile { min-height: 0; padding: 2px 0; gap: 8px; border: 0; background: none; }
+.inspector .option-tile .input-group { --control-h: 26px; }
+.inspector .option-tile .input-group input { width: 46px; }
+.inspector .option-check > span { flex-direction: row; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.inspector .option-check small { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+/* What each option means is on the Settings pages; here only the minimum charge's amount stays. */
+.inspector .option-check small:not(#q-min-monthly-label) { display: none; }
+/* Attachments: its explanation rests on its heading instead of taking rows. */
+.inspector .annex-head .small-note { display: none; }
+.inspector .annex-head { margin-bottom: 8px; }
+/* Signed / chopped: the status on a line, its buttons small beneath. */
+.inspector .signed-bar { padding: 8px 12px !important; font-size: 12.5px; gap: 6px; margin: 0 !important; }
+.inspector :is(.signed-bar, .boq-reference) button { height: 26px; padding: 0 9px; font-size: 12px; }
+.inspector .signed-bar .signed-actions { gap: 4px; }
+.inspector #linked-drawings tr { padding: 8px 0; row-gap: 4px; }
+.inspector #linked-drawings td.row-actions button { height: 26px; padding: 0 9px; font-size: 12px; }
+.inspector .linked-drawings-panel .section-toolbar { margin-bottom: 4px; }
+.inspector .linked-drawings-panel .section-toolbar button { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.inspector .linked-drawings-panel #linked-drawings > .small-note { display: none; }
+/* Still taller than the window (many drawings): it scrolls with the page, never on its own (js/doc-authors.js). */
+.inspector.tall { position: static; max-height: none; overflow: visible; }
+/* Drop files here: one slim line (it still grows while files are dragged). */
+.inspector .drop-box { min-height: 0; margin-top: 8px; padding: 9px 12px; flex-direction: row; gap: 8px; border-width: 1.5px; }
+.inspector .drop-box .drop-box-sub { display: none; }
+.inspector .drop-box .drop-box-title { font-size: 13px; font-weight: 500; }
+.inspector .drop-box svg { margin: 0; }
+/* Import from Quotation (delivery notes): its parts one under another. */
+.inspector .quotation-import { flex-wrap: wrap; margin: 0; }
+.inspector .quotation-import label { width: 100%; }
+.inspector .quotation-import select { flex: 1; min-width: 0; }
+.inspector .quotation-import-note { width: 100%; margin: 0; }
 /* Add Materials folds to its search row until it's wanted (js/doc-authors.js). */
 .doc-main .picker-folded .picker-results, .doc-main .picker-folded .am-filters { display: none; }
 .doc-main .am-head h2 { cursor: default; display: inline-flex; align-items: center; gap: 6px; }

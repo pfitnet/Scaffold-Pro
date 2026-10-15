@@ -5931,3 +5931,22 @@ What changed:
   spacing) keep room at the right for their up/down arrows, so the arrows no
   longer sit on the words (css/letter-editor.css, .rt-select).
 - Checked in Chromium. Not checked: WebKit on a Mac.
+
+## Batch 270 — Compact Details in every editor
+
+- **Details (the right-hand column of every editor) is compact**: each label
+  at the left of its field on one row, 28px fields, tighter cards and gaps,
+  the on/off options (Hire period, Minimum hire…) as slim rows, the signed /
+  chopped panels and the drawings list with small buttons, the drop area one
+  slim line, Attachments' explanation on its heading (rest the pointer on
+  it), Import from Quotation stacked.
+- **The quotation's terms moved to the main column**, under the items (they
+  are part of the document); its drawings stay in Details.
+- On a 1440 × 900 window, Details now fits without scrolling in the letter,
+  BOQ, invoice and delivery note editors, and in a quotation without many
+  extras. When it's still taller than the window (a quotation with a chop,
+  a signed copy and several drawings), it scrolls with the page: it never
+  has a scrollbar of its own.
+- Fixed with it: hidden fields (Currency, Tax Rate) no longer show in Details.
+- Checked in Chromium with the mocked bridge (heights measured per editor).
+  Not checked: WebKit on a Mac.
