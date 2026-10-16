@@ -111,33 +111,33 @@ window.MANUAL_CONTENT = [
   },
   {
     id: 'calendar', title: 'Schedule', color: '#5a6b7f', icon: 'calendar',
-    tag: 'Tasks and everything with a date, in one place: a list, a week or a month.',
+    tag: 'Everything with a date, by week or by month.',
     blocks: [
       { type: 'shot', shot: 'calendar', points: [
-        [1, '‹ Today ›', 'A week or month at a time'], [2, 'List · Week · Month · Time', '{L} {W} {M} {G}'],
+        [1, '‹ Today ›', 'A week or month at a time'], [2, 'Week · Month', '{W} {M}'],
         [3, 'Filters', '⌥-click shows only that kind'], [4, 'The week', 'Drag down an hour column for an event'],
         [5, 'Mini month', 'Dots mark busy days'], [6, 'The chosen day', 'Then what’s next'], [7, 'New Task · New Event', '{N} · {E}'],
       ] },
       { type: 'flow', title: 'Scheduling an event', chain: 'grey|Press at 10:00|On the day > grey|Drag to 12:30|Snaps to quarter hours > team|Name it|For a person, a team or anyone' },
-      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{L} {W} {M} {G}', 'List · Week · Month · Time'], ['{N}', 'New task'], ['{E}', 'New event']] },
-      { type: 'flow', title: 'Logging your time (Time)', chain: 'grey|Arrived|The first entry starts the day > grey|Site visit|Return: timed from the last entry > team|For a task|Its card shows the time' },
-      { type: 'tip', icon: 'clock', text: 'In **Time** there’s no start or stop: type what you **just finished** in the box at the bottom and press {Return}. Hover an entry to change its time or words.' },
+      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{W} {M}', 'Week · Month'], ['{N}', 'New task'], ['{E}', 'New event']] },
       { type: 'tip', icon: 'pointer', text: 'Rest on anything for its details. Click to open it — or, for an event, to change it.' },
     ],
   },
   {
-    id: 'tasks', title: 'Tasks', color: '#5a6b7f', icon: 'check',
-    tag: 'The team’s to-dos, for a person, a project and a day. Schedule › List.',
+    id: 'tasks', title: 'Tasks & Time', color: '#5a6b7f', icon: 'check',
+    tag: 'The team’s to-dos, for a person, a project and a day, and your time log. Dated tasks also show on the Schedule.',
     blocks: [
       { type: 'example', title: 'Type it the way you’d say it', parts: [
         ['Send revised BOQ to Mr. Law', ''], ['tomorrow 3pm', 'When'], ['@Tom', 'Who'], ['#26212', 'Project'], ['!high', 'Priority'],
       ], note: '{Return} adds it. [More…] opens the full form.' },
       { type: 'shot', shot: 'tasks', points: [
-        [7, 'List', 'The tasks view of Schedule · {L}'], [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
+        [7, 'Tasks · Time', 'Two tabs · {L} {G}'], [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
         [3, 'The list', 'Tick to finish · ⟳ tomorrow'], [4, 'Today', 'How far through the day'], [5, 'This week', 'Click a day to filter'], [6, 'Team load', 'Who has how much'],
       ] },
       { type: 'tip', icon: 'people', text: 'A task can be **for a whole team** (e.g. Site) instead of one person: choose the team under **For**. Everyone in it sees it as theirs.' },
-      { type: 'keys', keys: [['{N}', 'Quick add'], ['{⇧N}', 'New task'], ['{/}', 'Search']] },
+      { type: 'keys', keys: [['{L} {G}', 'Tasks · Time'], ['{N}', 'Quick add, or the time box'], ['{⇧N}', 'New task'], ['{/}', 'Search']] },
+      { type: 'flow', title: 'Logging your time (Time)', chain: 'grey|Arrived|The first entry starts the day > grey|Site visit|Return: timed from the last entry > team|For a task|Its card shows the time' },
+      { type: 'tip', icon: 'clock', text: 'In **Time** there’s no start or stop: type what you **just finished** in the box at the bottom and press {Return}. Hover an entry to change its time or words.' },
     ],
   },
 

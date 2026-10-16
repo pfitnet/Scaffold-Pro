@@ -69,7 +69,8 @@ business:
 | Stock page | `stock.html`, `css/stock.css`, `js/stock.js`; Swift `stockData`, `addStockMovements`, `deleteStockBatch`, `syncDeliveryStock` (signed DN → stock), `deliveryReturns` (Returns tab) |
 | Google Sheets | `resources/google-sheets/ScaffoldPro.gs` (loader, pasted once) + `ScaffoldPro-core.js` (fetched from GitHub main by the sheet); Swift `GoogleSheetsSync`, `sheetsPayload` |
 | User manual | content in `js/manual-content.js` (short blocks per chapter), drawn by `js/manual.js`, styled by `css/manual.css`; marker positions `js/manual-shots.js`; pictures `resources/manual/*.jpg`, all retaken with `node tools/ui-shots/manual.js [--only id,…]` (its `SHOTS` list says which element each numbered mark is) |
-| Schedule (tasks + calendar, one page) | `calendar.html`: `js/calendar.js` owns `appRefresh` and the keys; `js/tasks.js` (an IIFE) is the List view as `window.scheduleList`; `js/task-editor.js`; `tasks.html` redirects. Swift `calendarEvents`, `saveTask` (`endTime`, `team`) |
+| Schedule (the calendar: Week, Month) | `calendar.html`, `js/calendar.js` (owns `appRefresh` and the keys); `js/task-editor.js`. Old `?view=list|time` and `?task=` links go on to tasks.html. Swift `calendarEvents`, `saveTask` (`endTime`, `team`) |
+| Tasks & Time (own sidebar tab) | `tasks.html`, `js/tasks-page.js` (tabs, keys, `appRefresh`, the fixed entry boxes); `js/tasks.js` (Tasks, `window.scheduleList`), `js/time-log.js` (Time, `window.timeLog`); Swift `Sources/TimeLog.swift` |
 | Team (with Chat as its first tab) | `team.html`, `js/team.js`, `js/chat.js`, `css/chat.css`; `chat.html` redirects to `team.html?tab=chat` |
 | The design system (redesign R0–R12) | `docs/redesign/PLAN.md`. Tokens, type (Geist), components, toasts, sheets and the phone shell: `css/styles.css`. Icons: `js/icons.js` (Phosphor registry: `window.icon(name)`, `<i data-icon>` in markup). Shared parts: `js/ui-kit.js` (`appTabs`, `appToast`, `appSheet`, `statTile`, `searchField`, `pageActions`, `crumbs`). Editors' shell: `js/doc-authors.js` (`.doc-bar`, ··· menu, inspector) |
 | Screenshots without a Mac | `node tools/ui-shots/shoot.js --out <dir> [--page p] [--vp mac,narrow,ipad,phone\|all] [--scheme light\|dark]` with mock data in `tools/ui-shots/data.js` |
@@ -97,7 +98,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **293**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **294**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```

@@ -255,8 +255,8 @@
 .pk-hint { margin-top: 8px; font-size: 11px; color: var(--text-tertiary); }
 
 /* ---------- Schedule (Calendar + Tasks, redesign R7) ---------- */
-/* The entry boxes (List, Time) are fixed to the bottom of the window, as in
-   a chat, over their list's column (calendar.js placeBars sets left and
+/* Tasks & Time's entry boxes are fixed to the bottom of the window, as in
+   a chat, over their list's column (js/tasks-page.js placeBars sets left and
    width); the list keeps room under it. A strip of page colour fills the gap
    below the box, so nothing shows through there. */
 .cal-page .tk-quick { position: fixed; bottom: 16px; z-index: 20; margin: 0; }
@@ -267,13 +267,10 @@ html.page-enter #content > .sch-list, html.page-enter #content > .sch-time { ani
 @media (max-width: 767px) { .cal-page .tk-quick { bottom: calc(12px + env(safe-area-inset-bottom)); } .cal-page .tk-quick::after { height: calc(13px + env(safe-area-inset-bottom)); } }
 .cal-period { font-size: 16px; font-weight: 600; margin: 0 6px 0 4px; white-space: nowrap; }
 .cal-period span { color: var(--text-tertiary); font-weight: 500; }
-.sch-list-view .cal-layout, .sch-list-view .cn-nav, .sch-list-view .cal-week-start, .sch-list-view .cal-filters, .sch-list-view .cal-period, .sch-list-view .cal-keys { display: none !important; }
-/* Time uses the toolbar's ‹ Today › with its own day title (#tl-day). */
-.sch-time-view .cal-layout, .sch-time-view .cal-week-start, .sch-time-view .cal-filters, .sch-time-view #cal-title, .sch-time-view .cal-keys { display: none !important; }
-body:not(.sch-time-view) #tl-day { display: none; }
-/* One frame for all four views (List, Week, Month, Time): the same columns,
-   side cards and breakpoint as the calendar, so switching changes what's
-   shown, never where things are. */
+/* Tasks & Time (tasks.html): the day's ‹ Today › and title only on the Time tab. */
+body:not(.tt-time) .tt-time-only { display: none !important; }
+/* Tasks & Time uses the calendar's frame: the same columns, side cards and
+   breakpoint, so the two pages read as one app. */
 .cal-page .tk-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
 .cal-page .tk-side { gap: 12px; }
 .cal-page .tk-panel, .cal-page .tk-hero.tk-today { margin: 0; padding: 16px 18px; border-radius: var(--radius-lg); background: var(--panel);
