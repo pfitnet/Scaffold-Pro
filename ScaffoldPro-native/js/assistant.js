@@ -1219,6 +1219,9 @@
     const rubberband = (over, dim) => (over * dim * 0.55) / (dim + 0.55 * Math.abs(over));
     const soft = (v, lo, hi, dim) => (v < lo ? lo + rubberband(v - lo, dim) : v > hi ? hi + rubberband(v - hi, dim) : v);
     let settleTimer = 0;
+    // Landed on another floating window: the smaller moves aside (js/float-window.js).
+    const separate = () => { if (window.floatWindow && window.floatWindow.separate) window.floatWindow.separate(panel); };
+    panel.addEventListener('float:placed', saveRect);
     function grab(e, el) {
       clearTimeout(settleTimer);
       panel.style.transition = 'none';
@@ -1228,7 +1231,7 @@
       const before = rectOf();
       panel.style.transition = 'left .32s var(--spring), top .32s var(--spring), width .32s var(--spring), height .32s var(--spring)';
       place(before);
-      settleTimer = setTimeout(() => { panel.style.transition = ''; saveRect(); }, 340);
+      settleTimer = setTimeout(() => { panel.style.transition = ''; saveRect(); separate(); }, 340);
     }
     function track(e, el, onMove, onEnd) {
       const move = (ev) => { if (ev.pointerId === e.pointerId) onMove(ev); };
@@ -1290,6 +1293,7 @@
         document.body.classList.remove('as-dragging', `as-resizing-${dir}`);
         panel.style.transition = '';
         saveRect();
+        separate();
       });
     }
     function wireMoving() {
@@ -1319,6 +1323,7 @@
       panel.classList.remove('hidden');
       placeSaved();
       panel.classList.toggle('popping', animate);
+      if (animate) separate();
       launcher.classList.add('open');
       remember(true);
       setTimeout(() => chat.focus(), animate ? 120 : 0);

@@ -6408,3 +6408,25 @@ What changed:
   and with ⌥⌘T, adding, linking a task, removing and undoing, moving
   between days, widening, Escape, staying open across pages, the task chip,
   and the calculator again.
+
+## Batch 295 — Floating windows: one bounce at the edges, and they make room for each other
+
+- The calculator and the Time window now move like the Assistant's chat.
+  Dragged past an edge of the window, they follow with more and more
+  resistance. Let go, and they spring back on screen (the same rubber band
+  and spring, js/float-window.js).
+- **Overlapping windows:** when a floating window (Assistant, Calculator or
+  Time) is dropped, opened or resized on top of another one, the smaller of
+  the two springs to the side of the bigger. It goes to the nearest spot
+  that fits on screen and is clear of every open window.
+- **Overlapped on purpose:** if you put the same two windows over each other
+  again within 2 minutes, they're left where you put them. Each new overlap
+  restarts the 2 minutes, so a third or fourth go is left alone too. This is
+  kept for the session, across pages.
+- In code: `window.floatWindow.separate(panel)` does the check, and the
+  Assistant's chat calls it too (js/assistant.js). A window that was moved
+  aside keeps its new place (the `float:placed` event).
+- Checked in Chromium: the spring back from an edge, the first overlap
+  moving the smaller window aside, the second and third left alone, the
+  bounce coming back once 2 minutes have passed, and the Assistant opening
+  over both other windows with each moving to a clear spot.
