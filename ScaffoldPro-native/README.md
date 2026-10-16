@@ -6354,3 +6354,28 @@ What changed:
   views. The calculator's sums were checked with 37 cases, and its keys,
   resizing and copying were tried. The User Manual's Schedule and Tasks
   pictures are retaken.
+
+## Batch 293 — Tasks & Time: its own tab, apart from the Schedule
+
+- Tasks and the time log now have their own sidebar tab, **Tasks & Time**
+  (tasks.html), just under Schedule. It has two tabs, **Tasks** and
+  **Time** (keys L and G), and remembers which one you were on.
+  - Tasks: the list, quick-add bar and side panels as before. The New
+    Task button opens the full form.
+  - Time: the time log, with ‹ Today › and the day's title in the toolbar.
+- **Schedule** is just the calendar again: Week and Month. Dated tasks
+  still show on it, and its New Task / New Event buttons stay. N there
+  opens the New Task form for the chosen day.
+- Old links keep working: `tasks.html?task=…` (from Home, search and the
+  Assistant) opens the task, and `calendar.html?view=list` or `?view=time`
+  goes on to the new page.
+- The Go menu has Tasks & Time too. The Schedule's sidebar icon is now
+  the plain calendar, and Tasks & Time uses the tick list.
+- Code: js/tasks-page.js runs the new page (tabs, keys, `appRefresh`, the
+  fixed entry boxes). js/calendar.js lost its List and Time code.
+- The User Manual: the Schedule chapter covers Week and Month only, the
+  Tasks chapter is now Tasks & Time (with the note on Time), and both
+  pictures are retaken.
+- Checked in Chromium (light and dark): both tabs, the old links, the
+  sidebar, and the calendar's Week and Month. The Swift (one Go menu line)
+  wasn't compiled here.

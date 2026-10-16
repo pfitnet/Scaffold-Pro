@@ -2,16 +2,138 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Schedule · ScaffoldPro</title>
-  <!-- Tasks are on the Schedule page now (List view); old links still land there. -->
-  <script>
-    (function () {
-      const q = new URLSearchParams(location.search);
-      let to = 'calendar.html?view=list';
-      if (q.get('task')) to += `&task=${encodeURIComponent(q.get('task'))}`;
-      location.replace(to);
-    })();
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Tasks &amp; Time · ScaffoldPro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/calendar.css" />
+  <link rel="stylesheet" href="css/tasks.css" />
 </head>
-<body></body>
+<body data-page="tasks">
+  <nav id="sidebar"></nav>
+  <main id="content" class="cal-page">
+    <!-- Tasks & Time: the team's to-dos (js/tasks.js) and your time log
+         (js/time-log.js), two tabs on one page (js/tasks-page.js). Dated
+         tasks also show on the Schedule's calendar. -->
+    <header class="cal-hero">
+      <div class="cal-hero-text">
+        <h1>Tasks &amp; Time</h1>
+      </div>
+      <div class="cal-hero-actions">
+        <button class="primary cal-new" id="tt-add" data-no-icon title="New task (⇧N)"><i data-icon="plus" data-size="13"></i><span>New Task</span></button>
+      </div>
+    </header>
+
+    <div class="cal-toolbar">
+      <div class="segmented" id="tt-tabs" role="tablist" aria-label="Show">
+        <button data-tab="tasks" class="active" data-no-icon title="Tasks (L)">Tasks</button>
+        <button data-tab="time" data-no-icon title="Time log (G)">Time</button>
+      </div>
+      <!-- Time's day: ‹ Today › and the day's title. -->
+      <div class="cn-nav tt-time-only">
+        <button id="cal-prev" class="cal-round" data-no-icon title="Previous day (←)" aria-label="Previous day"><i data-icon="caret-left" data-size="14"></i></button>
+        <button id="cal-today" class="cn-today" data-no-icon title="Go to today (T)">Today</button>
+        <button id="cal-next" class="cal-round" data-no-icon title="Next day (→)" aria-label="Next day"><i data-icon="caret-right" data-size="14"></i></button>
+      </div>
+      <h2 class="cal-period tl-day tt-time-only" id="tl-day" title="Logged this day"></h2>
+    </div>
+
+    <!-- List: the tasks, grouped by when they're due (js/tasks.js) -->
+    <section class="sch-list" id="sch-list">
+      <div class="tk-layout">
+      <div class="tk-main">
+        <div class="tk-controls">
+          <div class="tk-seg" id="task-tabs" role="tablist">
+            <span class="tk-seg-pill" aria-hidden="true"></span>
+            <button data-view="mine" class="active" role="tab">My Tasks <span class="tk-count" data-count="mine"></span></button>
+            <button data-view="team" role="tab">Everyone’s <span class="tk-count" data-count="team"></span></button>
+            <button data-view="done" role="tab">Done <span class="tk-count" data-count="done"></span></button>
+          </div>
+          <div class="tk-filters">
+            <label class="tk-search"><i data-icon="search" data-size="15"></i>
+              <input type="text" id="task-search" placeholder="Search" /><kbd class="tk-kbd">/</kbd></label>
+            <select id="task-person"><option value="">Everyone</option></select>
+            <select id="task-project"><option value="">All projects</option></select>
+          </div>
+        </div>
+        <div id="task-list" class="tk-list"></div>
+        <!-- At the bottom, as in a chat: stays in view while the list scrolls. -->
+        <div class="tk-quick" id="tk-quick">
+          <span class="tk-quick-plus" aria-hidden="true"><i data-icon="plus" data-size="18"></i></span>
+          <input type="text" id="tk-quick-input" autocomplete="off" spellcheck="false"
+            placeholder="Add a task, try “Send revised BOQ to Mr. Law tomorrow 3pm @Tom #26212 !high”" aria-label="Add a task" />
+          <div class="tk-quick-chips" id="tk-quick-chips"></div>
+          <button type="button" class="tk-quick-more" id="new-task-btn" data-no-icon title="Open the full form">More…</button>
+          <kbd class="tk-kbd" title="Press N to add a task">N</kbd>
+        </div>
+      </div>
+
+      <aside class="tk-side">
+        <section class="tk-hero tk-today" id="tk-hero">
+      <div class="tk-hero-glow" aria-hidden="true"></div>
+      <div class="tk-hero-text">
+        <div class="tk-date" id="tk-date"></div>
+        <div class="tk-greeting" id="tk-greeting">Today</div>
+        <p class="tk-summary" id="tk-summary">What the team needs to do, for a project or not, who it’s for, and when.</p>
+        <div class="tk-stats" id="tk-stats"></div>
+      </div>
+      <div class="tk-ring" id="tk-ring" title="Today: done of due">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="tk-ring-track" cx="60" cy="60" r="50" />
+          <circle class="tk-ring-fill" id="tk-ring-fill" cx="60" cy="60" r="50" />
+        </svg>
+        <div class="tk-ring-label"><b id="tk-ring-pct">0%</b><span id="tk-ring-sub">today</span></div>
+      </div>
+    </section>
+        <section class="tk-panel">
+          <h3>This week</h3>
+          <div class="tk-week" id="tk-week"></div>
+        </section>
+        <section class="tk-panel">
+          <h3>Team load</h3>
+          <div class="tk-team" id="tk-team"></div>
+        </section>
+      </aside>
+    </div>
+    </section>
+
+    <!-- Time: a chain of "just finished" entries, each timed from the one
+         before (js/time-log.js) -->
+    <section class="sch-time hidden" id="sch-time">
+      <div class="tk-layout">
+        <div class="tk-main">
+          <ol class="tl-list" id="tl-list"></ol>
+          <div class="tk-quick tl-bar">
+            <span class="tk-quick-plus" aria-hidden="true"><i data-icon="clock" data-size="17"></i></span>
+            <input type="text" id="tl-input" autocomplete="off" placeholder="What did you just finish? Press Return" aria-label="What you just finished" />
+            <select id="tl-task" aria-label="For a task" title="For a task"><option value="">No task</option></select>
+            <span class="tl-since" id="tl-since" title="What Return will record"></span>
+          </div>
+        </div>
+        <aside class="tk-side">
+          <section class="tk-panel">
+            <h3>By task</h3>
+            <div id="tl-by-task"></div>
+          </section>
+          <section class="tk-panel">
+            <h3>This week <span class="tl-week-total" id="tl-week-total"></span></h3>
+            <div class="tl-week" id="tl-week"></div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/dialogs.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/ui-kit.js"></script>
+  <script src="js/sidebar.js"></script>
+  <script src="js/undo.js"></script>
+  <script src="js/hover-menu.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/task-editor.js"></script>
+  <script src="js/time-log.js"></script>
+  <script src="js/tasks.js"></script>
+  <script src="js/tasks-page.js"></script>
+</body>
 </html>

@@ -1,12 +1,12 @@
 'use strict';
 
-// Schedule › Time (calendar.html): the time log as a chain, read like a chat
+// Tasks & Time › Time (tasks.html): the time log as a chain, read like a chat
 // (oldest at the top, the box underneath). Nobody presses start or stop:
 // type what you just finished and press Return, and it takes
 // the time since your previous entry that day. The day's first entry only
 // marks the start. An entry can be for a task (the list beside the box);
 // the task's card then shows the time logged on it (js/tasks.js).
-// calendar.js owns the keys and window.appRefresh (it reloads this too).
+// js/tasks-page.js owns the keys and window.appRefresh (it reloads this too).
 // Styles: css/tasks.css (Time). Swift: Sources/TimeLog.swift.
 
 (function () {

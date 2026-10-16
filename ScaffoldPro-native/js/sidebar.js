@@ -42,7 +42,8 @@ document.addEventListener('click', (e) => {
 const NAV_ITEMS = [
   { section: 'Work' },
   { page: 'dashboard', label: 'Home', href: 'index.html', key: '1', icon: 'home' },
-  { page: 'calendar', label: 'Schedule', href: 'calendar.html', icon: 'schedule' },
+  { page: 'calendar', label: 'Schedule', href: 'calendar.html', icon: 'calendar' },
+  { page: 'tasks', label: 'Tasks & Time', href: 'tasks.html', icon: 'tasks' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'team', label: 'Team', href: 'team.html' },
   { section: 'Operations' },

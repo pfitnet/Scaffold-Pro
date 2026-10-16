@@ -1,7 +1,7 @@
 'use strict';
 
-// Schedule › List (calendar.html). In its own scope: calendar.js shares the
-// page and owns the keys and window.appRefresh (it reloads this too).
+// Tasks & Time › Tasks (tasks.html). In its own scope: js/tasks-page.js owns
+// the page's keys and window.appRefresh (it reloads this too).
 (function () {
 
 // The Tasks page: a greeting with today's progress, a quick-add bar that
@@ -551,7 +551,7 @@ document.getElementById('tk-team').addEventListener('click', (e) => {
   if (select.value && view === 'mine') setView('team', true);
   select.dispatchEvent(new Event('change'));
 });
-// The keys (N, /) are calendar.js's: one handler for the whole page.
+// The keys (N, /) are js/tasks-page.js's: one handler for the whole page.
 window.scheduleList = {
   load: () => load(),
   focusQuick: () => document.getElementById('tk-quick-input').focus(),
