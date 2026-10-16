@@ -43,7 +43,7 @@ const NAV_ITEMS = [
   { section: 'Work' },
   { page: 'dashboard', label: 'Home', href: 'index.html', key: '1', icon: 'home' },
   { page: 'calendar', label: 'Schedule', href: 'calendar.html', icon: 'calendar' },
-  { page: 'tasks', label: 'Tasks & Time', href: 'tasks.html', icon: 'tasks' },
+  { page: 'tasks', label: 'Tasks', href: 'tasks.html', icon: 'tasks' },
   { page: 'projects', label: 'Projects', href: 'projects.html', key: '4' },
   { page: 'team', label: 'Team', href: 'team.html' },
   { section: 'Operations' },
@@ -259,6 +259,16 @@ function renderSidebar(activePage) {
   calc.innerHTML = `${navIcon('accounts', 16)}<span>Calculator</span>`;
   calc.addEventListener('click', () => window.appCalculator && window.appCalculator.toggle());
   tools.appendChild(calc);
+  // The time log, in a floating window (js/time-log.js, ⌥⌘T).
+  const time = document.createElement('button');
+  time.className = 'sidebar-ask sidebar-time';
+  time.type = 'button';
+  time.dataset.noIcon = '';
+  time.title = 'Time log: type what you just finished (⌥⌘T)';
+  time.setAttribute('aria-label', 'Time log');
+  time.innerHTML = `${navIcon('clock', 16)}<span>Time</span>`;
+  time.addEventListener('click', () => window.timeLog && window.timeLog.toggle && window.timeLog.toggle());
+  tools.appendChild(time);
   sidebar.appendChild(tools);
 
 
@@ -773,16 +783,24 @@ window.refreshChatBadge();
 // The Assistant's floating chat (js/assistant.js), on every page: the
 // sparkle at the bottom right, or ⌘J.
 // ---------------------------------------------------------------------
-// The calculator's floating window (js/calculator.js), on every page; it
-// reads sums with js/calc-input.js.
-(function loadCalculator() {
-  const css = document.createElement('link');
-  css.rel = 'stylesheet';
-  css.href = 'css/calculator.css';
-  document.head.appendChild(css);
-  const add = (src) => { const s = document.createElement('script'); s.src = src; s.defer = true; document.head.appendChild(s); };
-  if (!window.calcEvaluate && !document.querySelector('script[src$="js/calc-input.js"]')) add('js/calc-input.js');
+// The floating windows on every page: the calculator (js/calculator.js,
+// reading sums with js/calc-input.js) and the time log (js/time-log.js).
+(function loadFloatingWindows() {
+  for (const href of ['css/calculator.css', 'css/time-log.css']) {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = href;
+    document.head.appendChild(css);
+  }
+  // In this order (not async): both windows need js/float-window.js first.
+  const add = (src) => {
+    if (document.querySelector(`script[src$="${src}"]`)) return;
+    const s = document.createElement('script'); s.src = src; s.async = false; document.head.appendChild(s);
+  };
+  if (!window.calcEvaluate) add('js/calc-input.js');
+  add('js/float-window.js');
   add('js/calculator.js');
+  add('js/time-log.js');
 })();
 
 (function loadAssistant() {

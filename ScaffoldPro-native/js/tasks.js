@@ -1,6 +1,6 @@
 'use strict';
 
-// Tasks & Time › Tasks (tasks.html). In its own scope: js/tasks-page.js owns
+// Tasks (tasks.html). In its own scope: js/tasks-page.js owns
 // the page's keys and window.appRefresh (it reloads this too).
 (function () {
 

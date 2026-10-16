@@ -187,8 +187,9 @@ a:hover { text-decoration: underline; }
 .sidebar-tools { display: flex; gap: 2px; margin: 0 0 16px; padding: 2px; border-radius: 10px;
   background: color-mix(in srgb, var(--text) 5%, transparent); box-shadow: inset 0 0 0 1px var(--hairline); }
 .sidebar-search, .sidebar-ask {
-  display: flex; align-items: center; gap: 7px; height: 30px; min-width: 0; padding: 0 9px;
-  border: none; border-radius: 8px; background: transparent; box-shadow: none;
+  /* As tall as a tab below (#sidebar a: 32px), with its icon in the same place. */
+  display: flex; align-items: center; gap: 10px; height: 32px; min-width: 0; padding: 0 10px;
+  border: none; border-radius: 9px; background: transparent; box-shadow: none;
   color: var(--text-secondary); font-size: 13px; text-align: left;
   transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
@@ -196,7 +197,7 @@ a:hover { text-decoration: underline; }
 .sidebar-search:hover:not(:disabled), .sidebar-ask:hover:not(:disabled) { color: var(--text); background: var(--panel); box-shadow: var(--shadow-control); border-color: transparent; }
 .sidebar-search span { flex: 1; }
 .sidebar-search kbd, .sidebar-ask kbd { font-size: 10.5px; color: var(--text-tertiary); background: none; border: none; padding: 0; }
-.sidebar-search .nav-icon, .sidebar-ask .nav-icon { width: 15px; height: 15px; }
+.sidebar-search .nav-icon, .sidebar-ask .nav-icon { width: 16px; height: 16px; }
 .sidebar-ask .nav-icon { color: var(--accent); }
 .as-launcher { display: none !important; }
 
@@ -258,6 +259,8 @@ html.sidebar-rail #sidebar:not(.expanded) :is(a > span:not(.user-avatar):not(.na
   opacity: 0; pointer-events: none; }
 /* Search and Ask stay one above the other, open or folded, so nothing below them moves. */
 html.sidebar-rail #sidebar .sidebar-tools { flex-direction: column; background: none; box-shadow: none; padding: 0; gap: 4px; }
+/* Stacked, Search keeps its height (its flex: 1 is for the side-by-side row). */
+html.sidebar-rail #sidebar .sidebar-tools > .sidebar-search { flex: none; }
 /* Folded: the chat's unread count as a dot on its icon. */
 html.sidebar-rail #sidebar:not(.expanded) .nav-badge:not(.hidden) { position: absolute; left: 22px; top: 3px; min-width: 8px; width: 8px; height: 8px; padding: 0; font-size: 0; }
 
@@ -2884,6 +2887,7 @@ td .charge-switch { display: flex; width: max-content; margin-top: 4px; }
   html.drawer-open #sidebar { transform: none; }
   html.sidebar-rail #sidebar:not(.expanded) :is(a > span, .sidebar-search > span, .sidebar-search kbd, .sidebar-ask > span, .sidebar-user > span, .sidebar-section) { opacity: 1; pointer-events: auto; }
   html.sidebar-rail #sidebar .sidebar-tools { flex-direction: row; background: color-mix(in srgb, var(--text) 5%, transparent); padding: 2px; }
+  html.sidebar-rail #sidebar .sidebar-tools > .sidebar-search { flex: 1; }
   body[data-page] .drawer-scrim { display: block; position: fixed; inset: 0; z-index: calc(var(--z-sheet) - 1); background: rgba(17, 19, 22, 0.32);
     opacity: 0; pointer-events: none; transition: opacity 240ms var(--ease-out); }
   html.drawer-open .drawer-scrim { opacity: 1; pointer-events: auto; }

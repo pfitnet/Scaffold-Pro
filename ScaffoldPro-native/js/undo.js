@@ -43,6 +43,7 @@
     try {
       const r = await window.api.history[kind === 'redo' ? 'redo' : 'undo']();
       if (!r || !r.ok) { toast((r && r.error) || (kind === 'redo' ? 'Nothing to redo.' : 'Nothing to undo.'), null); return; }
+      window.dispatchEvent(new Event('app:undone')); // (floating windows reload: js/time-log.js)
       const text = `${kind === 'redo' ? 'Redone' : 'Undone'}: ${r.label}`;
       const again = kind === 'redo' ? (r.canUndo ? 'undo' : null) : (r.canRedo ? 'redo' : null);
       // Redrawn in place, what changed lit up.

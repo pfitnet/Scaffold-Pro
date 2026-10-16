@@ -7,8 +7,8 @@
 // choices are remembered on this Mac. Hover an item for a preview; click it
 // to open it. Events (a start and an end: a meeting, a site visit) are
 // blocks on the week; drag down an empty column to make one. Keys: ←/→ day,
-// ↑/↓ week, T today, W/M view, N new task, E new event. Tasks as a list,
-// and the time log, are on Tasks & Time (tasks.html).
+// ↑/↓ week, T today, W/M view, N new task, E new event. Tasks as a list
+// are on the Tasks page (tasks.html); the time log is a floating window.
 
 const ICON = (d) => `<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const KINDS = [

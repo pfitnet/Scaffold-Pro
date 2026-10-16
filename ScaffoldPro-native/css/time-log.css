@@ -1,0 +1,74 @@
+/* The time log's floating window (js/time-log.js): ⌥⌘T or the clock in the
+   sidebar. Its frame (bar, close, edges) is the calculator's .calc-float
+   (css/calculator.css, js/float-window.js). Read like a chat: the entries,
+   then the box at the bottom. Wide enough, the day by task and the week
+   show beside the entries. */
+.time-float { width: 380px; height: 500px; right: 312px; }
+.time-float .calc-bar { gap: 6px; }
+.time-float .calc-title svg { color: var(--accent-text); }
+.tf-nav { display: inline-flex; align-items: center; gap: 1px; margin-right: auto; }
+.tf-step, .tf-day { height: 26px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; box-shadow: none;
+  border-radius: 7px; color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+.tf-step { width: 24px; padding: 0; color: var(--text-tertiary); }
+.tf-day span { margin-left: 4px; color: var(--text-tertiary); font-weight: 500; }
+.tf-step:hover:not(:disabled), .tf-day:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); border: 0; }
+.tf-step:disabled { opacity: .35; }
+.tl-total { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.tf-body { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 0 12px; }
+.tl-list { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 2px 0 8px; overflow-y: auto; }
+.tf-side { display: none; width: 210px; flex: none; overflow-y: auto; padding: 4px 2px 8px; }
+@container (min-width: 600px) { .tf-side { display: block; } }
+.tf-side section + section { margin-top: 18px; }
+.tf-side h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+
+/* An entry: when and how long, then the words (and its task). */
+.tl-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 1px;
+  padding: 7px 8px; border-radius: 10px; }
+.tl-row + .tl-row { margin-top: 2px; }
+.tl-row:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.tl-row.fresh { animation: tlIn .32s var(--ease-out, ease) both; }
+@keyframes tlIn { from { opacity: 0; transform: translateY(4px); } }
+.tl-meta { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.tl-when { font-family: var(--font-mono, ui-monospace, monospace); font-size: 11.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.tl-len { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.tl-row.start .tl-len { font-weight: 500; color: var(--text-tertiary); }
+.tl-text { grid-column: 1 / -1; font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere; }
+.tl-task { display: inline-flex; align-items: center; gap: 4px; height: 20px; max-width: 100%; margin-left: 4px; padding: 0 7px; border: 0; border-radius: 6px;
+  font-size: 11px; font-weight: 600; color: var(--text-secondary); background: color-mix(in srgb, var(--text-tertiary) 13%, transparent); box-shadow: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: 1px; cursor: pointer; }
+.tl-task:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text-tertiary) 20%, transparent); border: 0; }
+.tl-acts { display: flex; gap: 1px; opacity: 0; transition: opacity .15s; }
+.tl-row:hover .tl-acts, .tl-row:focus-within .tl-acts, .tl-row.editing .tl-acts { opacity: 1; }
+.tl-acts .icon-btn { min-width: 26px; padding: 4px 6px; }
+.tl-row.editing { background: color-mix(in srgb, var(--text) 4%, transparent); row-gap: 6px; }
+.tl-row.editing .tl-edit-at { width: 110px; font-size: 13px; }
+.tl-row.editing .tl-edit-text, .tl-row.editing .tl-edit-task { grid-column: 1 / -1; font-size: 13px; }
+.tl-empty { padding: 30px 12px; text-align: center; font-size: 12.5px; line-height: 1.5; color: var(--text-tertiary); }
+
+/* The box, at the bottom. */
+.tf-foot { flex: none; margin: 4px 12px 12px; padding: 8px 10px; border-radius: 12px; background: var(--content); border: 1px solid var(--hairline);
+  transition: border-color .2s, box-shadow .2s; }
+.tf-foot:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+#tl-input { width: 100%; height: 30px; padding: 0 2px; border: 0 !important; background: none !important; box-shadow: none !important; outline: none; font-size: 14px; }
+.tf-foot-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+#tl-task { --control-h: 28px; min-width: 0; flex: 1; max-width: 230px; font-size: 12px; }
+.tl-since { margin-left: auto; font-size: 11.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Beside the entries, when wide: the day by task, and the week. */
+.tl-sum { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 0 8px; font-size: 12.5px; }
+.tl-sum + .tl-sum { border-top: 1px solid var(--hairline); }
+.tl-sum-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.tl-sum b { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.tl-sum i { position: absolute; left: 0; bottom: 3px; height: 2px; width: var(--w); border-radius: 2px; background: color-mix(in srgb, var(--text-tertiary) 40%, transparent); }
+.tl-none { font-size: 12px; color: var(--text-tertiary); }
+.tl-week-total { float: right; font-weight: 600; color: var(--text-tertiary); }
+.tl-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.tl-wday { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 5px 0 4px; border: 0; border-radius: 8px; background: none; box-shadow: none;
+  font-size: 10.5px; color: var(--text-tertiary); cursor: pointer; transition: background .15s; }
+.tl-wday:hover:not(:disabled) { background: color-mix(in srgb, var(--text-tertiary) 10%, transparent); }
+.tl-wday.on { color: var(--text); font-weight: 600; background: color-mix(in srgb, var(--text-tertiary) 14%, transparent); }
+.tl-wday.later { opacity: .45; cursor: default; }
+.tl-wbar { display: flex; align-items: flex-end; width: 8px; height: 46px; border-radius: 4px; background: color-mix(in srgb, var(--text-tertiary) 12%, transparent); overflow: hidden; }
+.tl-wbar i { display: block; width: 100%; border-radius: 4px; background: var(--text-secondary); transition: height .35s var(--ease-out, ease); }
+.tl-wday.on .tl-wbar i { background: var(--text); }

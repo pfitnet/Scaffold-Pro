@@ -6379,3 +6379,32 @@ What changed:
 - Checked in Chromium (light and dark): both tabs, the old links, the
   sidebar, and the calendar's Week and Month. The Swift (one Go menu line)
   wasn't compiled here.
+
+## Batch 294 — The time log is a floating window; Search is a full row tall
+
+- **Time** is now a floating window on every page, like the Assistant's
+  chat and the calculator. Open it from the clock in the sidebar (under
+  Calculator) or with ⌥⌘T. Escape in its empty box closes it.
+  - It reads like a chat: the day's entries, newest at the bottom, and the
+    box underneath with the task list and "… since 10:42".
+  - The bar has ‹ › to move a day (click the day for today) and the day's
+    total.
+  - Move it by its bar and resize it from any edge or corner. Its place,
+    size and whether it's open are kept, so it stays open as you move
+    between pages. Wide enough, it shows the day by task and the week
+    beside the entries.
+  - It reloads after ⌘Z / ⌘Y (js/undo.js sends `app:undone`).
+- The Tasks page is just **Tasks** again (the sidebar, the Go menu and the
+  manual say so). Task cards still show the time you've logged on them.
+- The calculator and the time log share one piece of code for moving,
+  resizing and remembering their place (js/float-window.js). The calculator
+  works as before.
+- Fixed: the fixed quick-add bar's bottom was cut off. A strip meant to hide
+  the list behind it was drawn over the bar's focus ring and shadow, and is
+  removed.
+- Fixed: Search in the folded sidebar was squeezed to 19px. It is now 32px
+  tall, the same as a tab.
+- Checked in Chromium (light and dark): opening the window from the sidebar
+  and with ⌥⌘T, adding, linking a task, removing and undoing, moving
+  between days, widening, Escape, staying open across pages, the task chip,
+  and the calculator again.
