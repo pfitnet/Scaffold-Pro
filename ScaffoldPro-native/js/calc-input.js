@@ -9,48 +9,95 @@
 //   const c = window.calcRead(input);   // { value: 42, formula: '14+28' } — or null
 //                                       //   (not a number or sum: the box goes back)
 //
-// + − × ÷ and x, *, / all work; 1,250 is read as 1250.
+// + − × ÷ and x, *, / all work; 1,250 is read as 1250. Powers, roots and
+// the rest (see evaluate) work too: 2.5^2, sqrt(3^2+4^2), 6*sin(30).
 
 (function () {
   if (window.calcRead) return;
 
-  // Reads a sum (no eval): numbers, + - * / x × ÷, brackets, a leading minus.
-  function evaluate(text) {
-    const s = String(text || '').replace(/,/g, '').replace(/[×xX]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/\s+/g, '');
-    if (!s || /[^0-9.+\-*/()]/.test(s)) return null;
-    let i = 0;
-    const peek = () => s[i];
-    function number() {
-      const m = /^\d*\.?\d+|^\d+\.?/.exec(s.slice(i));
-      if (!m) throw new Error('number');
-      i += m[0].length;
-      return parseFloat(m[0]);
+  // Reads a sum (no eval): numbers (1,250 · 0.5 · 2e3), + - * / and x × ÷,
+  // brackets, a leading minus, powers (2^3, 4², 2³), roots (sqrt(9), √9,
+  // cbrt(27)), sin cos tan and asin acos atan in degrees, log (base 10), ln,
+  // exp, abs, round, and π / pi / e. 2π and 3(4+1) multiply.
+  const RAD = Math.PI / 180;
+  const FN = {
+    sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, ln: Math.log, log: Math.log10, exp: Math.exp, round: Math.round,
+    sin: (d) => Math.sin(d * RAD), cos: (d) => Math.cos(d * RAD), tan: (d) => Math.tan(d * RAD),
+    asin: (v) => Math.asin(v) / RAD, acos: (v) => Math.acos(v) / RAD, atan: (v) => Math.atan(v) / RAD,
+  };
+  const CONST = { pi: Math.PI, e: Math.E };
+  const SYMBOL = { '×': '*', '÷': '/', '−': '-', '–': '-' };
+  function tokens(text) {
+    const src = String(text || '').replace(/,/g, '');
+    const re = /\s*(?:((?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)|([a-zA-Z]+)|([-+*/^()×÷−–²³√π]))/y;
+    const out = [];
+    while (re.lastIndex < src.length) {
+      const at = re.lastIndex;
+      const m = re.exec(src);
+      if (!m) { if (/^\s*$/.test(src.slice(at))) break; return null; }
+      if (m[1] !== undefined) out.push({ n: parseFloat(m[1]) });
+      else if (m[2] !== undefined) { const w = m[2].toLowerCase(); out.push(w === 'x' ? { o: '*' } : { w }); }
+      else out.push({ o: SYMBOL[m[3]] || m[3] });
     }
-    function factor() {
-      if (peek() === '-') { i += 1; return -factor(); }
-      if (peek() === '+') { i += 1; return factor(); }
-      if (peek() === '(') {
-        i += 1;
+    return out;
+  }
+  function evaluate(text) {
+    const t = tokens(text);
+    if (!t || !t.length) return null;
+    let p = 0;
+    const is = (o) => t[p] && t[p].o === o;
+    function primary() {
+      const k = t[p];
+      if (!k) throw new Error('end');
+      p += 1;
+      if (k.n !== undefined) return k.n;
+      if (k.o === '(') {
         const v = sum();
-        if (peek() !== ')') throw new Error('bracket');
-        i += 1;
+        if (!is(')')) throw new Error('bracket');
+        p += 1;
         return v;
       }
-      return number();
-    }
-    function product() {
-      let v = factor();
-      while (peek() === '*' || peek() === '/') {
-        const op = s[i]; i += 1;
-        const r = factor();
-        v = op === '*' ? v * r : v / r;
+      if (k.o === 'π') return Math.PI;
+      if (k.o === '√') return Math.sqrt(postfix());
+      if (k.w !== undefined) {
+        if (k.w in CONST) return CONST[k.w];
+        if (FN[k.w]) return FN[k.w](primary());
       }
+      throw new Error('token');
+    }
+    function postfix() {
+      let v = primary();
+      while (is('²') || is('³')) { v **= t[p].o === '²' ? 2 : 3; p += 1; }
       return v;
+    }
+    // 2^3^2 = 2^9; -2^2 = -4; 2^-1 = 0.5.
+    function power() {
+      const b = postfix();
+      if (!is('^')) return b;
+      p += 1;
+      return b ** unary();
+    }
+    function unary() {
+      if (is('-')) { p += 1; return -unary(); }
+      if (is('+')) { p += 1; return unary(); }
+      return power();
+    }
+    const startsTerm = (k) => k && (k.o === '(' || k.o === 'π' || k.o === '√' || k.w !== undefined);
+    function product() {
+      let v = unary();
+      for (;;) {
+        if (is('*') || is('/')) {
+          const op = t[p].o; p += 1;
+          const r = unary();
+          v = op === '*' ? v * r : v / r;
+        } else if (startsTerm(t[p])) v *= power(); // 2π, 3(4+1), 2sqrt(9)
+        else return v;
+      }
     }
     function sum() {
       let v = product();
-      while (peek() === '+' || peek() === '-') {
-        const op = s[i]; i += 1;
+      while (is('+') || is('-')) {
+        const op = t[p].o; p += 1;
         const r = product();
         v = op === '+' ? v + r : v - r;
       }
@@ -58,13 +105,16 @@
     }
     try {
       const v = sum();
-      return i === s.length && Number.isFinite(v) ? v : null;
+      return p === t.length && Number.isFinite(v) ? v : null;
     } catch (e) {
       return null;
     }
   }
   // A sum, not just a number (a lone "-5" or "1,250" isn't one).
-  const isSum = (text) => /[0-9.)]\s*[+\-*/×xX÷−–]\s*[-(0-9.]/.test(String(text || '').replace(/,/g, ''));
+  const isSum = (text) => {
+    const t = String(text || '').replace(/,/g, '');
+    return /[0-9.)]\s*[+\-*/×xX÷−–^]\s*[-(0-9.]/.test(t) || /[²³√π]|[a-z]{2,}/i.test(t);
+  };
 
   // What the box holds: its value and the sum (if it is one); null when it
   // isn't a number or a sum — then the box shows what it had.

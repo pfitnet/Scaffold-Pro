@@ -1,7 +1,7 @@
 /* The floating calculator (js/calculator.js): ⌥⌘C or the calculator in the sidebar. */
 .calc-float { position: fixed; right: 24px; bottom: 24px; z-index: var(--z-float); width: 272px; display: flex; flex-direction: column;
   border-radius: var(--radius-xl); border: 1px solid var(--hairline); background: var(--panel); box-shadow: var(--shadow-sheet); overflow: hidden;
-  transform-origin: bottom right; }
+  transform-origin: bottom right; container-type: inline-size; }
 /* Popped in only when opened (a class taken off once it's done), so moving it never plays it again. */
 .calc-float.popping { animation: calc-pop var(--dur-sheet, .32s) var(--spring, ease) both; }
 .calc-float.hidden { display: none; }
@@ -29,7 +29,12 @@
 .calc-copy svg { width: 14px; height: 14px; }
 .calc-float.has-answer .calc-copy { visibility: visible; }
 
-.calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 12px 12px; }
+.calc-pad { display: flex; gap: 6px; padding: 0 12px 12px; }
+.calc-keys { flex: 4; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+/* Engineering keys: once it's been made wide enough (drag the corner). */
+.calc-sci { display: none; flex: 3; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+@container (min-width: 440px) { .calc-sci { display: grid; } }
+.calc-key.sci { font-size: 14px; color: var(--text-secondary); background: color-mix(in srgb, var(--text) 3%, var(--panel)); }
 .calc-key { height: 42px; padding: 0; justify-content: center; border-radius: 11px; font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--text) 5%, var(--panel)); border: 1px solid var(--hairline); box-shadow: none; color: var(--text); }
 .calc-key:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 10%, var(--panel)); }
@@ -40,14 +45,33 @@
 
 .calc-tape-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px 4px; border-top: 1px solid var(--hairline);
   font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
-.calc-tape-clear { height: 20px; padding: 0 6px; font-size: 11px; border: 0; background: none; box-shadow: none; color: var(--text-tertiary); }
-.calc-tape-clear:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); border: 0; }
-.calc-tape { list-style: none; margin: 0; padding: 0 6px 8px; max-height: 150px; overflow-y: auto; }
+.calc-tape-acts { display: inline-flex; gap: 2px; }
+.calc-tape-acts[hidden] { display: none; }
+.calc-tape-clear, .calc-tape-copy, .calc-t-copy { width: 22px; height: 22px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: none; box-shadow: none; border-radius: 6px; color: var(--text-tertiary); }
+.calc-tape-clear:hover:not(:disabled), .calc-tape-copy:hover:not(:disabled), .calc-t-copy:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); border: 0; }
+.calc-tape { list-style: none; margin: 0; padding: 0 6px 18px; max-height: 150px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+/* Made taller by hand: the tape takes the room. */
+.calc-float.sized .calc-tape { max-height: none; }
+.calc-t-copy { width: 20px; height: 20px; flex: none; align-self: center; margin: -2px -4px -2px 0; opacity: 0; transition: opacity .12s; }
+.calc-tape li:hover .calc-t-copy, .calc-t-copy:focus-visible { opacity: 1; }
+.calc-grip { position: absolute; right: 3px; bottom: 3px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary); cursor: nwse-resize; touch-action: none; border-radius: 5px; }
+.calc-grip:hover, .calc-float.resizing .calc-grip { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.calc-edge { position: absolute; z-index: 2; touch-action: none; }
+.calc-edge.e-n { top: 0; left: 12px; right: 12px; height: 5px; cursor: ns-resize; }
+.calc-edge.e-s { bottom: 0; left: 12px; right: 18px; height: 5px; cursor: ns-resize; }
+.calc-edge.e-e { right: 0; top: 12px; bottom: 18px; width: 5px; cursor: ew-resize; }
+.calc-edge.e-w { left: 0; top: 12px; bottom: 12px; width: 5px; cursor: ew-resize; }
+.calc-edge.e-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.calc-edge.e-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.calc-edge.e-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.calc-float.resizing { user-select: none; -webkit-user-select: none; }
 .calc-tape li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 5px 8px; border-radius: 7px; font-size: 12.5px;
   font-variant-numeric: tabular-nums; cursor: default; }
 .calc-tape li[data-i]:hover { background: var(--row-selected); }
 .calc-t-sum { color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.calc-tape b { font-weight: 650; color: var(--text); white-space: nowrap; }
+.calc-tape b { margin-left: auto; font-weight: 650; color: var(--text); white-space: nowrap; }
 .calc-t-empty { color: var(--text-tertiary); font-size: 12px; justify-content: center !important; }
 
 /* The sidebar's button: its name only where the sidebar has room for it (the open rail). */
