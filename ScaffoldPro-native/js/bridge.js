@@ -478,6 +478,13 @@
       teams: () => callNative('tasks:teams'),
       get: (id) => callNative('tasks:get', { id: id }).then((r) => (r && r[0]) || null),
     },
+    // Schedule › Time: a chain of "just finished" entries (Sources/TimeLog.swift).
+    time: {
+      list: (from, to) => callNative('time:list', { from: from, to: to }),
+      add: (entry) => callNative('time:add', entry),
+      save: (entry) => callNative('time:save', entry),
+      remove: (id) => callNative('time:delete', { id: id }),
+    },
     // Everything dated between two days (yyyy-MM-dd).
     calendar: {
       events: (from, to) => callNative('calendar:events', { from: from, to: to }),

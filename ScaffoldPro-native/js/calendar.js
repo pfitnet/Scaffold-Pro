@@ -7,7 +7,7 @@
 // choices are remembered on this Mac. Hover an item for a preview; click it
 // to open it. Events (a start and an end: a meeting, a site visit) are
 // blocks on the week; drag down an empty column to make one. Keys: ←/→ day,
-// ↑/↓ week, T today, W/M view, N new task, E new event.
+// ↑/↓ week, T today, W/M view, L list, G time log, N new task, E new event.
 
 const ICON = (d) => `<svg viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const KINDS = [
@@ -69,7 +69,7 @@ function weekStartFor(d) {
 }
 
 // ⌘Z / ⌘Y redraw the page with this, not a reload (js/undo.js).
-window.appRefresh = () => Promise.all([load(), window.scheduleList ? window.scheduleList.load() : null]);
+window.appRefresh = () => Promise.all([load(), window.scheduleList ? window.scheduleList.load() : null, window.timeLog ? window.timeLog.load() : null]);
 
 function range() {
   const start = view === 'week' ? new Date(weekStart) : gridStart(month);
@@ -428,21 +428,39 @@ function go(delta) {
   load(delta);
 }
 
-// List (the tasks, js/tasks.js) sits beside Week and Month.
-function showList(on) {
-  document.body.classList.toggle('sch-list-view', on);
-  document.getElementById('sch-list').classList.toggle('hidden', !on);
-  for (const b of document.querySelectorAll('#cal-view button')) b.classList.toggle('active', b.dataset.view === (on ? 'list' : view));
+// List (the tasks, js/tasks.js) and Time (the time log, js/time-log.js)
+// sit beside Week and Month.
+const pane = () => (document.body.classList.contains('sch-list-view') ? 'list' : document.body.classList.contains('sch-time-view') ? 'time' : null);
+function showPane(p) {
+  for (const n of ['list', 'time']) {
+    document.body.classList.toggle(`sch-${n}-view`, p === n);
+    document.getElementById(`sch-${n}`).classList.toggle('hidden', p !== n);
+  }
+  for (const b of document.querySelectorAll('#cal-view button')) b.classList.toggle('active', b.dataset.view === (p || view));
+  if (p === 'time' && window.timeLog) window.timeLog.shown();
 }
+// The entry boxes (List, Time) are fixed to the bottom of the window
+// (css/calendar.css): keep each over its list's column.
+function placeBars() {
+  for (const bar of document.querySelectorAll('.cal-page .tk-quick')) {
+    const col = bar.parentElement.getBoundingClientRect();
+    if (!col.width) continue;
+    bar.style.left = `${col.left}px`;
+    bar.style.width = `${col.width}px`;
+  }
+}
+const barsWatch = new ResizeObserver(placeBars);
+for (const el of [document.getElementById('content'), ...document.querySelectorAll('.cal-page .tk-main')]) barsWatch.observe(el);
+
 function setView(v) {
-  if (v === 'list') {
-    showList(true);
-    try { localStorage.setItem('calendar.view', 'list'); } catch (e) { /* ignore */ }
+  if (v === 'list' || v === 'time') {
+    showPane(v);
+    try { localStorage.setItem('calendar.view', v); } catch (e) { /* ignore */ }
     return;
   }
-  const wasList = document.body.classList.contains('sch-list-view');
-  showList(false);
-  if (v === view && !wasList) return;
+  const wasPane = pane();
+  showPane(null);
+  if (v === view && !wasPane) return;
   view = v;
   try { localStorage.setItem('calendar.view', v); } catch (e) { /* ignore */ }
   const anchor = dayOf(selected || todayKey());
@@ -601,19 +619,26 @@ document.addEventListener('keydown', (e) => {
   const t = e.target;
   if (t && (t.closest('input, textarea, select, [contenteditable="true"], .modal, .modal-backdrop, dialog') || t.isContentEditable)) return;
   if (document.querySelector('.modal-backdrop:not(.hidden), .modal.open, dialog[open]')) return;
-  const list = document.body.classList.contains('sch-list-view');
+  const k = e.key.toLowerCase();
+  // Time: ←/→ the day, T today, N the box.
+  if (pane() === 'time' && window.timeLog) {
+    const step = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    if (step) { e.preventDefault(); window.timeLog.go(step); return; }
+    if (k === 't') { e.preventDefault(); window.timeLog.today(); return; }
+    if (k === 'n' && !e.shiftKey) { e.preventDefault(); window.timeLog.focus(); return; }
+  }
   const sel = dayOf(selected || todayKey());
   // Arrows move the day in Week and Month; in List they're the list's own.
   const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
-  if (move && !list) { e.preventDefault(); jumpTo(ymd(addDays(sel, move))); return; }
-  const k = e.key.toLowerCase();
-  // N: the quick-add bar; ⇧N: the full task form. E: a new event.
-  if (k === 'n' && !e.shiftKey && window.scheduleList) { e.preventDefault(); window.scheduleList.focusQuick(); return; }
+  if (move && !pane()) { e.preventDefault(); jumpTo(ymd(addDays(sel, move))); return; }
+  // N: List's quick-add bar (elsewhere, and ⇧N, the full task form). E: a new event.
+  if (k === 'n' && !e.shiftKey && window.scheduleList && pane() === 'list') { e.preventDefault(); window.scheduleList.focusQuick(); return; }
   if (k === 'n') { e.preventDefault(); addTask(selected); return; }
   if (e.key === '/' && window.scheduleList) { e.preventDefault(); setView('list'); window.scheduleList.focusSearch(); return; }
   if (k === 'e') { e.preventDefault(); addTask(selected, null, null, true); return; }
   if (k === 'l') { e.preventDefault(); setView('list'); return; }
-  if (k === 't') { e.preventDefault(); goToday(); } else if (k === 'w') { e.preventDefault(); setView('week'); } else if (k === 'm') { e.preventDefault(); setView('month'); } else if (!list && e.key === 'PageUp') { e.preventDefault(); go(-1); } else if (!list && e.key === 'PageDown') { e.preventDefault(); go(1); }
+  if (k === 'g') { e.preventDefault(); setView('time'); return; }
+  if (k === 't') { e.preventDefault(); goToday(); } else if (k === 'w') { e.preventDefault(); setView('week'); } else if (k === 'm') { e.preventDefault(); setView('month'); } else if (!pane() && e.key === 'PageUp') { e.preventDefault(); go(-1); } else if (!pane() && e.key === 'PageDown') { e.preventDefault(); go(1); }
 });
 
 (async function init() {
@@ -660,5 +685,6 @@ document.addEventListener('keydown', (e) => {
   let remembered = null;
   try { remembered = localStorage.getItem('calendar.view'); } catch (e) { remembered = null; }
   if (q.get('view') === 'list' || q.get('task') || (!qDay && remembered === 'list')) setView('list');
+  else if (q.get('view') === 'time' || (!qDay && remembered === 'time')) setView('time');
   if (q.get('event')) editEvent(q.get('event'));
 })();

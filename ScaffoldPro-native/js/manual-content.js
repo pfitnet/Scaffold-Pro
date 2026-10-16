@@ -114,12 +114,14 @@ window.MANUAL_CONTENT = [
     tag: 'Tasks and everything with a date, in one place: a list, a week or a month.',
     blocks: [
       { type: 'shot', shot: 'calendar', points: [
-        [7, 'Quick add', 'Type it as you’d say it'], [1, '‹ Today ›', 'A week or month at a time'], [2, 'List · Week · Month', '{L} {W} {M}'],
+        [1, '‹ Today ›', 'A week or month at a time'], [2, 'List · Week · Month · Time', '{L} {W} {M} {G}'],
         [3, 'Filters', '⌥-click shows only that kind'], [4, 'The week', 'Drag down an hour column for an event'],
-        [5, 'Mini month', 'Dots mark busy days'], [6, 'The chosen day', 'Then what’s next'], [8, 'New Task · New Event', '{⇧N} · {E}'],
+        [5, 'Mini month', 'Dots mark busy days'], [6, 'The chosen day', 'Then what’s next'], [7, 'New Task · New Event', '{N} · {E}'],
       ] },
       { type: 'flow', title: 'Scheduling an event', chain: 'grey|Press at 10:00|On the day > grey|Drag to 12:30|Snaps to quarter hours > team|Name it|For a person, a team or anyone' },
-      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{L} {W} {M}', 'List · Week · Month'], ['{N}', 'Quick add'], ['{⇧N}', 'New task'], ['{E}', 'New event']] },
+      { type: 'keys', keys: [['{←} {→}', 'A day'], ['{↑} {↓}', 'A week'], ['{T}', 'Today'], ['{L} {W} {M} {G}', 'List · Week · Month · Time'], ['{N}', 'New task'], ['{E}', 'New event']] },
+      { type: 'flow', title: 'Logging your time (Time)', chain: 'grey|Arrived|The first entry starts the day > grey|Site visit|Return: timed from the last entry > team|For a task|Its card shows the time' },
+      { type: 'tip', icon: 'clock', text: 'In **Time** there’s no start or stop: type what you **just finished** in the box at the bottom and press {Return}. Hover an entry to change its time or words.' },
       { type: 'tip', icon: 'pointer', text: 'Rest on anything for its details. Click to open it — or, for an event, to change it.' },
     ],
   },

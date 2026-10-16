@@ -59,6 +59,8 @@ final class AppDatabase {
     let signRequestsStore: JSONStore<SignRequest>
     let chatStore: JSONStore<ChatMessage>
     let promotionsStore: JSONStore<Promotion>
+    /// Schedule › Time (Sources/TimeLog.swift).
+    let timeEntriesStore: JSONStore<TimeEntry>
 
     init(dataDir: URL) {
         self.dataDir = dataDir
@@ -102,5 +104,6 @@ final class AppDatabase {
         signRequestsStore = JSONStore(fileURL: dataDir.appendingPathComponent("sign_requests.json"))
         chatStore = JSONStore(fileURL: dataDir.appendingPathComponent("chat_messages.json"))
         promotionsStore = JSONStore(fileURL: dataDir.appendingPathComponent("promotions.json"))
+        timeEntriesStore = JSONStore(fileURL: dataDir.appendingPathComponent("time_entries.json"))
     }
 }
