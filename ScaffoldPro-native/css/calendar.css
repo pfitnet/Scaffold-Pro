@@ -31,7 +31,7 @@
 .cn-today.here { color: var(--accent-text); }
 .cal-week-start { display: inline-flex; align-items: center; gap: 6px; color: var(--text-tertiary); }
 .cal-week-start select { --control-h: 30px; font-size: 12px; border-radius: 9px; }
-.cal-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.cal-filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
 .cal-filter { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px 0 9px; border-radius: 999px; font-size: 12px; font-weight: 520;
   border: 1px solid color-mix(in srgb, var(--k) 28%, var(--border)); background: color-mix(in srgb, var(--k) 8%, var(--panel)); box-shadow: none;
   color: var(--text); transition: background-color .2s, border-color .2s, color .2s, opacity .2s, transform .2s var(--spring); }
@@ -268,8 +268,21 @@ html.page-enter #content > .sch-list, html.page-enter #content > .sch-time { ani
 .cal-period { font-size: 16px; font-weight: 600; margin: 0 6px 0 4px; white-space: nowrap; }
 .cal-period span { color: var(--text-tertiary); font-weight: 500; }
 .sch-list-view .cal-layout, .sch-list-view .cn-nav, .sch-list-view .cal-week-start, .sch-list-view .cal-filters, .sch-list-view .cal-period, .sch-list-view .cal-keys { display: none !important; }
-.sch-time-view .cal-layout, .sch-time-view .cn-nav, .sch-time-view .cal-week-start, .sch-time-view .cal-filters, .sch-time-view .cal-toolbar > .cal-period, .sch-time-view .cal-keys { display: none !important; }
-.sch-list .tk-layout { margin-top: 4px; }
+/* Time uses the toolbar's ‹ Today › with its own day title (#tl-day). */
+.sch-time-view .cal-layout, .sch-time-view .cal-week-start, .sch-time-view .cal-filters, .sch-time-view #cal-title, .sch-time-view .cal-keys { display: none !important; }
+body:not(.sch-time-view) #tl-day { display: none; }
+/* One frame for all four views (List, Week, Month, Time): the same columns,
+   side cards and breakpoint as the calendar, so switching changes what's
+   shown, never where things are. */
+.cal-page .tk-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+.cal-page .tk-side { gap: 12px; }
+.cal-page .tk-panel, .cal-page .tk-hero.tk-today { margin: 0; padding: 16px 18px; border-radius: var(--radius-lg); background: var(--panel);
+  border: 1px solid var(--border); box-shadow: var(--shadow-card); }
+.cal-page .tk-panel h3 { margin: 0 0 12px; font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em; text-transform: none; color: var(--text); }
+@media (max-width: 1280px) {
+  .cal-page .tk-layout { grid-template-columns: minmax(0, 1fr); }
+  .cal-page .tk-side { order: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+}
 /* Today's progress, as the side rail's first panel. */
 .tk-hero.tk-today { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 14px 16px; margin: 0 0 12px; border-radius: var(--radius-lg);
   background: var(--panel); border: 1px solid var(--hairline); box-shadow: var(--shadow-card); }
@@ -277,7 +290,10 @@ html.page-enter #content > .sch-list, html.page-enter #content > .sch-time { ani
 .tk-today .tk-greeting { font-size: 13.5px; font-weight: 600; margin: 0; }
 .tk-today .tk-summary { font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 8px; }
 .tk-today .tk-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; grid-column: 1 / -1; }
-.tk-today .tk-ring { width: 64px; height: 64px; grid-row: 1; grid-column: 2; }
+.tk-today .tk-ring { width: 72px; height: 72px; grid-row: 1; grid-column: 2; }
+/* The small ring's words, sized to sit inside it. */
+.tk-today .tk-ring-label b { font-size: 16px; letter-spacing: -0.02em; }
+.tk-today .tk-ring-label span { max-width: 50px; font-size: 9px; line-height: 1.15; text-align: center; margin-top: 0; }
 .tk-today .tk-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 .tk-today .tk-stat { display: flex !important; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px !important; min-width: 0; }
 .tk-today .tk-stat span { font-size: 11.5px; line-height: 1.25; color: var(--text-secondary); }

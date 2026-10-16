@@ -83,11 +83,9 @@ function reload() {
 function render() {
   const today = ymd(new Date());
   const d = dayOf(day);
-  $('tl-day').innerHTML = `${day === today ? 'Today' : day === ymd(addDays(new Date(), -1)) ? 'Yesterday' : WEEKDAYS[d.getDay()]} <span>${esc(window.appDay ? window.appDay(day) : day)}</span>`;
-  $('tl-next').disabled = day >= today;
   const rows = entries.filter((e) => e.at.slice(0, 10) === day);
   const total = rows.reduce((s, e) => s + e.mins, 0);
-  $('tl-total').textContent = total ? length(total) : '';
+  $('tl-day').innerHTML = `${day === today ? 'Today' : day === ymd(addDays(new Date(), -1)) ? 'Yesterday' : WEEKDAYS[d.getDay()]} <span>${esc(window.appDay ? window.appDay(day) : day)}</span>${total ? `<span class="tl-total">${esc(length(total))}</span>` : ''}`;
 
   $('tl-list').innerHTML = rows.length ? rows.map((e) => editing === e.id ? `
     <li class="tl-row editing" data-id="${esc(e.id)}">
@@ -198,8 +196,6 @@ $('tl-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); }
   if (e.key === 'Escape') e.target.blur();
 });
-$('tl-prev').addEventListener('click', () => show(ymd(addDays(dayOf(day), -1))));
-$('tl-next').addEventListener('click', () => show(ymd(addDays(dayOf(day), 1))));
 $('tl-week').addEventListener('click', (e) => { const b = e.target.closest('[data-day]'); if (b) show(b.dataset.day); });
 $('tl-list').addEventListener('click', async (e) => {
   const chip = e.target.closest('[data-task]');

@@ -28,18 +28,20 @@
 
 
     <div class="cal-toolbar">
-      <div class="cn-nav">
-        <button id="cal-prev" class="cal-round" data-no-icon title="Previous" aria-label="Previous"><i data-icon="caret-left" data-size="14"></i></button>
-        <button id="cal-today" class="cn-today" data-no-icon title="Go to today (T)">Today</button>
-        <button id="cal-next" class="cal-round" data-no-icon title="Next" aria-label="Next"><i data-icon="caret-right" data-size="14"></i></button>
-      </div>
-      <h2 class="cal-period" id="cal-title"></h2>
+      <!-- First, so it stays put whichever view is chosen. -->
       <div class="segmented" id="cal-view" role="tablist" aria-label="View">
         <button data-view="list" data-no-icon title="List (L)">List</button>
         <button data-view="week" class="active" data-no-icon title="Week (W)">Week</button>
         <button data-view="month" data-no-icon title="Month (M)">Month</button>
         <button data-view="time" data-no-icon title="Time log (G)">Time</button>
       </div>
+      <div class="cn-nav">
+        <button id="cal-prev" class="cal-round" data-no-icon title="Previous" aria-label="Previous"><i data-icon="caret-left" data-size="14"></i></button>
+        <button id="cal-today" class="cn-today" data-no-icon title="Go to today (T)">Today</button>
+        <button id="cal-next" class="cal-round" data-no-icon title="Next" aria-label="Next"><i data-icon="caret-right" data-size="14"></i></button>
+      </div>
+      <h2 class="cal-period" id="cal-title"></h2>
+      <h2 class="cal-period tl-day" id="tl-day" title="Logged this day"></h2>
       <label class="cal-week-start" title="Which day the week view starts on">
         <i data-icon="calendar" data-size="13"></i>
         <select id="cal-week-start" aria-label="Week starts">
@@ -49,7 +51,6 @@
           <option value="sunday">From Sunday</option>
         </select>
       </label>
-      <div class="cal-filters" id="cal-filters" role="group" aria-label="Show"></div>
     </div>
 
     <!-- List: the tasks, grouped by when they're due (js/tasks.js) -->
@@ -116,12 +117,6 @@
     <section class="sch-time hidden" id="sch-time">
       <div class="tk-layout">
         <div class="tk-main">
-          <div class="tl-head">
-            <button id="tl-prev" class="cal-round" data-no-icon title="Previous day (←)" aria-label="Previous day"><i data-icon="caret-left" data-size="14"></i></button>
-            <button id="tl-next" class="cal-round" data-no-icon title="Next day (→)" aria-label="Next day"><i data-icon="caret-right" data-size="14"></i></button>
-            <h2 class="cal-period" id="tl-day"></h2>
-            <span class="tl-total" id="tl-total" title="Logged this day"></span>
-          </div>
           <ol class="tl-list" id="tl-list"></ol>
           <div class="tk-quick tl-bar">
             <span class="tk-quick-plus" aria-hidden="true"><i data-icon="clock" data-size="17"></i></span>
@@ -145,6 +140,8 @@
 
     <div class="cal-layout">
       <div class="cal-main" id="cal-main">
+        <!-- Which kinds show: here rather than in the toolbar, so the toolbar is one row in every view. -->
+        <div class="cal-filters" id="cal-filters" role="group" aria-label="Show"></div>
         <div class="cal-month hidden" id="cal-grid"></div>
         <div class="week hidden" id="cal-week"></div>
         <div class="cal-keys">

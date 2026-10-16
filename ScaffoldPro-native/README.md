@@ -6320,3 +6320,37 @@ What changed:
   linking a task, changing, removing, moving between days and the task
   chips. The Swift wasn't compiled here: check that the app builds, then log
   a few entries in Schedule › Time.
+
+## Batch 292 — Calculator: resize it for engineering keys; Schedule: one layout for every view
+
+- **Calculator:**
+  - Powers and roots now work: `2.5^2`, `4²`, `sqrt(9)`, `√16`, `cbrt(27)`.
+    So do `sin cos tan` and `asin acos atan` (in degrees), `log` (base 10),
+    `ln`, `exp`, `abs`, `round`, and `π` / `pi` / `e`. `2π` and `3(4+1)`
+    multiply. Before, any letter or `^` made the sum unreadable. The same
+    reader is used by the quantity and price boxes and the worked-out
+    columns, so these work there too (js/calc-input.js `evaluate`).
+  - Resize it from any edge or corner, like a window (the size is kept on
+    this Mac; double-click the corner for the small size again). Once it's
+    wide enough, engineering keys show beside the number keys: sin, cos,
+    tan and their inverses, x², x³, xʸ, √, ∛, 1/x, π, log, ln. A function
+    key wraps what's selected, or the answer just worked out.
+  - The tape can be copied with its sums: the copy icon in the Tape heading
+    copies every line, oldest first ("2.07*4+1.5*12 = 26.28"), and the icon
+    on a line copies that one. Clear is now a bin icon.
+- **Schedule (List, Week, Month, Time):**
+  - The view switch comes first in the toolbar, so it no longer jumps left
+    and right when you change views.
+  - The kinds filter moved from the toolbar to just above the calendar, so
+    the toolbar is one row in every view.
+  - All four views share the same columns: the side panels are 300px wide,
+    with the same gap, the same card style and headings, and go under the
+    content below 1280px wide, as the calendar's did.
+  - Time now uses the toolbar's ‹ Today › and shows its day (and the day's
+    total) where Week and Month show their dates.
+  - The small progress ring's "100%" no longer spills out of the ring.
+- Checked in Chromium (light and dark, 1280 and 1500 wide): the switch
+  stays at the same spot and the side panels at the same place in all four
+  views. The calculator's sums were checked with 37 cases, and its keys,
+  resizing and copying were tried. The User Manual's Schedule and Tasks
+  pictures are retaken.
