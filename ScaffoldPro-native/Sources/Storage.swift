@@ -333,7 +333,7 @@ final class UndoJournal {
         let areas = ["boq": "BOQ", "quotations": "quotation", "invoices": "invoice", "deliveryNotes": "delivery note", "letters": "letter",
                      "projects": "project", "clients": "client", "sites": "site", "priceListItems": "material list", "priceLists": "material list",
                      "drawings": "drawing", "documents": "document", "stock": "stock", "accounts": "accounts", "employees": "employee",
-                     "tasks": "task", "inspections": "inspection", "marketing": "lead", "settings": "settings", "workers": "worker",
+                     "tasks": "task", "time": "time entry", "inspections": "inspection", "marketing": "lead", "settings": "settings", "workers": "worker",
                      "workerDocuments": "worker document", "adminDocuments": "admin document", "lines": "quantities"]
         guard parts.count == 2 else { return action }
         var words = ""

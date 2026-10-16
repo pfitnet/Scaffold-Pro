@@ -6289,3 +6289,27 @@ What changed:
   Sources/PDFGenerator.swift; `BQSheet.termsBox`).
 - The Swift wasn't compiled here, and the PDF wasn't seen. Check one
   quotation's terms after updating.
+
+## Batch 291 — Schedule › Time: a time log with no start or stop
+
+- A new **Time** view on the Schedule page, beside List, Week and Month
+  (key **G**).
+- How it works: type what you just finished and press Return. It records the
+  time from your previous entry that day until now. There is no start or
+  stop button. The day's first entry only marks the start, so type
+  something like "Arrived" when you begin.
+- An entry can be for a task: pick it in the list beside the box. The
+  task's card in List then shows the time you've logged on it (clock chip),
+  and the task name on an entry opens that task.
+- The day's entries show newest first, with the times, the length and the
+  words. Hover one to change it (time, words, task) or remove it (⌘Z puts it
+  back). Changing an entry's time moves the next one's start with it.
+- At the side: the day's time by task, and the week as a bar a day (click a
+  day to see it). ← / → move a day, T goes back to today, N goes to the box.
+- Each person sees only their own entries. They sync to the other Macs like
+  everything else (`time_entries.json`, Sources/TimeLog.swift; routes
+  `time:list`, `time:add`, `time:save`, `time:delete`; page js/time-log.js).
+- Checked in Chromium (light, dark, phone width) with a mock bridge: adding,
+  linking a task, changing, removing, moving between days and the task
+  chips. The Swift wasn't compiled here: check that the app builds, then log
+  a few entries in Schedule › Time.

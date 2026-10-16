@@ -259,6 +259,7 @@
 .cal-period { font-size: 16px; font-weight: 600; margin: 0 6px 0 4px; white-space: nowrap; }
 .cal-period span { color: var(--text-tertiary); font-weight: 500; }
 .sch-list-view .cal-layout, .sch-list-view .cn-nav, .sch-list-view .cal-week-start, .sch-list-view .cal-filters, .sch-list-view .cal-period, .sch-list-view .cal-keys { display: none !important; }
+.sch-time-view .cal-layout, .sch-time-view .cn-nav, .sch-time-view .cal-week-start, .sch-time-view .cal-filters, .sch-time-view .cal-toolbar > .cal-period, .sch-time-view .cal-keys, .sch-time-view #tk-quick { display: none !important; }
 .sch-list .tk-layout { margin-top: 4px; }
 /* Today's progress, as the side rail's first panel. */
 .tk-hero.tk-today { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 14px 16px; margin: 0 0 12px; border-radius: var(--radius-lg);

@@ -46,6 +46,7 @@
         <button data-view="list" data-no-icon title="List (L)">List</button>
         <button data-view="week" class="active" data-no-icon title="Week (W)">Week</button>
         <button data-view="month" data-no-icon title="Month (M)">Month</button>
+        <button data-view="time" data-no-icon title="Time log (G)">Time</button>
       </div>
       <label class="cal-week-start" title="Which day the week view starts on">
         <i data-icon="calendar" data-size="13"></i>
@@ -109,6 +110,38 @@
     </div>
     </section>
 
+    <!-- Time: a chain of "just finished" entries, each timed from the one
+         before (js/time-log.js) -->
+    <section class="sch-time hidden" id="sch-time">
+      <div class="tk-quick tl-bar">
+        <span class="tk-quick-plus" aria-hidden="true"><i data-icon="clock" data-size="17"></i></span>
+        <input type="text" id="tl-input" autocomplete="off" placeholder="What did you just finish? Press Return" aria-label="What you just finished" />
+        <select id="tl-task" aria-label="For a task" title="For a task"><option value="">No task</option></select>
+        <span class="tl-since" id="tl-since" title="What Return will record"></span>
+      </div>
+      <div class="tk-layout">
+        <div class="tk-main">
+          <div class="tl-head">
+            <button id="tl-prev" class="cal-round" data-no-icon title="Previous day (←)" aria-label="Previous day"><i data-icon="caret-left" data-size="14"></i></button>
+            <button id="tl-next" class="cal-round" data-no-icon title="Next day (→)" aria-label="Next day"><i data-icon="caret-right" data-size="14"></i></button>
+            <h2 class="cal-period" id="tl-day"></h2>
+            <span class="tl-total" id="tl-total" title="Logged this day"></span>
+          </div>
+          <ol class="tl-list" id="tl-list"></ol>
+        </div>
+        <aside class="tk-side">
+          <section class="tk-panel">
+            <h3>By task</h3>
+            <div id="tl-by-task"></div>
+          </section>
+          <section class="tk-panel">
+            <h3>This week <span class="tl-week-total" id="tl-week-total"></span></h3>
+            <div class="tl-week" id="tl-week"></div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
     <div class="cal-layout">
       <div class="cal-main" id="cal-main">
         <div class="cal-month hidden" id="cal-grid"></div>
@@ -143,6 +176,7 @@
   <script src="js/hover-menu.js"></script>
   <script src="js/controls.js"></script>
   <script src="js/task-editor.js"></script>
+  <script src="js/time-log.js"></script>
   <script src="js/tasks.js"></script>
   <script src="js/calendar.js"></script>
 </body>

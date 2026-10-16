@@ -19,6 +19,7 @@ let view = 'mine';
 let dayFilter = '';
 let flashId = '';
 let firstDraw = true;
+let logged = {};   // { taskId: minutes } from your time log (js/time-log.js)
 
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const pad = (n) => String(n).padStart(2, '0');
@@ -145,7 +146,7 @@ function cardHTML(r, i) {
       <div class="tk-body">
         <div class="tk-title">${t.priority === 'High' ? `<span class="tk-flag" title="High priority">${ICON.flag}</span>` : ''}<span class="tk-title-text">${esc(t.title)}</span></div>
         ${t.notes ? `<div class="tk-notes">${esc(t.notes)}</div>` : ''}
-        ${dueChip(r) || project || t.team ? `<div class="tk-meta">${dueChip(r)}${project}${!t.assignee && t.team ? `<span class="tk-chip">${esc(t.team)} team</span>` : ''}</div>` : ''}
+        ${dueChip(r) || project || t.team || logged[t.id] ? `<div class="tk-meta">${dueChip(r)}${project}${!t.assignee && t.team ? `<span class="tk-chip">${esc(t.team)} team</span>` : ''}${logged[t.id] ? `<span class="tk-chip" title="Your time logged on it (Time)">${window.icon('clock', { size: 12 })}${esc(window.timeLog.length(logged[t.id]))}</span>` : ''}</div>` : ''}
       </div>
       <div class="tk-side-right">
         ${t.done ? '' : `<div class="tk-actions">
@@ -490,8 +491,10 @@ async function quickAdd() {
 
 
 async function load() {
-  const [r, pr, pe] = await Promise.all([window.api.tasks.list(), window.api.projects.list(), window.api.tasks.people()]);
+  const [r, pr, pe, tl] = await Promise.all([window.api.tasks.list(), window.api.projects.list(), window.api.tasks.people(),
+    window.timeLog ? window.api.time.list() : null]);
   rows = r || [];
+  logged = tl && window.timeLog ? window.timeLog.taskTotals(tl) : {};
   projects = (pr || []).filter((x) => x.status !== 'Archived');
   people = pe || [];
   const person = document.getElementById('task-person');

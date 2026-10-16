@@ -881,6 +881,16 @@ extension NativeBridge {
         case "tasks:get":
             let task = db.tasksStore.readAll().first { $0.id == ((payload["id"] as? String) ?? "") }
             respond(id: id, encodable: task.map { [$0] } ?? [])
+        case "time:list":
+            respond(id: id, encodable: db.listTimeEntries(from: payload["from"] as? String, to: payload["to"] as? String))
+        case "time:add":
+            respond(id: id, encodable: db.addTimeEntry(payload))
+        case "time:save":
+            let error = db.saveTimeEntry(payload)
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
+        case "time:delete":
+            let error = db.deleteTimeEntry(id: (payload["id"] as? String) ?? "")
+            respond(id: id, encodable: SimpleResult(ok: error == nil, error: error))
         case "docEdits:get":
             handleDocEditsGet(id: id, payload: payload)
         case "docEdits:save":
