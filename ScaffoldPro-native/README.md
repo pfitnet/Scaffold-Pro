@@ -6430,3 +6430,16 @@ What changed:
   moving the smaller window aside, the second and third left alone, the
   bounce coming back once 2 minutes have passed, and the Assistant opening
   over both other windows with each moving to a clear spot.
+
+## Batch 296 — Floating windows: the one you're moving stays put, on top
+
+- When a floating window is dropped, opened or resized on top of another,
+  the one you're moving now stays exactly where you put it, and the other
+  one springs aside. Before, the smaller of the two moved. The 2-minute
+  rule for overlapping on purpose is unchanged.
+- The window you press, drag or open sits above the other floating windows
+  (`.float-front`, one step above `--z-float`, still under menus and
+  sheets). Before, the one added to the page last was always on top.
+- Checked in Chromium: dragging the calculator onto the larger Time window
+  leaves the calculator where it was dropped, on top, and the Time window
+  moves aside; a second overlap within 2 minutes is left as put.

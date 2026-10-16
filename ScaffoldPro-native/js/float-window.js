@@ -6,8 +6,8 @@
 // like the Assistant's chat). Styles: css/calculator.css (.calc-float…).
 // Dragged past an edge it follows with more and more resistance and springs
 // back when let go, as the Assistant's chat does (js/assistant.js).
-// Two windows dropped or opened on top of each other: the smaller springs
-// to the side of the bigger, the first time. Overlapped again within a
+// The window being dragged, opened or pressed stays on top; dropped or
+// opened on another window, the other one springs aside, the first time. Overlapped again within a
 // couple of minutes, they're left as put (window.floatWindow.separate).
 //
 //   const win = window.floatWindow(panel, { key: 'calc', minW: 272, minH: 380,
@@ -43,7 +43,7 @@
     clearTimeout(p.__springT);
     p.__springT = setTimeout(() => { p.style.transition = ''; p.dispatchEvent(new Event('float:placed')); }, 340);
   }
-  // Where the small window `s` goes: beside the big window `b` (or, if
+  // Where the window `s` goes: beside the window `b` (or, if
   // that's taken, beside another open window), on whichever side is nearest,
   // fits on screen and is clear of the open windows (`others`, `b` among
   // them); if none is clear, the nearest that fits beside `b`.
@@ -62,11 +62,12 @@
       .sort(near)[0];
     return clear || around(b).filter(onScreen).sort(near)[0] || null;
   }
-  // `panel` was just dropped, opened or resized: for each open window it now
-  // overlaps, the smaller of the two springs aside — unless that pair was
+  // `panel` was just dropped, opened or resized: it stays put, on top, and
+  // each open window it now overlaps springs aside — unless that pair was
   // overlapped within QUIET (the person means it). Each overlap restarts it.
   function separate(panel) {
     if (!panel || panel.classList.contains('hidden')) return;
+    front(panel);
     const open = [...document.querySelectorAll(PANELS)].filter((p) => !p.classList.contains('hidden'));
     // Each window's box, where it's going if it's being moved now.
     const boxes = new Map(open.map((p) => [p, box(p)]));
@@ -81,15 +82,23 @@
       const last = seen[key];
       seen[key] = Date.now();
       if (last && Date.now() - last < QUIET) continue;
-      const small = a.w * a.h <= b.w * b.h ? panel : other;
-      const s = boxes.get(small), big = small === panel ? b : a;
-      const spot = beside(s, big, open.filter((p) => p !== small).map((p) => boxes.get(p)));
+      const spot = beside(b, a, open.filter((p) => p !== other).map((p) => boxes.get(p)));
       if (!spot) continue;
-      springTo(small, spot);
-      s.l = spot.l; s.t = spot.t; // (where it's going, for the windows after)
+      springTo(other, spot);
+      b.l = spot.l; b.t = spot.t; // (where it's going, for the windows after)
     }
     store.set(SEEN, JSON.stringify(seen), true);
   }
+
+  // On top: the window last pressed, dragged or opened (css/calculator.css .float-front).
+  function front(panel) {
+    for (const p of document.querySelectorAll('.float-front')) if (p !== panel) p.classList.remove('float-front');
+    panel.classList.add('float-front');
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const p = e.target.closest && e.target.closest(PANELS);
+    if (p) front(p);
+  }, true);
 
   window.floatWindow = function floatWindow(panel, o) {
     const PLACE = `${o.key}.place`, SIZE = `${o.key}.size`, OPEN = `${o.key}.open`;
@@ -121,7 +130,7 @@
     }
     function open(focus = true) {
       panel.classList.remove('hidden');
-      if (focus) panel.classList.add('popping');
+      if (focus) { panel.classList.add('popping'); front(panel); }
       placeSaved();
       store.set(OPEN, '1', true);
       if (o.onOpen) o.onOpen(focus);

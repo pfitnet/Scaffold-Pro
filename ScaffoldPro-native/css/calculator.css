@@ -2,6 +2,8 @@
 .calc-float { position: fixed; right: 24px; bottom: 24px; z-index: var(--z-float); width: 272px; display: flex; flex-direction: column;
   border-radius: var(--radius-xl); border: 1px solid var(--hairline); background: var(--panel); box-shadow: var(--shadow-sheet); overflow: hidden;
   transform-origin: bottom right; container-type: inline-size; }
+/* The floating window last pressed, dragged or opened sits above the others (js/float-window.js). */
+.calc-float.float-front, .as-float.float-front { z-index: calc(var(--z-float) + 1); }
 /* Popped in only when opened (a class taken off once it's done), so moving it never plays it again. */
 .calc-float.popping { animation: calc-pop var(--dur-sheet, .32s) var(--spring, ease) both; }
 .calc-float.hidden { display: none; }

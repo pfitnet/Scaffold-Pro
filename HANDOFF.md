@@ -99,7 +99,7 @@ The user said: *"no need to ask me next time, auto merge it once the task is don
    (the branch name the session uses; any `claude/…` branch is fine in a new session).
 2. Make the change, and check it (section 4).
 3. Add a **README entry** at the bottom of `ScaffoldPro-native/README.md`:
-   `## Batch N — Short title`, then bullets in plain words. The next number is **296**.
+   `## Batch N — Short title`, then bullets in plain words. The next number is **297**.
 4. Run `graphify update .` from the repo root.
 5. Commit, ending the message with:
    ```
