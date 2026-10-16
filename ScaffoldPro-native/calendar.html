@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Schedule · ScaffoldPro</title>
-  <!-- The task list and the time log moved to Tasks & Time: old links go there. -->
+  <!-- The task list moved to the Tasks page: old links go there. -->
   <script>
     (function () {
       const q = new URLSearchParams(location.search);
       const v = q.get('view');
-      if (v === 'list' || v === 'time' || q.get('task')) location.replace(`tasks.html${q.get('task') ? `?task=${encodeURIComponent(q.get('task'))}` : v === 'time' ? '?tab=time' : ''}`);
+      if (v === 'list' || v === 'time' || q.get('task')) location.replace(`tasks.html${q.get('task') ? `?task=${encodeURIComponent(q.get('task'))}` : ''}`);
     })();
   </script>
   <link rel="stylesheet" href="css/styles.css" />

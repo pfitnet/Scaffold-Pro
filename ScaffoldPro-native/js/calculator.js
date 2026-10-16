@@ -11,18 +11,14 @@
 //     tape with its sums ("2.07*4 = 8.28"), oldest first.
 //   • Powers, roots, trig (in degrees), logs and π: 2.5^2, sqrt(9), sin(30).
 //   • Drag its corner to resize it; wide enough, it shows engineering keys.
-// Dragged by its top bar; where it is, its size, the tape, and whether it's
-// open are kept on this Mac (open: across pages, like the chat). Sums are
-// read by js/calc-input.js (window.calcEvaluate — no eval).
+// Moved, resized and kept open across pages by js/float-window.js; the tape
+// is kept on this Mac. Sums are read by js/calc-input.js (window.calcEvaluate
+// — no eval).
 
 (function () {
   if (window.appCalculator) return;
-  const OPEN_KEY = 'calc.open';
-  const PLACE_KEY = 'calc.place';
   const TAPE_KEY = 'calc.tape';
-  const SIZE_KEY = 'calc.size';
   const MIN_W = 272, MIN_H = 380;
-  const EDGE = 8;
   const store = {
     get(k, s) { try { return (s ? sessionStorage : localStorage).getItem(k); } catch (e) { return null; } },
     set(k, v, s) { try { (s ? sessionStorage : localStorage).setItem(k, v); } catch (e) { /* not kept */ } },
@@ -86,10 +82,7 @@
           <button type="button" class="calc-tape-copy" data-no-icon title="Copy the tape, with the sums" aria-label="Copy the tape, with the sums">${copyIcon}</button>
           <button type="button" class="calc-tape-clear" data-no-icon title="Clear the tape" aria-label="Clear the tape">${window.icon ? window.icon('trash', { size: 13 }) : 'Clear'}</button>
         </span></div>
-      <ol class="calc-tape"></ol>
-      ${['n', 's', 'e', 'w', 'ne', 'nw', 'sw'].map((d) => `<div class="calc-edge e-${d}" data-dir="${d}" aria-hidden="true"></div>`).join('')}
-      <div class="calc-edge calc-grip" data-dir="se" title="Drag an edge or corner to resize: wider shows engineering keys. Double-click: back to small" aria-hidden="true">
-        <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M11 5 5 11M11 9 9 11"/></svg></div>`;
+      <ol class="calc-tape"></ol>`;
     document.body.appendChild(panel);
     return panel;
   }
@@ -174,104 +167,13 @@
       } else insert(key);
     };
 
-    // ---- open, close, and its place ----
-    const isOpen = () => !panel.classList.contains('hidden');
-    function place(p) {
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const w = panel.offsetWidth, h = panel.offsetHeight;
-      const topEdge = window.__scaffoldProWeb ? EDGE : 44;
-      const left = Math.max(EDGE, Math.min(p.left, vw - w - EDGE));
-      const top = Math.max(topEdge, Math.min(p.top, vh - h - EDGE));
-      Object.assign(panel.style, { left: `${left}px`, top: `${top}px`, right: 'auto', bottom: 'auto' });
-    }
-    // Its size: dragged by the corner, kept on this Mac (none = the small one).
-    function size(sz) {
-      panel.classList.toggle('sized', !!sz);
-      if (!sz) { panel.style.width = ''; panel.style.height = ''; return; }
-      const maxW = window.innerWidth - 2 * EDGE, maxH = window.innerHeight - 2 * EDGE;
-      panel.style.width = `${Math.round(Math.max(MIN_W, Math.min(sz.w, maxW)))}px`;
-      panel.style.height = `${Math.round(Math.max(MIN_H, Math.min(sz.h, maxH)))}px`;
-    }
-    function sizeSaved() {
-      let saved = null;
-      try { saved = JSON.parse(store.get(SIZE_KEY) || 'null'); } catch (e) { saved = null; }
-      size(saved);
-    }
-    function placeSaved() {
-      sizeSaved();
-      let saved = null;
-      try { saved = JSON.parse(store.get(PLACE_KEY) || 'null'); } catch (e) { saved = null; }
-      if (saved) place(saved);
-      else { Object.assign(panel.style, { left: '', top: '', right: '', bottom: '' }); place({ left: panel.offsetLeft, top: panel.offsetTop }); }
-    }
-    function open(focus = true) {
-      panel.classList.remove('hidden');
-      if (focus) panel.classList.add('popping');
-      placeSaved();
-      store.set(OPEN_KEY, '1', true);
-      if (focus) setTimeout(() => { input.focus(); input.select(); }, 0);
-    }
-    function close() {
-      panel.classList.add('hidden');
-      store.set(OPEN_KEY, '', true);
-    }
-    const toggle = () => (isOpen() ? close() : open());
-
-    // ---- moved by its top bar ----
-    $('.calc-bar').addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('button')) return;
-      e.preventDefault();
-      const start = { x: e.clientX, y: e.clientY, left: panel.offsetLeft, top: panel.offsetTop };
-      panel.classList.add('dragging');
-      const move = (ev) => place({ left: start.left + ev.clientX - start.x, top: start.top + ev.clientY - start.y });
-      const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
-        panel.classList.remove('dragging');
-        store.set(PLACE_KEY, JSON.stringify({ left: panel.offsetLeft, top: panel.offsetTop }));
-      };
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
+    // ---- moved, resized, opened and closed (js/float-window.js) ----
+    const win = window.floatWindow(panel, {
+      key: 'calc', minW: MIN_W, minH: MIN_H,
+      gripTitle: 'Drag an edge or corner to resize: wider shows engineering keys. Double-click: back to small',
+      onOpen: (focus) => { if (focus) setTimeout(() => { input.focus(); input.select(); }, 0); },
     });
-    // ---- resized by any edge or corner, as a window ----
-    panel.addEventListener('pointerdown', (e) => {
-      const edge = e.target.closest('.calc-edge');
-      if (!edge || e.button !== 0) return;
-      e.preventDefault();
-      const dir = edge.dataset.dir;
-      const r = { x: e.clientX, y: e.clientY, l: panel.offsetLeft, t: panel.offsetTop, w: panel.offsetWidth, h: panel.offsetHeight };
-      panel.classList.add('resizing');
-      const move = (ev) => {
-        const maxW = window.innerWidth - 2 * EDGE, maxH = window.innerHeight - 2 * EDGE;
-        let w = r.w, h = r.h;
-        if (dir.includes('e')) w = r.w + ev.clientX - r.x;
-        if (dir.includes('w')) w = r.w - (ev.clientX - r.x);
-        if (dir.includes('s')) h = r.h + ev.clientY - r.y;
-        if (dir.includes('n')) h = r.h - (ev.clientY - r.y);
-        w = Math.max(MIN_W, Math.min(w, maxW));
-        h = Math.max(MIN_H, Math.min(h, maxH));
-        size({ w, h });
-        place({ left: dir.includes('w') ? r.l + r.w - w : r.l, top: dir.includes('n') ? r.t + r.h - h : r.t });
-      };
-      const up = () => {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
-        panel.classList.remove('resizing');
-        store.set(SIZE_KEY, JSON.stringify({ w: panel.offsetWidth, h: panel.offsetHeight }));
-        store.set(PLACE_KEY, JSON.stringify({ left: panel.offsetLeft, top: panel.offsetTop }));
-      };
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
-    });
-    $('.calc-grip').addEventListener('dblclick', () => {
-      try { localStorage.removeItem(SIZE_KEY); } catch (err) { /* fine */ }
-      placeSaved();
-    });
-    $('.calc-bar').addEventListener('dblclick', (e) => {
-      if (e.target.closest('button')) return;
-      try { localStorage.removeItem(PLACE_KEY); } catch (err) { /* fine */ }
-      placeSaved();
-    });
+    const { open, close, toggle } = win;
 
     // ---- keys and typing ----
     panel.querySelector('.calc-pad').addEventListener('mousedown', (e) => e.preventDefault()); // the sum keeps the cursor
@@ -296,7 +198,6 @@
     const copy = () => { if (last !== null) toClipboard(show(last).replace(/,/g, ''), $('.calc-copy'), 14); };
     $('.calc-copy').addEventListener('click', copy);
     $('.calc-close').addEventListener('click', close);
-    panel.addEventListener('animationend', (e) => { if (e.target === panel) panel.classList.remove('popping', 'nudge'); });
     tapeBox.addEventListener('click', (e) => {
       const li = e.target.closest('li[data-i]');
       if (!li) return;
@@ -310,13 +211,11 @@
     document.addEventListener('keydown', (e) => {
       if (e.altKey && e.metaKey && !e.ctrlKey && (e.code === 'KeyC' || e.key.toLowerCase() === 'c')) { e.preventDefault(); toggle(); }
     });
-    window.addEventListener('resize', () => { if (isOpen()) placeSaved(); });
 
     drawTape();
     update();
     window.appCalculator = { open, close, toggle };
-    // Open on the page before: open here too (without taking the focus).
-    if (store.get(OPEN_KEY, true) === '1') open(false);
+    win.restore();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

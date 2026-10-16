@@ -124,20 +124,20 @@ window.MANUAL_CONTENT = [
     ],
   },
   {
-    id: 'tasks', title: 'Tasks & Time', color: '#5a6b7f', icon: 'check',
-    tag: 'The team’s to-dos, for a person, a project and a day, and your time log. Dated tasks also show on the Schedule.',
+    id: 'tasks', title: 'Tasks', color: '#5a6b7f', icon: 'check',
+    tag: 'The team’s to-dos, for a person, a project and a day. Dated tasks also show on the Schedule.',
     blocks: [
       { type: 'example', title: 'Type it the way you’d say it', parts: [
         ['Send revised BOQ to Mr. Law', ''], ['tomorrow 3pm', 'When'], ['@Tom', 'Who'], ['#26212', 'Project'], ['!high', 'Priority'],
       ], note: '{Return} adds it. [More…] opens the full form.' },
       { type: 'shot', shot: 'tasks', points: [
-        [7, 'Tasks · Time', 'Two tabs · {L} {G}'], [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
+        [7, 'New Task', 'The full form · {⇧N}'], [1, 'Quick add', 'As above'], [2, 'Mine · Everyone’s · Done', 'With counts'],
         [3, 'The list', 'Tick to finish · ⟳ tomorrow'], [4, 'Today', 'How far through the day'], [5, 'This week', 'Click a day to filter'], [6, 'Team load', 'Who has how much'],
       ] },
       { type: 'tip', icon: 'people', text: 'A task can be **for a whole team** (e.g. Site) instead of one person: choose the team under **For**. Everyone in it sees it as theirs.' },
-      { type: 'keys', keys: [['{L} {G}', 'Tasks · Time'], ['{N}', 'Quick add, or the time box'], ['{⇧N}', 'New task'], ['{/}', 'Search']] },
-      { type: 'flow', title: 'Logging your time (Time)', chain: 'grey|Arrived|The first entry starts the day > grey|Site visit|Return: timed from the last entry > team|For a task|Its card shows the time' },
-      { type: 'tip', icon: 'clock', text: 'In **Time** there’s no start or stop: type what you **just finished** in the box at the bottom and press {Return}. Hover an entry to change its time or words.' },
+      { type: 'keys', keys: [['{N}', 'Quick add'], ['{⇧N}', 'New task'], ['{/}', 'Search']] },
+      { type: 'flow', title: 'Logging your time (the Time window, {⌥⌘T})', chain: 'grey|Arrived|The first entry starts the day > grey|Site visit|Return: timed from the last entry > team|For a task|Its card shows the time' },
+      { type: 'tip', icon: 'clock', text: 'The **Time** window opens from the clock in the sidebar, on any page. There’s no start or stop: type what you **just finished** in its box and press {Return}. Hover an entry to change its time or words. Drag its edge to widen it for the day by task and the week.' },
     ],
   },
 

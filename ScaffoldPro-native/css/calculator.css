@@ -74,6 +74,6 @@
 .calc-tape b { margin-left: auto; font-weight: 650; color: var(--text); white-space: nowrap; }
 .calc-t-empty { color: var(--text-tertiary); font-size: 12px; justify-content: center !important; }
 
-/* The sidebar's button: its name only where the sidebar has room for it (the open rail). */
-html:not(.sidebar-rail) .sidebar-calc > span { display: none; }
-.sidebar-calc .nav-icon { color: var(--accent); }
+/* The sidebar's buttons (Calculator, Time): their names only where the sidebar has room for them (the open rail). */
+html:not(.sidebar-rail) :is(.sidebar-calc, .sidebar-time) > span { display: none; }
+:is(.sidebar-calc, .sidebar-time) .nav-icon { color: var(--accent); }
