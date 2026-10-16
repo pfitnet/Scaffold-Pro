@@ -415,6 +415,7 @@ function jumpTo(key) {
 }
 
 function go(delta) {
+  if (pane() === 'time' && window.timeLog) { window.timeLog.go(delta); return; }
   if (view === 'week') {
     weekStart = addDays(weekStart, 7 * delta);
     selected = ymd(addDays(dayOf(selected || todayKey()), 7 * delta));
@@ -470,6 +471,7 @@ function setView(v) {
 }
 
 function goToday() {
+  if (pane() === 'time' && window.timeLog) { window.timeLog.today(); return; }
   const n = new Date();
   const was = selected;
   month = new Date(n.getFullYear(), n.getMonth(), 1);

@@ -294,9 +294,7 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 .tk-quick.tl-bar:focus-within .tk-quick-plus { transform: none; }
 .tl-bar #tl-task { max-width: 240px; font-size: 12.5px; }
 .tl-since { font-size: 12px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 4px; }
-.tl-head { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
-.tl-head .cal-period span { color: var(--text-tertiary); font-weight: 500; }
-.tl-total { margin-left: auto; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.tl-day .tl-total { margin-left: 8px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 .tl-list { list-style: none; margin: 0; padding: 0; border-radius: 14px; background: var(--tk-card); border: 1px solid var(--tk-line); box-shadow: var(--tk-shadow); overflow: hidden; }
 .tl-row { display: grid; grid-template-columns: 104px 78px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 46px; padding: 6px 10px 6px 16px;
   border-top: 1px solid var(--tk-line); }
@@ -331,7 +329,6 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 .tl-wbar { display: flex; align-items: flex-end; width: 10px; height: 54px; border-radius: 5px; background: color-mix(in srgb, var(--text-tertiary) 12%, transparent); overflow: hidden; }
 .tl-wbar i { display: block; width: 100%; border-radius: 5px; background: var(--text-secondary); transition: height .35s var(--tk-ease); }
 .tl-wday.on .tl-wbar i { background: var(--text); }
-@media (max-width: 1080px) { .sch-time .tk-side { order: 0; } }
 @media (max-width: 700px) {
   .tl-row { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "when len acts" "text text text"; row-gap: 2px; }
   .tl-when { grid-area: when; } .tl-len { grid-area: len; } .tl-text { grid-area: text; } .tl-acts { grid-area: acts; opacity: 1; }
