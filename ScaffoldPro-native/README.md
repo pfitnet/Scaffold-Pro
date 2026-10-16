@@ -6301,11 +6301,18 @@ What changed:
 - An entry can be for a task: pick it in the list beside the box. The
   task's card in List then shows the time you've logged on it (clock chip),
   and the task name on an entry opens that task.
-- The day's entries show newest first, with the times, the length and the
-  words. Hover one to change it (time, words, task) or remove it (⌘Z puts it
+- **Chat-style entry:** the box is fixed to the bottom of the window, like
+  a chat box, and stays there while you scroll. The day's entries read
+  oldest at the top, newest just above the box, with the times, the length
+  and the words. Hover one to change it (time, words, task) or remove it (⌘Z puts it
   back). Changing an entry's time moves the next one's start with it.
 - At the side: the day's time by task, and the week as a bar a day (click a
   day to see it). ← / → move a day, T goes back to today, N goes to the box.
+- **List's quick-add bar moved to the bottom too**, fixed there in the same
+  way (it's no longer shown in Week and Month: there N opens the New Task
+  form for the chosen day). The boxes are kept over their list's column as
+  the window or sidebar changes size (`placeBars`, js/calendar.js). The
+  User Manual's Schedule and Tasks pictures are retaken, with a note on Time.
 - Each person sees only their own entries. They sync to the other Macs like
   everything else (`time_entries.json`, Sources/TimeLog.swift; routes
   `time:list`, `time:add`, `time:save`, `time:delete`; page js/time-log.js).

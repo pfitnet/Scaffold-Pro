@@ -1,7 +1,8 @@
 'use strict';
 
-// Schedule › Time (calendar.html): the time log as a chain. Nobody presses
-// start or stop: type what you just finished and press Return, and it takes
+// Schedule › Time (calendar.html): the time log as a chain, read like a chat
+// (oldest at the top, the box underneath). Nobody presses start or stop:
+// type what you just finished and press Return, and it takes
 // the time since your previous entry that day. The day's first entry only
 // marks the start. An entry can be for a task (the list beside the box);
 // the task's card then shows the time logged on it (js/tasks.js).
@@ -88,7 +89,7 @@ function render() {
   const total = rows.reduce((s, e) => s + e.mins, 0);
   $('tl-total').textContent = total ? length(total) : '';
 
-  $('tl-list').innerHTML = rows.length ? rows.slice().reverse().map((e) => editing === e.id ? `
+  $('tl-list').innerHTML = rows.length ? rows.map((e) => editing === e.id ? `
     <li class="tl-row editing" data-id="${esc(e.id)}">
       <input type="time" class="tl-edit-at" value="${esc(hhmm(e.at))}" aria-label="Finished at" />
       <input type="text" class="tl-edit-text" value="${esc(e.text)}" aria-label="What you finished" />
@@ -108,6 +109,7 @@ function render() {
       </span>
     </li>`).join('')
     : `<li class="tl-empty">${day === today ? 'Nothing logged yet today. Your first entry starts the clock.' : 'Nothing logged on this day.'}</li>`;
+  if (fresh) toEnd();
   fresh = '';
   const ed = $('tl-list').querySelector('.tl-edit-text');
   if (ed) { ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); }
@@ -136,6 +138,11 @@ function render() {
   const week = perDay.reduce((s, p) => s + p.mins, 0);
   $('tl-week-total').textContent = week ? length(week) : '';
   tick();
+}
+
+// The newest entry in view, just above the box (fixed to the window's bottom).
+function toEnd() {
+  $('tl-list').parentElement.scrollIntoView({ block: 'end', behavior: 'instant' });
 }
 
 // Under the box: what Return will record.
@@ -220,7 +227,11 @@ window.timeLog = {
   chain,
   taskTotals,
   length,
-  shown: () => { if (!$('tl-input').matches(':focus')) $('tl-input').focus(); },
+  // Opened: the newest entry in view, just above the box.
+  shown: () => {
+    toEnd();
+    if (!$('tl-input').matches(':focus')) $('tl-input').focus({ preventScroll: true });
+  },
   go: (delta) => show(ymd(addDays(dayOf(day), delta))),
   today: () => show(ymd(new Date())),
   focus: () => $('tl-input').focus(),

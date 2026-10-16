@@ -439,6 +439,19 @@ function showPane(p) {
   for (const b of document.querySelectorAll('#cal-view button')) b.classList.toggle('active', b.dataset.view === (p || view));
   if (p === 'time' && window.timeLog) window.timeLog.shown();
 }
+// The entry boxes (List, Time) are fixed to the bottom of the window
+// (css/calendar.css): keep each over its list's column.
+function placeBars() {
+  for (const bar of document.querySelectorAll('.cal-page .tk-quick')) {
+    const col = bar.parentElement.getBoundingClientRect();
+    if (!col.width) continue;
+    bar.style.left = `${col.left}px`;
+    bar.style.width = `${col.width}px`;
+  }
+}
+const barsWatch = new ResizeObserver(placeBars);
+for (const el of [document.getElementById('content'), ...document.querySelectorAll('.cal-page .tk-main')]) barsWatch.observe(el);
+
 function setView(v) {
   if (v === 'list' || v === 'time') {
     showPane(v);
@@ -618,8 +631,8 @@ document.addEventListener('keydown', (e) => {
   // Arrows move the day in Week and Month; in List they're the list's own.
   const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
   if (move && !pane()) { e.preventDefault(); jumpTo(ymd(addDays(sel, move))); return; }
-  // N: the quick-add bar; ⇧N: the full task form. E: a new event.
-  if (k === 'n' && !e.shiftKey && window.scheduleList) { e.preventDefault(); window.scheduleList.focusQuick(); return; }
+  // N: List's quick-add bar (elsewhere, and ⇧N, the full task form). E: a new event.
+  if (k === 'n' && !e.shiftKey && window.scheduleList && pane() === 'list') { e.preventDefault(); window.scheduleList.focusQuick(); return; }
   if (k === 'n') { e.preventDefault(); addTask(selected); return; }
   if (e.key === '/' && window.scheduleList) { e.preventDefault(); setView('list'); window.scheduleList.focusSearch(); return; }
   if (k === 'e') { e.preventDefault(); addTask(selected, null, null, true); return; }

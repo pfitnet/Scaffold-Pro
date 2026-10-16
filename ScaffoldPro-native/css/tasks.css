@@ -301,7 +301,7 @@ a.tk-chip.project:hover { background: color-mix(in srgb, var(--doc-quotation, #5
 .tl-row { display: grid; grid-template-columns: 104px 78px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 46px; padding: 6px 10px 6px 16px;
   border-top: 1px solid var(--tk-line); }
 .tl-row.fresh { animation: tlIn .32s var(--tk-ease) both; }
-@keyframes tlIn { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes tlIn { from { opacity: 0; transform: translateY(4px); } }
 .tl-row:first-child { border-top: 0; }
 .tl-when { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .tl-len { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }

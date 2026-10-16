@@ -255,11 +255,20 @@
 .pk-hint { margin-top: 8px; font-size: 11px; color: var(--text-tertiary); }
 
 /* ---------- Schedule (Calendar + Tasks, redesign R7) ---------- */
-.cal-page .tk-quick { margin: 0 0 16px; }
+/* The entry boxes (List, Time) are fixed to the bottom of the window, as in
+   a chat, over their list's column (calendar.js placeBars sets left and
+   width); the list keeps room under it. A strip of page colour fills the gap
+   below the box, so nothing shows through there. */
+.cal-page .tk-quick { position: fixed; bottom: 16px; z-index: 20; margin: 0; }
+.cal-page .tk-quick::after { content: ''; position: absolute; left: -6px; right: -6px; top: 100%; height: 17px; background: var(--content); pointer-events: none; }
+.cal-page .tk-main { padding-bottom: 96px; }
+/* No rise-in for these two: a moving ancestor would carry the fixed box with it. */
+html.page-enter #content > .sch-list, html.page-enter #content > .sch-time { animation: none; }
+@media (max-width: 767px) { .cal-page .tk-quick { bottom: calc(12px + env(safe-area-inset-bottom)); } .cal-page .tk-quick::after { height: calc(13px + env(safe-area-inset-bottom)); } }
 .cal-period { font-size: 16px; font-weight: 600; margin: 0 6px 0 4px; white-space: nowrap; }
 .cal-period span { color: var(--text-tertiary); font-weight: 500; }
 .sch-list-view .cal-layout, .sch-list-view .cn-nav, .sch-list-view .cal-week-start, .sch-list-view .cal-filters, .sch-list-view .cal-period, .sch-list-view .cal-keys { display: none !important; }
-.sch-time-view .cal-layout, .sch-time-view .cn-nav, .sch-time-view .cal-week-start, .sch-time-view .cal-filters, .sch-time-view .cal-toolbar > .cal-period, .sch-time-view .cal-keys, .sch-time-view #tk-quick { display: none !important; }
+.sch-time-view .cal-layout, .sch-time-view .cn-nav, .sch-time-view .cal-week-start, .sch-time-view .cal-filters, .sch-time-view .cal-toolbar > .cal-period, .sch-time-view .cal-keys { display: none !important; }
 .sch-list .tk-layout { margin-top: 4px; }
 /* Today's progress, as the side rail's first panel. */
 .tk-hero.tk-today { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 14px 16px; margin: 0 0 12px; border-radius: var(--radius-lg);

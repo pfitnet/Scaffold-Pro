@@ -26,14 +26,6 @@
       </div>
     </header>
 
-    <div class="tk-quick" id="tk-quick">
-      <span class="tk-quick-plus" aria-hidden="true"><i data-icon="plus" data-size="18"></i></span>
-      <input type="text" id="tk-quick-input" autocomplete="off" spellcheck="false"
-        placeholder="Add a task, try “Send revised BOQ to Mr. Law tomorrow 3pm @Tom #26212 !high”" aria-label="Add a task" />
-      <div class="tk-quick-chips" id="tk-quick-chips"></div>
-      <button type="button" class="tk-quick-more" id="new-task-btn" data-no-icon title="Open the full form">More…</button>
-      <kbd class="tk-kbd" title="Press N to add a task">N</kbd>
-    </div>
 
     <div class="cal-toolbar">
       <div class="cn-nav">
@@ -79,6 +71,15 @@
           </div>
         </div>
         <div id="task-list" class="tk-list"></div>
+        <!-- At the bottom, as in a chat: stays in view while the list scrolls. -->
+        <div class="tk-quick" id="tk-quick">
+          <span class="tk-quick-plus" aria-hidden="true"><i data-icon="plus" data-size="18"></i></span>
+          <input type="text" id="tk-quick-input" autocomplete="off" spellcheck="false"
+            placeholder="Add a task, try “Send revised BOQ to Mr. Law tomorrow 3pm @Tom #26212 !high”" aria-label="Add a task" />
+          <div class="tk-quick-chips" id="tk-quick-chips"></div>
+          <button type="button" class="tk-quick-more" id="new-task-btn" data-no-icon title="Open the full form">More…</button>
+          <kbd class="tk-kbd" title="Press N to add a task">N</kbd>
+        </div>
       </div>
 
       <aside class="tk-side">
@@ -113,12 +114,6 @@
     <!-- Time: a chain of "just finished" entries, each timed from the one
          before (js/time-log.js) -->
     <section class="sch-time hidden" id="sch-time">
-      <div class="tk-quick tl-bar">
-        <span class="tk-quick-plus" aria-hidden="true"><i data-icon="clock" data-size="17"></i></span>
-        <input type="text" id="tl-input" autocomplete="off" placeholder="What did you just finish? Press Return" aria-label="What you just finished" />
-        <select id="tl-task" aria-label="For a task" title="For a task"><option value="">No task</option></select>
-        <span class="tl-since" id="tl-since" title="What Return will record"></span>
-      </div>
       <div class="tk-layout">
         <div class="tk-main">
           <div class="tl-head">
@@ -128,6 +123,12 @@
             <span class="tl-total" id="tl-total" title="Logged this day"></span>
           </div>
           <ol class="tl-list" id="tl-list"></ol>
+          <div class="tk-quick tl-bar">
+            <span class="tk-quick-plus" aria-hidden="true"><i data-icon="clock" data-size="17"></i></span>
+            <input type="text" id="tl-input" autocomplete="off" placeholder="What did you just finish? Press Return" aria-label="What you just finished" />
+            <select id="tl-task" aria-label="For a task" title="For a task"><option value="">No task</option></select>
+            <span class="tl-since" id="tl-since" title="What Return will record"></span>
+          </div>
         </div>
         <aside class="tk-side">
           <section class="tk-panel">

@@ -28,7 +28,7 @@ const scrollTo = (sel, gap = 24) => async (p) => {
 };
 const SHOTS = {
   dashboard: { url: 'index.html', marks: ['.page-actions .has-menu', '.page-actions .more-btn', '.dash-brief', '#stat-grid', '#dash-grid > section.panel', '#announce-bar', '.sidebar-tools'] },
-  calendar: { url: 'calendar.html', marks: [['#cal-prev', '#cal-next'], '#cal-view', '#cal-filters', '#cal-week', '#cal-mini', '.cal-dayp', '#tk-quick', ['#cal-add', '#cal-add-event']] },
+  calendar: { url: 'calendar.html', marks: [['#cal-prev', '#cal-next'], '#cal-view', '#cal-filters', '#cal-week', '#cal-mini', '.cal-dayp', ['#cal-add', '#cal-add-event']] },
   tasks: { url: 'calendar.html?view=list', h: 960, marks: ['#tk-quick', '#task-tabs', '#task-list', '#tk-hero', '#tk-week', '#tk-team', '#cal-view'] },
   chat: { url: 'team.html?tab=chat', marks: ['#team-tabs', '#chat-convs', '#chat-scroll', '#chat-input', '#chat-emoji-btn', '#chat-gif-btn', '#chat-attach-btn'] },
   team: { url: 'team.html?tab=people', h: 700, marks: ['#team-tabs', '#people-grid', '#tree-new-team'] },
